@@ -1,0 +1,10 @@
+framework module flutter_nearby_connections_plus {
+  umbrella header "flutter_nearby_connections_plus-umbrella.h"
+
+  export *
+  module * { export * }
+}
+
+module flutter_nearby_connections_plus.Swift {
+  header "flutter_nearby_connections_plus-Swift.h"
+}

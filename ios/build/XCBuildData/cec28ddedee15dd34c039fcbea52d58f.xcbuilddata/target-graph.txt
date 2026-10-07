@@ -1,0 +1,6 @@
+Target dependency graph (3 targets)
+Target 'flutter_nearby_connections_plus' in project 'Pods'
+➜ Explicit dependency on target 'Flutter' in project 'Pods'
+➜ Explicit dependency on target 'SwiftyJSON' in project 'Pods'
+Target 'SwiftyJSON' in project 'Pods' (no dependencies)
+Target 'Flutter' in project 'Pods' (no dependencies)

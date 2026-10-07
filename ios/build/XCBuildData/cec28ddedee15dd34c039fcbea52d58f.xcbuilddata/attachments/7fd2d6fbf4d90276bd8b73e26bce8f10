@@ -1,0 +1,4 @@
+
+module SwiftyJSON.Swift {
+  header "SwiftyJSON-Swift.h"
+}

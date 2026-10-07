@@ -1,0 +1,4 @@
+
+module flutter_nearby_connections_plus.__Swift {
+  exclude header "flutter_nearby_connections_plus-Swift.h"
+}

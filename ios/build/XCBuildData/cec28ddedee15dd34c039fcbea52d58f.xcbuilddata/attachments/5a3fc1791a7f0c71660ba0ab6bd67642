@@ -1,0 +1,4 @@
+
+module flutter_nearby_connections_plus.Swift {
+  header "flutter_nearby_connections_plus-Swift.h"
+}

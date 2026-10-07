@@ -1,0 +1,47 @@
+name: sos_app
+
+description: "A new Flutter project."
+
+publish_to: 'none'
+
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Nearby device communication
+  flutter_nearby_connections_plus: ^1.2.2
+
+  # Local-first database
+  drift: ^2.35.1
+  drift_flutter: ^0.3.1
+
+  # Immutable/value equality
+  equatable: ^2.0.7
+
+  # State management
+  provider: ^6.1.5+1
+  firebase_core: ^4.15.0
+  firebase_auth: ^6.7.0
+  cloud_firestore: ^6.10.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+  # Drift code generation
+  drift_dev: ^2.35.1
+  build_runner: ^2.16.2
+
+dependency_overrides:
+  flutter_nearby_connections_plus:
+    path: packages/flutter_nearby_connections_plus
+
+flutter:
+  uses-material-design: true
