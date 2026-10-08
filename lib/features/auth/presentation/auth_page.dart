@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/auth_service.dart';
 
 class AuthPage extends StatefulWidget {
-  const AuthPage({
-    super.key,
-    required this.authService,
-  });
+  const AuthPage({super.key, required this.authService});
 
   final AuthService authService;
 
@@ -55,9 +52,8 @@ class _AuthPageState extends State<AuthPage> {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
     } finally {
       if (mounted) {
         setState(() {
@@ -73,17 +69,13 @@ class _AuthPageState extends State<AuthPage> {
     final action = _isRegister ? 'Register' : 'Login';
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('SOS App'),
-      ),
+      appBar: AppBar(title: const Text('SOS App')),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: 420,
-              ),
+              constraints: const BoxConstraints(maxWidth: 420),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -125,9 +117,7 @@ class _AuthPageState extends State<AuthPage> {
                   const SizedBox(height: 20),
                   FilledButton(
                     onPressed: _isLoading ? null : _submit,
-                    child: Text(
-                      _isLoading ? 'Please wait...' : action,
-                    ),
+                    child: Text(_isLoading ? 'Please wait...' : action),
                   ),
                   const SizedBox(height: 8),
                   TextButton(

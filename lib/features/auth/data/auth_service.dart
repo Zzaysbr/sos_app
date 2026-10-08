@@ -1,9 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthService {
-  AuthService({
-    FirebaseAuth? firebaseAuth,
-  }) : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance;
+  AuthService({FirebaseAuth? firebaseAuth})
+    : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance;
 
   final FirebaseAuth _firebaseAuth;
 
@@ -24,9 +23,7 @@ class AuthService {
     }
 
     if (password.length < 6) {
-      throw const AuthException(
-        'Password must contain at least 6 characters.',
-      );
+      throw const AuthException('Password must contain at least 6 characters.');
     }
 
     try {
@@ -46,9 +43,7 @@ class AuthService {
     final normalizedEmail = email.trim();
 
     if (normalizedEmail.isEmpty || password.isEmpty) {
-      throw const AuthException(
-        'Email and password are required.',
-      );
+      throw const AuthException('Email and password are required.');
     }
 
     try {

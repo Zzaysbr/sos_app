@@ -16,20 +16,19 @@ class SosRepository {
   final FirebaseAuth _firebaseAuth;
 
   Stream<List<SosMessage>> watchAll() {
-    return (_database.select(_database.sosMessages)
-          ..orderBy([
-            (table) => OrderingTerm(
-                  expression: table.createdAt,
-                  mode: OrderingMode.desc,
-                ),
-          ]))
+    return (_database.select(_database.sosMessages)..orderBy([
+          (table) => OrderingTerm(
+            expression: table.createdAt,
+            mode: OrderingMode.desc,
+          ),
+        ]))
         .watch();
   }
 
   Future<SosMessage?> findById(String id) {
-    return (_database.select(_database.sosMessages)
-          ..where((table) => table.id.equals(id)))
-        .getSingleOrNull();
+    return (_database.select(
+      _database.sosMessages,
+    )..where((table) => table.id.equals(id))).getSingleOrNull();
   }
 
   Future<void> create({
@@ -42,15 +41,15 @@ class SosRepository {
     final user = _firebaseAuth.currentUser;
 
     if (user == null) {
-      throw const SosRepositoryException(
-        'User is not authenticated.',
-      );
+      throw const SosRepositoryException('User is not authenticated.');
     }
 
     final now = DateTime.now();
 
     // Local-first: the SOS must exist locally even when offline.
-    await _database.into(_database.sosMessages).insert(
+    await _database
+        .into(_database.sosMessages)
+        .insert(
           SosMessagesCompanion.insert(
             id: id,
             ownerId: user.uid,
@@ -78,16 +77,10 @@ class SosRepository {
         updatedAt: now,
       );
 
-      await _setSyncState(
-        id,
-        'synced',
-      );
+      await _setSyncState(id, 'synced');
     } catch (_) {
       // Keep pending so a future sync can retry.
-      await _setSyncState(
-        id,
-        'pending',
-      );
+      await _setSyncState(id, 'pending');
     }
   }
 
@@ -102,16 +95,14 @@ class SosRepository {
     final existing = await findById(id);
 
     if (existing == null) {
-      throw const SosRepositoryException(
-        'SOS not found.',
-      );
+      throw const SosRepositoryException('SOS not found.');
     }
 
     final now = DateTime.now();
 
-    await (_database.update(_database.sosMessages)
-          ..where((table) => table.id.equals(id)))
-        .write(
+    await (_database.update(
+      _database.sosMessages,
+    )..where((table) => table.id.equals(id))).write(
       SosMessagesCompanion(
         type: Value(type),
         message: Value(message),
@@ -134,15 +125,9 @@ class SosRepository {
         updatedAt: now,
       );
 
-      await _setSyncState(
-        id,
-        'synced',
-      );
+      await _setSyncState(id, 'synced');
     } catch (_) {
-      await _setSyncState(
-        id,
-        'pending',
-      );
+      await _setSyncState(id, 'pending');
     }
   }
 
@@ -160,15 +145,15 @@ class SosRepository {
       // A production version should enqueue a delete operation.
     }
 
-    await (_database.delete(_database.sosMessages)
-          ..where((table) => table.id.equals(id)))
-        .go();
+    await (_database.delete(
+      _database.sosMessages,
+    )..where((table) => table.id.equals(id))).go();
   }
 
   Future<void> syncPending() async {
-    final pending = await (_database.select(_database.sosMessages)
-          ..where((table) => table.syncState.equals('pending')))
-        .get();
+    final pending = await (_database.select(
+      _database.sosMessages,
+    )..where((table) => table.syncState.equals('pending'))).get();
 
     for (final sos in pending) {
       try {
@@ -184,23 +169,17 @@ class SosRepository {
           updatedAt: sos.updatedAt,
         );
 
-        await _setSyncState(
-          sos.id,
-          'synced',
-        );
+        await _setSyncState(sos.id, 'synced');
       } catch (_) {
         // Keep pending for the next retry.
       }
     }
   }
 
-  Future<void> _setSyncState(
-    String id,
-    String state,
-  ) async {
-    await (_database.update(_database.sosMessages)
-          ..where((table) => table.id.equals(id)))
-        .write(
+  Future<void> _setSyncState(String id, String state) async {
+    await (_database.update(
+      _database.sosMessages,
+    )..where((table) => table.id.equals(id))).write(
       SosMessagesCompanion(
         syncState: Value(state),
         updatedAt: Value(DateTime.now()),

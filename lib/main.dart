@@ -14,24 +14,15 @@ import 'firebase_options.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   final database = AppDatabase();
 
-  runApp(
-    SosApp(
-      database: database,
-    ),
-  );
+  runApp(SosApp(database: database));
 }
 
 class SosApp extends StatelessWidget {
-  const SosApp({
-    super.key,
-    required this.database,
-  });
+  const SosApp({super.key, required this.database});
 
   final AppDatabase database;
 
@@ -43,15 +34,10 @@ class SosApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'SOS App',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.red,
-        ),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.red),
         useMaterial3: true,
       ),
-      home: AuthGate(
-        authService: authService,
-        database: database,
-      ),
+      home: AuthGate(authService: authService, database: database),
     );
   }
 }
@@ -73,32 +59,23 @@ class AuthGate extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
 
         final user = snapshot.data;
 
         if (user == null) {
-          return AuthPage(
-            authService: authService,
-          );
+          return AuthPage(authService: authService);
         }
 
         final repository = SosRepository(
           database: database,
-          cloudService: SosCloudService(
-            firestore: FirebaseFirestore.instance,
-          ),
+          cloudService: SosCloudService(firestore: FirebaseFirestore.instance),
           firebaseAuth: FirebaseAuth.instance,
         );
 
-        return SosPage(
-          repository: repository,
-          user: user,
-        );
+        return SosPage(repository: repository);
       },
     );
   }

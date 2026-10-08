@@ -24,10 +24,10 @@ This package has been thoroughly tested and confirmed working with:
 
 
 ## Installation
-```yaml
+yaml
 dependencies:
   flutter_nearby_connections_plus: ^1.2.2
-```
+
 
 ### Flutter plugin supports peer-to-peer connectivity and discovers nearby devices for Android and IOS
 The flutter_nearby_connections plugin supports the discovery of services provided by nearby devices.
@@ -58,7 +58,7 @@ We separate the dependencies of the MCNearbyServiceAdvertiser, MCNearbyServiceBr
 
 * ##### On iOS 14, need to define in Info.plist
 
-``` xml
+ xml
     <key>NSBonjourServices</key>
     <array>
         <string>_{YOUR_SERVICE_TYPE}._tcp</string>
@@ -67,15 +67,15 @@ We separate the dependencies of the MCNearbyServiceAdvertiser, MCNearbyServiceBr
     <true/>
     <key>NSBluetoothAlwaysUsageDescription</key>
     <string>{YOUR_DESCRIPTION}</string>
-```
+
 
 in this case, YOUR_SERVICE_TYPE is 'mp-connection' (you can define it)
 
-``` dart
+ dart
 nearbyService.init(
         serviceType: 'mp-connection',
         strategy: Strategy.P2P_CLUSTER,
-```
+
 
 #### Test on IOS device
 

@@ -5,11 +5,7 @@ import 'tables/sos_messages.dart';
 
 part 'app_database.g.dart';
 
-@DriftDatabase(
-  tables: [
-    SosMessages,
-  ],
-)
+@DriftDatabase(tables: [SosMessages])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
@@ -17,8 +13,6 @@ class AppDatabase extends _$AppDatabase {
   int get schemaVersion => 1;
 
   static QueryExecutor _openConnection() {
-    return driftDatabase(
-      name: 'sos_app',
-    );
+    return driftDatabase(name: 'sos_app');
   }
 }
