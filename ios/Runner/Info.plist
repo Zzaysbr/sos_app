@@ -80,5 +80,14 @@
 
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>ใช้ Bluetooth เพื่อค้นหาและเชื่อมต่ออุปกรณ์ใกล้เคียงสำหรับการสื่อสารฉุกเฉิน</string>
+
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>This app uses the local network to send emergency SOS messages to nearby devices.</string>
+
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_sosapp._tcp</string>
+		<string>_sosapp._udp</string>
+	</array>
 </dict>
 </plist>

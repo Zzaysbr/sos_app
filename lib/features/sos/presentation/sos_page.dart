@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/database/app_database.dart';
 import '../data/sos_repository.dart';
 
 class SosPage extends StatefulWidget {
@@ -18,84 +19,196 @@ class SosPage extends StatefulWidget {
 }
 
 class _SosPageState extends State<SosPage> {
-  final _messageController = TextEditingController();
-
-  bool _isCreating = false;
+  bool _syncing = false;
 
   @override
   void initState() {
     super.initState();
 
-    widget.repository.syncPending();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncPending();
+    });
   }
 
-  @override
-  void dispose() {
-    _messageController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _createSos() async {
-    if (_isCreating) {
+  Future<void> _syncPending() async {
+    if (_syncing) {
       return;
     }
 
-    final message = _messageController.text.trim();
-
     setState(() {
-      _isCreating = true;
+      _syncing = true;
     });
 
     try {
-      final id = DateTime.now().microsecondsSinceEpoch.toString();
+      await widget.repository.syncPending();
+    } catch (error, stackTrace) {
+      debugPrint('SOS sync failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
 
-      await widget.repository.create(
-        id: id,
-        type: 'emergency',
-        message: message.isEmpty ? null : message,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      _messageController.clear();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('SOS saved locally and synced when possible.'),
-        ),
-      );
-    } on SosRepositoryException catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.message),
-        ),
-      );
-    } catch (_) {
       if (!mounted) {
         return;
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Failed to create SOS.'),
+          content: Text('Failed to sync SOS data.'),
         ),
       );
     } finally {
       if (mounted) {
         setState(() {
-          _isCreating = false;
+          _syncing = false;
         });
       }
     }
   }
 
+  Future<void> _sendSos() async {
+    final id = DateTime.now().microsecondsSinceEpoch.toString();
+
+    try {
+      await widget.repository.create(
+        id: id,
+        type: 'emergency',
+        message: 'Emergency SOS',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('SOS sent.'),
+        ),
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Create SOS failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to send SOS.'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _editSos({
+    required String id,
+    required String currentMessage,
+  }) async {
+    final controller = TextEditingController(
+      text: currentMessage,
+    );
+
+    try {
+      final newMessage = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('Edit SOS'),
+            content: TextField(
+              controller: controller,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Message',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                },
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop(
+                    controller.text.trim(),
+                  );
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (!mounted || newMessage == null) {
+        return;
+      }
+
+      await widget.repository.update(
+        id: id,
+        type: 'emergency',
+        message: newMessage.isEmpty ? null : newMessage,
+        status: 'active',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('SOS updated.'),
+        ),
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Update SOS failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to update SOS.'),
+        ),
+      );
+    } finally {
+      controller.dispose();
+    }
+  }
+
   Future<void> _deleteSos(String id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Delete SOS?'),
+          content: const Text(
+            'This action cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted || confirmed != true) {
+      return;
+    }
+
     try {
       await widget.repository.delete(id);
 
@@ -108,7 +221,10 @@ class _SosPageState extends State<SosPage> {
           content: Text('SOS deleted.'),
         ),
       );
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('Delete SOS failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
       if (!mounted) {
         return;
       }
@@ -121,6 +237,99 @@ class _SosPageState extends State<SosPage> {
     }
   }
 
+  Widget _buildMySosList() {
+    return StreamBuilder<List<SosMessage>>(
+      stream: widget.repository.watchAll(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Failed to load SOS data.',
+              ),
+            ),
+          );
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        final sosList = snapshot.data ?? [];
+
+        if (sosList.isEmpty) {
+          return const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'No SOS messages yet.',
+              ),
+            ),
+          );
+        }
+
+        return Column(
+          children: sosList.map(
+            (sos) {
+              return Card(
+                child: ListTile(
+                  leading: const Icon(
+                    Icons.warning,
+                    color: Colors.red,
+                  ),
+                  title: Text(
+                    sos.message?.isNotEmpty == true
+                        ? sos.message!
+                        : 'Emergency SOS',
+                  ),
+                  subtitle: Text(
+                    'Status: ${sos.status}\n'
+                    'Sync: ${sos.syncState}',
+                  ),
+                  isThreeLine: true,
+                  trailing: PopupMenuButton<String>(
+                    onSelected: (value) {
+                      switch (value) {
+                        case 'edit':
+                          _editSos(
+                            id: sos.id,
+                            currentMessage: sos.message ?? '',
+                          );
+                          break;
+
+                        case 'delete':
+                          _deleteSos(sos.id);
+                          break;
+                      }
+                    },
+                    itemBuilder: (context) {
+                      return const [
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Text('Edit'),
+                        ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Text('Delete'),
+                        ),
+                      ];
+                    },
+                  ),
+                ),
+              );
+            },
+          ).toList(),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -129,8 +338,16 @@ class _SosPageState extends State<SosPage> {
         actions: [
           IconButton(
             tooltip: 'Sync',
-            onPressed: widget.repository.syncPending,
-            icon: const Icon(Icons.sync),
+            onPressed: _syncing ? null : _syncPending,
+            icon: _syncing
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Icon(Icons.sync),
           ),
           IconButton(
             tooltip: 'Logout',
@@ -141,96 +358,41 @@ class _SosPageState extends State<SosPage> {
           ),
         ],
       ),
-      body: StreamBuilder(
-        stream: widget.repository.watchAll(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return const Center(
-              child: Text(
-                'Database error.',
-              ),
-            );
-          }
-
-          if (!snapshot.hasData) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
-          }
-
-          final messages = snapshot.data!;
-
-          if (messages.isEmpty) {
-            return const Center(
-              child: Text(
-                'No SOS messages',
-              ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: messages.length,
-            itemBuilder: (context, index) {
-              final sos = messages[index];
-
-              return Card(
-                child: ListTile(
-                  leading: Icon(
-                    sos.status == 'active'
-                        ? Icons.warning
-                        : Icons.check_circle,
-                  ),
-                  title: Text(sos.type),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        sos.message ?? 'No message',
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Sync: ${sos.syncState}',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall,
-                      ),
-                    ],
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete),
-                    onPressed: () => _deleteSos(sos.id),
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      body: RefreshIndicator(
+        onRefresh: _syncPending,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
           children: [
-            TextField(
-              controller: _messageController,
-              decoration: const InputDecoration(
-                labelText: 'Emergency message',
-                hintText: 'What happened?',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 2,
-            ),
-            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
-              child: FilledButton(
-                onPressed: _isCreating ? null : _createSos,
-                child: Text(
-                  _isCreating ? 'Sending...' : 'SEND SOS',
+              height: 56,
+              child: FilledButton.icon(
+                onPressed: _sendSos,
+                icon: const Icon(Icons.sos),
+                label: const Text(
+                  'SEND SOS',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
                 ),
               ),
             ),
+            const SizedBox(height: 24),
+            const Text(
+              'My SOS',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _buildMySosList(),
           ],
         ),
       ),
