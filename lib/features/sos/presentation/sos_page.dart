@@ -443,7 +443,7 @@ class _SosPageState extends State<SosPage> {
   Future<void> _sendSos() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Send SOS?'),
           content: const Text(
@@ -452,12 +452,16 @@ class _SosPageState extends State<SosPage> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
               child: const Text('Cancel'),
             ),
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () => Navigator.of(context).pop(true),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
               child: const Text('SEND SOS'),
             ),
           ],
@@ -501,7 +505,7 @@ class _SosPageState extends State<SosPage> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) {
+      builder: (sheetContext) {
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -514,7 +518,7 @@ class _SosPageState extends State<SosPage> {
                     Expanded(
                       child: Text(
                         'SOS Details',
-                        style: Theme.of(context).textTheme.headlineSmall
+                        style: Theme.of(sheetContext).textTheme.headlineSmall
                             ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                     ),
@@ -564,7 +568,7 @@ class _SosPageState extends State<SosPage> {
                     width: double.infinity,
                     child: FilledButton.icon(
                       onPressed: () async {
-                        Navigator.of(context).pop();
+                        Navigator.of(sheetContext).pop();
                         await _changeSosStatus(sos, 'resolved');
                       },
                       icon: const Icon(Icons.check_circle_outline),
@@ -576,7 +580,7 @@ class _SosPageState extends State<SosPage> {
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       onPressed: () async {
-                        Navigator.of(context).pop();
+                        Navigator.of(sheetContext).pop();
                         await _changeSosStatus(sos, 'cancelled');
                       },
                       icon: const Icon(Icons.cancel_outlined),
@@ -588,7 +592,9 @@ class _SosPageState extends State<SosPage> {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: () {
+                        Navigator.of(sheetContext).pop();
+                      },
                       child: const Text('Close'),
                     ),
                   ),
@@ -605,7 +611,7 @@ class _SosPageState extends State<SosPage> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: Text(isResolved ? 'Resolve SOS?' : 'Cancel SOS?'),
           content: Text(
@@ -615,16 +621,22 @@ class _SosPageState extends State<SosPage> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
               child: const Text('Back'),
             ),
             FilledButton(
               style: !isResolved
                   ? FilledButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.error,
+                      backgroundColor: Theme.of(dialogContext)
+                          .colorScheme
+                          .error,
                     )
                   : null,
-              onPressed: () => Navigator.of(context).pop(true),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
               child: Text(isResolved ? 'Resolve' : 'Cancel SOS'),
             ),
           ],
@@ -669,39 +681,12 @@ class _SosPageState extends State<SosPage> {
   }
 
   Future<void> _editSos(SosMessage sos) async {
-    final messageController = TextEditingController(text: sos.message ?? '');
-
     final result = await showDialog<String?>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Edit SOS'),
-          content: TextField(
-            controller: messageController,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Message',
-              hintText: 'Describe the emergency',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.of(context).pop(messageController.text.trim());
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
+      builder: (dialogContext) {
+        return _EditSosDialog(initialMessage: sos.message ?? '');
       },
     );
-
-    messageController.dispose();
 
     if (result == null || !mounted) {
       return;
@@ -737,20 +722,24 @@ class _SosPageState extends State<SosPage> {
   Future<void> _deleteSos(SosMessage sos) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Delete SOS?'),
           content: const Text('This action cannot be undone.'),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
               child: const Text('Cancel'),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.error,
+                backgroundColor: Theme.of(dialogContext).colorScheme.error,
               ),
-              onPressed: () => Navigator.of(context).pop(true),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
               child: const Text('Delete'),
             ),
           ],
@@ -783,6 +772,10 @@ class _SosPageState extends State<SosPage> {
   }
 
   Future<void> _syncPending() async {
+    if (_syncing) {
+      return;
+    }
+
     setState(() {
       _syncing = true;
     });
@@ -815,7 +808,7 @@ class _SosPageState extends State<SosPage> {
   Future<void> _signOut() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Sign out?'),
           content: const Text(
@@ -823,11 +816,15 @@ class _SosPageState extends State<SosPage> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
               child: const Text('Sign out'),
             ),
           ],
@@ -835,7 +832,7 @@ class _SosPageState extends State<SosPage> {
       },
     );
 
-    if (confirmed != true) {
+    if (confirmed != true || !mounted) {
       return;
     }
 
@@ -843,6 +840,10 @@ class _SosPageState extends State<SosPage> {
   }
 
   void _showComingSoon(String feature) {
+    if (!mounted) {
+      return;
+    }
+
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text('$feature is coming soon.')));
   }
@@ -862,7 +863,9 @@ class _SosPageState extends State<SosPage> {
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => _showSosDetail(sos),
+        onTap: () {
+          _showSosDetail(sos);
+        },
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -909,8 +912,10 @@ class _SosPageState extends State<SosPage> {
                         switch (value) {
                           case 'edit':
                             _editSos(sos);
+                            break;
                           case 'delete':
                             _deleteSos(sos);
+                            break;
                         }
                       },
                       itemBuilder: (context) => const [
@@ -1056,9 +1061,70 @@ class _SosPageState extends State<SosPage> {
   String _formatDateTime(DateTime dateTime) {
     final local = dateTime.toLocal();
 
-    String twoDigits(int value) => value.toString().padLeft(2, '0');
+    String twoDigits(int value) {
+      return value.toString().padLeft(2, '0');
+    }
 
     return '${local.day}/${local.month}/${local.year} '
         '${twoDigits(local.hour)}:${twoDigits(local.minute)}';
+  }
+}
+
+// =============================================================================
+// EDIT SOS DIALOG
+// =============================================================================
+
+class _EditSosDialog extends StatefulWidget {
+  const _EditSosDialog({required this.initialMessage});
+
+  final String initialMessage;
+
+  @override
+  State<_EditSosDialog> createState() => _EditSosDialogState();
+}
+
+class _EditSosDialogState extends State<_EditSosDialog> {
+  late final TextEditingController _messageController;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _messageController = TextEditingController(text: widget.initialMessage);
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    super.dispose();
+  }
+
+  void _cancel() {
+    Navigator.of(context).pop();
+  }
+
+  void _save() {
+    Navigator.of(context).pop(_messageController.text.trim());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit SOS'),
+      content: TextField(
+        controller: _messageController,
+        maxLines: 3,
+        textInputAction: TextInputAction.newline,
+        decoration: const InputDecoration(
+          labelText: 'Message',
+          hintText: 'Describe the emergency',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: _cancel, child: const Text('Cancel')),
+        FilledButton(onPressed: _save, child: const Text('Save')),
+      ],
+    );
   }
 }
