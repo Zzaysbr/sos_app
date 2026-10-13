@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../core/database/app_database.dart';
 import 'sos_cloud_service.dart';
@@ -11,11 +12,13 @@ class SosRepository {
     required this._database,
     required this._cloudService,
     FirebaseAuth? firebaseAuth,
+    this._onSosCreated,
   }) : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance;
 
   final AppDatabase _database;
   final SosCloudService _cloudService;
   final FirebaseAuth _firebaseAuth;
+  final Future<void> Function(SosMessage sos)? _onSosCreated;
 
   bool _isSyncing = false;
 
@@ -100,6 +103,20 @@ class SosRepository {
         payload: payload,
       );
     });
+
+    final created = await findById(id);
+    if (created != null && _onSosCreated != null) {
+      try {
+        await _onSosCreated(created);
+      } catch (error, stackTrace) {
+        // BLE delivery is durable and independent from local SOS creation and
+        // Firestore sync. A queueing failure must not report local SOS failure.
+        if (kDebugMode) {
+          debugPrint('BLE SOS enqueue failed: $error');
+          debugPrintStack(stackTrace: stackTrace);
+        }
+      }
+    }
 
     if (_isOwnerCurrent(ownerId)) {
       await syncPending();

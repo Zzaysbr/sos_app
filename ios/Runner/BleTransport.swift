@@ -25,6 +25,13 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   private var advertisedService: CBMutableService?
   private var advertisedRx: CBMutableCharacteristic?
   private var advertisedTx: CBMutableCharacteristic?
+  private struct PendingPeripheralSend {
+    let data: Data
+    let result: FlutterResult
+  }
+  private var subscribedCentrals = [UUID: CBCentral]()
+  private var pendingPeripheralSends = [UUID: [PendingPeripheralSend]]()
+  private let maxPendingPeripheralSends = 32
   private var disconnectReasons = [UUID: String]()
   private var disposed = false
 
@@ -138,7 +145,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     connecting.insert(uuid)
     trace("connect requested id=\(uuid.uuidString)")
     p.delegate = self
-    emit(["type": "connecting", "device": device(p)])
+    emit(["type": "connecting", "device": device(p), "role": "central"])
     central.connect(p, options: nil)
     result(nil)
   }
@@ -159,15 +166,60 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     guard let args = call.arguments as? [String: Any],
           let id = args["deviceId"] as? String,
           let uuid = UUID(uuidString: id),
-          let data = args["data"] as? FlutterStandardTypedData,
-          let p = connected[uuid],
+          let data = args["data"] as? FlutterStandardTypedData else {
+      result(FlutterError(code: "invalid_data", message: "deviceId and data are required", details: nil))
+      return
+    }
+    let requestedRole = args["role"] as? String
+    if requestedRole == "peripheral" ||
+        (requestedRole == nil && (connected[uuid] == nil || !ready.contains(uuid)) && subscribedCentrals[uuid] != nil) {
+      sendPeripheral(data.data, to: uuid, result: result)
+      return
+    }
+    guard let p = connected[uuid],
           ready.contains(uuid),
           let characteristic = rxCharacteristics[uuid] else {
-      result(FlutterError(code: "not_connected", message: "GATT is not ready for this device", details: nil))
+      result(FlutterError(code: "not_connected", message: "GATT session is not ready for this device", details: nil))
       return
     }
     writeResults[uuid, default: []].append(result)
     p.writeValue(data.data, for: characteristic, type: .withResponse)
+  }
+
+  private func sendPeripheral(_ data: Data, to uuid: UUID, result: @escaping FlutterResult) {
+    guard subscribedCentrals[uuid] != nil, advertisedTx != nil else {
+      result(FlutterError(code: "not_ready", message: "Peripheral notification session is not ready", details: nil))
+      return
+    }
+    var queue = pendingPeripheralSends[uuid] ?? []
+    guard queue.count < maxPendingPeripheralSends else {
+      result(FlutterError(code: "backpressure", message: "Too many pending peripheral notifications", details: nil))
+      return
+    }
+    queue.append(PendingPeripheralSend(data: data, result: result))
+    pendingPeripheralSends[uuid] = queue
+    flushPeripheral(uuid)
+  }
+
+  private func flushPeripheral(_ uuid: UUID) {
+    guard let central = subscribedCentrals[uuid],
+          let characteristic = advertisedTx,
+          var queue = pendingPeripheralSends[uuid],
+          !queue.isEmpty else { return }
+    while !queue.isEmpty {
+      let pending = queue[0]
+      guard peripheral.updateValue(
+        pending.data,
+        for: characteristic,
+        onSubscribedCentrals: [central]
+      ) else {
+        pendingPeripheralSends[uuid] = queue
+        return
+      }
+      queue.removeFirst()
+      pending.result(nil)
+    }
+    pendingPeripheralSends.removeValue(forKey: uuid)
   }
 
   private func dispose() {
@@ -182,6 +234,11 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
       disconnectReasons[p.identifier] = "transport dispose()"
       central.cancelPeripheralConnection(p)
     }
+    for pending in pendingPeripheralSends.values.flatMap({ $0 }) {
+      pending.result(FlutterError(code: "disposed", message: "BLE transport was disposed", details: nil))
+    }
+    pendingPeripheralSends.removeAll()
+    subscribedCentrals.removeAll()
     for results in writeResults.values { results.forEach { $0(FlutterError(code: "disposed", message: "BLE transport was disposed", details: nil)) } }
     writeResults.removeAll()
     connected.removeAll(); discovered.removeAll(); connecting.removeAll(); services.removeAll()
@@ -240,7 +297,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     connecting.insert(p.identifier)
     connected[p.identifier] = p
     p.delegate = self
-    emit(["type": "discoveringServices", "device": device(p)])
+    emit(["type": "discoveringServices", "device": device(p), "role": "central"])
     p.discoverServices([Self.service])
   }
 
@@ -253,7 +310,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     let message = "iOS failed to connect to \(p.identifier.uuidString): \(error?.localizedDescription ?? "unknown error")"
     trace("didFailToConnect id=\(p.identifier.uuidString) error=\(error?.localizedDescription ?? "none")")
     emitError(message)
-    emit(["type": "disconnected", "device": device(p), "error": message])
+      emit(["type": "disconnected", "device": device(p), "error": message, "role": "central"])
   }
 
   func centralManager(_ central: CBCentralManager, didDisconnectPeripheral p: CBPeripheral, error: Error?) {
@@ -267,7 +324,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     if let results = writeResults.removeValue(forKey: p.identifier) {
       results.forEach { $0(FlutterError(code: "disconnected", message: message ?? "Peripheral disconnected", details: nil)) }
     }
-    emit(["type": "disconnected", "device": device(p), "error": message as Any])
+    emit(["type": "disconnected", "device": device(p), "error": message as Any, "role": "central"])
   }
 
   func peripheral(_ p: CBPeripheral, didDiscoverServices error: Error?) {
@@ -280,7 +337,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     }
     services[p.identifier] = service
     trace("service matched id=\(p.identifier.uuidString) uuid=\(service.uuid.uuidString); discovering RX/TX")
-    emit(["type": "serviceDiscovered", "device": device(p)])
+    emit(["type": "serviceDiscovered", "device": device(p), "role": "central"])
     p.discoverCharacteristics([Self.rx, Self.tx], for: service)
   }
 
@@ -302,7 +359,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
       return
     }
     notificationPending.insert(p.identifier)
-    emit(["type": "characteristicsDiscovered", "device": device(p)])
+    emit(["type": "characteristicsDiscovered", "device": device(p), "role": "central"])
     p.setNotifyValue(true, for: tx)
   }
 
@@ -315,7 +372,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     } else if characteristic.isNotifying {
       ready.insert(p.identifier)
       connecting.remove(p.identifier)
-      emit(["type": "connected", "device": device(p)])
+      emit(["type": "connected", "device": device(p), "role": "central"])
     } else {
       failGATT(p, message: "TX notifications were not enabled")
     }
@@ -331,7 +388,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
       emitError("GATT write failed: \(error.localizedDescription)")
     } else {
       result?(nil)
-      emit(["type": "sendAccepted", "device": device(p)])
+      emit(["type": "sendAccepted", "device": device(p), "role": "central"])
     }
   }
 
@@ -342,7 +399,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
       emitError("TX notification read failed: \(error?.localizedDescription ?? "empty value")")
       return
     }
-    emit(["type": "data", "device": device(p), "payload": FlutterStandardTypedData(bytes: data)])
+    emit(["type": "data", "device": device(p), "payload": FlutterStandardTypedData(bytes: data), "role": "central"])
   }
 
   func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
@@ -350,9 +407,34 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     for request in requests {
       let supported = request.characteristic.uuid == Self.rx && request.offset == 0
       if supported, let value = request.value {
-        emit(["type": "data", "device": ["id": request.central.identifier.uuidString], "payload": FlutterStandardTypedData(bytes: value)])
+        emit(["type": "data", "device": ["id": request.central.identifier.uuidString], "payload": FlutterStandardTypedData(bytes: value), "role": "peripheral"])
       }
       peripheral.respond(to: request, withResult: supported ? .success : .requestNotSupported)
+    }
+  }
+
+  func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didSubscribeTo characteristic: CBCharacteristic) {
+    guard characteristic.uuid == Self.tx else { return }
+    subscribedCentrals[central.identifier] = central
+    trace("didSubscribeTo id=\(central.identifier.uuidString) characteristic=\(characteristic.uuid.uuidString)")
+    emit(["type": "connected", "device": ["id": central.identifier.uuidString], "role": "peripheral"])
+    flushPeripheral(central.identifier)
+  }
+
+  func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didUnsubscribeFrom characteristic: CBCharacteristic) {
+    guard characteristic.uuid == Self.tx else { return }
+    let id = central.identifier
+    subscribedCentrals.removeValue(forKey: id)
+    pendingPeripheralSends.removeValue(forKey: id)?.forEach {
+      $0.result(FlutterError(code: "disconnected", message: "Peripheral notification subscription ended", details: nil))
+    }
+    emit(["type": "disconnected", "device": ["id": id.uuidString], "error": "TX notifications disabled", "role": "peripheral"])
+    trace("didUnsubscribeFrom id=\(id.uuidString) characteristic=\(characteristic.uuid.uuidString)")
+  }
+
+  func peripheralManagerIsReady(toUpdateSubscribers peripheral: CBPeripheralManager) {
+    for uuid in subscribedCentrals.keys {
+      flushPeripheral(uuid)
     }
   }
 

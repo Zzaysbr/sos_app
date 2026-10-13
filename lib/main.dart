@@ -4,10 +4,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import 'core/database/app_database.dart';
 import 'features/auth/data/auth_service.dart';
 import 'features/auth/presentation/auth_page.dart';
+import 'features/nearby_ble/data/sos_ble_coordinator.dart';
 import 'features/sos/data/sos_cloud_service.dart';
 import 'features/sos/data/sos_repository.dart';
 import 'features/sos/data/sos_sync_coordinator.dart';
@@ -62,16 +64,22 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   SosRepository? _repository;
   SosSyncCoordinator? _syncCoordinator;
+  SosBleCoordinator? _bleCoordinator;
   String? _repositoryOwnerId;
 
   void _disposeSyncResources() {
     final coordinator = _syncCoordinator;
+    final bleCoordinator = _bleCoordinator;
     _syncCoordinator = null;
+    _bleCoordinator = null;
     _repository = null;
     _repositoryOwnerId = null;
 
     if (coordinator != null) {
       unawaited(coordinator.dispose());
+    }
+    if (bleCoordinator != null) {
+      unawaited(bleCoordinator.dispose());
     }
   }
 
@@ -84,10 +92,19 @@ class _AuthGateState extends State<AuthGate> {
 
     _disposeSyncResources();
 
+    final bleCoordinator = SosBleCoordinator(
+      database: widget.database,
+      ownerId: user.uid,
+      onLog: kDebugMode
+          ? (message) => debugPrint('[BLE delivery] $message')
+          : null,
+    );
+
     final repository = SosRepository(
       database: widget.database,
       cloudService: SosCloudService(firestore: FirebaseFirestore.instance),
       firebaseAuth: FirebaseAuth.instance,
+      onSosCreated: bleCoordinator.enqueueSos,
     );
 
     final coordinator = SosSyncCoordinator(
@@ -98,8 +115,15 @@ class _AuthGateState extends State<AuthGate> {
     _repositoryOwnerId = user.uid;
     _repository = repository;
     _syncCoordinator = coordinator;
+    _bleCoordinator = bleCoordinator;
 
     unawaited(coordinator.start());
+    unawaited(
+      bleCoordinator.start().catchError((error, stackTrace) {
+        debugPrint('BLE coordinator failed to start: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }),
+    );
   }
 
   @override
@@ -137,7 +161,10 @@ class _AuthGateState extends State<AuthGate> {
 
         _ensureSyncResources(user);
 
-        return SosPage(repository: _repository!);
+        return SosPage(
+          repository: _repository!,
+          bleTransport: _bleCoordinator?.transport,
+        );
       },
     );
   }

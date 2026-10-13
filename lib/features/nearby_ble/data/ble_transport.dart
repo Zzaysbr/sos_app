@@ -14,7 +14,7 @@ abstract interface class BleTransportClient {
   Future<void> stopDiscovery();
   Future<void> connect(String deviceId);
   Future<void> disconnect(String deviceId);
-  Future<void> send(String deviceId, List<int> frame);
+  Future<void> send(String deviceId, List<int> frame, {BleSessionRole? role});
   Future<void> dispose();
 }
 
@@ -27,6 +27,8 @@ class BleTransport implements BleTransportClient {
   Stream<BleEvent>? _stream;
   Future<void>? _initializeFuture;
   Future<void>? _disposeFuture;
+  Completer<void>? _idleCompleter;
+  int _activeCalls = 0;
   bool _disposed = false;
 
   @override
@@ -59,13 +61,27 @@ class BleTransport implements BleTransportClient {
   Future<void> disconnect(String deviceId) =>
       _call('disconnect', {'deviceId': deviceId});
   @override
-  Future<void> send(String deviceId, List<int> frame) =>
-      _call('send', {'deviceId': deviceId, 'data': frame});
+  Future<void> send(String deviceId, List<int> frame, {BleSessionRole? role}) =>
+      _call('send', {
+        'deviceId': deviceId,
+        'data': frame,
+        if (role != null) 'role': role.wireValue,
+      });
   @override
   Future<void> dispose() {
     if (_disposeFuture != null) return _disposeFuture!;
     _disposed = true;
-    return _disposeFuture = _call('dispose', null, true);
+    return _disposeFuture = _dispose();
+  }
+
+  Future<void> _dispose() async {
+    final idle = _idleCompleter?.future;
+    if (idle != null) await idle;
+    try {
+      await _methods.invokeMethod<void>('dispose');
+    } on PlatformException catch (e) {
+      throw BleTransportException(e.message ?? e.code);
+    }
   }
 
   Future<void> _call(
@@ -76,10 +92,22 @@ class BleTransport implements BleTransportClient {
     if (_disposed && !allowAfterDispose) {
       throw const BleTransportException('BLE transport was disposed');
     }
+    if (!allowAfterDispose) {
+      _activeCalls++;
+      _idleCompleter ??= Completer<void>();
+    }
     try {
       await _methods.invokeMethod<void>(method, args);
     } on PlatformException catch (e) {
       throw BleTransportException(e.message ?? e.code);
+    } finally {
+      if (!allowAfterDispose) {
+        _activeCalls--;
+        if (_activeCalls == 0) {
+          _idleCompleter?.complete();
+          _idleCompleter = null;
+        }
+      }
     }
   }
 }

@@ -183,30 +183,35 @@ class _BleTestPageState extends State<BleTestPage> {
 
   Future<void> _startScan() => _run('scan', () async {
     await _readyFuture;
+    _assertActive();
     _log('Starting BLE scan');
     await widget.transport.startDiscovery();
   });
 
   Future<void> _stopScan() => _run('stop scan', () async {
     await _readyFuture;
+    _assertActive();
     await widget.transport.stopDiscovery();
     _log('Scan stopped');
   });
 
   Future<void> _startAdvertising() => _run('advertising', () async {
     await _readyFuture;
+    _assertActive();
     await widget.transport.startAdvertising(name: 'Off Grid SOS Test');
     _log('Advertising start accepted by native transport');
   });
 
   Future<void> _stopAdvertising() => _run('stop advertising', () async {
     await _readyFuture;
+    _assertActive();
     await widget.transport.stopAdvertising();
     _log('Advertising stopped');
   });
 
   Future<void> _connect(BleDevice device) => _run('connect', () async {
     await _readyFuture;
+    _assertActive();
     _selectedDeviceId = device.id;
     _states[device.id] = 'connecting';
     _log('Connect requested for ${device.id}');
@@ -225,6 +230,7 @@ class _BleTestPageState extends State<BleTestPage> {
 
   Future<void> _disconnect(BleDevice device) => _run('disconnect', () async {
     await _readyFuture;
+    _assertActive();
     await widget.transport.disconnect(device.id);
     _log('Disconnect requested for ${device.id}');
   });
@@ -240,6 +246,7 @@ class _BleTestPageState extends State<BleTestPage> {
     }
     await _run('send', () async {
       await _readyFuture;
+      _assertActive();
       final message = BleMessage(
         id: 'ble-test-${DateTime.now().microsecondsSinceEpoch}',
         type: 'test',
@@ -248,6 +255,7 @@ class _BleTestPageState extends State<BleTestPage> {
       );
       final frames = BleMessageCodec.encode(message);
       for (final frame in frames) {
+        _assertActive();
         await widget.transport.send(device.id, frame);
       }
       _messageController.clear();
@@ -291,6 +299,12 @@ class _BleTestPageState extends State<BleTestPage> {
       unawaited(widget.transport.dispose());
     }
     super.dispose();
+  }
+
+  void _assertActive() {
+    if (_disposed || !mounted) {
+      throw const BleTransportException('BLE test screen was disposed');
+    }
   }
 
   @override

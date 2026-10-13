@@ -10,6 +10,22 @@ enum BleTransportState {
   error,
 }
 
+enum BleSessionRole {
+  central('central'),
+  peripheral('peripheral');
+
+  const BleSessionRole(this.wireValue);
+
+  final String wireValue;
+
+  static BleSessionRole? fromWire(Object? value) {
+    for (final role in values) {
+      if (role.wireValue == value) return role;
+    }
+    return null;
+  }
+}
+
 class BleDevice {
   const BleDevice({required this.id, this.name, this.rssi});
   final String id;
@@ -30,12 +46,14 @@ class BleEvent {
     this.payload,
     this.error,
     this.state,
+    this.role,
   });
   final String type;
   final BleDevice? device;
   final List<int>? payload;
   final String? error;
   final String? state;
+  final BleSessionRole? role;
 
   factory BleEvent.fromMap(Map<Object?, Object?> map) => BleEvent(
     type: map['type'] as String? ?? 'unknown',
@@ -49,6 +67,7 @@ class BleEvent {
         : null,
     error: map['error'] as String?,
     state: map['state'] as String?,
+    role: BleSessionRole.fromWire(map['role']),
   );
 }
 

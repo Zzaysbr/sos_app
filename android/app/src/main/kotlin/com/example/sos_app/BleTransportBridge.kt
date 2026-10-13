@@ -13,6 +13,7 @@ import android.bluetooth.BluetoothGattServerCallback
 import android.bluetooth.BluetoothGattService
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
+import android.bluetooth.BluetoothStatusCodes
 import android.bluetooth.le.AdvertiseCallback
 import android.bluetooth.le.AdvertiseData
 import android.bluetooth.le.AdvertiseSettings
@@ -35,6 +36,7 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.util.UUID
+import java.util.ArrayDeque
 
 class BleTransportBridge(
     private val context: Context,
@@ -56,6 +58,7 @@ class BleTransportBridge(
     private var scanner: BluetoothLeScanner? = null
     private var advertiser: BluetoothLeAdvertiser? = null
     private var server: BluetoothGattServer? = null
+    private var serverTxCharacteristic: BluetoothGattCharacteristic? = null
     private var serverReady = false
     private var advertisingResult: MethodChannel.Result? = null
     private var advertisingActive = false
@@ -65,6 +68,10 @@ class BleTransportBridge(
     private val notificationClients = mutableSetOf<String>()
     private val serverClients = mutableSetOf<String>()
     private val disconnectReasons = mutableMapOf<String, String>()
+    private data class PendingNotification(val value: ByteArray, val result: MethodChannel.Result)
+    private val notificationQueues = mutableMapOf<String, ArrayDeque<PendingNotification>>()
+    private val notificationInFlight = mutableSetOf<String>()
+    private val maxPendingNotifications = 32
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var disposed = false
 
@@ -93,9 +100,15 @@ class BleTransportBridge(
         readyClients.clear()
         notificationClients.clear()
         serverClients.clear()
+        notificationQueues.values.flatten().forEach {
+            it.result.error("disposed", "BLE transport was disposed", null)
+        }
+        notificationQueues.clear()
+        notificationInFlight.clear()
         disconnectReasons.clear()
         server?.close()
         server = null
+        serverTxCharacteristic = null
         serverReady = false
     }
 
@@ -233,6 +246,7 @@ class BleTransportBridge(
             BluetoothGattCharacteristic.PERMISSION_READ,
         )
         tx.addDescriptor(BluetoothGattDescriptor(CCCD, BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE))
+        serverTxCharacteristic = tx
         service.addCharacteristic(rx)
         service.addCharacteristic(tx)
         serverReady = false
@@ -357,7 +371,7 @@ class BleTransportBridge(
             return
         }
         clients[id] = gatt
-        emit(mapOf("type" to "connecting", "device" to device(remote)))
+        emit(mapOf("type" to "connecting", "device" to device(remote), "role" to "central"))
         result.success(null)
     }
 
@@ -384,6 +398,13 @@ class BleTransportBridge(
             result.error("invalid_data", "deviceId and data are required", null)
             return
         }
+        val requestedRole = call.argument<String>("role")
+        val usePeripheral = requestedRole == "peripheral" ||
+            (requestedRole == null && !readyClients.contains(id) && notificationClients.contains(id))
+        if (usePeripheral) {
+            sendPeripheralNotification(id, bytes, result)
+            return
+        }
         val gatt = clients[id]
         val characteristic = gatt?.getService(SERVICE)?.getCharacteristic(RX)
         if (gatt == null || characteristic == null || !readyClients.contains(id)) {
@@ -400,6 +421,63 @@ class BleTransportBridge(
             return
         }
         result.success(null)
+    }
+
+    private fun sendPeripheralNotification(
+        id: String,
+        bytes: ByteArray,
+        result: MethodChannel.Result,
+    ) {
+        if (server == null || !serverReady || !serverClients.contains(id) ||
+            !notificationClients.contains(id) || serverTxCharacteristic == null) {
+            result.error("not_ready", "Peripheral notification session is not ready for $id", null)
+            return
+        }
+        val queue = notificationQueues.getOrPut(id) { ArrayDeque() }
+        if (queue.size >= maxPendingNotifications) {
+            result.error("backpressure", "Too many pending notifications for $id", null)
+            return
+        }
+        queue.addLast(PendingNotification(bytes.copyOf(), result))
+        flushPeripheralNotifications(id)
+    }
+
+    private fun flushPeripheralNotifications(id: String) {
+        if (notificationInFlight.contains(id)) return
+        val queue = notificationQueues[id] ?: return
+        val pending = queue.firstOrNull() ?: run {
+            notificationQueues.remove(id)
+            return
+        }
+        val currentServer = server
+        val tx = serverTxCharacteristic
+        val device = try { adapter?.getRemoteDevice(id) } catch (_: IllegalArgumentException) { null }
+        if (currentServer == null || tx == null || device == null ||
+            !serverClients.contains(id) || !notificationClients.contains(id)) {
+            queue.removeFirst()
+            pending.result.error("not_ready", "Peripheral notification session is no longer ready for $id", null)
+            flushPeripheralNotifications(id)
+            return
+        }
+        tx.value = pending.value
+        val accepted = if (Build.VERSION.SDK_INT >= 33) {
+            currentServer.notifyCharacteristicChanged(
+                device,
+                tx,
+                false,
+                pending.value,
+            ) == BluetoothStatusCodes.SUCCESS
+        } else {
+            @Suppress("DEPRECATION")
+            currentServer.notifyCharacteristicChanged(device, tx, false)
+        }
+        if (!accepted) {
+            queue.removeFirst()
+            pending.result.error("notification_failed", "Android rejected TX notification for $id", null)
+            flushPeripheralNotifications(id)
+            return
+        }
+        notificationInFlight.add(id)
     }
 
     private fun device(value: BluetoothDevice, rssi: Int? = null) = mapOf(
@@ -504,7 +582,7 @@ class BleTransportBridge(
             onMain {
                 logDebug("onCharacteristicWrite id=${gatt.device.address} uuid=${characteristic.uuid} status=$status")
                 if (characteristic.uuid == RX) {
-                    if (status == BluetoothGatt.GATT_SUCCESS) emit(mapOf("type" to "sendAccepted", "device" to device(gatt.device)))
+                    if (status == BluetoothGatt.GATT_SUCCESS) emit(mapOf("type" to "sendAccepted", "device" to device(gatt.device), "role" to "central"))
                     else emitError("GATT write callback failed for ${gatt.device.address} (status $status)")
                 }
             }
@@ -529,7 +607,7 @@ class BleTransportBridge(
     private fun emitCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) {
         if (characteristic.uuid == TX && readyClients.contains(gatt.device.address)) {
             logDebug("TX notification received id=${gatt.device.address} bytes=${value.size}")
-            emit(mapOf("type" to "data", "device" to device(gatt.device), "payload" to value))
+            emit(mapOf("type" to "data", "device" to device(gatt.device), "payload" to value, "role" to "central"))
         }
     }
 
@@ -542,12 +620,12 @@ class BleTransportBridge(
             if (clients[id] === gatt) clients.remove(id)
             gatt.close()
             disconnectReasons.remove(id)
-            emit(mapOf("type" to "error", "error" to "GATT connection failed for $id (status $status)", "device" to device(gatt.device)))
-            emit(mapOf("type" to "disconnected", "device" to device(gatt.device), "error" to "status $status"))
+            emit(mapOf("type" to "error", "error" to "GATT connection failed for $id (status $status)", "device" to device(gatt.device), "role" to "central"))
+            emit(mapOf("type" to "disconnected", "device" to device(gatt.device), "error" to "status $status", "role" to "central"))
             return
         }
         if (newState == BluetoothProfile.STATE_CONNECTED) {
-            emit(mapOf("type" to "discoveringServices", "device" to device(gatt.device)))
+            emit(mapOf("type" to "discoveringServices", "device" to device(gatt.device), "role" to "central"))
             logDebug("discoverServices requested id=$id")
             if (!gatt.discoverServices()) {
                 emitError("Android could not start service discovery for $id")
@@ -558,7 +636,7 @@ class BleTransportBridge(
             if (clients[id] === gatt) clients.remove(id)
             gatt.close()
             disconnectReasons.remove(id)
-            emit(mapOf("type" to "disconnected", "device" to device(gatt.device)))
+            emit(mapOf("type" to "disconnected", "device" to device(gatt.device), "role" to "central"))
         }
     }
 
@@ -587,8 +665,8 @@ class BleTransportBridge(
             gatt.disconnect()
             return
         }
-        emit(mapOf("type" to "serviceDiscovered", "device" to device(gatt.device)))
-        emit(mapOf("type" to "characteristicsDiscovered", "device" to device(gatt.device)))
+            emit(mapOf("type" to "serviceDiscovered", "device" to device(gatt.device), "role" to "central"))
+            emit(mapOf("type" to "characteristicsDiscovered", "device" to device(gatt.device), "role" to "central"))
         if (!gatt.setCharacteristicNotification(tx, true)) {
             emitError("Could not enable TX notifications for $id")
             gatt.disconnect()
@@ -614,7 +692,7 @@ class BleTransportBridge(
         if (descriptor.uuid != CCCD) return
         if (status == BluetoothGatt.GATT_SUCCESS) {
             readyClients.add(id)
-            emit(mapOf("type" to "connected", "device" to device(gatt.device)))
+            emit(mapOf("type" to "connected", "device" to device(gatt.device), "role" to "central"))
         } else {
             readyClients.remove(id)
             emitError("TX notification setup failed for $id (status $status)")
@@ -651,7 +729,7 @@ class BleTransportBridge(
                 val supported = characteristic.uuid == RX && !preparedWrite && offset == 0
                 logDebug("onCharacteristicWriteRequest id=${device.address} uuid=${characteristic.uuid} requestId=$requestId prepared=$preparedWrite offset=$offset responseNeeded=$responseNeeded bytes=${value.size}")
                 if (supported) {
-                    emit(mapOf("type" to "data", "device" to device(device), "payload" to value))
+                    emit(mapOf("type" to "data", "device" to device(device), "payload" to value, "role" to "peripheral"))
                 }
                 if (responseNeeded) {
                     server?.sendResponse(
@@ -687,8 +765,16 @@ class BleTransportBridge(
                         "enabled=$enabled disabled=$disabled",
                 )
                 if (supported) {
-                    if (enabled) notificationClients.add(device.address)
-                    else notificationClients.remove(device.address)
+                    if (enabled) {
+                        val wasSubscribed = notificationClients.add(device.address)
+                        if (wasSubscribed && serverClients.contains(device.address)) {
+                            emit(mapOf("type" to "connected", "device" to device(device), "role" to "peripheral"))
+                        }
+                    } else {
+                        notificationClients.remove(device.address)
+                        clearNotificationSession(device.address, "TX notifications were disabled")
+                        emit(mapOf("type" to "disconnected", "device" to device(device), "error" to "TX notifications disabled", "role" to "peripheral"))
+                    }
                 }
                 if (responseNeeded) {
                     server?.sendResponse(
@@ -710,15 +796,16 @@ class BleTransportBridge(
                 logDebug("server onConnectionStateChange id=${device.address} status=$status newState=$newState")
                 if (newState == BluetoothProfile.STATE_CONNECTED && status == BluetoothGatt.GATT_SUCCESS) {
                     serverClients.add(device.address)
-                    emit(mapOf("type" to "connected", "device" to device(device)))
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     serverClients.remove(device.address)
                     notificationClients.remove(device.address)
-                    emit(mapOf("type" to "disconnected", "device" to device(device), "error" to if (status == BluetoothGatt.GATT_SUCCESS) null else "status $status"))
+                    clearNotificationSession(device.address, "Peripheral peer disconnected")
+                    emit(mapOf("type" to "disconnected", "device" to device(device), "error" to if (status == BluetoothGatt.GATT_SUCCESS) null else "status $status", "role" to "peripheral"))
                 } else if (status != BluetoothGatt.GATT_SUCCESS) {
                     serverClients.remove(device.address)
                     notificationClients.remove(device.address)
-                    emit(mapOf("type" to "error", "error" to "GATT server connection failed for ${device.address} (status $status)", "device" to device(device)))
+                    clearNotificationSession(device.address, "GATT server connection failed (status $status)")
+                    emit(mapOf("type" to "error", "error" to "GATT server connection failed for ${device.address} (status $status)", "device" to device(device), "role" to "peripheral"))
                 }
             }
         }
@@ -726,7 +813,26 @@ class BleTransportBridge(
         override fun onNotificationSent(device: BluetoothDevice, status: Int) {
             onMain {
                 logDebug("onNotificationSent id=${device.address} status=$status subscribed=${notificationClients.contains(device.address)}")
+                val id = device.address
+                val queue = notificationQueues[id]
+                val pending = if (queue != null && !queue.isEmpty()) queue.removeFirst() else null
+                notificationInFlight.remove(id)
+                if (pending != null) {
+                    if (status == BluetoothGatt.GATT_SUCCESS) {
+                        pending.result.success(null)
+                    } else {
+                        pending.result.error("notification_failed", "TX notification failed for $id (status $status)", null)
+                    }
+                }
+                flushPeripheralNotifications(id)
             }
+        }
+    }
+
+    private fun clearNotificationSession(id: String, message: String) {
+        notificationInFlight.remove(id)
+        notificationQueues.remove(id)?.forEach {
+            it.result.error("disconnected", message, null)
         }
     }
 }

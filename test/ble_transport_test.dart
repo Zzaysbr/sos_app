@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sos_app/features/nearby_ble/data/ble_transport.dart';
@@ -26,6 +28,34 @@ void main() {
       throwsA(isA<BleTransportException>()),
     );
     expect(() => transport.initialize(), throwsA(isA<BleTransportException>()));
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(methods, null);
+  });
+
+  test('dispose waits for an in-flight send before native disposal', () async {
+    const methods = MethodChannel('ble_transport_inflight/methods');
+    const events = EventChannel('ble_transport_inflight/events');
+    final sendDone = Completer<void>();
+    final calls = <String>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(methods, (call) async {
+          calls.add(call.method);
+          if (call.method == 'send') await sendDone.future;
+          return null;
+        });
+
+    final transport = BleTransport(methods: methods, events: events);
+    final send = transport.send('peer', <int>[1, 2, 3]);
+    await Future<void>.delayed(Duration.zero);
+    final disposing = transport.dispose();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(calls, ['send']);
+    sendDone.complete();
+    await send;
+    await disposing;
+    expect(calls, ['send', 'dispose']);
 
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(methods, null);

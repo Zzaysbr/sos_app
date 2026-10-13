@@ -32,8 +32,11 @@ class FakeBleTransport implements BleTransportClient {
   Future<void> disconnect(String deviceId) async =>
       calls.add('disconnect:$deviceId');
   @override
-  Future<void> send(String deviceId, List<int> frame) async =>
-      calls.add('send:$deviceId');
+  Future<void> send(
+    String deviceId,
+    List<int> frame, {
+    BleSessionRole? role,
+  }) async => calls.add('send:$deviceId');
   @override
   Future<void> dispose() async {
     disposed = true;
@@ -168,6 +171,22 @@ void main() {
     );
     expect(find.textContaining('Native error: scan failed'), findsOneWidget);
   });
+
+  testWidgets('does not start an operation after the page is unmounted', (
+    tester,
+  ) async {
+    final fake = DelayedInitializationTransport();
+    await tester.pumpWidget(MaterialApp(home: BleTestPage(transport: fake)));
+    await tester.tap(find.text('Start Scan'));
+    await tester.pump();
+
+    await tester.pumpWidget(const SizedBox());
+    fake.initialization.complete();
+    await tester.pumpAndSettle();
+
+    expect(fake.calls, isEmpty);
+    expect(fake.disposed, isFalse);
+  });
 }
 
 List<List<int>> _testFrames() {
@@ -184,4 +203,11 @@ class FakeBleTransportWithError extends FakeBleTransport {
   @override
   Future<void> requestPermissions() =>
       Future<void>.error(const BleTransportException('permissions denied'));
+}
+
+class DelayedInitializationTransport extends FakeBleTransport {
+  final initialization = Completer<void>();
+
+  @override
+  Future<void> initialize() => initialization.future;
 }

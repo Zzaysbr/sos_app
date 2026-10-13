@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../nearby_ble/data/ble_transport.dart';
 import '../../nearby_ble/presentation/ble_test_page.dart';
 import '../data/sos_repository.dart';
 import 'account_page.dart';
@@ -11,9 +12,10 @@ import 'account_page.dart';
 import 'package:geolocator/geolocator.dart';
 
 class SosPage extends StatefulWidget {
-  const SosPage({super.key, required this.repository});
+  const SosPage({super.key, required this.repository, this.bleTransport});
 
   final SosRepository repository;
+  final BleTransportClient? bleTransport;
 
   @override
   State<SosPage> createState() => _SosPageState();
@@ -1088,7 +1090,10 @@ class _SosPageState extends State<SosPage> {
                       title: 'BLE Test (Debug)',
                       subtitle: 'Test nearby Bluetooth between phones',
                       onTap: () => Navigator.of(context).push<void>(
-                        MaterialPageRoute<void>(builder: (_) => BleTestPage()),
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              BleTestPage(transport: widget.bleTransport),
+                        ),
                       ),
                     ),
                   ],
