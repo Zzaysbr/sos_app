@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import '../../../core/database/app_database.dart';
 import '../data/sos_repository.dart';
 
+import 'package:geolocator/geolocator.dart';
+
 class SosPage extends StatefulWidget {
   const SosPage({super.key, required this.repository});
 
@@ -16,9 +18,7 @@ class SosPage extends StatefulWidget {
 class _SosPageState extends State<SosPage> {
   int _currentIndex = 0;
   bool _syncing = false;
-
-  String get _userEmail =>
-      FirebaseAuth.instance.currentUser?.email ?? 'Unknown account';
+  String _historyFilter = 'all';
 
   @override
   Widget build(BuildContext context) {
@@ -278,21 +278,268 @@ class _SosPageState extends State<SosPage> {
                   );
                 }
 
-                return SliverList(
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final sos = messages[index];
+                final filteredMessages = _filterHistory(messages);
 
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _buildSosCard(sos, showActions: true),
-                    );
-                  }, childCount: messages.length),
+                final activeCount = messages
+                    .where((message) => message.status == 'active')
+                    .length;
+
+                final resolvedCount = messages
+                    .where((message) => message.status == 'resolved')
+                    .length;
+
+                final cancelledCount = messages
+                    .where((message) => message.status == 'cancelled')
+                    .length;
+
+                return SliverList(
+                  delegate: SliverChildListDelegate([
+                    _buildHistorySummary(
+                      total: messages.length,
+                      active: activeCount,
+                      resolved: resolvedCount,
+                      cancelled: cancelledCount,
+                    ),
+                    const SizedBox(height: 20),
+                    _buildHistoryFilter(),
+                    const SizedBox(height: 20),
+                    if (filteredMessages.isEmpty)
+                      _buildEmptyCard(
+                        icon: _historyFilterIcon,
+                        title: _historyEmptyTitle,
+                        message: _historyEmptyMessage,
+                      )
+                    else
+                      for (final sos in filteredMessages) ...[
+                        _buildSosCard(sos, showActions: true),
+                        const SizedBox(height: 12),
+                      ],
+                  ]),
                 );
               },
             ),
           ),
         ],
       ),
+    );
+  }
+
+  List<SosMessage> _filterHistory(List<SosMessage> messages) {
+    if (_historyFilter == 'all') {
+      return messages;
+    }
+
+    return messages
+        .where((message) => message.status == _historyFilter)
+        .toList();
+  }
+
+  Widget _buildHistorySummary({
+    required int total,
+    required int active,
+    required int resolved,
+    required int cancelled,
+  }) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Expanded(
+              child: _buildHistoryCount(label: 'Total', count: total),
+            ),
+            Expanded(
+              child: _buildHistoryCount(label: 'Active', count: active),
+            ),
+            Expanded(
+              child: _buildHistoryCount(label: 'Resolved', count: resolved),
+            ),
+            Expanded(
+              child: _buildHistoryCount(label: 'Cancelled', count: cancelled),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHistoryCount({required String label, required int count}) {
+    return Column(
+      children: [
+        Text(
+          count.toString(),
+          style: Theme.of(context).textTheme.titleLarge
+              ?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHistoryFilter() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _buildHistoryFilterChip(value: 'all', label: 'All'),
+          const SizedBox(width: 8),
+          _buildHistoryFilterChip(value: 'active', label: 'Active'),
+          const SizedBox(width: 8),
+          _buildHistoryFilterChip(value: 'resolved', label: 'Resolved'),
+          const SizedBox(width: 8),
+          _buildHistoryFilterChip(value: 'cancelled', label: 'Cancelled'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHistoryFilterChip({
+    required String value,
+    required String label,
+  }) {
+    return FilterChip(
+      label: Text(label),
+      selected: _historyFilter == value,
+      onSelected: (selected) {
+        if (!selected) {
+          return;
+        }
+
+        setState(() {
+          _historyFilter = value;
+        });
+      },
+    );
+  }
+
+  IconData get _historyFilterIcon {
+    switch (_historyFilter) {
+      case 'active':
+        return Icons.warning_amber_rounded;
+      case 'resolved':
+        return Icons.check_circle_outline;
+      case 'cancelled':
+        return Icons.cancel_outlined;
+      default:
+        return Icons.history;
+    }
+  }
+
+  String get _historyEmptyTitle {
+    switch (_historyFilter) {
+      case 'active':
+        return 'No active SOS';
+      case 'resolved':
+        return 'No resolved SOS';
+      case 'cancelled':
+        return 'No cancelled SOS';
+      default:
+        return 'No history';
+    }
+  }
+
+  String get _historyEmptyMessage {
+    switch (_historyFilter) {
+      case 'active':
+        return 'You currently have no active emergency alerts.';
+      case 'resolved':
+        return 'No resolved SOS alerts yet.';
+      case 'cancelled':
+        return 'No cancelled SOS alerts yet.';
+      default:
+        return 'SOS activity will appear here.';
+    }
+  }
+
+  Future<void> _showLocationSettings() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    final permission = await Geolocator.checkPermission();
+
+    if (!mounted) {
+      return;
+    }
+
+    final permissionText = switch (permission) {
+      LocationPermission.always => 'Always',
+      LocationPermission.whileInUse => 'While using the app',
+      LocationPermission.denied => 'Denied',
+      LocationPermission.deniedForever => 'Permanently denied',
+      LocationPermission.unableToDetermine => 'Unknown',
+    };
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Location',
+                  style: Theme.of(sheetContext).textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 24),
+                _buildProfileRow(
+                  context: sheetContext,
+                  icon: Icons.location_on_outlined,
+                  label: 'Location Services',
+                  value: serviceEnabled ? 'Enabled' : 'Disabled',
+                ),
+                _buildProfileRow(
+                  context: sheetContext,
+                  icon: Icons.security_outlined,
+                  label: 'Permission',
+                  value: permissionText,
+                ),
+                const SizedBox(height: 8),
+                if (!serviceEnabled)
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () async {
+                        await Geolocator.openLocationSettings();
+                      },
+                      icon: const Icon(Icons.location_on),
+                      label: const Text('Open Location Settings'),
+                    ),
+                  ),
+                if (permission == LocationPermission.deniedForever)
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () async {
+                        await Geolocator.openAppSettings();
+                      },
+                      icon: const Icon(Icons.settings),
+                      label: const Text('Open App Settings'),
+                    ),
+                  ),
+                if (serviceEnabled &&
+                    permission != LocationPermission.deniedForever)
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.of(sheetContext).pop();
+                      },
+                      child: const Text('Close'),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -326,9 +573,7 @@ class _SosPageState extends State<SosPage> {
                       icon: Icons.location_on_outlined,
                       title: 'Location',
                       subtitle: 'Location permission and sharing',
-                      onTap: () {
-                        _showComingSoon('Location settings');
-                      },
+                      onTap: _showLocationSettings,
                     ),
                     _buildSettingsTile(
                       icon: Icons.bluetooth_outlined,
@@ -369,22 +614,49 @@ class _SosPageState extends State<SosPage> {
   }
 
   Widget _buildAccountCard() {
+    final user = FirebaseAuth.instance.currentUser;
+
+    final email = user?.email ?? 'Unknown account';
+    final initial = email.isNotEmpty ? email[0].toUpperCase() : '?';
+
     return Card(
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        leading: CircleAvatar(
-          radius: 26,
-          child: Text(
-            _userEmail.isNotEmpty ? _userEmail[0].toUpperCase() : '?',
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: _showProfile,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 28,
+                child: Text(
+                  initial,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Profile',
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right),
+            ],
           ),
-        ),
-        title: const Text(
-          'Account',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(_userEmail),
         ),
       ),
     );
@@ -436,6 +708,186 @@ class _SosPageState extends State<SosPage> {
     );
   }
 
+  Future<Position?> _getCurrentLocation() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
+    if (!serviceEnabled) {
+      if (!mounted) {
+        return null;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enable Location Services and try again.'),
+        ),
+      );
+
+      return null;
+    }
+
+    var permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied) {
+      if (!mounted) {
+        return null;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Location permission is required to send SOS.'),
+        ),
+      );
+
+      return null;
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      if (!mounted) {
+        return null;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Location permission is permanently denied. Enable it in Settings.',
+          ),
+        ),
+      );
+
+      return null;
+    }
+
+    try {
+      return await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return null;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to get your current location.')),
+      );
+
+      return null;
+    }
+  }
+
+  Future<void> _showProfile() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null || !mounted) {
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: CircleAvatar(
+                    radius: 36,
+                    child: Text(
+                      (user.email?.isNotEmpty ?? false)
+                          ? user.email![0].toUpperCase()
+                          : '?',
+                      style: Theme.of(sheetContext).textTheme.headlineSmall,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Center(
+                  child: Text(
+                    'Profile',
+                    style: Theme.of(sheetContext).textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _buildProfileRow(
+                  context: sheetContext,
+                  icon: Icons.email_outlined,
+                  label: 'Email',
+                  value: user.email ?? 'Unknown',
+                ),
+                _buildProfileRow(
+                  context: sheetContext,
+                  icon: Icons.fingerprint,
+                  label: 'User ID',
+                  value: user.uid,
+                ),
+                _buildProfileRow(
+                  context: sheetContext,
+                  icon: Icons.verified_user_outlined,
+                  label: 'Email verified',
+                  value: user.emailVerified ? 'Yes' : 'No',
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () {
+                      Navigator.of(sheetContext).pop();
+                    },
+                    child: const Text('Close'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildProfileRow({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: Theme.of(context).textTheme.labelMedium),
+                const SizedBox(height: 3),
+                SelectableText(
+                  value,
+                  style: Theme.of(context).textTheme.bodyLarge
+                      ?.copyWith(fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // SOS ACTIONS
   // ---------------------------------------------------------------------------
@@ -444,19 +896,35 @@ class _SosPageState extends State<SosPage> {
     final id = DateTime.now().microsecondsSinceEpoch.toString();
 
     try {
+      final position = await _getCurrentLocation();
+
+      if (!mounted) {
+        return;
+      }
+
       await widget.repository.create(
         id: id,
         type: 'emergency',
         message: 'Emergency SOS',
+        latitude: position?.latitude,
+        longitude: position?.longitude,
       );
 
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('SOS sent successfully.')));
+      final hasLocation = position != null;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            hasLocation
+                ? 'SOS sent with your location.'
+                : 'SOS sent without location.',
+          ),
+        ),
+      );
     } catch (error) {
       if (!mounted) {
         return;

@@ -610,15 +610,424 @@ class SosMessagesCompanion extends UpdateCompanion<SosMessage> {
   }
 }
 
+class $SosSyncQueueTable extends SosSyncQueue
+    with TableInfo<$SosSyncQueueTable, SosSyncQueueData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SosSyncQueueTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _queueIdMeta = const VerificationMeta(
+    'queueId',
+  );
+  @override
+  late final GeneratedColumn<int> queueId = GeneratedColumn<int>(
+    'queue_id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _sosIdMeta = const VerificationMeta('sosId');
+  @override
+  late final GeneratedColumn<String> sosId = GeneratedColumn<String>(
+    'sos_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ownerIdMeta = const VerificationMeta(
+    'ownerId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerId = GeneratedColumn<String>(
+    'owner_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _operationMeta = const VerificationMeta(
+    'operation',
+  );
+  @override
+  late final GeneratedColumn<String> operation = GeneratedColumn<String>(
+    'operation',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    queueId,
+    sosId,
+    ownerId,
+    operation,
+    payload,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sos_sync_queue';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SosSyncQueueData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('queue_id')) {
+      context.handle(
+        _queueIdMeta,
+        queueId.isAcceptableOrUnknown(data['queue_id']!, _queueIdMeta),
+      );
+    }
+    if (data.containsKey('sos_id')) {
+      context.handle(
+        _sosIdMeta,
+        sosId.isAcceptableOrUnknown(data['sos_id']!, _sosIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sosIdMeta);
+    }
+    if (data.containsKey('owner_id')) {
+      context.handle(
+        _ownerIdMeta,
+        ownerId.isAcceptableOrUnknown(data['owner_id']!, _ownerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerIdMeta);
+    }
+    if (data.containsKey('operation')) {
+      context.handle(
+        _operationMeta,
+        operation.isAcceptableOrUnknown(data['operation']!, _operationMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_operationMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {queueId};
+  @override
+  SosSyncQueueData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SosSyncQueueData(
+      queueId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}queue_id'],
+      )!,
+      sosId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sos_id'],
+      )!,
+      ownerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_id'],
+      )!,
+      operation: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}operation'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SosSyncQueueTable createAlias(String alias) {
+    return $SosSyncQueueTable(attachedDatabase, alias);
+  }
+}
+
+class SosSyncQueueData extends DataClass
+    implements Insertable<SosSyncQueueData> {
+  final int queueId;
+  final String sosId;
+  final String ownerId;
+  final String operation;
+  final String? payload;
+  final DateTime createdAt;
+  const SosSyncQueueData({
+    required this.queueId,
+    required this.sosId,
+    required this.ownerId,
+    required this.operation,
+    this.payload,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['queue_id'] = Variable<int>(queueId);
+    map['sos_id'] = Variable<String>(sosId);
+    map['owner_id'] = Variable<String>(ownerId);
+    map['operation'] = Variable<String>(operation);
+    if (!nullToAbsent || payload != null) {
+      map['payload'] = Variable<String>(payload);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  SosSyncQueueCompanion toCompanion(bool nullToAbsent) {
+    return SosSyncQueueCompanion(
+      queueId: Value(queueId),
+      sosId: Value(sosId),
+      ownerId: Value(ownerId),
+      operation: Value(operation),
+      payload: payload == null && nullToAbsent
+          ? const Value.absent()
+          : Value(payload),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory SosSyncQueueData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SosSyncQueueData(
+      queueId: serializer.fromJson<int>(json['queueId']),
+      sosId: serializer.fromJson<String>(json['sosId']),
+      ownerId: serializer.fromJson<String>(json['ownerId']),
+      operation: serializer.fromJson<String>(json['operation']),
+      payload: serializer.fromJson<String?>(json['payload']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'queueId': serializer.toJson<int>(queueId),
+      'sosId': serializer.toJson<String>(sosId),
+      'ownerId': serializer.toJson<String>(ownerId),
+      'operation': serializer.toJson<String>(operation),
+      'payload': serializer.toJson<String?>(payload),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  SosSyncQueueData copyWith({
+    int? queueId,
+    String? sosId,
+    String? ownerId,
+    String? operation,
+    Value<String?> payload = const Value.absent(),
+    DateTime? createdAt,
+  }) => SosSyncQueueData(
+    queueId: queueId ?? this.queueId,
+    sosId: sosId ?? this.sosId,
+    ownerId: ownerId ?? this.ownerId,
+    operation: operation ?? this.operation,
+    payload: payload.present ? payload.value : this.payload,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  SosSyncQueueData copyWithCompanion(SosSyncQueueCompanion data) {
+    return SosSyncQueueData(
+      queueId: data.queueId.present ? data.queueId.value : this.queueId,
+      sosId: data.sosId.present ? data.sosId.value : this.sosId,
+      ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
+      operation: data.operation.present ? data.operation.value : this.operation,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SosSyncQueueData(')
+          ..write('queueId: $queueId, ')
+          ..write('sosId: $sosId, ')
+          ..write('ownerId: $ownerId, ')
+          ..write('operation: $operation, ')
+          ..write('payload: $payload, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(queueId, sosId, ownerId, operation, payload, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SosSyncQueueData &&
+          other.queueId == this.queueId &&
+          other.sosId == this.sosId &&
+          other.ownerId == this.ownerId &&
+          other.operation == this.operation &&
+          other.payload == this.payload &&
+          other.createdAt == this.createdAt);
+}
+
+class SosSyncQueueCompanion extends UpdateCompanion<SosSyncQueueData> {
+  final Value<int> queueId;
+  final Value<String> sosId;
+  final Value<String> ownerId;
+  final Value<String> operation;
+  final Value<String?> payload;
+  final Value<DateTime> createdAt;
+  const SosSyncQueueCompanion({
+    this.queueId = const Value.absent(),
+    this.sosId = const Value.absent(),
+    this.ownerId = const Value.absent(),
+    this.operation = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  SosSyncQueueCompanion.insert({
+    this.queueId = const Value.absent(),
+    required String sosId,
+    required String ownerId,
+    required String operation,
+    this.payload = const Value.absent(),
+    required DateTime createdAt,
+  }) : sosId = Value(sosId),
+       ownerId = Value(ownerId),
+       operation = Value(operation),
+       createdAt = Value(createdAt);
+  static Insertable<SosSyncQueueData> custom({
+    Expression<int>? queueId,
+    Expression<String>? sosId,
+    Expression<String>? ownerId,
+    Expression<String>? operation,
+    Expression<String>? payload,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (queueId != null) 'queue_id': queueId,
+      if (sosId != null) 'sos_id': sosId,
+      if (ownerId != null) 'owner_id': ownerId,
+      if (operation != null) 'operation': operation,
+      if (payload != null) 'payload': payload,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  SosSyncQueueCompanion copyWith({
+    Value<int>? queueId,
+    Value<String>? sosId,
+    Value<String>? ownerId,
+    Value<String>? operation,
+    Value<String?>? payload,
+    Value<DateTime>? createdAt,
+  }) {
+    return SosSyncQueueCompanion(
+      queueId: queueId ?? this.queueId,
+      sosId: sosId ?? this.sosId,
+      ownerId: ownerId ?? this.ownerId,
+      operation: operation ?? this.operation,
+      payload: payload ?? this.payload,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (queueId.present) {
+      map['queue_id'] = Variable<int>(queueId.value);
+    }
+    if (sosId.present) {
+      map['sos_id'] = Variable<String>(sosId.value);
+    }
+    if (ownerId.present) {
+      map['owner_id'] = Variable<String>(ownerId.value);
+    }
+    if (operation.present) {
+      map['operation'] = Variable<String>(operation.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SosSyncQueueCompanion(')
+          ..write('queueId: $queueId, ')
+          ..write('sosId: $sosId, ')
+          ..write('ownerId: $ownerId, ')
+          ..write('operation: $operation, ')
+          ..write('payload: $payload, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $SosMessagesTable sosMessages = $SosMessagesTable(this);
+  late final $SosSyncQueueTable sosSyncQueue = $SosSyncQueueTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities => [sosMessages];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+    sosMessages,
+    sosSyncQueue,
+  ];
 }
 
 typedef $$SosMessagesTableCreateCompanionBuilder =
@@ -925,10 +1334,234 @@ typedef $$SosMessagesTableProcessedTableManager =
       SosMessage,
       PrefetchHooks Function()
     >;
+typedef $$SosSyncQueueTableCreateCompanionBuilder =
+    SosSyncQueueCompanion Function({
+      Value<int> queueId,
+      required String sosId,
+      required String ownerId,
+      required String operation,
+      Value<String?> payload,
+      required DateTime createdAt,
+    });
+typedef $$SosSyncQueueTableUpdateCompanionBuilder =
+    SosSyncQueueCompanion Function({
+      Value<int> queueId,
+      Value<String> sosId,
+      Value<String> ownerId,
+      Value<String> operation,
+      Value<String?> payload,
+      Value<DateTime> createdAt,
+    });
+
+class $$SosSyncQueueTableFilterComposer
+    extends Composer<_$AppDatabase, $SosSyncQueueTable> {
+  $$SosSyncQueueTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get queueId => $composableBuilder(
+    column: $table.queueId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sosId => $composableBuilder(
+    column: $table.sosId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get operation => $composableBuilder(
+    column: $table.operation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SosSyncQueueTableOrderingComposer
+    extends Composer<_$AppDatabase, $SosSyncQueueTable> {
+  $$SosSyncQueueTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get queueId => $composableBuilder(
+    column: $table.queueId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sosId => $composableBuilder(
+    column: $table.sosId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get operation => $composableBuilder(
+    column: $table.operation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SosSyncQueueTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SosSyncQueueTable> {
+  $$SosSyncQueueTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get queueId =>
+      $composableBuilder(column: $table.queueId, builder: (column) => column);
+
+  GeneratedColumn<String> get sosId =>
+      $composableBuilder(column: $table.sosId, builder: (column) => column);
+
+  GeneratedColumn<String> get ownerId =>
+      $composableBuilder(column: $table.ownerId, builder: (column) => column);
+
+  GeneratedColumn<String> get operation =>
+      $composableBuilder(column: $table.operation, builder: (column) => column);
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$SosSyncQueueTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SosSyncQueueTable,
+          SosSyncQueueData,
+          $$SosSyncQueueTableFilterComposer,
+          $$SosSyncQueueTableOrderingComposer,
+          $$SosSyncQueueTableAnnotationComposer,
+          $$SosSyncQueueTableCreateCompanionBuilder,
+          $$SosSyncQueueTableUpdateCompanionBuilder,
+          (
+            SosSyncQueueData,
+            BaseReferences<_$AppDatabase, $SosSyncQueueTable, SosSyncQueueData>,
+          ),
+          SosSyncQueueData,
+          PrefetchHooks Function()
+        > {
+  $$SosSyncQueueTableTableManager(_$AppDatabase db, $SosSyncQueueTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SosSyncQueueTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SosSyncQueueTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SosSyncQueueTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> queueId = const Value.absent(),
+                Value<String> sosId = const Value.absent(),
+                Value<String> ownerId = const Value.absent(),
+                Value<String> operation = const Value.absent(),
+                Value<String?> payload = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => SosSyncQueueCompanion(
+                queueId: queueId,
+                sosId: sosId,
+                ownerId: ownerId,
+                operation: operation,
+                payload: payload,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> queueId = const Value.absent(),
+                required String sosId,
+                required String ownerId,
+                required String operation,
+                Value<String?> payload = const Value.absent(),
+                required DateTime createdAt,
+              }) => SosSyncQueueCompanion.insert(
+                queueId: queueId,
+                sosId: sosId,
+                ownerId: ownerId,
+                operation: operation,
+                payload: payload,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$SosSyncQueueTable, SosSyncQueueData>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $SosSyncQueueTable,
+                    SosSyncQueueData
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SosSyncQueueTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SosSyncQueueTable,
+      SosSyncQueueData,
+      $$SosSyncQueueTableFilterComposer,
+      $$SosSyncQueueTableOrderingComposer,
+      $$SosSyncQueueTableAnnotationComposer,
+      $$SosSyncQueueTableCreateCompanionBuilder,
+      $$SosSyncQueueTableUpdateCompanionBuilder,
+      (
+        SosSyncQueueData,
+        BaseReferences<_$AppDatabase, $SosSyncQueueTable, SosSyncQueueData>,
+      ),
+      SosSyncQueueData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
   $AppDatabaseManager(this._db);
   $$SosMessagesTableTableManager get sosMessages =>
       $$SosMessagesTableTableManager(_db, _db.sosMessages);
+  $$SosSyncQueueTableTableManager get sosSyncQueue =>
+      $$SosSyncQueueTableTableManager(_db, _db.sosSyncQueue);
 }

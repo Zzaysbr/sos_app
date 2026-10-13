@@ -1,0 +1,47 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidSos(data, sosId) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'type', 'message',
+          'latitude', 'longitude', 'status',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'ownerId', 'type', 'message',
+          'latitude', 'longitude', 'status',
+          'createdAt', 'updatedAt'
+        ])
+        && data.id == sosId
+        && data.ownerId == request.auth.uid
+        && data.type is string
+        && data.type.size() > 0
+        && (data.message == null || data.message is string)
+        && (data.latitude == null || data.latitude is number)
+        && (data.longitude == null || data.longitude is number)
+        && data.status in ['active', 'resolved', 'cancelled']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    match /sos/{sosId} {
+      allow create: if isSignedIn()
+        && isValidSos(request.resource.data, sosId)
+        && request.resource.data.status == 'active';
+
+      allow read, delete: if isSignedIn()
+        && resource.data.ownerId == request.auth.uid;
+
+      allow update: if isSignedIn()
+        && resource.data.ownerId == request.auth.uid
+        && isValidSos(request.resource.data, sosId)
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+  }
+}

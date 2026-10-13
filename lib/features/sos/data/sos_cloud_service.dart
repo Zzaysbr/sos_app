@@ -1,13 +1,18 @@
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SosCloudService {
   SosCloudService({FirebaseFirestore? firestore})
-    : _firestore = firestore ?? FirebaseFirestore.instance;
+      : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
-  CollectionReference<Map<String, dynamic>> get _collection {
-    return _firestore.collection('sos');
+  CollectionReference<Map<String, dynamic>> get _collection =>
+      _firestore.collection('sos');
+
+  Future<bool> exists(String id) async {
+    final snapshot = await _collection.doc(id).get();
+    return snapshot.exists;
   }
 
   Future<void> create({

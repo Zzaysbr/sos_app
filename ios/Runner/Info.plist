@@ -89,5 +89,8 @@
 		<string>_sosapp._tcp</string>
 		<string>_sosapp._udp</string>
 	</array>
+
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Location is used to include your current position with an emergency SOS.</string>
 </dict>
 </plist>

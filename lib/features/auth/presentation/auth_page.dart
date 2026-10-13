@@ -47,13 +47,26 @@ class _AuthPageState extends State<AuthPage> {
           password: _passwordController.text,
         );
       }
+    
     } on AuthException catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.message)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Authentication failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Unable to sign in. Check your connection and try again.',
+          ),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {

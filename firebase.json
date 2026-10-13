@@ -1,1 +1,40 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"sos-app-d811a","appId":"1:652209406668:android:3716e04154056114b1f869","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"sos-app-d811a","appId":"1:652209406668:ios:99511610f5bbc48db1f869","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"sos-app-d811a","configurations":{"android":"1:652209406668:android:3716e04154056114b1f869","ios":"1:652209406668:ios:99511610f5bbc48db1f869"}}}}}}
+
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "sos-app-d811a",
+          "appId": "1:652209406668:android:3716e04154056114b1f869",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "sos-app-d811a",
+          "appId": "1:652209406668:ios:99511610f5bbc48db1f869",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "sos-app-d811a",
+          "configurations": {
+            "android": "1:652209406668:android:3716e04154056114b1f869",
+            "ios": "1:652209406668:ios:99511610f5bbc48db1f869"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "security-tests/firestore.rules"
+  },
+  "emulators": {
+    "singleProjectMode": true,
+    "firestore": {
+      "port": 8080
+    }
+  }
+}
