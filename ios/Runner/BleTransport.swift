@@ -208,6 +208,15 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
           !queue.isEmpty else { return }
     while !queue.isEmpty {
       let pending = queue[0]
+      // The protocol intentionally uses the unnegotiated ATT payload size;
+      // CBPeripheralManager has no API for a per-central maximum here.
+      let maximum = 20
+      trace("TX notification bytes=\(pending.data.count) maximum=\(maximum) peer=\(uuid.uuidString)")
+      guard pending.data.count <= maximum else {
+        queue.removeFirst()
+        pending.result(FlutterError(code: "notification_too_large", message: "TX frame exceeds negotiated ATT payload", details: pending.data.count))
+        continue
+      }
       guard peripheral.updateValue(
         pending.data,
         for: characteristic,

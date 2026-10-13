@@ -25,10 +25,16 @@ class BleMessage {
 class BleMessageCodec {
   static const protocolVersion = 1;
   static const maxMessageBytes = 64 * 1024;
+  // 20 bytes is the guaranteed application payload for an unnegotiated ATT
+  // MTU. Every native implementation can carry this frame without truncation.
+  static const transportSafeFrameBytes = 20;
   // 1 byte version + 1 byte flags + 8 byte token + 2 byte index + 2 byte count.
   static const headerBytes = 14;
 
-  static List<List<int>> encode(BleMessage message, {int maxFrameBytes = 180}) {
+  static List<List<int>> encode(
+    BleMessage message, {
+    int maxFrameBytes = transportSafeFrameBytes,
+  }) {
     if (maxFrameBytes <= headerBytes) {
       throw const BleProtocolException('Frame size is too small');
     }

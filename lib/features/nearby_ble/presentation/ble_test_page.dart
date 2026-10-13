@@ -92,7 +92,10 @@ class _BleTestPageState extends State<BleTestPage> {
         break;
       case 'disconnected':
         _phase = 'disconnected';
-        if (device != null) _states[device.id] = 'disconnected';
+        if (device != null) {
+          _states[device.id] = 'disconnected';
+          _assemblers.removeWhere((key, _) => key.startsWith('${device.id}|'));
+        }
         if (device != null) {
           _connectionWaiters
               .remove(device.id)
@@ -142,7 +145,8 @@ class _BleTestPageState extends State<BleTestPage> {
   }
 
   void _handleData(BleEvent event) {
-    final key = event.device?.id ?? 'unknown';
+    final key =
+        '${event.device?.id ?? 'unknown'}|${event.role?.wireValue ?? 'central'}';
     final payload = event.payload;
     if (payload == null) {
       _log('Received data without a payload');
@@ -253,7 +257,10 @@ class _BleTestPageState extends State<BleTestPage> {
         createdAt: DateTime.now().toUtc(),
         payload: {'text': text},
       );
-      final frames = BleMessageCodec.encode(message);
+      final frames = BleMessageCodec.encode(
+        message,
+        maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
+      );
       for (final frame in frames) {
         _assertActive();
         await widget.transport.send(device.id, frame);

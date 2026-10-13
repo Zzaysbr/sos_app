@@ -31,6 +31,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
     SosBleRandom? random,
     this.retryBase = const Duration(seconds: 2),
     this.retryMax = const Duration(minutes: 5),
+    this.maxRetryAttempts = 8,
     this.staleAfter = const Duration(seconds: 30),
     this.pollInterval = const Duration(seconds: 5),
   }) : _transport = transport ?? BleTransport(),
@@ -38,7 +39,8 @@ class SosBleCoordinator with WidgetsBindingObserver {
        _deliveryRepository =
            deliveryRepository ?? BleDeliveryRepository(database),
        _now = now ?? DateTime.now,
-       _random = random ?? math.Random().nextDouble;
+       _random = random ?? math.Random().nextDouble,
+       assert(maxRetryAttempts > 0);
 
   final String ownerId;
   final BleTransportClient _transport;
@@ -49,6 +51,10 @@ class SosBleCoordinator with WidgetsBindingObserver {
   final SosBleRandom _random;
   final Duration retryBase;
   final Duration retryMax;
+
+  /// Failed rows remain in the outbox, but are expired after this many
+  /// attempts so an unreachable destination cannot monopolize the drain.
+  final int maxRetryAttempts;
   final Duration staleAfter;
   final Duration pollInterval;
 
@@ -212,7 +218,21 @@ class SosBleCoordinator with WidgetsBindingObserver {
           await _transport.connect(deviceId);
         } catch (error) {
           _connecting.remove(deviceId);
-          await _markFailed(row, 'connect failed: $error');
+          final reason = 'connect failed: $error';
+          try {
+            // Count connection attempts in the durable outbox as well as
+            // write attempts, otherwise an unreachable fixed peer can retry
+            // forever with retryCount stuck at zero.
+            final attempted = await _deliveryRepository.transitionOutboxState(
+              row.messageId,
+              BleOutboxState.sending,
+              now: _now(),
+            );
+            await _markFailed(attempted, reason);
+          } catch (transitionError) {
+            _log('Unable to record BLE connect attempt: $transitionError');
+            await _markFailed(row, reason);
+          }
         }
       }
       return;
@@ -226,7 +246,10 @@ class SosBleCoordinator with WidgetsBindingObserver {
         now: _now(),
       );
       final envelope = _decodeEnvelope(sending.payload);
-      final frames = BleMessageCodec.encode(envelope.toBleMessage());
+      final frames = BleMessageCodec.encode(
+        envelope.toBleMessage(),
+        maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
+      );
       final role = _sendRoleFor(deviceId);
       _log(
         'send sosId=${envelope.sosId} messageId=${envelope.messageId} '
@@ -287,6 +310,9 @@ class SosBleCoordinator with WidgetsBindingObserver {
             if (roles == null || roles.isEmpty) _connected.remove(deviceId);
           }
           _connecting.remove(deviceId);
+          // Do not complete a message with frames left over from a previous
+          // GATT session for this peer.
+          _assemblers.removeWhere((key, _) => key.startsWith('$deviceId|'));
           _log(
             'BLE disconnected: $deviceId${event.error == null ? '' : ' (${event.error})'}',
           );
@@ -311,13 +337,31 @@ class SosBleCoordinator with WidgetsBindingObserver {
     BleSessionRole role,
   ) async {
     if (frame == null) return;
+    final assemblerKey = '$deviceId|${role.wireValue}';
+    if (frame.length >= BleMessageCodec.headerBytes) {
+      final index = (frame[10] << 8) | frame[11];
+      final count = (frame[12] << 8) | frame[13];
+      _log(
+        'frame peer=$deviceId role=${role.wireValue} bytes=${frame.length} '
+        'index=$index/$count',
+      );
+    } else {
+      _log(
+        'frame peer=$deviceId role=${role.wireValue} bytes=${frame.length} '
+        'index=invalid',
+      );
+    }
     final assembler = _assemblers.putIfAbsent(
-      deviceId,
+      assemblerKey,
       BleMessageAssembler.new,
     );
     try {
       final message = assembler.accept(frame);
       if (message == null) return;
+      _log(
+        'assemblyComplete peer=$deviceId role=${role.wireValue} '
+        'messageId=${message.id}',
+      );
       final envelope = SosBleEnvelope.fromBleMessage(message);
       _log(
         'validated kind=${envelope.kind.wireValue} sosId=${envelope.sosId} '
@@ -329,7 +373,10 @@ class SosBleCoordinator with WidgetsBindingObserver {
         await _handleDelivery(deviceId, role, envelope);
       }
     } on BleProtocolException catch (error) {
-      _log('Rejected BLE protocol frame from $deviceId: $error');
+      _log(
+        'assemblyRejected peer=$deviceId role=${role.wireValue} '
+        'reason=$error',
+      );
     } on SosBleEnvelopeException catch (error) {
       _log('Rejected BLE SOS envelope from $deviceId: $error');
     } catch (error) {
@@ -425,6 +472,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
     try {
       for (final frame in BleMessageCodec.encode(
         acknowledgement.toBleMessage(),
+        maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
       )) {
         await _transport.send(deviceId, frame, role: role);
       }
@@ -468,7 +516,12 @@ class SosBleCoordinator with WidgetsBindingObserver {
       'deliveryFailed sosId=${row.sosId} messageId=${row.messageId} '
       'reason=$error',
     );
-    final attempts = math.max(1, row.retryCount + 1);
+    final current = await _deliveryRepository.lookupOutbox(row.messageId);
+    final attempts = math.max(1, current?.retryCount ?? row.retryCount + 1);
+    if (attempts >= maxRetryAttempts) {
+      await _expire(row.messageId, 'retry limit reached: $error');
+      return;
+    }
     final exponent = math.min(attempts - 1, 8);
     final baseMillis = retryBase.inMilliseconds * (1 << exponent);
     final boundedMillis = math.min(baseMillis, retryMax.inMilliseconds);

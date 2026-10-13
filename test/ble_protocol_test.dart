@@ -3,8 +3,8 @@ import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sos_app/features/nearby_ble/data/ble_protocol.dart';
 
-BleMessage _message({Object? payload}) => BleMessage(
-  id: 'message-1',
+BleMessage _message({Object? payload, String id = 'message-1'}) => BleMessage(
+  id: id,
   type: 'sos',
   createdAt: DateTime.utc(2026, 1, 1),
   payload: {'payload': payload ?? 'เหตุฉุกเฉิน 🚨'},
@@ -41,6 +41,35 @@ void main() {
     final frames = _frames(payload: List<String>.filled(50, 'data'));
     final shuffled = List<List<int>>.from(frames)..shuffle(Random(42));
     expect(BleMessageCodec.decode(shuffled).type, 'sos');
+  });
+
+  test('assembles interleaved messages independently by token', () {
+    final first = BleMessageCodec.encode(
+      _message(id: 'message-a', payload: 'a' * 80),
+    );
+    final second = BleMessageCodec.encode(
+      _message(id: 'message-b', payload: 'b' * 80),
+    );
+    final assembler = BleMessageAssembler();
+    final decoded = <String>{};
+    for (var i = 0; i < first.length || i < second.length; i++) {
+      if (i < first.length) {
+        final message = assembler.accept(first[i]);
+        if (message != null) decoded.add(message.id);
+      }
+      if (i < second.length) {
+        final message = assembler.accept(second[i]);
+        if (message != null) decoded.add(message.id);
+      }
+    }
+    expect(decoded, {'message-a', 'message-b'});
+  });
+
+  test('keeps every default frame within the unnegotiated ATT payload', () {
+    final frames = BleMessageCodec.encode(_message(payload: 'ack' * 80));
+    expect(frames, isNotEmpty);
+    expect(frames.every((frame) => frame.length <= 20), isTrue);
+    expect(BleMessageCodec.decode(frames).payload['payload'], 'ack' * 80);
   });
 
   test('accepts an identical duplicate but rejects conflicting duplicate', () {
@@ -134,6 +163,21 @@ void main() {
     );
   });
 
+  test('rejects a transport-truncated multi-frame message', () {
+    final fullFrames = BleMessageCodec.encode(
+      _message(id: 'truncated', payload: 'ack' * 80),
+      maxFrameBytes: 180,
+    );
+    final truncated = fullFrames
+        .map((frame) => frame.sublist(0, 20))
+        .toList(growable: false);
+    final assembler = BleMessageAssembler();
+    expect(
+      () => truncated.forEach(assembler.accept),
+      throwsA(isA<BleProtocolException>()),
+    );
+  });
+
   test('assembler handles duplicates and expires incomplete messages', () {
     final frames = _frames(payload: List<String>.filled(20, 'data'));
     final assembler = BleMessageAssembler(timeout: const Duration(seconds: 1));
@@ -151,5 +195,23 @@ void main() {
       assembler.accept(frames.last, now: start.add(const Duration(seconds: 2))),
       isNull,
     );
+  });
+
+  test('malformed frame does not poison the next complete message', () {
+    final frames = _frames(payload: 'recovery', frameSize: 20);
+    final assembler = BleMessageAssembler();
+    final malformed = List<int>.from(frames.first)..[0] = 0xff;
+
+    expect(
+      () => assembler.accept(malformed),
+      throwsA(isA<BleProtocolException>()),
+    );
+
+    BleMessage? decoded;
+    for (final frame in frames) {
+      decoded = assembler.accept(frame) ?? decoded;
+    }
+    expect(decoded?.id, 'message-1');
+    expect(decoded?.payload['payload'], 'recovery');
   });
 }

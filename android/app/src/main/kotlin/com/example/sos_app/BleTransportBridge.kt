@@ -65,6 +65,11 @@ class BleTransportBridge(
     private var advertiseCallback: AdvertiseCallback? = null
     private val clients = mutableMapOf<String, BluetoothGatt>()
     private val readyClients = mutableSetOf<String>()
+    private data class PendingGattWrite(val value: ByteArray, val result: MethodChannel.Result)
+    private val writeQueues = mutableMapOf<String, ArrayDeque<PendingGattWrite>>()
+    private val writeInFlight = mutableMapOf<String, PendingGattWrite>()
+    private val writeTimeouts = mutableMapOf<String, Runnable>()
+    private val gattWriteTimeoutMs = 5_000L
     private val notificationClients = mutableSetOf<String>()
     private val serverClients = mutableSetOf<String>()
     private val disconnectReasons = mutableMapOf<String, String>()
@@ -96,6 +101,7 @@ class BleTransportBridge(
         advertisingResult?.error("disposed", "BLE transport was disposed", null)
         advertisingResult = null
         clients.values.toList().forEach { it.disconnect(); it.close() }
+        failAllGattWrites("disposed", "BLE transport was disposed")
         clients.clear()
         readyClients.clear()
         notificationClients.clear()
@@ -383,6 +389,7 @@ class BleTransportBridge(
         disconnectReasons[id] = "flutter disconnect()"
         clients[id]?.let {
             logDebug("disconnect requested id=$id")
+            failGattWrites(id, "disconnected", "BLE connection was disconnected")
             it.disconnect()
             // Wait for onConnectionStateChange before closing this object.
         }
@@ -411,16 +418,93 @@ class BleTransportBridge(
             result.error("not_connected", "GATT is not ready for $id", null)
             return
         }
-        // Use a write-with-response so onCharacteristicWrite can confirm the
-        // operation before the Dart layer reports it as accepted.
-        characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-        characteristic.value = bytes
-        if (!gatt.writeCharacteristic(characteristic)) {
-            result.error("write_failed", "Android rejected the GATT write", null)
-            emitError("GATT write rejected for $id")
+        // Android permits only one outstanding GATT write per connection. The
+        // Dart coordinator sends frames sequentially, so this future must not
+        // complete until onCharacteristicWrite confirms the native operation.
+        val queue = writeQueues.getOrPut(id) { ArrayDeque() }
+        queue.addLast(PendingGattWrite(bytes.copyOf(), result))
+        flushGattWrites(id)
+    }
+
+    private fun flushGattWrites(id: String) {
+        if (writeInFlight.containsKey(id)) return
+        val queue = writeQueues[id] ?: return
+        val pending = queue.firstOrNull() ?: run {
+            writeQueues.remove(id)
             return
         }
-        result.success(null)
+        val gatt = clients[id]
+        val characteristic = gatt?.getService(SERVICE)?.getCharacteristic(RX)
+        if (gatt == null || characteristic == null || !readyClients.contains(id)) {
+            failGattWrites(id, "not_connected", "GATT is no longer ready for $id")
+            return
+        }
+
+        writeInFlight[id] = pending
+        val timeout = Runnable {
+            completeGattWrite(
+                id,
+                BluetoothGatt.GATT_FAILURE,
+                "GATT write timed out for $id",
+                continueQueue = false,
+            )
+            failGattWrites(id, "timeout", "GATT write queue timed out for $id")
+            clients[id]?.disconnect()
+        }
+        writeTimeouts[id] = timeout
+        mainHandler.postDelayed(timeout, gattWriteTimeoutMs)
+
+        val accepted = try {
+            characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+            characteristic.value = pending.value
+            gatt.writeCharacteristic(characteristic)
+        } catch (error: Exception) {
+            logError("GATT write threw for $id: ${error.message}")
+            false
+        }
+        if (!accepted) {
+            mainHandler.removeCallbacks(timeout)
+            writeTimeouts.remove(id)
+            writeInFlight.remove(id)
+            if (queue.isNotEmpty()) queue.removeFirst()
+            pending.result.error("write_failed", "Android rejected the GATT write", null)
+            emitError("GATT write rejected for $id")
+            flushGattWrites(id)
+        }
+    }
+
+    private fun completeGattWrite(
+        id: String,
+        status: Int,
+        failure: String? = null,
+        continueQueue: Boolean = true,
+    ) {
+        val pending = writeInFlight.remove(id) ?: return
+        writeTimeouts.remove(id)?.let(mainHandler::removeCallbacks)
+        writeQueues[id]?.let { queue -> if (queue.isNotEmpty()) queue.removeFirst() }
+        val gatt = clients[id]
+        if (status == BluetoothGatt.GATT_SUCCESS) {
+            pending.result.success(null)
+            if (gatt != null) {
+                emit(mapOf("type" to "sendAccepted", "device" to device(gatt.device), "role" to "central"))
+            }
+        } else {
+            pending.result.error("write_failed", failure ?: "GATT write failed (status $status)", null)
+            emitError(failure ?: "GATT write callback failed for $id (status $status)")
+        }
+        if (continueQueue) flushGattWrites(id)
+    }
+
+    private fun failGattWrites(id: String, code: String, message: String) {
+        writeTimeouts.remove(id)?.let(mainHandler::removeCallbacks)
+        writeInFlight.remove(id)?.result?.error(code, message, null)
+        writeQueues.remove(id)?.forEach { it.result.error(code, message, null) }
+    }
+
+    private fun failAllGattWrites(code: String, message: String) {
+        (writeQueues.keys + writeInFlight.keys).toSet().forEach {
+            failGattWrites(it, code, message)
+        }
     }
 
     private fun sendPeripheralNotification(
@@ -459,6 +543,7 @@ class BleTransportBridge(
             flushPeripheralNotifications(id)
             return
         }
+        logDebug("TX notification send id=$id bytes=${pending.value.size}")
         tx.value = pending.value
         val accepted = if (Build.VERSION.SDK_INT >= 33) {
             currentServer.notifyCharacteristicChanged(
@@ -582,8 +667,12 @@ class BleTransportBridge(
             onMain {
                 logDebug("onCharacteristicWrite id=${gatt.device.address} uuid=${characteristic.uuid} status=$status")
                 if (characteristic.uuid == RX) {
-                    if (status == BluetoothGatt.GATT_SUCCESS) emit(mapOf("type" to "sendAccepted", "device" to device(gatt.device), "role" to "central"))
-                    else emitError("GATT write callback failed for ${gatt.device.address} (status $status)")
+                    completeGattWrite(
+                        gatt.device.address,
+                        status,
+                        if (status == BluetoothGatt.GATT_SUCCESS) null
+                        else "GATT write callback failed for ${gatt.device.address} (status $status)",
+                    )
                 }
             }
         }
@@ -616,6 +705,7 @@ class BleTransportBridge(
         val reason = disconnectReasons[id] ?: "remote_or_stack"
         logDebug("onConnectionStateChange id=$id status=$status newState=$newState reason=$reason")
         if (status != BluetoothGatt.GATT_SUCCESS) {
+            failGattWrites(id, "disconnected", "GATT connection failed for $id (status $status)")
             readyClients.remove(id)
             if (clients[id] === gatt) clients.remove(id)
             gatt.close()
@@ -632,6 +722,7 @@ class BleTransportBridge(
                 gatt.disconnect()
             }
         } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+            failGattWrites(id, "disconnected", "GATT disconnected for $id")
             readyClients.remove(id)
             if (clients[id] === gatt) clients.remove(id)
             gatt.close()

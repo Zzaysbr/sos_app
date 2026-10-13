@@ -20,6 +20,7 @@ class FakeBleTransport implements BleTransportClient {
   bool initialized = false;
   bool disposed = false;
   bool failWrites = false;
+  bool failConnect = false;
 
   @override
   Stream<BleEvent> get events => controller.stream;
@@ -43,7 +44,12 @@ class FakeBleTransport implements BleTransportClient {
   Future<void> stopDiscovery() async {}
 
   @override
-  Future<void> connect(String deviceId) async => connectCalls.add(deviceId);
+  Future<void> connect(String deviceId) async {
+    connectCalls.add(deviceId);
+    if (failConnect) {
+      throw const BleTransportException('connect failed');
+    }
+  }
 
   @override
   Future<void> disconnect(String deviceId) async {}
@@ -128,6 +134,12 @@ void main() {
       final sent = _decodeSent(transport.sent);
       expect(sent.id, row.messageId);
       expect(sent.type, SosBleMessageKind.delivery.wireValue);
+      expect(
+        transport.sent.every(
+          (frame) => frame.length <= BleMessageCodec.transportSafeFrameBytes,
+        ),
+        isTrue,
+      );
 
       final ack = SosBleEnvelope.acknowledgement(
         messageId: 'ack:${row.messageId}',
@@ -141,6 +153,13 @@ void main() {
       }
       await _settle();
       await coordinator.processDue();
+
+      expect(
+        transport.sent.every(
+          (frame) => frame.length <= BleMessageCodec.transportSafeFrameBytes,
+        ),
+        isTrue,
+      );
 
       final stored = await coordinatorFor(database).lookupOutbox(row.messageId);
       expect(stored!.state, BleOutboxState.acknowledged.wireValue);
@@ -249,6 +268,47 @@ void main() {
 
     expect(transport.sent, isEmpty);
     expect(transport.connectCalls, contains(device.id));
+  });
+
+  test('failed connection attempts advance durable retry count', () async {
+    transport.failConnect = true;
+    transport.emit(const BleEvent(type: 'disconnected', device: device));
+    await _settle();
+    final row = await coordinator.enqueueSos(_sos(), destinationId: device.id);
+    await coordinator.processDue();
+
+    final stored = await coordinatorFor(database).lookupOutbox(row.messageId);
+    expect(stored!.state, BleOutboxState.failed.wireValue);
+    expect(stored.retryCount, 1);
+    expect(stored.nextRetryAt, isNotNull);
+  });
+
+  test('disconnect clears partial assembly state before reconnect', () async {
+    final delivery = SosBleEnvelope.fromSosMessage(
+      _sos(),
+      messageId: 'session-reset-delivery',
+      senderDeviceId: device.id,
+    );
+    final frames = BleMessageCodec.encode(delivery.toBleMessage());
+    transport.emit(
+      BleEvent(type: 'data', device: device, payload: frames.first),
+    );
+    await _settle();
+    transport.emit(const BleEvent(type: 'disconnected', device: device));
+    transport.emit(const BleEvent(type: 'connected', device: device));
+    await _settle();
+
+    for (final frame in frames.skip(1)) {
+      transport.emit(BleEvent(type: 'data', device: device, payload: frame));
+    }
+    await _settle();
+    expect(await database.select(database.bleInbox).get(), isEmpty);
+
+    for (final frame in frames) {
+      transport.emit(BleEvent(type: 'data', device: device, payload: frame));
+    }
+    await _settle();
+    expect(await database.select(database.bleInbox).get(), hasLength(1));
   });
 
   test(
