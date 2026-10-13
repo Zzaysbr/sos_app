@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../sos/data/chat_repository.dart';
 import '../domain/ble_delivery_state.dart';
 import '../domain/ble_models.dart';
 import '../domain/sos_ble_envelope.dart';
@@ -26,6 +27,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
     required this.ownerId,
     BleTransportClient? transport,
     BleDeliveryRepository? deliveryRepository,
+    this.chatRepository,
     this.onLog,
     SosBleNow? now,
     SosBleRandom? random,
@@ -46,6 +48,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
   final BleTransportClient _transport;
   final bool _ownsTransport;
   final BleDeliveryRepository _deliveryRepository;
+  final ChatRepository? chatRepository;
   final void Function(String message)? onLog;
   final SosBleNow _now;
   final SosBleRandom _random;
@@ -155,6 +158,32 @@ class SosBleCoordinator with WidgetsBindingObserver {
     _log(
       'enqueue sosId=${envelope.sosId} messageId=${row.messageId} '
       'state=${row.state}',
+    );
+    if (_started) unawaited(processDue());
+    return row;
+  }
+
+  Future<BleOutboxData> enqueueChat(
+    EmergencyChatMessage chat, {
+    String? destinationId,
+    String? senderDeviceId,
+  }) async {
+    _ensureUsable();
+    final envelope = SosBleEnvelope.chatMessage(
+      messageId: chat.id,
+      sosId: chat.sosId,
+      senderDeviceId: senderDeviceId ?? ownerId,
+      chatSenderId: chat.senderId,
+      chatText: chat.text,
+      createdAt: chat.createdAt,
+    );
+    final row = await _deliveryRepository.enqueueOutbox(
+      envelope,
+      destinationId: destinationId,
+      now: _now(),
+    );
+    _log(
+      'enqueue chat sosId=${chat.sosId} messageId=${chat.id} state=${row.state}',
     );
     if (_started) unawaited(processDue());
     return row;
@@ -367,10 +396,13 @@ class SosBleCoordinator with WidgetsBindingObserver {
         'validated kind=${envelope.kind.wireValue} sosId=${envelope.sosId} '
         'messageId=${envelope.messageId} peer=$deviceId role=${role.wireValue}',
       );
-      if (envelope.kind == SosBleMessageKind.acknowledgement) {
+      if (envelope.kind == SosBleMessageKind.acknowledgement ||
+          envelope.kind == SosBleMessageKind.chatAcknowledgement) {
         await _handleAcknowledgement(deviceId, envelope);
-      } else {
+      } else if (envelope.kind == SosBleMessageKind.delivery) {
         await _handleDelivery(deviceId, role, envelope);
+      } else {
+        await _handleChatDelivery(deviceId, role, envelope);
       }
     } on BleProtocolException catch (error) {
       _log(
@@ -394,6 +426,14 @@ class SosBleCoordinator with WidgetsBindingObserver {
         sourceDeviceId: deviceId,
         now: _now(),
       );
+      if (envelope.kind == SosBleMessageKind.chatAcknowledgement) {
+        await chatRepository?.updateDeliveryStatus(
+          envelope.ackFor!,
+          envelope.ackStatus == SosBleAckStatus.persisted
+              ? ChatDeliveryStatus.delivered
+              : ChatDeliveryStatus.failed,
+        );
+      }
       _log(
         'acknowledged sosId=${envelope.sosId} messageId=${envelope.ackFor} '
         'ackId=${envelope.messageId} status=${envelope.ackStatus!.wireValue} '
@@ -450,6 +490,58 @@ class SosBleCoordinator with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _handleChatDelivery(
+    String deviceId,
+    BleSessionRole role,
+    SosBleEnvelope envelope,
+  ) async {
+    final chatRepository = this.chatRepository;
+    if (chatRepository == null ||
+        envelope.chatSenderId == null ||
+        envelope.chatText == null) {
+      _log(
+        'chatRejected messageId=${envelope.messageId} reason=chat repository unavailable',
+      );
+      return;
+    }
+    if (!_processingMessages.add(envelope.messageId)) return;
+    try {
+      try {
+        await chatRepository.insertIncomingMessage(
+          messageId: envelope.messageId,
+          sosId: envelope.sosId,
+          senderId: envelope.chatSenderId!,
+          text: envelope.chatText!,
+          createdAt: envelope.createdAt,
+        );
+        _log(
+          'chatPersisted sosId=${envelope.sosId} messageId=${envelope.messageId} peer=$deviceId',
+        );
+      } catch (error) {
+        _log(
+          'chatPersistRejected messageId=${envelope.messageId} reason=$error',
+        );
+        await _sendChatAcknowledgement(
+          deviceId,
+          role,
+          envelope,
+          SosBleAckStatus.rejected,
+          error.toString(),
+        );
+        return;
+      }
+      await _sendChatAcknowledgement(
+        deviceId,
+        role,
+        envelope,
+        SosBleAckStatus.persisted,
+        null,
+      );
+    } finally {
+      _processingMessages.remove(envelope.messageId);
+    }
+  }
+
   Future<void> _sendAcknowledgement(
     String deviceId,
     BleSessionRole role,
@@ -492,6 +584,37 @@ class SosBleCoordinator with WidgetsBindingObserver {
         'ackSendFailed sosId=${delivery.sosId} '
         'messageId=${delivery.messageId} reason=$error',
       );
+    }
+  }
+
+  Future<void> _sendChatAcknowledgement(
+    String deviceId,
+    BleSessionRole role,
+    SosBleEnvelope delivery,
+    SosBleAckStatus status,
+    String? error,
+  ) async {
+    if (!(_connected[deviceId]?.contains(role) ?? false)) return;
+    final acknowledgement = SosBleEnvelope.chatAcknowledgement(
+      messageId: 'ack:${delivery.messageId}',
+      sosId: delivery.sosId,
+      ackFor: delivery.messageId,
+      ackStatus: status,
+      error: error,
+      createdAt: _now(),
+    );
+    try {
+      for (final frame in BleMessageCodec.encode(
+        acknowledgement.toBleMessage(),
+        maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
+      )) {
+        await _transport.send(deviceId, frame, role: role);
+      }
+      _log(
+        'chatAckSent sosId=${delivery.sosId} messageId=${delivery.messageId} status=${status.wireValue} peer=$deviceId',
+      );
+    } catch (error) {
+      _log('chatAckSendFailed messageId=${delivery.messageId} reason=$error');
     }
   }
 

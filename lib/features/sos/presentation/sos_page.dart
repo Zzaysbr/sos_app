@@ -7,15 +7,27 @@ import '../../../core/database/app_database.dart';
 import '../../nearby_ble/data/ble_transport.dart';
 import '../../nearby_ble/presentation/ble_test_page.dart';
 import '../data/sos_repository.dart';
+import '../data/chat_repository.dart';
 import 'account_page.dart';
+import 'emergency_chat_page.dart';
+import 'in_app_notifications_page.dart';
 
 import 'package:geolocator/geolocator.dart';
 
 class SosPage extends StatefulWidget {
-  const SosPage({super.key, required this.repository, this.bleTransport});
+  const SosPage({
+    super.key,
+    required this.repository,
+    this.bleTransport,
+    this.chatRepository,
+    this.onChatMessageCreated,
+  });
 
   final SosRepository repository;
   final BleTransportClient? bleTransport;
+  final ChatRepository? chatRepository;
+  final Future<void> Function(EmergencyChatMessage message)?
+  onChatMessageCreated;
 
   @override
   State<SosPage> createState() => _SosPageState();
@@ -29,12 +41,16 @@ class _SosPageState extends State<SosPage> {
   double _sosHoldProgress = 0;
   Timer? _sosHoldTimer;
   String _historyFilter = 'all';
+  String _historySearch = '';
+  bool _historyNewestFirst = true;
+  final _historySearchController = TextEditingController();
 
   static const _sosHoldDuration = Duration(milliseconds: 1400);
 
   @override
   void dispose() {
     _sosHoldTimer?.cancel();
+    _historySearchController.dispose();
     super.dispose();
   }
 
@@ -43,7 +59,12 @@ class _SosPageState extends State<SosPage> {
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
-        children: [_buildHome(), _buildHistory(), _buildSettings()],
+        children: [
+          _buildHome(),
+          _buildHistory(),
+          _buildChat(),
+          _buildSettings(),
+        ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
@@ -62,6 +83,11 @@ class _SosPageState extends State<SosPage> {
             icon: Icon(Icons.history_outlined),
             selectedIcon: Icon(Icons.history),
             label: 'History',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.chat_bubble_outline),
+            selectedIcon: Icon(Icons.chat_bubble),
+            label: 'Chat',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),
@@ -619,6 +645,27 @@ class _SosPageState extends State<SosPage> {
                       ),
                       const SizedBox(height: 20),
                       _buildHistoryFilter(),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _historySearchController,
+                        onChanged: (value) => setState(
+                          () => _historySearch = value.trim().toLowerCase(),
+                        ),
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.search),
+                          hintText: 'Search SOS ID or message',
+                          suffixIcon: _historySearch.isEmpty
+                              ? null
+                              : IconButton(
+                                  onPressed: () {
+                                    _historySearchController.clear();
+                                    setState(() => _historySearch = '');
+                                  },
+                                  icon: const Icon(Icons.clear),
+                                ),
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
                       const SizedBox(height: 20),
                       if (filteredMessages.isEmpty)
                         _buildEmptyCard(
@@ -681,6 +728,30 @@ class _SosPageState extends State<SosPage> {
                       : const Color(0xFFAAA4A2),
                 ),
               ),
+            ListTile(
+              leading: const Icon(Icons.sort),
+              title: Text(
+                _historyNewestFirst ? 'Newest first' : 'Oldest first',
+              ),
+              trailing: const Icon(Icons.swap_vert),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() => _historyNewestFirst = !_historyNewestFirst);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.restart_alt),
+              title: const Text('Reset filters'),
+              onTap: () {
+                Navigator.pop(context);
+                _historySearchController.clear();
+                setState(() {
+                  _historyFilter = 'all';
+                  _historySearch = '';
+                  _historyNewestFirst = true;
+                });
+              },
+            ),
             const SizedBox(height: 8),
           ],
         ),
@@ -692,13 +763,21 @@ class _SosPageState extends State<SosPage> {
   }
 
   List<SosMessage> _filterHistory(List<SosMessage> messages) {
-    if (_historyFilter == 'all') {
-      return messages;
-    }
-
-    return messages
-        .where((message) => message.status == _historyFilter)
-        .toList();
+    final filtered = messages.where((message) {
+      final statusMatches =
+          _historyFilter == 'all' || message.status == _historyFilter;
+      final queryMatches =
+          _historySearch.isEmpty ||
+          message.id.toLowerCase().contains(_historySearch) ||
+          (message.message ?? '').toLowerCase().contains(_historySearch);
+      return statusMatches && queryMatches;
+    }).toList();
+    filtered.sort(
+      (a, b) => _historyNewestFirst
+          ? b.createdAt.compareTo(a.createdAt)
+          : a.createdAt.compareTo(b.createdAt),
+    );
+    return filtered;
   }
 
   Widget _buildHistorySummary({
@@ -1048,6 +1127,13 @@ class _SosPageState extends State<SosPage> {
   // SETTINGS
   // ---------------------------------------------------------------------------
 
+  Widget _buildChat() {
+    return EmergencyChatPage(
+      repository: widget.chatRepository,
+      onMessageCreated: widget.onChatMessageCreated,
+    );
+  }
+
   Widget _buildSettings() {
     return SafeArea(
       child: CustomScrollView(
@@ -1065,16 +1151,22 @@ class _SosPageState extends State<SosPage> {
                     _buildSettingsTile(
                       icon: Icons.notifications_outlined,
                       title: 'Notifications',
-                      subtitle: 'Coming soon · Emergency notifications',
-                      onTap: () => _showSettingsInfo(
-                        title: 'Notifications',
-                        description:
-                            'Manage how emergency alerts will be delivered.',
-                        icon: Icons.notifications_outlined,
-                        details: [
-                          'Notification preferences are not configurable yet.',
-                          'Push notifications require a notification service and device permissions.',
-                        ],
+                      subtitle: 'SOS updates and in-app alerts',
+                      onTap: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute<void>(
+                          builder: (_) => InAppNotificationsPage(
+                            onOpen: (notification) {
+                              final sosId = notification.sosId;
+                              if (sosId == null) return;
+                              Navigator.of(context).push<void>(
+                                MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      EmergencyChatPage(sosId: sosId),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
                       ),
                     ),
                     const Divider(height: 1, indent: 56),
@@ -1127,86 +1219,6 @@ class _SosPageState extends State<SosPage> {
           ),
         ],
       ),
-    );
-  }
-
-  Future<void> _showSettingsInfo({
-    required String title,
-    required String description,
-    required List<String> details,
-    required IconData icon,
-  }) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (sheetContext) {
-        final theme = Theme.of(sheetContext);
-        final colors = theme.colorScheme;
-
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 26,
-                      backgroundColor: colors.primaryContainer,
-                      foregroundColor: colors.onPrimaryContainer,
-                      child: Icon(icon, size: 26),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                Text(description, style: theme.textTheme.bodyMedium),
-                const SizedBox(height: 20),
-                for (final detail in details)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.info_outline,
-                          size: 20,
-                          color: colors.primary,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            detail,
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () => Navigator.of(sheetContext).pop(),
-                    child: const Text('Close'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -1587,6 +1599,22 @@ class _SosPageState extends State<SosPage> {
                     label: 'Message',
                     value: sos.message!,
                   ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(sheetContext).pop();
+                      Navigator.of(context).push<void>(
+                        MaterialPageRoute<void>(
+                          builder: (_) => EmergencyChatPage(sosId: sos.id),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.chat_bubble_outline),
+                    label: const Text('Open incident chat'),
+                  ),
+                ),
                 if (sos.latitude != null && sos.longitude != null)
                   _buildDetailRow(
                     icon: Icons.location_on_outlined,

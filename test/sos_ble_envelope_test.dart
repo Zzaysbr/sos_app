@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sos_app/core/database/app_database.dart';
 import 'package:sos_app/features/nearby_ble/domain/sos_ble_envelope.dart';
@@ -109,6 +111,57 @@ void main() {
     expect(decoded.ackFor, 'transport-1');
     expect(
       () => decoded.toSosCompanion(ownerId: 'owner-1'),
+      throwsA(isA<SosBleEnvelopeException>()),
+    );
+  });
+
+  test('round trips chat messages and chat acknowledgements', () {
+    final message = SosBleEnvelope.chatMessage(
+      messageId: 'chat-1',
+      sosId: 'sos-1',
+      senderDeviceId: 'device-a',
+      chatSenderId: 'user-a',
+      chatText: 'Need assistance',
+      createdAt: DateTime.utc(2026),
+    );
+    final parsed = SosBleEnvelope.fromJsonString(jsonEncode(message.toJson()));
+    expect(parsed.kind, SosBleMessageKind.chatMessage);
+    expect(parsed.chatText, 'Need assistance');
+
+    final ack = SosBleEnvelope.chatAcknowledgement(
+      messageId: 'ack:chat-1',
+      sosId: 'sos-1',
+      ackFor: 'chat-1',
+      ackStatus: SosBleAckStatus.persisted,
+      createdAt: DateTime.utc(2026),
+    );
+    expect(
+      SosBleEnvelope.fromJsonString(jsonEncode(ack.toJson())).kind,
+      SosBleMessageKind.chatAcknowledgement,
+    );
+  });
+
+  test('rejects empty or oversized chat text', () {
+    expect(
+      () => SosBleEnvelope.chatMessage(
+        messageId: 'chat-1',
+        sosId: 'sos-1',
+        senderDeviceId: 'device-a',
+        chatSenderId: 'user-a',
+        chatText: '',
+        createdAt: DateTime.utc(2026),
+      ),
+      throwsA(isA<SosBleEnvelopeException>()),
+    );
+    expect(
+      () => SosBleEnvelope.chatMessage(
+        messageId: 'chat-1',
+        sosId: 'sos-1',
+        senderDeviceId: 'device-a',
+        chatSenderId: 'user-a',
+        chatText: 'x' * (SosBleEnvelope.maxMessageLength + 1),
+        createdAt: DateTime.utc(2026),
+      ),
       throwsA(isA<SosBleEnvelopeException>()),
     );
   });

@@ -11,6 +11,7 @@ import 'features/auth/data/auth_service.dart';
 import 'features/auth/presentation/auth_page.dart';
 import 'features/nearby_ble/data/sos_ble_coordinator.dart';
 import 'features/sos/data/sos_cloud_service.dart';
+import 'features/sos/data/chat_repository.dart';
 import 'features/sos/data/sos_repository.dart';
 import 'features/sos/data/sos_sync_coordinator.dart';
 import 'features/sos/presentation/sos_page.dart';
@@ -65,6 +66,7 @@ class _AuthGateState extends State<AuthGate> {
   SosRepository? _repository;
   SosSyncCoordinator? _syncCoordinator;
   SosBleCoordinator? _bleCoordinator;
+  ChatRepository? _chatRepository;
   String? _repositoryOwnerId;
 
   void _disposeSyncResources() {
@@ -73,6 +75,7 @@ class _AuthGateState extends State<AuthGate> {
     _syncCoordinator = null;
     _bleCoordinator = null;
     _repository = null;
+    _chatRepository = null;
     _repositoryOwnerId = null;
 
     if (coordinator != null) {
@@ -92,9 +95,15 @@ class _AuthGateState extends State<AuthGate> {
 
     _disposeSyncResources();
 
+    final chatRepository = PersistentChatRepository(
+      database: widget.database,
+      ownerId: user.uid,
+    );
+    _chatRepository = chatRepository;
     final bleCoordinator = SosBleCoordinator(
       database: widget.database,
       ownerId: user.uid,
+      chatRepository: chatRepository,
       onLog: kDebugMode
           ? (message) => debugPrint('[BLE delivery] $message')
           : null,
@@ -164,6 +173,8 @@ class _AuthGateState extends State<AuthGate> {
         return SosPage(
           repository: _repository!,
           bleTransport: _bleCoordinator?.transport,
+          chatRepository: _chatRepository,
+          onChatMessageCreated: _bleCoordinator?.enqueueChat,
         );
       },
     );

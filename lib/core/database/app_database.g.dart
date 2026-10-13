@@ -2411,6 +2411,823 @@ class BleInboxCompanion extends UpdateCompanion<BleInboxData> {
   }
 }
 
+class $ChatMessagesTable extends ChatMessages
+    with TableInfo<$ChatMessagesTable, ChatMessage> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ChatMessagesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _messageIdMeta = const VerificationMeta(
+    'messageId',
+  );
+  @override
+  late final GeneratedColumn<String> messageId = GeneratedColumn<String>(
+    'message_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sosIdMeta = const VerificationMeta('sosId');
+  @override
+  late final GeneratedColumn<String> sosId = GeneratedColumn<String>(
+    'sos_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ownerIdMeta = const VerificationMeta(
+    'ownerId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerId = GeneratedColumn<String>(
+    'owner_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _senderIdMeta = const VerificationMeta(
+    'senderId',
+  );
+  @override
+  late final GeneratedColumn<String> senderId = GeneratedColumn<String>(
+    'sender_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _messageTypeMeta = const VerificationMeta(
+    'messageType',
+  );
+  @override
+  late final GeneratedColumn<String> messageType = GeneratedColumn<String>(
+    'message_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _textContentMeta = const VerificationMeta(
+    'textContent',
+  );
+  @override
+  late final GeneratedColumn<String> textContent = GeneratedColumn<String>(
+    'text_content',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deliveryStatusMeta = const VerificationMeta(
+    'deliveryStatus',
+  );
+  @override
+  late final GeneratedColumn<String> deliveryStatus = GeneratedColumn<String>(
+    'delivery_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _attachmentPathMeta = const VerificationMeta(
+    'attachmentPath',
+  );
+  @override
+  late final GeneratedColumn<String> attachmentPath = GeneratedColumn<String>(
+    'attachment_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _attachmentMimeTypeMeta =
+      const VerificationMeta('attachmentMimeType');
+  @override
+  late final GeneratedColumn<String> attachmentMimeType =
+      GeneratedColumn<String>(
+        'attachment_mime_type',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _attachmentNameMeta = const VerificationMeta(
+    'attachmentName',
+  );
+  @override
+  late final GeneratedColumn<String> attachmentName = GeneratedColumn<String>(
+    'attachment_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _remoteMessageIdMeta = const VerificationMeta(
+    'remoteMessageId',
+  );
+  @override
+  late final GeneratedColumn<String> remoteMessageId = GeneratedColumn<String>(
+    'remote_message_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _transportMetadataMeta = const VerificationMeta(
+    'transportMetadata',
+  );
+  @override
+  late final GeneratedColumn<String> transportMetadata =
+      GeneratedColumn<String>(
+        'transport_metadata',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    messageId,
+    sosId,
+    ownerId,
+    senderId,
+    messageType,
+    textContent,
+    createdAt,
+    deliveryStatus,
+    attachmentPath,
+    attachmentMimeType,
+    attachmentName,
+    remoteMessageId,
+    transportMetadata,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'chat_messages';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ChatMessage> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('message_id')) {
+      context.handle(
+        _messageIdMeta,
+        messageId.isAcceptableOrUnknown(data['message_id']!, _messageIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_messageIdMeta);
+    }
+    if (data.containsKey('sos_id')) {
+      context.handle(
+        _sosIdMeta,
+        sosId.isAcceptableOrUnknown(data['sos_id']!, _sosIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sosIdMeta);
+    }
+    if (data.containsKey('owner_id')) {
+      context.handle(
+        _ownerIdMeta,
+        ownerId.isAcceptableOrUnknown(data['owner_id']!, _ownerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerIdMeta);
+    }
+    if (data.containsKey('sender_id')) {
+      context.handle(
+        _senderIdMeta,
+        senderId.isAcceptableOrUnknown(data['sender_id']!, _senderIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_senderIdMeta);
+    }
+    if (data.containsKey('message_type')) {
+      context.handle(
+        _messageTypeMeta,
+        messageType.isAcceptableOrUnknown(
+          data['message_type']!,
+          _messageTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_messageTypeMeta);
+    }
+    if (data.containsKey('text_content')) {
+      context.handle(
+        _textContentMeta,
+        textContent.isAcceptableOrUnknown(
+          data['text_content']!,
+          _textContentMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('delivery_status')) {
+      context.handle(
+        _deliveryStatusMeta,
+        deliveryStatus.isAcceptableOrUnknown(
+          data['delivery_status']!,
+          _deliveryStatusMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_deliveryStatusMeta);
+    }
+    if (data.containsKey('attachment_path')) {
+      context.handle(
+        _attachmentPathMeta,
+        attachmentPath.isAcceptableOrUnknown(
+          data['attachment_path']!,
+          _attachmentPathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('attachment_mime_type')) {
+      context.handle(
+        _attachmentMimeTypeMeta,
+        attachmentMimeType.isAcceptableOrUnknown(
+          data['attachment_mime_type']!,
+          _attachmentMimeTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('attachment_name')) {
+      context.handle(
+        _attachmentNameMeta,
+        attachmentName.isAcceptableOrUnknown(
+          data['attachment_name']!,
+          _attachmentNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('remote_message_id')) {
+      context.handle(
+        _remoteMessageIdMeta,
+        remoteMessageId.isAcceptableOrUnknown(
+          data['remote_message_id']!,
+          _remoteMessageIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('transport_metadata')) {
+      context.handle(
+        _transportMetadataMeta,
+        transportMetadata.isAcceptableOrUnknown(
+          data['transport_metadata']!,
+          _transportMetadataMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {messageId};
+  @override
+  ChatMessage map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ChatMessage(
+      messageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}message_id'],
+      )!,
+      sosId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sos_id'],
+      )!,
+      ownerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_id'],
+      )!,
+      senderId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sender_id'],
+      )!,
+      messageType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}message_type'],
+      )!,
+      textContent: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}text_content'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      deliveryStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}delivery_status'],
+      )!,
+      attachmentPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}attachment_path'],
+      ),
+      attachmentMimeType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}attachment_mime_type'],
+      ),
+      attachmentName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}attachment_name'],
+      ),
+      remoteMessageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}remote_message_id'],
+      ),
+      transportMetadata: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}transport_metadata'],
+      ),
+    );
+  }
+
+  @override
+  $ChatMessagesTable createAlias(String alias) {
+    return $ChatMessagesTable(attachedDatabase, alias);
+  }
+}
+
+class ChatMessage extends DataClass implements Insertable<ChatMessage> {
+  final String messageId;
+  final String sosId;
+  final String ownerId;
+  final String senderId;
+  final String messageType;
+  final String? textContent;
+  final DateTime createdAt;
+  final String deliveryStatus;
+  final String? attachmentPath;
+  final String? attachmentMimeType;
+  final String? attachmentName;
+  final String? remoteMessageId;
+  final String? transportMetadata;
+  const ChatMessage({
+    required this.messageId,
+    required this.sosId,
+    required this.ownerId,
+    required this.senderId,
+    required this.messageType,
+    this.textContent,
+    required this.createdAt,
+    required this.deliveryStatus,
+    this.attachmentPath,
+    this.attachmentMimeType,
+    this.attachmentName,
+    this.remoteMessageId,
+    this.transportMetadata,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['message_id'] = Variable<String>(messageId);
+    map['sos_id'] = Variable<String>(sosId);
+    map['owner_id'] = Variable<String>(ownerId);
+    map['sender_id'] = Variable<String>(senderId);
+    map['message_type'] = Variable<String>(messageType);
+    if (!nullToAbsent || textContent != null) {
+      map['text_content'] = Variable<String>(textContent);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['delivery_status'] = Variable<String>(deliveryStatus);
+    if (!nullToAbsent || attachmentPath != null) {
+      map['attachment_path'] = Variable<String>(attachmentPath);
+    }
+    if (!nullToAbsent || attachmentMimeType != null) {
+      map['attachment_mime_type'] = Variable<String>(attachmentMimeType);
+    }
+    if (!nullToAbsent || attachmentName != null) {
+      map['attachment_name'] = Variable<String>(attachmentName);
+    }
+    if (!nullToAbsent || remoteMessageId != null) {
+      map['remote_message_id'] = Variable<String>(remoteMessageId);
+    }
+    if (!nullToAbsent || transportMetadata != null) {
+      map['transport_metadata'] = Variable<String>(transportMetadata);
+    }
+    return map;
+  }
+
+  ChatMessagesCompanion toCompanion(bool nullToAbsent) {
+    return ChatMessagesCompanion(
+      messageId: Value(messageId),
+      sosId: Value(sosId),
+      ownerId: Value(ownerId),
+      senderId: Value(senderId),
+      messageType: Value(messageType),
+      textContent: textContent == null && nullToAbsent
+          ? const Value.absent()
+          : Value(textContent),
+      createdAt: Value(createdAt),
+      deliveryStatus: Value(deliveryStatus),
+      attachmentPath: attachmentPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(attachmentPath),
+      attachmentMimeType: attachmentMimeType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(attachmentMimeType),
+      attachmentName: attachmentName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(attachmentName),
+      remoteMessageId: remoteMessageId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteMessageId),
+      transportMetadata: transportMetadata == null && nullToAbsent
+          ? const Value.absent()
+          : Value(transportMetadata),
+    );
+  }
+
+  factory ChatMessage.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ChatMessage(
+      messageId: serializer.fromJson<String>(json['messageId']),
+      sosId: serializer.fromJson<String>(json['sosId']),
+      ownerId: serializer.fromJson<String>(json['ownerId']),
+      senderId: serializer.fromJson<String>(json['senderId']),
+      messageType: serializer.fromJson<String>(json['messageType']),
+      textContent: serializer.fromJson<String?>(json['textContent']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      deliveryStatus: serializer.fromJson<String>(json['deliveryStatus']),
+      attachmentPath: serializer.fromJson<String?>(json['attachmentPath']),
+      attachmentMimeType: serializer.fromJson<String?>(
+        json['attachmentMimeType'],
+      ),
+      attachmentName: serializer.fromJson<String?>(json['attachmentName']),
+      remoteMessageId: serializer.fromJson<String?>(json['remoteMessageId']),
+      transportMetadata: serializer.fromJson<String?>(
+        json['transportMetadata'],
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'messageId': serializer.toJson<String>(messageId),
+      'sosId': serializer.toJson<String>(sosId),
+      'ownerId': serializer.toJson<String>(ownerId),
+      'senderId': serializer.toJson<String>(senderId),
+      'messageType': serializer.toJson<String>(messageType),
+      'textContent': serializer.toJson<String?>(textContent),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'deliveryStatus': serializer.toJson<String>(deliveryStatus),
+      'attachmentPath': serializer.toJson<String?>(attachmentPath),
+      'attachmentMimeType': serializer.toJson<String?>(attachmentMimeType),
+      'attachmentName': serializer.toJson<String?>(attachmentName),
+      'remoteMessageId': serializer.toJson<String?>(remoteMessageId),
+      'transportMetadata': serializer.toJson<String?>(transportMetadata),
+    };
+  }
+
+  ChatMessage copyWith({
+    String? messageId,
+    String? sosId,
+    String? ownerId,
+    String? senderId,
+    String? messageType,
+    Value<String?> textContent = const Value.absent(),
+    DateTime? createdAt,
+    String? deliveryStatus,
+    Value<String?> attachmentPath = const Value.absent(),
+    Value<String?> attachmentMimeType = const Value.absent(),
+    Value<String?> attachmentName = const Value.absent(),
+    Value<String?> remoteMessageId = const Value.absent(),
+    Value<String?> transportMetadata = const Value.absent(),
+  }) => ChatMessage(
+    messageId: messageId ?? this.messageId,
+    sosId: sosId ?? this.sosId,
+    ownerId: ownerId ?? this.ownerId,
+    senderId: senderId ?? this.senderId,
+    messageType: messageType ?? this.messageType,
+    textContent: textContent.present ? textContent.value : this.textContent,
+    createdAt: createdAt ?? this.createdAt,
+    deliveryStatus: deliveryStatus ?? this.deliveryStatus,
+    attachmentPath: attachmentPath.present
+        ? attachmentPath.value
+        : this.attachmentPath,
+    attachmentMimeType: attachmentMimeType.present
+        ? attachmentMimeType.value
+        : this.attachmentMimeType,
+    attachmentName: attachmentName.present
+        ? attachmentName.value
+        : this.attachmentName,
+    remoteMessageId: remoteMessageId.present
+        ? remoteMessageId.value
+        : this.remoteMessageId,
+    transportMetadata: transportMetadata.present
+        ? transportMetadata.value
+        : this.transportMetadata,
+  );
+  ChatMessage copyWithCompanion(ChatMessagesCompanion data) {
+    return ChatMessage(
+      messageId: data.messageId.present ? data.messageId.value : this.messageId,
+      sosId: data.sosId.present ? data.sosId.value : this.sosId,
+      ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
+      senderId: data.senderId.present ? data.senderId.value : this.senderId,
+      messageType: data.messageType.present
+          ? data.messageType.value
+          : this.messageType,
+      textContent: data.textContent.present
+          ? data.textContent.value
+          : this.textContent,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      deliveryStatus: data.deliveryStatus.present
+          ? data.deliveryStatus.value
+          : this.deliveryStatus,
+      attachmentPath: data.attachmentPath.present
+          ? data.attachmentPath.value
+          : this.attachmentPath,
+      attachmentMimeType: data.attachmentMimeType.present
+          ? data.attachmentMimeType.value
+          : this.attachmentMimeType,
+      attachmentName: data.attachmentName.present
+          ? data.attachmentName.value
+          : this.attachmentName,
+      remoteMessageId: data.remoteMessageId.present
+          ? data.remoteMessageId.value
+          : this.remoteMessageId,
+      transportMetadata: data.transportMetadata.present
+          ? data.transportMetadata.value
+          : this.transportMetadata,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ChatMessage(')
+          ..write('messageId: $messageId, ')
+          ..write('sosId: $sosId, ')
+          ..write('ownerId: $ownerId, ')
+          ..write('senderId: $senderId, ')
+          ..write('messageType: $messageType, ')
+          ..write('textContent: $textContent, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('deliveryStatus: $deliveryStatus, ')
+          ..write('attachmentPath: $attachmentPath, ')
+          ..write('attachmentMimeType: $attachmentMimeType, ')
+          ..write('attachmentName: $attachmentName, ')
+          ..write('remoteMessageId: $remoteMessageId, ')
+          ..write('transportMetadata: $transportMetadata')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    messageId,
+    sosId,
+    ownerId,
+    senderId,
+    messageType,
+    textContent,
+    createdAt,
+    deliveryStatus,
+    attachmentPath,
+    attachmentMimeType,
+    attachmentName,
+    remoteMessageId,
+    transportMetadata,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ChatMessage &&
+          other.messageId == this.messageId &&
+          other.sosId == this.sosId &&
+          other.ownerId == this.ownerId &&
+          other.senderId == this.senderId &&
+          other.messageType == this.messageType &&
+          other.textContent == this.textContent &&
+          other.createdAt == this.createdAt &&
+          other.deliveryStatus == this.deliveryStatus &&
+          other.attachmentPath == this.attachmentPath &&
+          other.attachmentMimeType == this.attachmentMimeType &&
+          other.attachmentName == this.attachmentName &&
+          other.remoteMessageId == this.remoteMessageId &&
+          other.transportMetadata == this.transportMetadata);
+}
+
+class ChatMessagesCompanion extends UpdateCompanion<ChatMessage> {
+  final Value<String> messageId;
+  final Value<String> sosId;
+  final Value<String> ownerId;
+  final Value<String> senderId;
+  final Value<String> messageType;
+  final Value<String?> textContent;
+  final Value<DateTime> createdAt;
+  final Value<String> deliveryStatus;
+  final Value<String?> attachmentPath;
+  final Value<String?> attachmentMimeType;
+  final Value<String?> attachmentName;
+  final Value<String?> remoteMessageId;
+  final Value<String?> transportMetadata;
+  final Value<int> rowid;
+  const ChatMessagesCompanion({
+    this.messageId = const Value.absent(),
+    this.sosId = const Value.absent(),
+    this.ownerId = const Value.absent(),
+    this.senderId = const Value.absent(),
+    this.messageType = const Value.absent(),
+    this.textContent = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.deliveryStatus = const Value.absent(),
+    this.attachmentPath = const Value.absent(),
+    this.attachmentMimeType = const Value.absent(),
+    this.attachmentName = const Value.absent(),
+    this.remoteMessageId = const Value.absent(),
+    this.transportMetadata = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ChatMessagesCompanion.insert({
+    required String messageId,
+    required String sosId,
+    required String ownerId,
+    required String senderId,
+    required String messageType,
+    this.textContent = const Value.absent(),
+    required DateTime createdAt,
+    required String deliveryStatus,
+    this.attachmentPath = const Value.absent(),
+    this.attachmentMimeType = const Value.absent(),
+    this.attachmentName = const Value.absent(),
+    this.remoteMessageId = const Value.absent(),
+    this.transportMetadata = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : messageId = Value(messageId),
+       sosId = Value(sosId),
+       ownerId = Value(ownerId),
+       senderId = Value(senderId),
+       messageType = Value(messageType),
+       createdAt = Value(createdAt),
+       deliveryStatus = Value(deliveryStatus);
+  static Insertable<ChatMessage> custom({
+    Expression<String>? messageId,
+    Expression<String>? sosId,
+    Expression<String>? ownerId,
+    Expression<String>? senderId,
+    Expression<String>? messageType,
+    Expression<String>? textContent,
+    Expression<DateTime>? createdAt,
+    Expression<String>? deliveryStatus,
+    Expression<String>? attachmentPath,
+    Expression<String>? attachmentMimeType,
+    Expression<String>? attachmentName,
+    Expression<String>? remoteMessageId,
+    Expression<String>? transportMetadata,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (messageId != null) 'message_id': messageId,
+      if (sosId != null) 'sos_id': sosId,
+      if (ownerId != null) 'owner_id': ownerId,
+      if (senderId != null) 'sender_id': senderId,
+      if (messageType != null) 'message_type': messageType,
+      if (textContent != null) 'text_content': textContent,
+      if (createdAt != null) 'created_at': createdAt,
+      if (deliveryStatus != null) 'delivery_status': deliveryStatus,
+      if (attachmentPath != null) 'attachment_path': attachmentPath,
+      if (attachmentMimeType != null)
+        'attachment_mime_type': attachmentMimeType,
+      if (attachmentName != null) 'attachment_name': attachmentName,
+      if (remoteMessageId != null) 'remote_message_id': remoteMessageId,
+      if (transportMetadata != null) 'transport_metadata': transportMetadata,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ChatMessagesCompanion copyWith({
+    Value<String>? messageId,
+    Value<String>? sosId,
+    Value<String>? ownerId,
+    Value<String>? senderId,
+    Value<String>? messageType,
+    Value<String?>? textContent,
+    Value<DateTime>? createdAt,
+    Value<String>? deliveryStatus,
+    Value<String?>? attachmentPath,
+    Value<String?>? attachmentMimeType,
+    Value<String?>? attachmentName,
+    Value<String?>? remoteMessageId,
+    Value<String?>? transportMetadata,
+    Value<int>? rowid,
+  }) {
+    return ChatMessagesCompanion(
+      messageId: messageId ?? this.messageId,
+      sosId: sosId ?? this.sosId,
+      ownerId: ownerId ?? this.ownerId,
+      senderId: senderId ?? this.senderId,
+      messageType: messageType ?? this.messageType,
+      textContent: textContent ?? this.textContent,
+      createdAt: createdAt ?? this.createdAt,
+      deliveryStatus: deliveryStatus ?? this.deliveryStatus,
+      attachmentPath: attachmentPath ?? this.attachmentPath,
+      attachmentMimeType: attachmentMimeType ?? this.attachmentMimeType,
+      attachmentName: attachmentName ?? this.attachmentName,
+      remoteMessageId: remoteMessageId ?? this.remoteMessageId,
+      transportMetadata: transportMetadata ?? this.transportMetadata,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (messageId.present) {
+      map['message_id'] = Variable<String>(messageId.value);
+    }
+    if (sosId.present) {
+      map['sos_id'] = Variable<String>(sosId.value);
+    }
+    if (ownerId.present) {
+      map['owner_id'] = Variable<String>(ownerId.value);
+    }
+    if (senderId.present) {
+      map['sender_id'] = Variable<String>(senderId.value);
+    }
+    if (messageType.present) {
+      map['message_type'] = Variable<String>(messageType.value);
+    }
+    if (textContent.present) {
+      map['text_content'] = Variable<String>(textContent.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (deliveryStatus.present) {
+      map['delivery_status'] = Variable<String>(deliveryStatus.value);
+    }
+    if (attachmentPath.present) {
+      map['attachment_path'] = Variable<String>(attachmentPath.value);
+    }
+    if (attachmentMimeType.present) {
+      map['attachment_mime_type'] = Variable<String>(attachmentMimeType.value);
+    }
+    if (attachmentName.present) {
+      map['attachment_name'] = Variable<String>(attachmentName.value);
+    }
+    if (remoteMessageId.present) {
+      map['remote_message_id'] = Variable<String>(remoteMessageId.value);
+    }
+    if (transportMetadata.present) {
+      map['transport_metadata'] = Variable<String>(transportMetadata.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ChatMessagesCompanion(')
+          ..write('messageId: $messageId, ')
+          ..write('sosId: $sosId, ')
+          ..write('ownerId: $ownerId, ')
+          ..write('senderId: $senderId, ')
+          ..write('messageType: $messageType, ')
+          ..write('textContent: $textContent, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('deliveryStatus: $deliveryStatus, ')
+          ..write('attachmentPath: $attachmentPath, ')
+          ..write('attachmentMimeType: $attachmentMimeType, ')
+          ..write('attachmentName: $attachmentName, ')
+          ..write('remoteMessageId: $remoteMessageId, ')
+          ..write('transportMetadata: $transportMetadata, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2418,6 +3235,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SosSyncQueueTable sosSyncQueue = $SosSyncQueueTable(this);
   late final $BleOutboxTable bleOutbox = $BleOutboxTable(this);
   late final $BleInboxTable bleInbox = $BleInboxTable(this);
+  late final $ChatMessagesTable chatMessages = $ChatMessagesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2427,6 +3245,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     sosSyncQueue,
     bleOutbox,
     bleInbox,
+    chatMessages,
   ];
 }
 
@@ -3622,6 +4441,383 @@ typedef $$BleInboxTableProcessedTableManager =
       BleInboxData,
       PrefetchHooks Function()
     >;
+typedef $$ChatMessagesTableCreateCompanionBuilder =
+    ChatMessagesCompanion Function({
+      required String messageId,
+      required String sosId,
+      required String ownerId,
+      required String senderId,
+      required String messageType,
+      Value<String?> textContent,
+      required DateTime createdAt,
+      required String deliveryStatus,
+      Value<String?> attachmentPath,
+      Value<String?> attachmentMimeType,
+      Value<String?> attachmentName,
+      Value<String?> remoteMessageId,
+      Value<String?> transportMetadata,
+      Value<int> rowid,
+    });
+typedef $$ChatMessagesTableUpdateCompanionBuilder =
+    ChatMessagesCompanion Function({
+      Value<String> messageId,
+      Value<String> sosId,
+      Value<String> ownerId,
+      Value<String> senderId,
+      Value<String> messageType,
+      Value<String?> textContent,
+      Value<DateTime> createdAt,
+      Value<String> deliveryStatus,
+      Value<String?> attachmentPath,
+      Value<String?> attachmentMimeType,
+      Value<String?> attachmentName,
+      Value<String?> remoteMessageId,
+      Value<String?> transportMetadata,
+      Value<int> rowid,
+    });
+
+class $$ChatMessagesTableFilterComposer
+    extends Composer<_$AppDatabase, $ChatMessagesTable> {
+  $$ChatMessagesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get messageId => $composableBuilder(
+    column: $table.messageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sosId => $composableBuilder(
+    column: $table.sosId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get senderId => $composableBuilder(
+    column: $table.senderId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get messageType => $composableBuilder(
+    column: $table.messageType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get textContent => $composableBuilder(
+    column: $table.textContent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deliveryStatus => $composableBuilder(
+    column: $table.deliveryStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get attachmentPath => $composableBuilder(
+    column: $table.attachmentPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get attachmentMimeType => $composableBuilder(
+    column: $table.attachmentMimeType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get attachmentName => $composableBuilder(
+    column: $table.attachmentName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get remoteMessageId => $composableBuilder(
+    column: $table.remoteMessageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get transportMetadata => $composableBuilder(
+    column: $table.transportMetadata,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ChatMessagesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ChatMessagesTable> {
+  $$ChatMessagesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get messageId => $composableBuilder(
+    column: $table.messageId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sosId => $composableBuilder(
+    column: $table.sosId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get senderId => $composableBuilder(
+    column: $table.senderId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get messageType => $composableBuilder(
+    column: $table.messageType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get textContent => $composableBuilder(
+    column: $table.textContent,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deliveryStatus => $composableBuilder(
+    column: $table.deliveryStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get attachmentPath => $composableBuilder(
+    column: $table.attachmentPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get attachmentMimeType => $composableBuilder(
+    column: $table.attachmentMimeType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get attachmentName => $composableBuilder(
+    column: $table.attachmentName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get remoteMessageId => $composableBuilder(
+    column: $table.remoteMessageId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get transportMetadata => $composableBuilder(
+    column: $table.transportMetadata,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ChatMessagesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ChatMessagesTable> {
+  $$ChatMessagesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get messageId =>
+      $composableBuilder(column: $table.messageId, builder: (column) => column);
+
+  GeneratedColumn<String> get sosId =>
+      $composableBuilder(column: $table.sosId, builder: (column) => column);
+
+  GeneratedColumn<String> get ownerId =>
+      $composableBuilder(column: $table.ownerId, builder: (column) => column);
+
+  GeneratedColumn<String> get senderId =>
+      $composableBuilder(column: $table.senderId, builder: (column) => column);
+
+  GeneratedColumn<String> get messageType => $composableBuilder(
+    column: $table.messageType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get textContent => $composableBuilder(
+    column: $table.textContent,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get deliveryStatus => $composableBuilder(
+    column: $table.deliveryStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get attachmentPath => $composableBuilder(
+    column: $table.attachmentPath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get attachmentMimeType => $composableBuilder(
+    column: $table.attachmentMimeType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get attachmentName => $composableBuilder(
+    column: $table.attachmentName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get remoteMessageId => $composableBuilder(
+    column: $table.remoteMessageId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get transportMetadata => $composableBuilder(
+    column: $table.transportMetadata,
+    builder: (column) => column,
+  );
+}
+
+class $$ChatMessagesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ChatMessagesTable,
+          ChatMessage,
+          $$ChatMessagesTableFilterComposer,
+          $$ChatMessagesTableOrderingComposer,
+          $$ChatMessagesTableAnnotationComposer,
+          $$ChatMessagesTableCreateCompanionBuilder,
+          $$ChatMessagesTableUpdateCompanionBuilder,
+          (
+            ChatMessage,
+            BaseReferences<_$AppDatabase, $ChatMessagesTable, ChatMessage>,
+          ),
+          ChatMessage,
+          PrefetchHooks Function()
+        > {
+  $$ChatMessagesTableTableManager(_$AppDatabase db, $ChatMessagesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ChatMessagesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ChatMessagesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ChatMessagesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> messageId = const Value.absent(),
+                Value<String> sosId = const Value.absent(),
+                Value<String> ownerId = const Value.absent(),
+                Value<String> senderId = const Value.absent(),
+                Value<String> messageType = const Value.absent(),
+                Value<String?> textContent = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<String> deliveryStatus = const Value.absent(),
+                Value<String?> attachmentPath = const Value.absent(),
+                Value<String?> attachmentMimeType = const Value.absent(),
+                Value<String?> attachmentName = const Value.absent(),
+                Value<String?> remoteMessageId = const Value.absent(),
+                Value<String?> transportMetadata = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ChatMessagesCompanion(
+                messageId: messageId,
+                sosId: sosId,
+                ownerId: ownerId,
+                senderId: senderId,
+                messageType: messageType,
+                textContent: textContent,
+                createdAt: createdAt,
+                deliveryStatus: deliveryStatus,
+                attachmentPath: attachmentPath,
+                attachmentMimeType: attachmentMimeType,
+                attachmentName: attachmentName,
+                remoteMessageId: remoteMessageId,
+                transportMetadata: transportMetadata,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String messageId,
+                required String sosId,
+                required String ownerId,
+                required String senderId,
+                required String messageType,
+                Value<String?> textContent = const Value.absent(),
+                required DateTime createdAt,
+                required String deliveryStatus,
+                Value<String?> attachmentPath = const Value.absent(),
+                Value<String?> attachmentMimeType = const Value.absent(),
+                Value<String?> attachmentName = const Value.absent(),
+                Value<String?> remoteMessageId = const Value.absent(),
+                Value<String?> transportMetadata = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ChatMessagesCompanion.insert(
+                messageId: messageId,
+                sosId: sosId,
+                ownerId: ownerId,
+                senderId: senderId,
+                messageType: messageType,
+                textContent: textContent,
+                createdAt: createdAt,
+                deliveryStatus: deliveryStatus,
+                attachmentPath: attachmentPath,
+                attachmentMimeType: attachmentMimeType,
+                attachmentName: attachmentName,
+                remoteMessageId: remoteMessageId,
+                transportMetadata: transportMetadata,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ChatMessagesTable, ChatMessage>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $ChatMessagesTable,
+                    ChatMessage
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ChatMessagesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ChatMessagesTable,
+      ChatMessage,
+      $$ChatMessagesTableFilterComposer,
+      $$ChatMessagesTableOrderingComposer,
+      $$ChatMessagesTableAnnotationComposer,
+      $$ChatMessagesTableCreateCompanionBuilder,
+      $$ChatMessagesTableUpdateCompanionBuilder,
+      (
+        ChatMessage,
+        BaseReferences<_$AppDatabase, $ChatMessagesTable, ChatMessage>,
+      ),
+      ChatMessage,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3634,4 +4830,6 @@ class $AppDatabaseManager {
       $$BleOutboxTableTableManager(_db, _db.bleOutbox);
   $$BleInboxTableTableManager get bleInbox =>
       $$BleInboxTableTableManager(_db, _db.bleInbox);
+  $$ChatMessagesTableTableManager get chatMessages =>
+      $$ChatMessagesTableTableManager(_db, _db.chatMessages);
 }

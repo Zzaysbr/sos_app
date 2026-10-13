@@ -16,7 +16,7 @@ class BleDeliveryRepository {
     String? destinationId,
     DateTime? now,
   }) async {
-    _requireDelivery(envelope);
+    _requireOutbound(envelope);
     final payload = jsonEncode(envelope.toJson());
     final timestamp = (now ?? DateTime.now()).toUtc();
 
@@ -157,7 +157,8 @@ class BleDeliveryRepository {
     String? sourceDeviceId,
     DateTime? now,
   }) async {
-    if (acknowledgement.kind != SosBleMessageKind.acknowledgement ||
+    if ((acknowledgement.kind != SosBleMessageKind.acknowledgement &&
+            acknowledgement.kind != SosBleMessageKind.chatAcknowledgement) ||
         acknowledgement.ackFor == null ||
         acknowledgement.ackStatus == null) {
       throw const BleDeliveryStateException('Expected a valid BLE ACK.');
@@ -479,6 +480,15 @@ class BleDeliveryRepository {
     if (envelope.kind != SosBleMessageKind.delivery) {
       throw const BleDeliveryStateException(
         'Only SOS delivery envelopes belong in BLE delivery state.',
+      );
+    }
+  }
+
+  void _requireOutbound(SosBleEnvelope envelope) {
+    if (envelope.kind != SosBleMessageKind.delivery &&
+        envelope.kind != SosBleMessageKind.chatMessage) {
+      throw const BleDeliveryStateException(
+        'Only outbound SOS or chat messages can enter BLE outbox.',
       );
     }
   }

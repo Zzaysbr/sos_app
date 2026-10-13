@@ -22,6 +22,10 @@ class SosRepository {
 
   bool _isSyncing = false;
 
+  AppDatabase get database => _database;
+
+  String? get currentOwnerId => _ownerId;
+
   String? get _ownerId => _firebaseAuth.currentUser?.uid;
 
   bool _isOwnerCurrent(String ownerId) =>

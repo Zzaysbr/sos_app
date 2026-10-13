@@ -32,7 +32,7 @@ void main() {
 
   tearDown(() async => database.close());
 
-  test('schema 3 creates BLE tables and preserves SOS rows', () async {
+  test('schema 4 creates BLE tables and preserves SOS rows', () async {
     final now = DateTime.utc(2026);
     await database
         .into(database.sosMessages)
@@ -48,7 +48,7 @@ void main() {
           ),
         );
 
-    expect(database.schemaVersion, 3);
+    expect(database.schemaVersion, 4);
     expect(await database.select(database.bleOutbox).get(), isEmpty);
     expect(await database.select(database.bleInbox).get(), isEmpty);
     expect(
@@ -94,7 +94,7 @@ void main() {
     );
 
     final migrated = AppDatabase.forTesting(oldExecutor);
-    expect(migrated.schemaVersion, 3);
+    expect(migrated.schemaVersion, 4);
     expect(await migrated.select(migrated.bleOutbox).get(), isEmpty);
     expect(await migrated.select(migrated.bleInbox).get(), isEmpty);
     expect(
@@ -118,6 +118,20 @@ void main() {
       );
     },
   );
+
+  test('outbox accepts chat envelopes', () async {
+    final chat = SosBleEnvelope.chatMessage(
+      messageId: 'chat-1',
+      sosId: 'sos-1',
+      senderDeviceId: 'device-a',
+      chatSenderId: 'owner-a',
+      chatText: 'Status update',
+      createdAt: DateTime.utc(2026),
+    );
+    final row = await repository.enqueueOutbox(chat);
+    expect(row.messageId, 'chat-1');
+    expect(row.sosId, 'sos-1');
+  });
 
   test('inbox duplicate delivery is inserted once', () async {
     final first = await repository.insertInboxDelivery(_delivery());

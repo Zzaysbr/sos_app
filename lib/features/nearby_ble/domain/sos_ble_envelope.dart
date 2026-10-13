@@ -8,7 +8,9 @@ import '../data/ble_protocol.dart';
 /// Logical messages carried by the existing BLE transport.
 enum SosBleMessageKind {
   delivery('sos.delivery'),
-  acknowledgement('sos.ack');
+  acknowledgement('sos.ack'),
+  chatMessage('chat.message'),
+  chatAcknowledgement('chat.ack');
 
   const SosBleMessageKind(this.wireValue);
 
@@ -59,6 +61,8 @@ class SosBleEnvelope {
        ackFor = null,
        ackStatus = null,
        error = null,
+       chatSenderId = null,
+       chatText = null,
        createdAt = createdAt.toUtc(),
        updatedAt = updatedAt.toUtc() {
     validate();
@@ -73,6 +77,50 @@ class SosBleEnvelope {
     this.senderDeviceId,
     this.error,
   }) : kind = SosBleMessageKind.acknowledgement,
+       chatSenderId = null,
+       chatText = null,
+       sosType = null,
+       status = null,
+       message = null,
+       latitude = null,
+       longitude = null,
+       updatedAt = null,
+       createdAt = createdAt.toUtc() {
+    validate();
+  }
+
+  SosBleEnvelope.chatMessage({
+    required this.messageId,
+    required this.sosId,
+    required this.senderDeviceId,
+    required this.chatSenderId,
+    required this.chatText,
+    required DateTime createdAt,
+  }) : kind = SosBleMessageKind.chatMessage,
+       ackFor = null,
+       ackStatus = null,
+       error = null,
+       sosType = null,
+       status = null,
+       message = null,
+       latitude = null,
+       longitude = null,
+       updatedAt = null,
+       createdAt = createdAt.toUtc() {
+    validate();
+  }
+
+  SosBleEnvelope.chatAcknowledgement({
+    required this.messageId,
+    required this.sosId,
+    required this.ackFor,
+    required this.ackStatus,
+    required DateTime createdAt,
+    this.senderDeviceId,
+    this.error,
+  }) : kind = SosBleMessageKind.chatAcknowledgement,
+       chatSenderId = null,
+       chatText = null,
        sosType = null,
        status = null,
        message = null,
@@ -104,6 +152,8 @@ class SosBleEnvelope {
   final String? ackFor;
   final SosBleAckStatus? ackStatus;
   final String? error;
+  final String? chatSenderId;
+  final String? chatText;
 
   factory SosBleEnvelope.fromSosMessage(
     SosMessage sos, {
@@ -190,28 +240,47 @@ class SosBleEnvelope {
         throw const SosBleEnvelopeException('Unsupported SOS schema version.');
       }
       final kind = SosBleMessageKind.parse(json['kind']);
-      final envelope = kind == SosBleMessageKind.delivery
-          ? SosBleEnvelope.delivery(
-              messageId: _requiredString(json, 'messageId'),
-              sosId: _requiredString(json, 'sosId'),
-              senderDeviceId: _optionalString(json, 'senderDeviceId'),
-              sosType: _requiredString(json, 'type'),
-              status: _requiredString(json, 'status'),
-              message: _optionalString(json, 'message'),
-              latitude: _optionalDouble(json, 'latitude'),
-              longitude: _optionalDouble(json, 'longitude'),
-              createdAt: _requiredDate(json, 'createdAt'),
-              updatedAt: _requiredDate(json, 'updatedAt'),
-            )
-          : SosBleEnvelope.acknowledgement(
-              messageId: _requiredString(json, 'messageId'),
-              sosId: _requiredString(json, 'sosId'),
-              senderDeviceId: _optionalString(json, 'senderDeviceId'),
-              ackFor: _requiredString(json, 'ackFor'),
-              ackStatus: SosBleAckStatus.parse(json['ackStatus']),
-              error: _optionalString(json, 'error'),
-              createdAt: _requiredDate(json, 'createdAt'),
-            );
+      final envelope = switch (kind) {
+        SosBleMessageKind.delivery => SosBleEnvelope.delivery(
+          messageId: _requiredString(json, 'messageId'),
+          sosId: _requiredString(json, 'sosId'),
+          senderDeviceId: _optionalString(json, 'senderDeviceId'),
+          sosType: _requiredString(json, 'type'),
+          status: _requiredString(json, 'status'),
+          message: _optionalString(json, 'message'),
+          latitude: _optionalDouble(json, 'latitude'),
+          longitude: _optionalDouble(json, 'longitude'),
+          createdAt: _requiredDate(json, 'createdAt'),
+          updatedAt: _requiredDate(json, 'updatedAt'),
+        ),
+        SosBleMessageKind.acknowledgement => SosBleEnvelope.acknowledgement(
+          messageId: _requiredString(json, 'messageId'),
+          sosId: _requiredString(json, 'sosId'),
+          senderDeviceId: _optionalString(json, 'senderDeviceId'),
+          ackFor: _requiredString(json, 'ackFor'),
+          ackStatus: SosBleAckStatus.parse(json['ackStatus']),
+          error: _optionalString(json, 'error'),
+          createdAt: _requiredDate(json, 'createdAt'),
+        ),
+        SosBleMessageKind.chatMessage => SosBleEnvelope.chatMessage(
+          messageId: _requiredString(json, 'messageId'),
+          sosId: _requiredString(json, 'sosId'),
+          senderDeviceId: _requiredString(json, 'senderDeviceId'),
+          chatSenderId: _requiredString(json, 'senderId'),
+          chatText: _requiredString(json, 'text'),
+          createdAt: _requiredDate(json, 'createdAt'),
+        ),
+        SosBleMessageKind.chatAcknowledgement =>
+          SosBleEnvelope.chatAcknowledgement(
+            messageId: _requiredString(json, 'messageId'),
+            sosId: _requiredString(json, 'sosId'),
+            senderDeviceId: _optionalString(json, 'senderDeviceId'),
+            ackFor: _requiredString(json, 'ackFor'),
+            ackStatus: SosBleAckStatus.parse(json['ackStatus']),
+            error: _optionalString(json, 'error'),
+            createdAt: _requiredDate(json, 'createdAt'),
+          ),
+      };
       return envelope;
     } on SosBleEnvelopeException {
       rethrow;
@@ -241,10 +310,13 @@ class SosBleEnvelope {
         'longitude': longitude,
         'updatedAt': updatedAt!.toUtc().toIso8601String(),
       });
-    } else {
+    } else if (kind == SosBleMessageKind.acknowledgement ||
+        kind == SosBleMessageKind.chatAcknowledgement) {
       json['ackFor'] = ackFor;
       json['ackStatus'] = ackStatus!.wireValue;
       if (error != null) json['error'] = error;
+    } else {
+      json.addAll({'senderId': chatSenderId, 'text': chatText});
     }
     final bytes = utf8.encode(jsonEncode(json));
     if (bytes.length > maxPayloadBytes) {
@@ -272,7 +344,8 @@ class SosBleEnvelope {
         throw const SosBleEnvelopeException('Missing updatedAt.');
       }
       _validDate(updatedAt!, 'updatedAt');
-    } else {
+    } else if (kind == SosBleMessageKind.acknowledgement ||
+        kind == SosBleMessageKind.chatAcknowledgement) {
       _nonEmptyBounded(ackFor, 'ackFor', maxIdLength);
       if (ackStatus == null) {
         throw const SosBleEnvelopeException('Missing acknowledgement status.');
@@ -281,6 +354,13 @@ class SosBleEnvelope {
         throw const SosBleEnvelopeException(
           'Acknowledgement error is too long.',
         );
+      }
+    } else {
+      _nonEmptyBounded(chatSenderId, 'senderId', maxIdLength);
+      if (chatText == null ||
+          chatText!.isEmpty ||
+          chatText!.length > maxMessageLength) {
+        throw const SosBleEnvelopeException('Invalid chat text.');
       }
     }
   }
