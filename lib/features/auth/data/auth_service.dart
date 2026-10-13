@@ -6,9 +6,7 @@ class AuthService {
 
   final FirebaseAuth _firebaseAuth;
 
-  Stream<User?> get authStateChanges {
-    return _firebaseAuth.authStateChanges();
-  }
+  Stream<User?> get authStateChanges => _firebaseAuth.authStateChanges();
 
   User? get currentUser => _firebaseAuth.currentUser;
 
@@ -16,11 +14,8 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    final normalizedEmail = email.trim();
-
-    if (normalizedEmail.isEmpty) {
-      throw const AuthException('Email is required.');
-    }
+    final normalizedEmail = _normalizeEmail(email);
+    _validateEmail(normalizedEmail);
 
     if (password.length < 6) {
       throw const AuthException('Password must contain at least 6 characters.');
@@ -40,10 +35,11 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    final normalizedEmail = email.trim();
+    final normalizedEmail = _normalizeEmail(email);
+    _validateEmail(normalizedEmail);
 
-    if (normalizedEmail.isEmpty || password.isEmpty) {
-      throw const AuthException('Email and password are required.');
+    if (password.isEmpty) {
+      throw const AuthException('Password is required.');
     }
 
     try {
@@ -56,8 +52,25 @@ class AuthService {
     }
   }
 
-  Future<void> logout() async {
-    await _firebaseAuth.signOut();
+  Future<void> resetPassword({required String email}) async {
+    final normalizedEmail = _normalizeEmail(email);
+    _validateEmail(normalizedEmail);
+
+    try {
+      await _firebaseAuth.sendPasswordResetEmail(email: normalizedEmail);
+    } on FirebaseAuthException catch (error) {
+      throw AuthException(_mapFirebaseError(error.code));
+    }
+  }
+
+  Future<void> logout() => _firebaseAuth.signOut();
+
+  String _normalizeEmail(String email) => email.trim();
+
+  void _validateEmail(String email) {
+    if (email.isEmpty || !email.contains('@')) {
+      throw const AuthException('Enter a valid email address.');
+    }
   }
 
   String _mapFirebaseError(String code) {
@@ -68,7 +81,6 @@ class AuthService {
         return 'This account has been disabled.';
       case 'user-not-found':
       case 'invalid-credential':
-        return 'Invalid email or password.';
       case 'wrong-password':
         return 'Invalid email or password.';
       case 'email-already-in-use':

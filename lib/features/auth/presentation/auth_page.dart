@@ -47,13 +47,11 @@ class _AuthPageState extends State<AuthPage> {
           password: _passwordController.text,
         );
       }
-    
     } on AuthException catch (error) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
     } catch (error, stackTrace) {
       debugPrint('Authentication failed: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -72,6 +70,46 @@ class _AuthPageState extends State<AuthPage> {
         setState(() {
           _isLoading = false;
         });
+      }
+    }
+  }
+
+  Future<void> _resetPassword() async {
+    if (_isLoading) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      await widget.authService.resetPassword(email: _emailController.text);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'If an account exists for this email, a reset link has been sent.',
+          ),
+        ),
+      );
+    } on AuthException catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (error, stackTrace) {
+      debugPrint('Password reset failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to send reset email. Try again later.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -132,6 +170,15 @@ class _AuthPageState extends State<AuthPage> {
                     onPressed: _isLoading ? null : _submit,
                     child: Text(_isLoading ? 'Please wait...' : action),
                   ),
+
+                  if (!_isRegister)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: _isLoading ? null : _resetPassword,
+                        child: const Text('Forgot password?'),
+                      ),
+                    ),
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: _isLoading

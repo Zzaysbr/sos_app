@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../nearby_ble/presentation/ble_test_page.dart';
 import '../data/sos_repository.dart';
+import 'account_page.dart';
 
 import 'package:geolocator/geolocator.dart';
 
@@ -18,7 +22,19 @@ class SosPage extends StatefulWidget {
 class _SosPageState extends State<SosPage> {
   int _currentIndex = 0;
   bool _syncing = false;
+  bool _sendingSos = false;
+  bool _sosHoldActive = false;
+  double _sosHoldProgress = 0;
+  Timer? _sosHoldTimer;
   String _historyFilter = 'all';
+
+  static const _sosHoldDuration = Duration(milliseconds: 1400);
+
+  @override
+  void dispose() {
+    _sosHoldTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,36 +77,103 @@ class _SosPageState extends State<SosPage> {
 
   Widget _buildHome() {
     return SafeArea(
-      child: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            pinned: true,
-            title: const Text('SOS'),
-            actions: [
-              IconButton(
-                tooltip: 'Sync',
-                onPressed: _syncing ? null : _syncPending,
-                icon: _syncing
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.sync),
+      child: ColoredBox(
+        color: const Color(0xFFFFFAF9),
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(child: _buildHomeHeader()),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  _buildWelcomeCard(),
+                  const SizedBox(height: 24),
+                  _buildSendSosButton(),
+                  const SizedBox(height: 14),
+                  _buildSafetyCard(),
+                  const SizedBox(height: 28),
+                  _buildActiveSosSection(),
+                ]),
               ),
-            ],
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                _buildWelcomeCard(),
-                const SizedBox(height: 24),
-                _buildSendSosButton(),
-                const SizedBox(height: 32),
-                _buildActiveSosSection(),
-              ]),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHomeHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 16, 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 48,
+            height: 54,
+            alignment: Alignment.center,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(
+                  Icons.shield_outlined,
+                  size: 46,
+                  color: const Color(0xFFD92323),
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 2),
+                  child: Text(
+                    'SOS',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFFD92323),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(height: 5),
+                Text(
+                  'Off Grid SOS',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'Stay safe. We’re here when you need help.',
+                  style: TextStyle(color: Color(0xFF777777), fontSize: 16),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: _syncing ? 'Syncing' : 'Sync pending SOS',
+            onPressed: _syncing ? null : _syncPending,
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white,
+              minimumSize: const Size(52, 52),
+            ),
+            icon: _syncing
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(
+                    Icons.sync_rounded,
+                    color: Color(0xFFD92323),
+                    size: 28,
+                  ),
           ),
         ],
       ),
@@ -98,78 +181,202 @@ class _SosPageState extends State<SosPage> {
   }
 
   Widget _buildWelcomeCard() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.shield_outlined,
-                color: Theme.of(context).colorScheme.primary,
-              ),
+    return _surfaceCard(
+      onTap: _showEmergencyAssistanceInfo,
+      child: Row(
+        children: [
+          _softIcon(Icons.shield_outlined, size: 52),
+          const SizedBox(width: 16),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Emergency assistance',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                SizedBox(height: 6),
+                Text(
+                  'Create an SOS alert and keep track of its status from one place.',
+                  style: TextStyle(color: Color(0xFF4B4746), height: 1.35),
+                ),
+              ],
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Emergency SOS',
-                    style: Theme.of(context).textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Send an emergency alert quickly when you need help.',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+          const Icon(Icons.chevron_right_rounded, color: Color(0xFF4B4746)),
+        ],
       ),
     );
   }
 
   Widget _buildSendSosButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 180,
-      child: FilledButton(
-        style: FilledButton.styleFrom(
-          backgroundColor: Colors.red.shade700,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
+    final progress = _sosHoldProgress.clamp(0.0, 1.0);
+    return Semantics(
+      button: true,
+      label: 'Press and hold to send SOS',
+      child: GestureDetector(
+        onTapDown: _sendingSos ? null : (_) => _startSosHold(),
+        onTapUp: _sendingSos ? null : (_) => _cancelSosHold(),
+        onTapCancel: _sendingSos ? null : _cancelSosHold,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          width: double.infinity,
+          height: 230,
+          decoration: BoxDecoration(
+            color: const Color(0xFFD92323),
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFD92323).withValues(alpha: 0.20),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              for (final size in [190.0, 145.0, 100.0])
+                Container(
+                  width: size,
+                  height: size,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.10),
+                      width: 1,
+                    ),
+                  ),
+                ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 108,
+                    height: 108,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        const CircleAvatar(
+                          radius: 54,
+                          backgroundColor: Colors.white,
+                        ),
+                        if (_sosHoldActive)
+                          SizedBox(
+                            width: 82,
+                            height: 82,
+                            child: CircularProgressIndicator(
+                              value: progress,
+                              strokeWidth: 6,
+                              color: const Color(0xFFD92323),
+                              backgroundColor: const Color(0xFFFCE5E4),
+                            ),
+                          ),
+                        Icon(
+                          Icons.warning_rounded,
+                          size: 58,
+                          color: const Color(0xFFD92323),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    _sendingSos
+                        ? 'SENDING SOS...'
+                        : _sosHoldActive
+                        ? 'KEEP HOLDING'
+                        : 'SEND SOS',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 25,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _sendingSos
+                        ? 'Getting your location'
+                        : _sosHoldActive
+                        ? '${((1 - progress) * 1.4).ceil()} sec'
+                        : 'Tap and hold to start',
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
-        onPressed: _sendSos,
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.warning_rounded, size: 56),
-            SizedBox(height: 12),
-            Text(
-              'SEND SOS',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1,
-              ),
-            ),
-            SizedBox(height: 4),
-            Text('Emergency alert', style: TextStyle(fontSize: 14)),
-          ],
-        ),
       ),
+    );
+  }
+
+  Widget _buildSafetyCard() {
+    return _surfaceCard(
+      child: Row(
+        children: [
+          _softIcon(Icons.shield_outlined, size: 42),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Use SOS in an emergency.\nLocation availability depends on device settings and permissions.',
+              style: TextStyle(color: Color(0xFF4B4746), height: 1.35),
+            ),
+          ),
+          FutureBuilder<bool>(
+            future: _isLocationPermissionReady(),
+            builder: (context, snapshot) => Icon(
+              Icons.location_on_outlined,
+              color: snapshot.data == true
+                  ? const Color(0xFFD92323)
+                  : const Color(0xFF777777),
+              size: 28,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _surfaceCard({required Widget child, VoidCallback? onTap}) {
+    final card = Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF0ECEB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.035),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: child,
+    );
+    return onTap == null
+        ? card
+        : Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: onTap,
+              child: card,
+            ),
+          );
+  }
+
+  Widget _softIcon(IconData icon, {required double size}) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(
+        color: Color(0xFFFCE8E7),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, color: Color(0xFFD92323), size: 27),
     );
   }
 
@@ -177,10 +384,23 @@ class _SosPageState extends State<SosPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'My SOS',
-          style: Theme.of(context).textTheme.titleLarge
-              ?.copyWith(fontWeight: FontWeight.w700),
+        Row(
+          children: [
+            const Text(
+              'My SOS',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+            ),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: () => setState(() => _currentIndex = 1),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFD92323),
+                padding: EdgeInsets.zero,
+              ),
+              icon: const Icon(Icons.chevron_right_rounded, size: 20),
+              label: const Text('View all'),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         StreamBuilder<List<SosMessage>>(
@@ -209,22 +429,12 @@ class _SosPageState extends State<SosPage> {
               );
             }
 
-            final active = messages
-                .where((message) => message.status == 'active')
-                .toList();
-
-            if (active.isEmpty) {
-              return _buildEmptyCard(
-                icon: Icons.check_circle_outline,
-                title: 'No active SOS',
-                message: 'You currently have no active emergency alerts.',
-              );
-            }
+            final recent = messages.take(2).toList();
 
             return Column(
               children: [
-                for (final sos in active) ...[
-                  _buildSosCard(sos),
+                for (final sos in recent) ...[
+                  _buildSosCard(sos, historyStyle: true),
                   const SizedBox(height: 12),
                 ],
               ],
@@ -235,93 +445,248 @@ class _SosPageState extends State<SosPage> {
     );
   }
 
+  void _startSosHold() {
+    if (_sendingSos || _sosHoldActive) return;
+    _sosHoldTimer?.cancel();
+    setState(() {
+      _sosHoldActive = true;
+      _sosHoldProgress = 0;
+    });
+    final started = DateTime.now();
+    _sosHoldTimer = Timer.periodic(const Duration(milliseconds: 40), (timer) {
+      if (!mounted) return timer.cancel();
+      final progress =
+          DateTime.now().difference(started).inMilliseconds /
+          _sosHoldDuration.inMilliseconds;
+      if (progress >= 1) {
+        timer.cancel();
+        _sosHoldTimer = null;
+        setState(() {
+          _sosHoldActive = false;
+          _sosHoldProgress = 0;
+        });
+        _sendSos();
+      } else {
+        setState(() => _sosHoldProgress = progress);
+      }
+    });
+  }
+
+  void _cancelSosHold() {
+    if (!_sosHoldActive) return;
+    _sosHoldTimer?.cancel();
+    _sosHoldTimer = null;
+    setState(() {
+      _sosHoldActive = false;
+      _sosHoldProgress = 0;
+    });
+  }
+
+  Future<bool> _isLocationPermissionReady() async {
+    if (!await Geolocator.isLocationServiceEnabled()) return false;
+    final permission = await Geolocator.checkPermission();
+    return permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse;
+  }
+
+  Future<void> _showEmergencyAssistanceInfo() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => const SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(24, 4, 24, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Emergency assistance',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+              ),
+              SizedBox(height: 10),
+              Text(
+                'Press and hold the red SOS button to create an alert. Your record is saved locally first, then synchronized when the connection is available.',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // HISTORY
   // ---------------------------------------------------------------------------
 
   Widget _buildHistory() {
+    const background = Color(0xFFFFFAF9);
     return SafeArea(
-      child: CustomScrollView(
-        slivers: [
-          const SliverAppBar(pinned: true, title: Text('History')),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-            sliver: StreamBuilder<List<SosMessage>>(
-              stream: widget.repository.watchAll(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return SliverToBoxAdapter(
-                    child: _buildErrorCard('Unable to load SOS history.'),
-                  );
-                }
-
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const SliverToBoxAdapter(
-                    child: Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(32),
-                        child: CircularProgressIndicator(),
+      child: ColoredBox(
+        color: background,
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 22, 16, 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'History',
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.6,
+                            ),
+                          ),
+                          SizedBox(height: 6),
+                          Text(
+                            'Review your SOS activity and status.',
+                            style: TextStyle(
+                              color: Color(0xFF777777),
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  );
-                }
-
-                final messages = snapshot.data ?? [];
-
-                if (messages.isEmpty) {
-                  return SliverToBoxAdapter(
-                    child: _buildEmptyCard(
-                      icon: Icons.history,
-                      title: 'No history',
-                      message: 'SOS activity will appear here.',
+                    IconButton(
+                      tooltip: 'Filter history',
+                      onPressed: _showHistoryFilterSheet,
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        side: const BorderSide(color: Color(0xFFE8E4E3)),
+                        minimumSize: const Size(52, 52),
+                      ),
+                      icon: const Icon(Icons.tune_rounded, size: 22),
                     ),
-                  );
-                }
-
-                final filteredMessages = _filterHistory(messages);
-
-                final activeCount = messages
-                    .where((message) => message.status == 'active')
-                    .length;
-
-                final resolvedCount = messages
-                    .where((message) => message.status == 'resolved')
-                    .length;
-
-                final cancelledCount = messages
-                    .where((message) => message.status == 'cancelled')
-                    .length;
-
-                return SliverList(
-                  delegate: SliverChildListDelegate([
-                    _buildHistorySummary(
-                      total: messages.length,
-                      active: activeCount,
-                      resolved: resolvedCount,
-                      cancelled: cancelledCount,
-                    ),
-                    const SizedBox(height: 20),
-                    _buildHistoryFilter(),
-                    const SizedBox(height: 20),
-                    if (filteredMessages.isEmpty)
-                      _buildEmptyCard(
-                        icon: _historyFilterIcon,
-                        title: _historyEmptyTitle,
-                        message: _historyEmptyMessage,
-                      )
-                    else
-                      for (final sos in filteredMessages) ...[
-                        _buildSosCard(sos, showActions: true),
-                        const SizedBox(height: 12),
-                      ],
-                  ]),
-                );
-              },
+                  ],
+                ),
+              ),
             ),
-          ),
-        ],
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 22, 20, 32),
+              sliver: StreamBuilder<List<SosMessage>>(
+                stream: widget.repository.watchAll(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return SliverToBoxAdapter(
+                      child: _buildErrorCard('Unable to load SOS history.'),
+                    );
+                  }
+
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const SliverToBoxAdapter(
+                      child: Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32),
+                          child: CircularProgressIndicator(),
+                        ),
+                      ),
+                    );
+                  }
+
+                  final messages = snapshot.data ?? [];
+
+                  final filteredMessages = _filterHistory(messages);
+
+                  final activeCount = messages
+                      .where((message) => message.status == 'active')
+                      .length;
+
+                  final resolvedCount = messages
+                      .where((message) => message.status == 'resolved')
+                      .length;
+
+                  final cancelledCount = messages
+                      .where((message) => message.status == 'cancelled')
+                      .length;
+
+                  return SliverList(
+                    delegate: SliverChildListDelegate([
+                      _buildHistorySummary(
+                        total: messages.length,
+                        active: activeCount,
+                        resolved: resolvedCount,
+                        cancelled: cancelledCount,
+                      ),
+                      const SizedBox(height: 20),
+                      _buildHistoryFilter(),
+                      const SizedBox(height: 20),
+                      if (filteredMessages.isEmpty)
+                        _buildEmptyCard(
+                          icon: _historyFilterIcon,
+                          title: _historyEmptyTitle,
+                          message: _historyEmptyMessage,
+                          actionLabel: messages.isEmpty ? 'Send SOS' : null,
+                          onAction: messages.isEmpty ? _sendSos : null,
+                        )
+                      else
+                        for (final sos in filteredMessages) ...[
+                          _buildSosCard(
+                            sos,
+                            showActions: true,
+                            historyStyle: true,
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                    ]),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Future<void> _showHistoryFilterSheet() async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(
+              title: Text(
+                'Filter history',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            for (final filter in const [
+              ('all', 'All', Icons.history_rounded),
+              ('active', 'Active', Icons.warning_amber_rounded),
+              ('resolved', 'Resolved', Icons.check_circle_outline),
+              ('cancelled', 'Cancelled', Icons.cancel_outlined),
+            ])
+              ListTile(
+                onTap: () => Navigator.pop(context, filter.$1),
+                title: Text(filter.$2),
+                leading: Icon(filter.$3),
+                trailing: Icon(
+                  _historyFilter == filter.$1
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_off,
+                  color: _historyFilter == filter.$1
+                      ? const Color(0xFFD92323)
+                      : const Color(0xFFAAA4A2),
+                ),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (selected != null && mounted) {
+      setState(() => _historyFilter = selected);
+    }
   }
 
   List<SosMessage> _filterHistory(List<SosMessage> messages) {
@@ -341,60 +706,159 @@ class _SosPageState extends State<SosPage> {
     required int cancelled,
   }) {
     return Card(
+      margin: EdgeInsets.zero,
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: const BorderSide(color: Color(0xFFF0ECEB)),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Expanded(
-              child: _buildHistoryCount(label: 'Total', count: total),
-            ),
-            Expanded(
-              child: _buildHistoryCount(label: 'Active', count: active),
-            ),
-            Expanded(
-              child: _buildHistoryCount(label: 'Resolved', count: resolved),
-            ),
-            Expanded(
-              child: _buildHistoryCount(label: 'Cancelled', count: cancelled),
-            ),
-          ],
+        padding: const EdgeInsets.all(12),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            const spacing = 12.0;
+            final itemWidth = (constraints.maxWidth - spacing) / 2;
+
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: [
+                SizedBox(
+                  width: itemWidth,
+                  child: _buildHistoryCount(
+                    label: 'Total',
+                    description: 'All time',
+                    count: total,
+                    icon: Icons.history,
+                    background: const Color(0xFFF4F3F8),
+                  ),
+                ),
+                SizedBox(
+                  width: itemWidth,
+                  child: _buildHistoryCount(
+                    label: 'Active',
+                    description: 'Currently open',
+                    count: active,
+                    icon: Icons.warning_amber_rounded,
+                    color: Theme.of(context).colorScheme.error,
+                    background: const Color(0xFFFFF1F0),
+                  ),
+                ),
+                SizedBox(
+                  width: itemWidth,
+                  child: _buildHistoryCount(
+                    label: 'Resolved',
+                    description: 'Completed',
+                    count: resolved,
+                    icon: Icons.check_circle_outline,
+                    color: Theme.of(context).colorScheme.primary,
+                    background: const Color(0xFFF0F8F5),
+                  ),
+                ),
+                SizedBox(
+                  width: itemWidth,
+                  child: _buildHistoryCount(
+                    label: 'Cancelled',
+                    description: 'Cancelled by you',
+                    count: cancelled,
+                    icon: Icons.cancel_outlined,
+                    color: Theme.of(context).colorScheme.tertiary,
+                    background: const Color(0xFFFFF8EC),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _buildHistoryCount({required String label, required int count}) {
-    return Column(
-      children: [
-        Text(
-          count.toString(),
-          style: Theme.of(context).textTheme.titleLarge
-              ?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-      ],
+  Widget _buildHistoryCount({
+    required String label,
+    required int count,
+    required IconData icon,
+    required String description,
+    required Color background,
+    Color? color,
+  }) {
+    final theme = Theme.of(context);
+    final itemColor = color ?? theme.colorScheme.onSurfaceVariant;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 10, 12),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: itemColor.withValues(alpha: 0.09),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: itemColor, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  count.toString(),
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: Colors.black87,
+                  ),
+                ),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: const Color(0xFF777777),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildHistoryFilter() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _buildHistoryFilterChip(value: 'all', label: 'All'),
-          const SizedBox(width: 8),
-          _buildHistoryFilterChip(value: 'active', label: 'Active'),
-          const SizedBox(width: 8),
-          _buildHistoryFilterChip(value: 'resolved', label: 'Resolved'),
-          const SizedBox(width: 8),
-          _buildHistoryFilterChip(value: 'cancelled', label: 'Cancelled'),
-        ],
-      ),
+    return Row(
+      children: [
+        for (final filter in const [
+          ('all', 'All'),
+          ('active', 'Active'),
+          ('resolved', 'Resolved'),
+          ('cancelled', 'Cancelled'),
+        ])
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(right: filter.$1 == 'cancelled' ? 0 : 8),
+              child: _buildHistoryFilterChip(
+                value: filter.$1,
+                label: filter.$2,
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -402,18 +866,53 @@ class _SosPageState extends State<SosPage> {
     required String value,
     required String label,
   }) {
-    return FilterChip(
-      label: Text(label),
-      selected: _historyFilter == value,
-      onSelected: (selected) {
-        if (!selected) {
-          return;
-        }
-
-        setState(() {
-          _historyFilter = value;
-        });
-      },
+    final selected = _historyFilter == value;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$label history filter',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => setState(() => _historyFilter = value),
+        child: Container(
+          height: 48,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFFFCE5E4) : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected
+                  ? const Color(0xFFF2B8B5)
+                  : const Color(0xFFE4E0DF),
+            ),
+          ),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (selected) ...[
+                  const Icon(
+                    Icons.check_rounded,
+                    size: 18,
+                    color: Color(0xFFD92323),
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: selected
+                        ? const Color(0xFFD92323)
+                        : const Color(0xFF4B4746),
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -553,56 +1052,69 @@ class _SosPageState extends State<SosPage> {
         slivers: [
           const SliverAppBar(pinned: true, title: Text('Settings')),
           SliverPadding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 _buildAccountCard(),
-                const SizedBox(height: 24),
+                const SizedBox(height: 28),
                 _buildSettingsSection(
-                  title: 'App',
+                  title: 'PREFERENCES',
                   children: [
                     _buildSettingsTile(
                       icon: Icons.notifications_outlined,
                       title: 'Notifications',
-                      subtitle: 'Emergency notification settings',
-                      onTap: () {
-                        _showComingSoon('Notifications');
-                      },
+                      subtitle: 'Coming soon · Emergency notifications',
+                      onTap: () => _showSettingsInfo(
+                        title: 'Notifications',
+                        description:
+                            'Manage how emergency alerts will be delivered.',
+                        icon: Icons.notifications_outlined,
+                        details: [
+                          'Notification preferences are not configurable yet.',
+                          'Push notifications require a notification service and device permissions.',
+                        ],
+                      ),
                     ),
+                    const Divider(height: 1, indent: 56),
                     _buildSettingsTile(
                       icon: Icons.location_on_outlined,
                       title: 'Location',
-                      subtitle: 'Location permission and sharing',
+                      subtitle: 'Permission and location services',
                       onTap: _showLocationSettings,
                     ),
+                    const Divider(height: 1, indent: 56),
                     _buildSettingsTile(
                       icon: Icons.bluetooth_outlined,
-                      title: 'Nearby SOS',
-                      subtitle: 'Offline nearby emergency communication',
-                      onTap: () {
-                        _showComingSoon('Nearby SOS');
-                      },
+                      title: 'BLE Test (Debug)',
+                      subtitle: 'Test nearby Bluetooth between phones',
+                      onTap: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute<void>(builder: (_) => BleTestPage()),
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
-                _buildSettingsSection(
-                  title: 'Account',
-                  children: [
-                    _buildSettingsTile(
-                      icon: Icons.logout,
-                      title: 'Sign out',
-                      subtitle: 'Sign out from this device',
-                      isDestructive: true,
-                      onTap: _signOut,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
                 Center(
-                  child: Text(
-                    'SOS App',
-                    style: Theme.of(context).textTheme.bodySmall,
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.shield_outlined,
+                        size: 28,
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Off Grid SOS',
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Emergency communication',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ]),
@@ -613,25 +1125,114 @@ class _SosPageState extends State<SosPage> {
     );
   }
 
-  Widget _buildAccountCard() {
-    final user = FirebaseAuth.instance.currentUser;
+  Future<void> _showSettingsInfo({
+    required String title,
+    required String description,
+    required List<String> details,
+    required IconData icon,
+  }) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        final theme = Theme.of(sheetContext);
+        final colors = theme.colorScheme;
 
-    final email = user?.email ?? 'Unknown account';
-    final initial = email.isNotEmpty ? email[0].toUpperCase() : '?';
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 26,
+                      backgroundColor: colors.primaryContainer,
+                      foregroundColor: colors.onPrimaryContainer,
+                      child: Icon(icon, size: 26),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Text(description, style: theme.textTheme.bodyMedium),
+                const SizedBox(height: 20),
+                for (final detail in details)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 20,
+                          color: colors.primary,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            detail,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(sheetContext).pop(),
+                    child: const Text('Close'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAccountCard() {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final email =
+        FirebaseAuth.instance.currentUser?.email ?? 'No email available';
+    final currentEmail = FirebaseAuth.instance.currentUser?.email;
+    final initial = (currentEmail?.isNotEmpty ?? false)
+        ? currentEmail![0].toUpperCase()
+        : '?';
+    final verified = FirebaseAuth.instance.currentUser?.emailVerified ?? false;
 
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: _showProfile,
+        onTap: _openAccountPage,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           child: Row(
             children: [
               CircleAvatar(
-                radius: 28,
+                radius: 30,
+                backgroundColor: colors.primaryContainer,
+                foregroundColor: colors.onPrimaryContainer,
                 child: Text(
                   initial,
-                  style: Theme.of(context).textTheme.titleLarge,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
@@ -640,21 +1241,58 @@ class _SosPageState extends State<SosPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Profile',
-                      style: Theme.of(context).textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                      'My account',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       email,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: (verified ? colors.primary : colors.tertiary)
+                            .withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            verified
+                                ? Icons.verified_outlined
+                                : Icons.mark_email_unread_outlined,
+                            size: 15,
+                            color: verified ? colors.primary : colors.tertiary,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            verified ? 'Email verified' : 'Email not verified',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: verified
+                                  ? colors.primary
+                                  : colors.tertiary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right),
+              Icon(Icons.chevron_right, color: colors.onSurfaceVariant),
             ],
           ),
         ),
@@ -662,27 +1300,10 @@ class _SosPageState extends State<SosPage> {
     );
   }
 
-  Widget _buildSettingsSection({
-    required String title,
-    required List<Widget> children,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(
-            title,
-            style: Theme.of(context).textTheme.titleSmall
-                ?.copyWith(fontWeight: FontWeight.w700),
-          ),
-        ),
-        Card(
-          clipBehavior: Clip.antiAlias,
-          child: Column(children: children),
-        ),
-      ],
-    );
+  Future<void> _openAccountPage() async {
+    await Navigator.of(
+      context,
+    ).push<void>(MaterialPageRoute<void>(builder: (_) => const AccountPage()));
   }
 
   Widget _buildSettingsTile({
@@ -692,19 +1313,52 @@ class _SosPageState extends State<SosPage> {
     required VoidCallback onTap,
     bool isDestructive = false,
   }) {
-    final color = isDestructive
-        ? Theme.of(context).colorScheme.error
-        : Theme.of(context).colorScheme.onSurface;
+    final colors = Theme.of(context).colorScheme;
+    final color = isDestructive ? colors.error : colors.onSurface;
 
     return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      minLeadingWidth: 28,
       leading: Icon(icon, color: color),
       title: Text(
         title,
         style: TextStyle(color: color, fontWeight: FontWeight.w600),
       ),
       subtitle: Text(subtitle),
-      trailing: const Icon(Icons.chevron_right),
+      trailing: Icon(
+        Icons.chevron_right,
+        color: isDestructive ? colors.error : colors.onSurfaceVariant,
+      ),
       onTap: onTap,
+    );
+  }
+
+  Widget _buildSettingsSection({
+    required String title,
+    required List<Widget> children,
+  }) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 10),
+          child: Text(
+            title,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: colors.primary,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.1,
+            ),
+          ),
+        ),
+        Card(
+          clipBehavior: Clip.antiAlias,
+          child: Column(mainAxisSize: MainAxisSize.min, children: children),
+        ),
+      ],
     );
   }
 
@@ -781,81 +1435,6 @@ class _SosPageState extends State<SosPage> {
     }
   }
 
-  Future<void> _showProfile() async {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null || !mounted) {
-      return;
-    }
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: CircleAvatar(
-                    radius: 36,
-                    child: Text(
-                      (user.email?.isNotEmpty ?? false)
-                          ? user.email![0].toUpperCase()
-                          : '?',
-                      style: Theme.of(sheetContext).textTheme.headlineSmall,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Center(
-                  child: Text(
-                    'Profile',
-                    style: Theme.of(sheetContext).textTheme.headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                _buildProfileRow(
-                  context: sheetContext,
-                  icon: Icons.email_outlined,
-                  label: 'Email',
-                  value: user.email ?? 'Unknown',
-                ),
-                _buildProfileRow(
-                  context: sheetContext,
-                  icon: Icons.fingerprint,
-                  label: 'User ID',
-                  value: user.uid,
-                ),
-                _buildProfileRow(
-                  context: sheetContext,
-                  icon: Icons.verified_user_outlined,
-                  label: 'Email verified',
-                  value: user.emailVerified ? 'Yes' : 'No',
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.of(sheetContext).pop();
-                    },
-                    child: const Text('Close'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildProfileRow({
     required BuildContext context,
     required IconData icon,
@@ -893,6 +1472,14 @@ class _SosPageState extends State<SosPage> {
   // ---------------------------------------------------------------------------
 
   Future<void> _sendSos() async {
+    if (_sendingSos) {
+      return;
+    }
+
+    setState(() {
+      _sendingSos = true;
+    });
+
     final id = DateTime.now().microsecondsSinceEpoch.toString();
 
     try {
@@ -932,6 +1519,12 @@ class _SosPageState extends State<SosPage> {
 
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Failed to send SOS: $error')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _sendingSos = false;
+        });
+      }
     }
   }
 
@@ -1240,77 +1833,63 @@ class _SosPageState extends State<SosPage> {
     }
   }
 
-  Future<void> _signOut() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Sign out?'),
-          content: const Text(
-            'You will need to sign in again to use this account.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop(false);
-              },
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop(true);
-              },
-              child: const Text('Sign out'),
-            ),
-          ],
-        );
-      },
-    );
+  // void _showComingSoon(String feature) {
+  //   if (!mounted) {
+  //     return;
+  //   }
 
-    if (confirmed != true || !mounted) {
-      return;
-    }
-
-    await FirebaseAuth.instance.signOut();
-  }
-
-  void _showComingSoon(String feature) {
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('$feature is coming soon.')));
-  }
+  //   ScaffoldMessenger.of(context)
+  //       .showSnackBar(SnackBar(content: Text('$feature is coming soon.')));
+  // }
 
   // ---------------------------------------------------------------------------
   // COMPONENTS
   // ---------------------------------------------------------------------------
 
-  Widget _buildSosCard(SosMessage sos, {bool showActions = false}) {
+  Widget _buildSosCard(
+    SosMessage sos, {
+    bool showActions = false,
+    bool historyStyle = false,
+  }) {
     final isActive = sos.status == 'active';
     final isSynced = sos.syncState == 'synced';
 
     final statusColor = isActive
-        ? Colors.red.shade700
-        : Theme.of(context).colorScheme.primary;
+        ? const Color(0xFFD92323)
+        : sos.status == 'cancelled'
+        ? const Color(0xFF9A6A13)
+        : const Color(0xFF397A62);
 
     return Card(
+      margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
+      elevation: historyStyle ? 1 : null,
+      shadowColor: Colors.black.withValues(alpha: 0.07),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(historyStyle ? 20 : 12),
+        side: historyStyle
+            ? const BorderSide(color: Color(0xFFF0ECEB))
+            : BorderSide.none,
+      ),
       child: InkWell(
         onTap: () {
           _showSosDetail(sos);
         },
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.fromLTRB(
+            historyStyle ? 20 : 16,
+            16,
+            historyStyle ? 14 : 16,
+            16,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   Container(
-                    width: 42,
-                    height: 42,
+                    width: historyStyle ? 56 : 42,
+                    height: historyStyle ? 56 : 42,
                     decoration: BoxDecoration(
                       color: statusColor.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
@@ -1318,8 +1897,11 @@ class _SosPageState extends State<SosPage> {
                     child: Icon(
                       isActive
                           ? Icons.warning_rounded
+                          : sos.status == 'cancelled'
+                          ? Icons.cancel_outlined
                           : Icons.check_circle_outline,
                       color: statusColor,
+                      size: historyStyle ? 30 : null,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1343,6 +1925,8 @@ class _SosPageState extends State<SosPage> {
                   _buildStatusChip(sos.status),
                   if (showActions)
                     PopupMenuButton<String>(
+                      tooltip: 'SOS actions',
+                      padding: EdgeInsets.zero,
                       onSelected: (value) {
                         switch (value) {
                           case 'edit':
@@ -1363,11 +1947,16 @@ class _SosPageState extends State<SosPage> {
               if (sos.message != null && sos.message!.isNotEmpty) ...[
                 const SizedBox(height: 14),
                 Text(
-                  sos.message!,
+                  historyStyle ? sos.message! : sos.message!,
+                  maxLines: historyStyle ? 1 : null,
+                  overflow: historyStyle ? TextOverflow.ellipsis : null,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
               const SizedBox(height: 12),
+              if (historyStyle)
+                const Divider(height: 1, color: Color(0xFFEDE9E8)),
+              if (historyStyle) const SizedBox(height: 12),
               Row(
                 children: [
                   Icon(
@@ -1379,6 +1968,12 @@ class _SosPageState extends State<SosPage> {
                     isSynced ? 'Synced' : 'Pending sync',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
+                  const Spacer(),
+                  if (historyStyle)
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: Color(0xFF4B4746),
+                    ),
                 ],
               ),
             ],
@@ -1450,6 +2045,8 @@ class _SosPageState extends State<SosPage> {
     required IconData icon,
     required String title,
     required String message,
+    String? actionLabel,
+    VoidCallback? onAction,
   }) {
     return Card(
       child: Padding(
@@ -1469,6 +2066,20 @@ class _SosPageState extends State<SosPage> {
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: _sendingSos ? null : onAction,
+                icon: _sendingSos
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.warning_amber_rounded),
+                label: Text(_sendingSos ? 'Sending...' : actionLabel),
+              ),
+            ],
           ],
         ),
       ),
