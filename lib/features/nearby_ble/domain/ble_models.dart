@@ -33,9 +33,9 @@ class BleDevice {
   final int? rssi;
 
   factory BleDevice.fromMap(Map<Object?, Object?> map) => BleDevice(
-    id: map['id'] as String? ?? '',
-    name: map['name'] as String?,
-    rssi: (map['rssi'] as num?)?.toInt(),
+    id: map['id'] is String ? map['id'] as String : '',
+    name: map['name'] is String ? map['name'] as String : null,
+    rssi: map['rssi'] is num ? (map['rssi'] as num).toInt() : null,
   );
 }
 
@@ -47,6 +47,8 @@ class BleEvent {
     this.error,
     this.state,
     this.role,
+    this.scanSession,
+    this.attempt,
   });
   final String type;
   final BleDevice? device;
@@ -54,21 +56,28 @@ class BleEvent {
   final String? error;
   final String? state;
   final BleSessionRole? role;
+  final int? scanSession;
+  final int? attempt;
 
   factory BleEvent.fromMap(Map<Object?, Object?> map) => BleEvent(
-    type: map['type'] as String? ?? 'unknown',
+    type: map['type'] is String ? map['type'] as String : 'unknown',
     device: map['device'] is Map
         ? BleDevice.fromMap(Map<Object?, Object?>.from(map['device'] as Map))
         : null,
-    payload: map['payload'] is List
-        ? List<int>.from(
-            (map['payload'] as List).map((e) => (e as num).toInt()),
-          )
-        : null,
-    error: map['error'] as String?,
-    state: map['state'] as String?,
+    payload: _payloadFrom(map['payload']),
+    error: map['error'] is String ? map['error'] as String : null,
+    state: map['state'] is String ? map['state'] as String : null,
     role: BleSessionRole.fromWire(map['role']),
+    scanSession: _intFrom(map['scanSession']),
+    attempt: _intFrom(map['attempt']),
   );
+
+  static int? _intFrom(Object? value) => value is num ? value.toInt() : null;
+
+  static List<int>? _payloadFrom(Object? value) {
+    if (value is! List || value.any((item) => item is! num)) return null;
+    return value.map((item) => (item as num).toInt()).toList(growable: false);
+  }
 }
 
 class BleTransportException implements Exception {

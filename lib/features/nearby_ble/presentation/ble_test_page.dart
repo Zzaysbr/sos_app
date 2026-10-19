@@ -21,6 +21,7 @@ class BleTestPage extends StatefulWidget {
 class _BleTestPageState extends State<BleTestPage> {
   final _messageController = TextEditingController();
   final _devices = <String, BleDevice>{};
+  final _lastSeen = <String, DateTime>{};
   final _states = <String, String>{};
   final _assemblers = <String, BleMessageAssembler>{};
   final _logs = <String>[];
@@ -32,12 +33,16 @@ class _BleTestPageState extends State<BleTestPage> {
   String _phase = 'idle';
   String? _selectedDeviceId;
   String? _busyOperation;
+  bool _scanActive = false;
+  int _scanSession = 0;
   bool _disposed = false;
   late Future<void> _readyFuture;
 
   bool get _busy => _busyOperation != null;
   BleDevice? get _selectedDevice =>
       _selectedDeviceId == null ? null : _devices[_selectedDeviceId];
+
+  String _deviceKey(String id) => id.trim().toLowerCase();
 
   @override
   void initState() {
@@ -52,9 +57,13 @@ class _BleTestPageState extends State<BleTestPage> {
     unawaited(_readyFuture.catchError((Object _) {}));
   }
 
-  Future<void> _initialize() async {
+  Future<void> _initialize({bool requestPermission = true}) async {
     try {
+      if (requestPermission) await widget.transport.requestPermissions();
+      if (_disposed || !mounted) return;
+      _log('BLE permissions granted');
       await widget.transport.initialize();
+      if (_disposed || !mounted) return;
       _log('Transport initialized');
     } catch (error) {
       _log('Initialize failed: $error');
@@ -64,9 +73,28 @@ class _BleTestPageState extends State<BleTestPage> {
 
   void _handleEvent(BleEvent event) {
     if (_disposed) return;
+    final eventContext = [
+      if (event.scanSession != null) 'scan=${event.scanSession}',
+      if (event.attempt != null) 'attempt=${event.attempt}',
+    ].join(' ');
+    if (eventContext.isNotEmpty) _log('BLE event ${event.type} $eventContext');
     final device = event.device;
-    if (device != null && device.id.isNotEmpty) {
-      _devices[device.id] = device;
+    final normalizedDeviceId = device?.id.trim() ?? '';
+    final key = _deviceKey(normalizedDeviceId);
+    final alreadyDiscovered = _devices.containsKey(key);
+    final isNewScanResult = event.type == 'deviceFound' && _scanActive;
+    if (device != null &&
+        normalizedDeviceId.isNotEmpty &&
+        (isNewScanResult || alreadyDiscovered)) {
+      final previous = _devices[key];
+      if (event.type == 'deviceFound') _lastSeen[key] = DateTime.now();
+      _devices[key] = BleDevice(
+        id: previous?.id ?? normalizedDeviceId,
+        name: device.name?.trim().isEmpty == true
+            ? previous?.name
+            : device.name?.trim() ?? previous?.name,
+        rssi: device.rssi ?? previous?.rssi,
+      );
     }
     if (event.type == 'centralState') _centralState = event.state ?? 'unknown';
     if (event.type == 'peripheralState') {
@@ -75,30 +103,36 @@ class _BleTestPageState extends State<BleTestPage> {
     if (event.type == 'state') _phase = event.state ?? 'unknown';
     switch (event.type) {
       case 'deviceFound':
+        if (!_scanActive) {
+          _log('Ignoring device discovery outside scan session $_scanSession');
+          break;
+        }
         if (device != null) _log('Discovered ${_deviceLabel(device)}');
         break;
       case 'connecting':
         _phase = 'connecting';
-        if (device != null) _states[device.id] = 'connecting';
+        if (device != null) _states[_deviceKey(device.id)] = 'connecting';
         _log('Connecting to ${device?.id ?? 'device'}');
         break;
       case 'connected':
         _phase = 'connected / GATT ready';
-        if (device != null) _states[device.id] = 'connected';
+        if (device != null) _states[_deviceKey(device.id)] = 'connected';
         if (device != null) {
-          _connectionWaiters.remove(device.id)?.complete();
+          _connectionWaiters.remove(_deviceKey(device.id))?.complete();
         }
         _log('Connected to ${device?.id ?? 'device'}');
         break;
       case 'disconnected':
         _phase = 'disconnected';
         if (device != null) {
-          _states[device.id] = 'disconnected';
-          _assemblers.removeWhere((key, _) => key.startsWith('${device.id}|'));
+          _states[_deviceKey(device.id)] = 'disconnected';
+          _assemblers.removeWhere(
+            (key, _) => key.startsWith('${_deviceKey(device.id)}|'),
+          );
         }
         if (device != null) {
           _connectionWaiters
-              .remove(device.id)
+              .remove(_deviceKey(device.id))
               ?.completeError(
                 BleTransportException(
                   event.error ?? 'Disconnected before GATT was ready',
@@ -113,10 +147,13 @@ class _BleTestPageState extends State<BleTestPage> {
         _handleData(event);
         break;
       case 'error':
+        if (_busyOperation == 'scan' || _phase == 'discovering') {
+          _scanActive = false;
+        }
         _phase = 'error';
         if (device != null) {
           _connectionWaiters
-              .remove(device.id)
+              .remove(_deviceKey(device.id))
               ?.completeError(
                 BleTransportException(event.error ?? 'BLE operation failed'),
               );
@@ -145,12 +182,25 @@ class _BleTestPageState extends State<BleTestPage> {
   }
 
   void _handleData(BleEvent event) {
-    final key =
-        '${event.device?.id ?? 'unknown'}|${event.role?.wireValue ?? 'central'}';
+    final normalizedDeviceId = _deviceKey(event.device?.id ?? 'unknown');
+    final key = '$normalizedDeviceId|${event.role?.wireValue ?? 'central'}';
     final payload = event.payload;
     if (payload == null) {
       _log('Received data without a payload');
       return;
+    }
+    if (payload.length >= BleMessageCodec.headerBytes) {
+      final index = (payload[10] << 8) | payload[11];
+      final count = (payload[12] << 8) | payload[13];
+      _log(
+        'Frame received from ${event.device?.id ?? 'unknown'}: '
+        '$index/$count (${payload.length} bytes)',
+      );
+    } else {
+      _log(
+        'Frame received from ${event.device?.id ?? 'unknown'}: '
+        'invalid header (${payload.length} bytes)',
+      );
     }
     final assembler = _assemblers.putIfAbsent(key, BleMessageAssembler.new);
     try {
@@ -162,7 +212,10 @@ class _BleTestPageState extends State<BleTestPage> {
         0,
         '$stamp · $sender · ${message.payload['text'] ?? message.type}',
       );
-      _log('Received message from $sender');
+      _log(
+        'Assembly complete from $sender: id=${message.id}, '
+        'type=${message.type}',
+      );
     } on BleProtocolException catch (error) {
       _log('Received invalid frame: ${error.message}');
     }
@@ -183,18 +236,44 @@ class _BleTestPageState extends State<BleTestPage> {
   Future<void> _requestPermissions() => _run('permissions', () async {
     await widget.transport.requestPermissions();
     _log('Permission request sent');
+    _readyFuture = _initialize(requestPermission: false);
+    try {
+      await _readyFuture;
+    } catch (_) {
+      // The diagnostic log contains the actionable native error.
+    }
   });
 
   Future<void> _startScan() => _run('scan', () async {
+    if (_scanActive) {
+      _log('Scan already active; ignoring duplicate start request');
+      return;
+    }
     await _readyFuture;
     _assertActive();
-    _log('Starting BLE scan');
-    await widget.transport.startDiscovery();
+    _scanSession++;
+    _scanActive = true;
+    _devices.clear();
+    _lastSeen.clear();
+    _states.clear();
+    _selectedDeviceId = null;
+    _log('Starting BLE scan session $_scanSession');
+    try {
+      await widget.transport.startDiscovery();
+    } catch (_) {
+      _scanActive = false;
+      rethrow;
+    }
   });
 
   Future<void> _stopScan() => _run('stop scan', () async {
+    if (!_scanActive) {
+      _log('Scan is not active; ignoring duplicate stop request');
+      return;
+    }
     await _readyFuture;
     _assertActive();
+    _scanActive = false;
     await widget.transport.stopDiscovery();
     _log('Scan stopped');
   });
@@ -216,18 +295,19 @@ class _BleTestPageState extends State<BleTestPage> {
   Future<void> _connect(BleDevice device) => _run('connect', () async {
     await _readyFuture;
     _assertActive();
-    _selectedDeviceId = device.id;
-    _states[device.id] = 'connecting';
+    final key = _deviceKey(device.id);
+    _selectedDeviceId = key;
+    _states[key] = 'connecting';
     _log('Connect requested for ${device.id}');
     final waiter = Completer<void>();
-    _connectionWaiters.remove(device.id);
-    _connectionWaiters[device.id] = waiter;
+    _connectionWaiters.remove(key);
+    _connectionWaiters[key] = waiter;
     try {
       await widget.transport.connect(device.id);
       await waiter.future.timeout(const Duration(seconds: 15));
     } finally {
-      if (identical(_connectionWaiters[device.id], waiter)) {
-        _connectionWaiters.remove(device.id);
+      if (identical(_connectionWaiters[key], waiter)) {
+        _connectionWaiters.remove(key);
       }
     }
   });
@@ -245,7 +325,7 @@ class _BleTestPageState extends State<BleTestPage> {
     if (_busy ||
         device == null ||
         text.isEmpty ||
-        _states[device.id] != 'connected') {
+        _states[_deviceKey(device.id)] != 'connected') {
       return;
     }
     await _run('send', () async {
@@ -317,7 +397,8 @@ class _BleTestPageState extends State<BleTestPage> {
   @override
   Widget build(BuildContext context) {
     final selectedConnected =
-        _selectedDevice != null && _states[_selectedDevice!.id] == 'connected';
+        _selectedDevice != null &&
+        _states[_deviceKey(_selectedDevice!.id)] == 'connected';
     return Scaffold(
       appBar: AppBar(title: const Text('BLE Test (Debug)')),
       body: ListView(
@@ -444,10 +525,10 @@ class _BleTestPageState extends State<BleTestPage> {
                     : 'Unnamed device',
               ),
               subtitle: Text(
-                '${device.id}${device.rssi == null ? '' : ' · RSSI ${device.rssi}'}\nState: ${_states[device.id] ?? 'discovered'}',
+                '${device.id}${device.rssi == null ? '' : ' · RSSI ${device.rssi}'}\nState: ${_states[_deviceKey(device.id)] ?? 'discovered'}',
               ),
               isThreeLine: true,
-              trailing: _states[device.id] == 'connected'
+              trailing: _states[_deviceKey(device.id)] == 'connected'
                   ? OutlinedButton(
                       onPressed: _busy ? null : () => _disconnect(device),
                       child: const Text('Disconnect'),

@@ -2,6 +2,8 @@ import 'package:drift/native.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:flutter_test/flutter_test.dart';
 
+import 'dart:io';
+
 import 'package:sos_app/core/database/app_database.dart';
 import 'package:sos_app/features/nearby_ble/data/ble_delivery_repository.dart';
 import 'package:sos_app/features/nearby_ble/domain/ble_delivery_state.dart';
@@ -133,6 +135,134 @@ void main() {
     expect(row.sosId, 'sos-1');
   });
 
+  test('reconciles an active SOS that has no BLE outbox row', () async {
+    final now = DateTime.utc(2026, 1, 1);
+    await database
+        .into(database.sosMessages)
+        .insert(
+          SosMessagesCompanion.insert(
+            id: 'recover-sos',
+            ownerId: 'owner-1',
+            type: 'emergency',
+            message: const Value('Help'),
+            latitude: const Value(13.7),
+            longitude: const Value(100.5),
+            status: 'active',
+            syncState: 'pending',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+
+    expect(
+      await repository.reconcileMissingSosOutbox(ownerId: 'owner-1', now: now),
+      1,
+    );
+    final row = await repository.lookupOutbox('sos:recover-sos:delivery:v1');
+    expect(row, isNotNull);
+    expect(row!.destinationId, isNull);
+    expect(row.state, BleOutboxState.queued.wireValue);
+  });
+
+  test(
+    'reconciliation is idempotent and preserves an assigned destination',
+    () async {
+      final now = DateTime.utc(2026, 1, 1);
+      await database
+          .into(database.sosMessages)
+          .insert(
+            SosMessagesCompanion.insert(
+              id: 'assigned-sos',
+              ownerId: 'owner-1',
+              type: 'emergency',
+              status: 'active',
+              syncState: 'pending',
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+      await repository.enqueueOutbox(
+        _delivery(messageId: 'legacy-delivery', sosId: 'assigned-sos'),
+        destinationId: 'peer-a',
+        now: now,
+      );
+
+      expect(
+        await repository.reconcileMissingSosOutbox(
+          ownerId: 'owner-1',
+          now: now,
+        ),
+        0,
+      );
+      expect(
+        (await repository.lookupOutbox('legacy-delivery'))!.destinationId,
+        'peer-a',
+      );
+      expect(await database.select(database.bleOutbox).get(), hasLength(1));
+    },
+  );
+
+  test(
+    'reconciliation skips cancelled SOS records and terminal deliveries',
+    () async {
+      final now = DateTime.utc(2026, 1, 1);
+      await database
+          .into(database.sosMessages)
+          .insert(
+            SosMessagesCompanion.insert(
+              id: 'cancelled-sos',
+              ownerId: 'owner-1',
+              type: 'emergency',
+              status: 'cancelled',
+              syncState: 'synced',
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+      await database
+          .into(database.sosMessages)
+          .insert(
+            SosMessagesCompanion.insert(
+              id: 'terminal-sos',
+              ownerId: 'owner-1',
+              type: 'emergency',
+              status: 'active',
+              syncState: 'pending',
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+      await repository.enqueueOutbox(
+        _delivery(messageId: 'terminal-delivery', sosId: 'terminal-sos'),
+        destinationId: 'peer-1',
+        now: now,
+      );
+      await repository.transitionOutboxState(
+        'terminal-delivery',
+        BleOutboxState.sending,
+        now: now,
+      );
+      await repository.transitionOutboxState(
+        'terminal-delivery',
+        BleOutboxState.acknowledged,
+        now: now,
+      );
+
+      expect(
+        await repository.reconcileMissingSosOutbox(
+          ownerId: 'owner-1',
+          now: now,
+        ),
+        0,
+      );
+      expect(await database.select(database.bleOutbox).get(), hasLength(1));
+      expect(
+        (await repository.lookupOutbox('terminal-delivery'))!.state,
+        BleOutboxState.acknowledged.wireValue,
+      );
+    },
+  );
+
   test('inbox duplicate delivery is inserted once', () async {
     final first = await repository.insertInboxDelivery(_delivery());
     final duplicate = await repository.insertInboxDelivery(_delivery());
@@ -176,7 +306,11 @@ void main() {
     'outbox states reject illegal transitions and select due retries',
     () async {
       final now = DateTime.utc(2026, 1, 1, 12);
-      await repository.enqueueOutbox(_delivery(), now: now);
+      await repository.enqueueOutbox(
+        _delivery(),
+        destinationId: 'peer-1',
+        now: now,
+      );
 
       expect(
         () => repository.transitionOutboxState(
@@ -208,6 +342,100 @@ void main() {
       expect(due.single.retryCount, 1);
     },
   );
+
+  test('concurrent outbox claims allow only one sender', () async {
+    final now = DateTime.utc(2026, 1, 1, 12);
+    await repository.enqueueOutbox(
+      _delivery(messageId: 'claim-message'),
+      destinationId: 'peer-1',
+      now: now,
+    );
+
+    final claims = await Future.wait([
+      repository.claimOutboxForSending('claim-message', now: now),
+      repository.claimOutboxForSending('claim-message', now: now),
+    ]);
+    expect(claims.whereType<BleOutboxData>(), hasLength(1));
+    final row = await repository.lookupOutbox('claim-message');
+    expect(row!.state, BleOutboxState.sending.wireValue);
+    expect(row.retryCount, 1);
+  });
+
+  test(
+    'file-backed SOS and recovered outbox survive a database restart',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'sos-app-recovery-',
+      );
+      final file = File('${directory.path}/database.sqlite');
+      final now = DateTime.utc(2026, 1, 1);
+      try {
+        final first = AppDatabase.forTesting(NativeDatabase(file));
+        final firstRepository = BleDeliveryRepository(first);
+        await first
+            .into(first.sosMessages)
+            .insert(
+              SosMessagesCompanion.insert(
+                id: 'restart-sos',
+                ownerId: 'owner-1',
+                type: 'emergency',
+                status: 'active',
+                syncState: 'pending',
+                createdAt: now,
+                updatedAt: now,
+              ),
+            );
+        await firstRepository.reconcileMissingSosOutbox(
+          ownerId: 'owner-1',
+          now: now,
+        );
+        await first.close();
+
+        final second = AppDatabase.forTesting(NativeDatabase(file));
+        final secondRepository = BleDeliveryRepository(second);
+        final row = await secondRepository.lookupOutbox(
+          'sos:restart-sos:delivery:v1',
+        );
+        expect(row, isNotNull);
+        expect(row!.state, BleOutboxState.queued.wireValue);
+        expect(row.destinationId, isNull);
+        expect(
+          await second
+              .select(second.sosMessages)
+              .getSingle()
+              .then((sos) => sos.id),
+          'restart-sos',
+        );
+        await second.close();
+      } finally {
+        if (await directory.exists()) await directory.delete(recursive: true);
+      }
+    },
+  );
+
+  test(
+    'outbox without a destination waits until a route is assigned',
+    () async {
+      final row = await repository.enqueueOutbox(_delivery());
+      expect(await repository.dueOutbox(), isEmpty);
+
+      await repository.assignDestinationIfMissing(row.messageId, 'peer-1');
+      expect((await repository.dueOutbox()).single.destinationId, 'peer-1');
+    },
+  );
+
+  test('blank destinations are normalized and can be resolved later', () async {
+    final row = await repository.enqueueOutbox(
+      _delivery(messageId: 'blank-destination'),
+      destinationId: '   ',
+    );
+    expect(row.destinationId, isNull);
+    await repository.assignDestinationIfMissing(row.messageId, ' peer-2 ');
+    expect(
+      (await repository.lookupOutbox(row.messageId))!.destinationId,
+      'peer-2',
+    );
+  });
 
   test(
     'remote persisted ACK is recorded separately from write acceptance',

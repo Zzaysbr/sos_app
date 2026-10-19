@@ -19,6 +19,11 @@ class BleDeliveryRepository {
     _requireOutbound(envelope);
     final payload = jsonEncode(envelope.toJson());
     final timestamp = (now ?? DateTime.now()).toUtc();
+    final normalizedDestination = destinationId?.trim();
+    final storedDestination =
+        normalizedDestination == null || normalizedDestination.isEmpty
+        ? null
+        : normalizedDestination;
 
     return _database.transaction(() async {
       await _database
@@ -27,7 +32,7 @@ class BleDeliveryRepository {
             BleOutboxCompanion.insert(
               messageId: envelope.messageId,
               sosId: envelope.sosId,
-              destinationId: Value(destinationId),
+              destinationId: Value(storedDestination),
               schemaVersion: SosBleEnvelope.schemaVersion,
               payload: payload,
               state: BleOutboxState.queued.wireValue,
@@ -56,21 +61,124 @@ class BleDeliveryRepository {
     )..where((table) => table.messageId.equals(messageId))).getSingleOrNull();
   }
 
+  /// Watches the persisted delivery row for an SOS. The delivery envelope has
+  /// a stable message id, so this stream remains valid across app restarts.
+  Stream<BleOutboxData?> watchDeliveryForSos(String sosId) {
+    return (_database.select(_database.bleOutbox)
+          ..where((table) => table.sosId.equals(sosId))
+          ..orderBy([(table) => OrderingTerm.asc(table.createdAt)])
+          ..limit(1))
+        .watchSingleOrNull();
+  }
+
+  /// Recreates the durable SOS delivery row when local SOS persistence
+  /// succeeded but the BLE enqueue callback failed. A missing destination is
+  /// intentionally retained as `queued`; routing must be assigned explicitly.
+  /// The outbox primary key and insert-or-ignore semantics make repeated or
+  /// concurrent reconciliation idempotent.
+  Future<int> reconcileMissingSosOutbox({
+    required String ownerId,
+    DateTime? now,
+    int batchSize = 100,
+  }) async {
+    if (batchSize <= 0) return 0;
+    final timestamp = (now ?? DateTime.now()).toUtc();
+    var recovered = 0;
+    String? afterId;
+    while (true) {
+      final query = _database.select(_database.sosMessages)
+        ..where((table) {
+          final ownerAndStatus =
+              table.ownerId.equals(ownerId) & table.status.equals('active');
+          return afterId == null
+              ? ownerAndStatus
+              : ownerAndStatus & table.id.isBiggerThanValue(afterId);
+        })
+        ..orderBy([(table) => OrderingTerm.asc(table.id)])
+        ..limit(batchSize);
+      final sosRows = await query.get();
+      if (sosRows.isEmpty) break;
+      for (final sos in sosRows) {
+        final existing = await (_database.select(
+          _database.bleOutbox,
+        )..where((table) => table.sosId.equals(sos.id))).get();
+        var hasDelivery = false;
+        for (final row in existing) {
+          try {
+            final decoded = jsonDecode(row.payload);
+            if (decoded is Map &&
+                SosBleEnvelope.fromJson(Map<String, Object?>.from(decoded))
+                        .kind ==
+                    SosBleMessageKind.delivery) {
+              hasDelivery = true;
+              break;
+            }
+          } on Object {
+            // A malformed unrelated row must not prevent recovery of the SOS
+            // delivery. Its existing state remains untouched for diagnosis.
+          }
+        }
+        if (hasDelivery) continue;
+
+        final envelope = SosBleEnvelope.fromSosMessage(
+          sos,
+          messageId: 'sos:${sos.id}:delivery:v1',
+        );
+        await enqueueOutbox(envelope, now: timestamp);
+        recovered++;
+      }
+      afterId = sosRows.last.id;
+      if (sosRows.length < batchSize) break;
+    }
+    return recovered;
+  }
+
+  /// Returns the last transport peer that delivered an SOS for this incident.
+  ///
+  /// This is a BLE device identifier used for reply routing only. It is not
+  /// treated as an authenticated user identity and may become stale if the
+  /// peer changes its platform identifier.
+  Future<String?> lookupReplyDestination(String sosId) async {
+    final row =
+        await (_database.select(_database.bleInbox)
+              ..where(
+                (table) =>
+                    table.sosId.equals(sosId) &
+                    table.senderDeviceId.isNotNull(),
+              )
+              ..orderBy([(table) => OrderingTerm.desc(table.receivedAt)])
+              ..limit(1))
+            .getSingleOrNull();
+    final sender = row?.senderDeviceId?.trim();
+    return sender == null || sender.isEmpty ? null : sender;
+  }
+
   Future<BleOutboxData> assignDestinationIfMissing(
     String messageId,
     String destinationId, {
     DateTime? now,
   }) async {
     final timestamp = (now ?? DateTime.now()).toUtc();
+    final normalizedDestination = destinationId.trim();
+    if (normalizedDestination.isEmpty) {
+      throw const BleDeliveryStateException(
+        'A BLE destination must not be empty.',
+      );
+    }
     final changed =
         await (_database.update(_database.bleOutbox)..where(
               (table) =>
                   table.messageId.equals(messageId) &
-                  table.destinationId.isNull(),
+                  table.state.isNotValue(
+                    BleOutboxState.acknowledged.wireValue,
+                  ) &
+                  table.state.isNotValue(BleOutboxState.expired.wireValue) &
+                  (table.destinationId.isNull() |
+                      table.destinationId.equals('')),
             ))
             .write(
               BleOutboxCompanion(
-                destinationId: Value(destinationId),
+                destinationId: Value(normalizedDestination),
                 updatedAt: Value(timestamp),
               ),
             );
@@ -90,9 +198,11 @@ class BleDeliveryRepository {
     return (_database.select(_database.bleOutbox)
           ..where(
             (table) =>
-                table.state.equals(BleOutboxState.queued.wireValue) |
-                (table.state.equals(BleOutboxState.failed.wireValue) &
-                    table.nextRetryAt.isSmallerOrEqualValue(timestamp)),
+                table.destinationId.isNotNull() &
+                table.destinationId.isNotValue('') &
+                (table.state.equals(BleOutboxState.queued.wireValue) |
+                    (table.state.equals(BleOutboxState.failed.wireValue) &
+                        table.nextRetryAt.isSmallerOrEqualValue(timestamp))),
           )
           ..orderBy([(table) => OrderingTerm.asc(table.createdAt)])
           ..limit(limit))
@@ -152,6 +262,46 @@ class BleDeliveryRepository {
     });
   }
 
+  /// Atomically claims a queued/retryable row for one transmission worker.
+  /// A null result means another worker already claimed it or the retry is not
+  /// due; callers must not mutate that row in that case.
+  Future<BleOutboxData?> claimOutboxForSending(
+    String messageId, {
+    DateTime? now,
+  }) async {
+    final timestamp = (now ?? DateTime.now()).toUtc();
+    return _database.transaction(() async {
+      final current = await lookupOutbox(messageId);
+      if (current == null) return null;
+      final state = BleOutboxState.parse(current.state);
+      final retryDue =
+          current.nextRetryAt == null ||
+          !current.nextRetryAt!.toUtc().isAfter(timestamp);
+      if ((state != BleOutboxState.queued && state != BleOutboxState.failed) ||
+          !retryDue) {
+        return null;
+      }
+      final changed =
+          await (_database.update(_database.bleOutbox)..where(
+                (table) =>
+                    table.messageId.equals(messageId) &
+                    table.state.equals(current.state),
+              ))
+              .write(
+                BleOutboxCompanion(
+                  state: Value(BleOutboxState.sending.wireValue),
+                  retryCount: Value(current.retryCount + 1),
+                  nextRetryAt: const Value(null),
+                  lastAttemptAt: Value(timestamp),
+                  lastError: const Value(null),
+                  updatedAt: Value(timestamp),
+                ),
+              );
+      if (changed != 1) return null;
+      return lookupOutbox(messageId);
+    });
+  }
+
   Future<BleOutboxData> recordAcknowledgement(
     SosBleEnvelope acknowledgement, {
     String? sourceDeviceId,
@@ -177,6 +327,17 @@ class BleDeliveryRepository {
           current.destinationId != sourceDeviceId) {
         throw const BleDeliveryStateException(
           'Acknowledgement came from an unexpected BLE peer.',
+        );
+      }
+      final outboundKind = _decodeEnvelopeKind(current.payload);
+      final isChatAck =
+          acknowledgement.kind == SosBleMessageKind.chatAcknowledgement;
+      final expectedOutboundKind = isChatAck
+          ? SosBleMessageKind.chatMessage
+          : SosBleMessageKind.delivery;
+      if (outboundKind != expectedOutboundKind) {
+        throw const BleDeliveryStateException(
+          'Acknowledgement kind does not match the BLE outbox message.',
         );
       }
       final state = BleOutboxState.parse(current.state);
@@ -489,6 +650,20 @@ class BleDeliveryRepository {
         envelope.kind != SosBleMessageKind.chatMessage) {
       throw const BleDeliveryStateException(
         'Only outbound SOS or chat messages can enter BLE outbox.',
+      );
+    }
+  }
+
+  SosBleMessageKind _decodeEnvelopeKind(String payload) {
+    try {
+      final decoded = jsonDecode(payload);
+      if (decoded is! Map) {
+        throw const FormatException();
+      }
+      return SosBleEnvelope.fromJson(Map<String, Object?>.from(decoded)).kind;
+    } on Object {
+      throw const BleDeliveryStateException(
+        'Stored BLE outbox payload is invalid.',
       );
     }
   }

@@ -61,6 +61,8 @@ class BleTransportBridge(
     private var serverTxCharacteristic: BluetoothGattCharacteristic? = null
     private var serverReady = false
     private var advertisingResult: MethodChannel.Result? = null
+    private var permissionResult: MethodChannel.Result? = null
+    private val permissionRequestCode = 4101
     private var advertisingActive = false
     private var advertiseCallback: AdvertiseCallback? = null
     private val clients = mutableMapOf<String, BluetoothGatt>()
@@ -73,14 +75,24 @@ class BleTransportBridge(
     private val notificationClients = mutableSetOf<String>()
     private val serverClients = mutableSetOf<String>()
     private val disconnectReasons = mutableMapOf<String, String>()
+    private val setupTimeouts = mutableMapOf<String, Runnable>()
+    private val connectionAttempts = mutableMapOf<String, Long>()
+    private var nextConnectionAttempt = 0L
+    private val gattSetupTimeoutMs = 15_000L
     private data class PendingNotification(val value: ByteArray, val result: MethodChannel.Result)
     private val notificationQueues = mutableMapOf<String, ArrayDeque<PendingNotification>>()
     private val notificationInFlight = mutableSetOf<String>()
     private val maxPendingNotifications = 32
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var disposed = false
+    private var scanSession = 0L
 
     fun register() {
+        // A Flutter hot restart can replace the Dart channel while the
+        // Android permission dialog is still open. Do not leave the old
+        // MethodChannel result blocking the new Dart isolate.
+        permissionResult?.error("restarted", "Flutter BLE channel was restarted", null)
+        permissionResult = null
         disposed = false
         methods.setMethodCallHandler(this)
         eventChannel.setStreamHandler(this)
@@ -100,6 +112,8 @@ class BleTransportBridge(
         advertisingActive = false
         advertisingResult?.error("disposed", "BLE transport was disposed", null)
         advertisingResult = null
+        permissionResult?.error("disposed", "BLE transport was disposed", null)
+        permissionResult = null
         clients.values.toList().forEach { it.disconnect(); it.close() }
         failAllGattWrites("disposed", "BLE transport was disposed")
         clients.clear()
@@ -112,6 +126,9 @@ class BleTransportBridge(
         notificationQueues.clear()
         notificationInFlight.clear()
         disconnectReasons.clear()
+        setupTimeouts.values.forEach(mainHandler::removeCallbacks)
+        setupTimeouts.clear()
+        connectionAttempts.clear()
         server?.close()
         server = null
         serverTxCharacteristic = null
@@ -141,8 +158,7 @@ class BleTransportBridge(
             return
         }
         if (call.method == "requestPermissions") {
-            requestPermissions()
-            result.success(null)
+            requestPermissions(result)
             return
         }
         if (!hasPermissionFor(call.method)) {
@@ -181,7 +197,7 @@ class BleTransportBridge(
         }
     }
 
-    private fun requestPermissions() {
+    private fun requestPermissions(result: MethodChannel.Result) {
         val permissions = if (Build.VERSION.SDK_INT >= 31) {
             arrayOf(
                 Manifest.permission.BLUETOOTH_SCAN,
@@ -191,7 +207,51 @@ class BleTransportBridge(
         } else {
             arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
         }
-        (context as? Activity)?.requestPermissions(permissions, 4101)
+        if (permissions.all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }) {
+            result.success(null)
+            emit(mapOf("type" to "permissions", "state" to "granted"))
+            return
+        }
+        if (permissionResult != null) {
+            result.error("busy", "A Bluetooth permission request is already in progress", null)
+            return
+        }
+        val activity = context as? Activity
+        if (activity == null) {
+            result.error("permission_unavailable", "Bluetooth permissions require an active Android activity", null)
+            emitError("Bluetooth permission request requires an active activity")
+            return
+        }
+        permissionResult = result
+        logDebug("requesting Bluetooth permissions: ${permissions.joinToString()}")
+        activity.requestPermissions(permissions, permissionRequestCode)
+    }
+
+    fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ): Boolean {
+        if (requestCode != permissionRequestCode) return false
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { onRequestPermissionsResult(requestCode, permissions, grantResults) }
+            return true
+        }
+        val result = permissionResult ?: return true
+        permissionResult = null
+        val granted = permissions.isNotEmpty() &&
+            permissions.indices.all { index ->
+                grantResults.getOrNull(index) == PackageManager.PERMISSION_GRANTED
+            }
+        logDebug("Bluetooth permission callback granted=$granted")
+        if (granted) {
+            result.success(null)
+            emit(mapOf("type" to "permissions", "state" to "granted"))
+        } else {
+            result.error("permission_denied", "Bluetooth permissions were denied", null)
+            emitError("Bluetooth permissions were denied")
+        }
+        return true
     }
 
     private fun hasPermissionFor(method: String): Boolean {
@@ -336,13 +396,15 @@ class BleTransportBridge(
         }
         scanner?.stopScan(scanCallback)
         scanner = current
+        val session = ++scanSession
+        logDebug("scan start session=$session")
         try {
             current.startScan(
                 listOf(ScanFilter.Builder().setServiceUuid(ParcelUuid(SERVICE)).build()),
                 ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build(),
                 scanCallback,
             )
-            emit(mapOf("type" to "state", "state" to "discovering"))
+            emit(mapOf("type" to "state", "state" to "discovering", "scanSession" to session))
             result.success(null)
         } catch (error: Exception) {
             result.error("scan_failed", error.message, null)
@@ -376,8 +438,11 @@ class BleTransportBridge(
             emitError("Could not create a GATT connection to $id")
             return
         }
+        val attempt = ++nextConnectionAttempt
+        connectionAttempts[id] = attempt
         clients[id] = gatt
-        emit(mapOf("type" to "connecting", "device" to device(remote), "role" to "central"))
+        logDebug("connect attempt=$attempt id=$id")
+        emit(mapOf("type" to "connecting", "device" to device(remote), "role" to "central", "attempt" to attempt))
         result.success(null)
     }
 
@@ -395,6 +460,7 @@ class BleTransportBridge(
         }
         readyClients.remove(id)
         notificationClients.remove(id)
+        cancelSetupTimeout(id)
         result.success(null)
     }
 
@@ -638,8 +704,9 @@ class BleTransportBridge(
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             onMain {
-                logDebug("onScanResult callbackType=$callbackType id=${result.device.address} rssi=${result.rssi}")
-                emit(mapOf("type" to "deviceFound", "device" to device(result.device, result.rssi)))
+                val session = scanSession
+                logDebug("onScanResult session=$session callbackType=$callbackType id=${result.device.address} rssi=${result.rssi}")
+                emit(mapOf("type" to "deviceFound", "device" to device(result.device, result.rssi), "scanSession" to session))
             }
         }
         override fun onScanFailed(errorCode: Int) {
@@ -665,6 +732,10 @@ class BleTransportBridge(
 
         override fun onCharacteristicWrite(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
             onMain {
+                if (!isCurrentGatt(gatt)) {
+                    logDebug("Ignoring stale characteristic write id=${gatt.device.address}")
+                    return@onMain
+                }
                 logDebug("onCharacteristicWrite id=${gatt.device.address} uuid=${characteristic.uuid} status=$status")
                 if (characteristic.uuid == RX) {
                     completeGattWrite(
@@ -679,11 +750,17 @@ class BleTransportBridge(
 
         @Suppress("DEPRECATION")
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
-            onMain { emitCharacteristicChanged(gatt, characteristic, characteristic.value) }
+            onMain {
+                if (isCurrentGatt(gatt)) emitCharacteristicChanged(gatt, characteristic, characteristic.value)
+                else logDebug("Ignoring stale characteristic notification id=${gatt.device.address}")
+            }
         }
 
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) {
-            onMain { emitCharacteristicChanged(gatt, characteristic, value) }
+            onMain {
+                if (isCurrentGatt(gatt)) emitCharacteristicChanged(gatt, characteristic, value)
+                else logDebug("Ignoring stale characteristic notification id=${gatt.device.address}")
+            }
         }
 
         override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
@@ -702,37 +779,43 @@ class BleTransportBridge(
 
     private fun handleConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
         val id = gatt.device.address
+        val attempt = connectionAttempts[id]
+        if (clients[id] !== gatt) {
+            logDebug("Ignoring stale connection callback attempt=${attempt ?: "unknown"} id=$id status=$status newState=$newState")
+            gatt.close()
+            return
+        }
         val reason = disconnectReasons[id] ?: "remote_or_stack"
-        logDebug("onConnectionStateChange id=$id status=$status newState=$newState reason=$reason")
+        logDebug("onConnectionStateChange attempt=${attempt ?: "unknown"} id=$id status=$status newState=$newState reason=$reason")
         if (status != BluetoothGatt.GATT_SUCCESS) {
             failGattWrites(id, "disconnected", "GATT connection failed for $id (status $status)")
-            readyClients.remove(id)
-            if (clients[id] === gatt) clients.remove(id)
-            gatt.close()
-            disconnectReasons.remove(id)
+            cleanupCentral(id, gatt)
             emit(mapOf("type" to "error", "error" to "GATT connection failed for $id (status $status)", "device" to device(gatt.device), "role" to "central"))
             emit(mapOf("type" to "disconnected", "device" to device(gatt.device), "error" to "status $status", "role" to "central"))
             return
         }
         if (newState == BluetoothProfile.STATE_CONNECTED) {
-            emit(mapOf("type" to "discoveringServices", "device" to device(gatt.device), "role" to "central"))
-            logDebug("discoverServices requested id=$id")
+            scheduleSetupTimeout(id, gatt)
+            emit(mapOf("type" to "discoveringServices", "device" to device(gatt.device), "role" to "central", "attempt" to attempt))
+            logDebug("service discovery start attempt=${attempt ?: "unknown"} id=$id")
             if (!gatt.discoverServices()) {
                 emitError("Android could not start service discovery for $id")
                 gatt.disconnect()
             }
         } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
             failGattWrites(id, "disconnected", "GATT disconnected for $id")
-            readyClients.remove(id)
-            if (clients[id] === gatt) clients.remove(id)
-            gatt.close()
-            disconnectReasons.remove(id)
+            cleanupCentral(id, gatt)
             emit(mapOf("type" to "disconnected", "device" to device(gatt.device), "role" to "central"))
         }
     }
 
     private fun handleServicesDiscovered(gatt: BluetoothGatt, status: Int) {
         val id = gatt.device.address
+        if (!isCurrentGatt(gatt)) {
+            logDebug("Ignoring stale service discovery callback id=$id status=$status")
+            gatt.close()
+            return
+        }
         logDebug("onServicesDiscovered id=$id status=$status")
         if (status != BluetoothGatt.GATT_SUCCESS) {
             readyClients.remove(id)
@@ -756,8 +839,8 @@ class BleTransportBridge(
             gatt.disconnect()
             return
         }
-            emit(mapOf("type" to "serviceDiscovered", "device" to device(gatt.device), "role" to "central"))
-            emit(mapOf("type" to "characteristicsDiscovered", "device" to device(gatt.device), "role" to "central"))
+            emit(mapOf("type" to "serviceDiscovered", "device" to device(gatt.device), "role" to "central", "attempt" to connectionAttempts[id]))
+            emit(mapOf("type" to "characteristicsDiscovered", "device" to device(gatt.device), "role" to "central", "attempt" to connectionAttempts[id]))
         if (!gatt.setCharacteristicNotification(tx, true)) {
             emitError("Could not enable TX notifications for $id")
             gatt.disconnect()
@@ -779,16 +862,53 @@ class BleTransportBridge(
 
     private fun handleDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
         val id = gatt.device.address
+        if (!isCurrentGatt(gatt)) {
+            logDebug("Ignoring stale descriptor callback id=$id status=$status")
+            gatt.close()
+            return
+        }
         logDebug("onDescriptorWrite id=$id uuid=${descriptor.uuid} status=$status")
         if (descriptor.uuid != CCCD) return
         if (status == BluetoothGatt.GATT_SUCCESS) {
+            cancelSetupTimeout(id)
             readyClients.add(id)
-            emit(mapOf("type" to "connected", "device" to device(gatt.device), "role" to "central"))
+            logDebug("transport ready id=$id")
+            emit(mapOf("type" to "connected", "device" to device(gatt.device), "role" to "central", "attempt" to connectionAttempts[id]))
         } else {
             readyClients.remove(id)
             emitError("TX notification setup failed for $id (status $status)")
             gatt.disconnect()
         }
+    }
+
+    private fun isCurrentGatt(gatt: BluetoothGatt): Boolean = clients[gatt.device.address] === gatt
+
+    private fun scheduleSetupTimeout(id: String, gatt: BluetoothGatt) {
+        cancelSetupTimeout(id)
+        val timeout = Runnable {
+            if (isCurrentGatt(gatt) && !readyClients.contains(id)) {
+                logError("GATT setup timeout id=$id attempt=${connectionAttempts[id] ?: "unknown"}")
+                emitError("GATT setup timed out for $id")
+                disconnectReasons[id] = "GATT setup timeout"
+                gatt.disconnect()
+            }
+        }
+        setupTimeouts[id] = timeout
+        mainHandler.postDelayed(timeout, gattSetupTimeoutMs)
+    }
+
+    private fun cancelSetupTimeout(id: String) {
+        setupTimeouts.remove(id)?.let(mainHandler::removeCallbacks)
+    }
+
+    private fun cleanupCentral(id: String, gatt: BluetoothGatt) {
+        cancelSetupTimeout(id)
+        readyClients.remove(id)
+        if (clients[id] === gatt) clients.remove(id)
+        disconnectReasons.remove(id)
+        connectionAttempts.remove(id)
+        gatt.close()
+        logDebug("GATT cleanup complete id=$id")
     }
 
     private val serverCallback = object : BluetoothGattServerCallback() {

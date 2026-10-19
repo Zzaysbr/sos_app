@@ -166,11 +166,15 @@ class BleMessageCodec {
 
 /// Reassembles out-of-order frames and drops duplicate message ids.
 class BleMessageAssembler {
-  BleMessageAssembler({this.timeout = const Duration(seconds: 10)});
+  BleMessageAssembler({
+    this.timeout = const Duration(seconds: 10),
+    this.maxDeliveredIds = 1024,
+  }) : assert(maxDeliveredIds > 0);
   final Duration timeout;
+  final int maxDeliveredIds;
   final _frames = <int, List<List<int>>>{};
   final _updated = <int, DateTime>{};
-  final _delivered = <String>{};
+  final _delivered = <String, DateTime>{};
 
   BleMessage? accept(List<int> frame, {DateTime? now}) {
     final current = now ?? DateTime.now();
@@ -187,7 +191,10 @@ class BleMessageAssembler {
       final message = BleMessageCodec.decode(frames);
       _frames.remove(token);
       _updated.remove(token);
-      if (!_delivered.add(message.id)) return null;
+      final previousDelivery = _delivered[message.id];
+      if (previousDelivery != null) return null;
+      _delivered[message.id] = current;
+      _evictDeliveredIfNeeded();
       return message;
     } on BleProtocolException catch (error) {
       if (!error.message.contains('Incomplete')) {
@@ -205,5 +212,15 @@ class BleMessageAssembler {
       _frames.remove(token);
       return true;
     });
+    _delivered.removeWhere((_, time) => now.difference(time) > timeout);
+  }
+
+  void _evictDeliveredIfNeeded() {
+    while (_delivered.length > maxDeliveredIds) {
+      final oldest = _delivered.entries.reduce(
+        (a, b) => a.value.isBefore(b.value) ? a : b,
+      );
+      _delivered.remove(oldest.key);
+    }
   }
 }

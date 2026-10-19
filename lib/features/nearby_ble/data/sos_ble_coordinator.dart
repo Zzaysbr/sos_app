@@ -66,6 +66,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
   final _connecting = <String>{};
   final _processingMessages = <String>{};
   final _sendingMessages = <String>{};
+  final _pendingConnectionMessages = <String, Set<String>>{};
   StreamSubscription<BleEvent>? _eventsSubscription;
   Timer? _pollTimer;
   Future<void>? _drainFuture;
@@ -93,7 +94,11 @@ class SosBleCoordinator with WidgetsBindingObserver {
           _log('BLE stream error: $error'),
     );
     try {
+      _log('requesting BLE permissions');
+      await _transport.requestPermissions();
+      _log('BLE permissions granted');
       await _transport.initialize();
+      _log('BLE transport initialized');
       final now = _now().toUtc();
       await _deliveryRepository.recoverStaleOutbox(
         olderThan: now.subtract(staleAfter),
@@ -119,6 +124,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
     _eventsSubscription = null;
     _connected.clear();
     _connecting.clear();
+    _pendingConnectionMessages.clear();
     _assemblers.clear();
     await _drainFuture;
   }
@@ -163,12 +169,48 @@ class SosBleCoordinator with WidgetsBindingObserver {
     return row;
   }
 
+  Stream<BleOutboxData?> watchDeliveryForSos(String sosId) {
+    return _deliveryRepository.watchDeliveryForSos(sosId);
+  }
+
+  Future<BleOutboxData> assignSosDestination(
+    String sosId,
+    String destinationId,
+  ) async {
+    _ensureUsable();
+    final messageId = 'sos:$sosId:delivery:v1';
+    var row = await _deliveryRepository.lookupOutbox(messageId);
+    if (row == null) {
+      await _deliveryRepository.reconcileMissingSosOutbox(
+        ownerId: ownerId,
+        now: _now(),
+      );
+      row = await _deliveryRepository.lookupOutbox(messageId);
+    }
+    if (row == null) {
+      throw const BleDeliveryStateException(
+        'No durable BLE delivery exists for this SOS.',
+      );
+    }
+    final assigned = await _deliveryRepository.assignDestinationIfMissing(
+      messageId,
+      destinationId,
+      now: _now(),
+    );
+    if (_started) unawaited(processDue());
+    _log('assigned destination sosId=$sosId peer=${assigned.destinationId}');
+    return assigned;
+  }
+
   Future<BleOutboxData> enqueueChat(
     EmergencyChatMessage chat, {
     String? destinationId,
     String? senderDeviceId,
   }) async {
     _ensureUsable();
+    final resolvedDestination =
+        destinationId ??
+        await _deliveryRepository.lookupReplyDestination(chat.sosId);
     final envelope = SosBleEnvelope.chatMessage(
       messageId: chat.id,
       sosId: chat.sosId,
@@ -179,7 +221,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
     );
     final row = await _deliveryRepository.enqueueOutbox(
       envelope,
-      destinationId: destinationId,
+      destinationId: resolvedDestination,
       now: _now(),
     );
     _log(
@@ -208,6 +250,19 @@ class SosBleCoordinator with WidgetsBindingObserver {
           nextRetryAt: now,
           now: now,
         );
+        try {
+          final recovered = await _deliveryRepository.reconcileMissingSosOutbox(
+            ownerId: ownerId,
+            now: now,
+          );
+          if (recovered > 0) {
+            _log('reconciledMissingBleOutbox count=$recovered');
+          }
+        } catch (error) {
+          // A transient database failure is retried on the next drain; it
+          // must not turn a locally persisted SOS into a lost delivery.
+          _log('BLE outbox reconciliation failed: $error');
+        }
         final rows = await _deliveryRepository.dueOutbox(now: now);
         for (final row in rows) {
           if (!_started || _disposed) break;
@@ -224,20 +279,25 @@ class SosBleCoordinator with WidgetsBindingObserver {
     if (_sendingMessages.contains(row.messageId)) {
       return;
     }
+    // A missing destination is intentionally left unsent. Selecting the first
+    // connected peer can deliver an SOS or chat message to the wrong person.
+    // Callers that know the intended recipient must persist destinationId.
     final destination = row.destinationId?.isNotEmpty == true
         ? row.destinationId
-        : (_connected.isEmpty ? null : _connected.keys.first);
-    if (destination == null) return;
-    final assigned = row.destinationId == null
-        ? await _deliveryRepository.assignDestinationIfMissing(
-            row.messageId,
-            destination,
-            now: _now(),
-          )
-        : row;
-    final deviceId = assigned.destinationId!;
+        : null;
+    if (destination == null) {
+      _log(
+        'deliveryWaiting messageId=${row.messageId} '
+        'sosId=${row.sosId} reason=destinationId is required',
+      );
+      return;
+    }
+    final deviceId = destination;
     final roles = _connected[deviceId];
     if (roles == null || roles.isEmpty) {
+      _pendingConnectionMessages
+          .putIfAbsent(deviceId, () => <String>{})
+          .add(row.messageId);
       if (_connecting.add(deviceId)) {
         try {
           _log(
@@ -247,6 +307,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
           await _transport.connect(deviceId);
         } catch (error) {
           _connecting.remove(deviceId);
+          _pendingConnectionMessages[deviceId]?.remove(row.messageId);
           final reason = 'connect failed: $error';
           try {
             // Count connection attempts in the durable outbox as well as
@@ -269,11 +330,11 @@ class SosBleCoordinator with WidgetsBindingObserver {
 
     _sendingMessages.add(row.messageId);
     try {
-      final sending = await _deliveryRepository.transitionOutboxState(
+      final sending = await _deliveryRepository.claimOutboxForSending(
         row.messageId,
-        BleOutboxState.sending,
         now: _now(),
       );
+      if (sending == null) return;
       final envelope = _decodeEnvelope(sending.payload);
       final frames = BleMessageCodec.encode(
         envelope.toBleMessage(),
@@ -297,6 +358,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
         BleOutboxState.awaitingAcknowledgement,
         now: _now(),
       );
+      await _updateChatStatus(row, ChatDeliveryStatus.sent);
       _log(
         'writeAccepted sosId=${envelope.sosId} messageId=${row.messageId} '
         'state=${BleOutboxState.awaitingAcknowledgement.wireValue}',
@@ -324,6 +386,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
           final role = event.role ?? BleSessionRole.central;
           _connected.putIfAbsent(deviceId, () => <BleSessionRole>{}).add(role);
           _connecting.remove(deviceId);
+          _pendingConnectionMessages.remove(deviceId);
           _log('BLE connected: $deviceId');
           unawaited(processDue());
         }
@@ -339,6 +402,10 @@ class SosBleCoordinator with WidgetsBindingObserver {
             if (roles == null || roles.isEmpty) _connected.remove(deviceId);
           }
           _connecting.remove(deviceId);
+          await _failPendingConnections(
+            deviceId,
+            event.error ?? 'BLE connection failed before delivery started',
+          );
           // Do not complete a message with frames left over from a previous
           // GATT session for this peer.
           _assemblers.removeWhere((key, _) => key.startsWith('$deviceId|'));
@@ -355,6 +422,13 @@ class SosBleCoordinator with WidgetsBindingObserver {
         );
         return;
       case 'error':
+        if (deviceId != null) {
+          _connecting.remove(deviceId);
+          await _failPendingConnections(
+            deviceId,
+            event.error ?? 'BLE connection error before delivery started',
+          );
+        }
         _log('BLE native error: ${event.error ?? 'unknown'}');
         return;
     }
@@ -391,6 +465,15 @@ class SosBleCoordinator with WidgetsBindingObserver {
         'assemblyComplete peer=$deviceId role=${role.wireValue} '
         'messageId=${message.id}',
       );
+      if (!SosBleMessageKind.values.any(
+        (kind) => kind.wireValue == message.type,
+      )) {
+        _log(
+          'ignoredNonSosMessage peer=$deviceId role=${role.wireValue} '
+          'messageId=${message.id} type=${message.type}',
+        );
+        return;
+      }
       final envelope = SosBleEnvelope.fromBleMessage(message);
       _log(
         'validated kind=${envelope.kind.wireValue} sosId=${envelope.sosId} '
@@ -659,10 +742,35 @@ class SosBleCoordinator with WidgetsBindingObserver {
         ),
         error: error,
       );
+      await _updateChatStatus(row, ChatDeliveryStatus.failed);
     } catch (transitionError) {
       _log(
         'Unable to persist BLE failure for ${row.messageId}: $transitionError',
       );
+    }
+  }
+
+  Future<void> _failPendingConnections(String deviceId, String reason) async {
+    final messageIds = _pendingConnectionMessages.remove(deviceId);
+    if (messageIds == null || messageIds.isEmpty) return;
+    for (final messageId in messageIds) {
+      final row = await _deliveryRepository.lookupOutbox(messageId);
+      if (row == null || row.state != BleOutboxState.queued.wireValue) {
+        continue;
+      }
+      try {
+        final attempted = await _deliveryRepository.transitionOutboxState(
+          messageId,
+          BleOutboxState.sending,
+          now: _now(),
+        );
+        await _markFailed(attempted, reason);
+      } catch (error) {
+        _log(
+          'Unable to record BLE connection failure messageId=$messageId '
+          'peer=$deviceId reason=$error',
+        );
+      }
     }
   }
 
@@ -675,8 +783,28 @@ class SosBleCoordinator with WidgetsBindingObserver {
         now: _now(),
         error: error,
       );
+      final row = await _deliveryRepository.lookupOutbox(messageId);
+      if (row != null) {
+        await _updateChatStatus(row, ChatDeliveryStatus.failed);
+      }
     } catch (transitionError) {
       _log('Unable to expire BLE message $messageId: $transitionError');
+    }
+  }
+
+  Future<void> _updateChatStatus(
+    BleOutboxData row,
+    ChatDeliveryStatus status,
+  ) async {
+    final repository = chatRepository;
+    if (repository == null) return;
+    try {
+      final envelope = _decodeEnvelope(row.payload);
+      if (envelope.kind == SosBleMessageKind.chatMessage) {
+        await repository.updateDeliveryStatus(row.messageId, status);
+      }
+    } catch (error) {
+      _log('Unable to update chat status for ${row.messageId}: $error');
     }
   }
 

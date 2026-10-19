@@ -18,7 +18,8 @@ class SosRepository {
   final AppDatabase _database;
   final SosCloudService _cloudService;
   final FirebaseAuth _firebaseAuth;
-  final Future<void> Function(SosMessage sos)? _onSosCreated;
+  final Future<void> Function(SosMessage sos, {String? destinationId})?
+  _onSosCreated;
 
   bool _isSyncing = false;
 
@@ -59,6 +60,7 @@ class SosRepository {
     String? message,
     double? latitude,
     double? longitude,
+    String? destinationId,
   }) async {
     final ownerId = _requireOwner();
     final now = DateTime.now();
@@ -111,7 +113,7 @@ class SosRepository {
     final created = await findById(id);
     if (created != null && _onSosCreated != null) {
       try {
-        await _onSosCreated(created);
+        await _onSosCreated(created, destinationId: destinationId);
       } catch (error, stackTrace) {
         // BLE delivery is durable and independent from local SOS creation and
         // Firestore sync. A queueing failure must not report local SOS failure.

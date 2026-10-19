@@ -138,4 +138,41 @@ void main() {
     expect(queue.single.operation, 'delete');
     expect(queue.single.sosId, 'sos-3');
   });
+
+  test(
+    'passes an explicitly selected BLE destination to the delivery hook',
+    () async {
+      String? selectedDestination;
+      final withBleHook = SosRepository(
+        database: database,
+        cloudService: cloud,
+        firebaseAuth: auth,
+        onSosCreated: (sos, {destinationId}) async {
+          selectedDestination = destinationId;
+        },
+      );
+
+      when(
+        () => cloud.create(
+          id: any(named: 'id'),
+          ownerId: any(named: 'ownerId'),
+          type: any(named: 'type'),
+          message: any(named: 'message'),
+          latitude: any(named: 'latitude'),
+          longitude: any(named: 'longitude'),
+          status: any(named: 'status'),
+          createdAt: any(named: 'createdAt'),
+          updatedAt: any(named: 'updatedAt'),
+        ),
+      ).thenThrow(Exception('offline'));
+
+      await withBleHook.create(
+        id: 'sos-with-peer',
+        type: 'emergency',
+        destinationId: 'peer-android-1',
+      );
+
+      expect(selectedDestination, 'peer-android-1');
+    },
+  );
 }

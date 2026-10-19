@@ -60,4 +60,57 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(methods, null);
   });
+
+  test('initialize can retry after a permission failure', () async {
+    const methods = MethodChannel('ble_transport_retry/methods');
+    const events = EventChannel('ble_transport_retry/events');
+    var attempts = 0;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(methods, (call) async {
+          if (call.method == 'initialize' && attempts++ == 0) {
+            throw PlatformException(
+              code: 'unauthorized',
+              message: 'permission denied',
+            );
+          }
+          return null;
+        });
+
+    final transport = BleTransport(methods: methods, events: events);
+    await expectLater(
+      transport.initialize(),
+      throwsA(isA<BleTransportException>()),
+    );
+    await transport.initialize();
+    expect(attempts, 2);
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(methods, null);
+  });
+
+  test('coalesces concurrent initialize calls', () async {
+    const methods = MethodChannel('ble_transport_once/methods');
+    const events = EventChannel('ble_transport_once/events');
+    final gate = Completer<void>();
+    var calls = 0;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(methods, (call) async {
+          if (call.method == 'initialize') {
+            calls++;
+            await gate.future;
+          }
+          return null;
+        });
+
+    final transport = BleTransport(methods: methods, events: events);
+    final first = transport.initialize();
+    final second = transport.initialize();
+    expect(identical(first, second), isTrue);
+    gate.complete();
+    await Future.wait([first, second]);
+    expect(calls, 1);
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(methods, null);
+  });
 }

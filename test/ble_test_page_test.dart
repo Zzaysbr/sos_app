@@ -76,9 +76,172 @@ void main() {
     expect(fake.disposed, isFalse);
   });
 
+  testWidgets('deduplicates a device and refreshes its latest advertisement', (
+    tester,
+  ) async {
+    final fake = FakeBleTransport();
+    await tester.pumpWidget(MaterialApp(home: BleTestPage(transport: fake)));
+    await tester.tap(find.text('Start Scan'));
+    await tester.pumpAndSettle();
+    fake.controller.add(
+      const BleEvent(
+        type: 'deviceFound',
+        device: BleDevice(id: 'AA:BB', name: 'Phone A', rssi: -80),
+      ),
+    );
+    fake.controller.add(
+      const BleEvent(
+        type: 'deviceFound',
+        device: BleDevice(id: 'aa:bb', name: 'Phone A Updated', rssi: -42),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Phone A Updated'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Phone A Updated'), findsOneWidget);
+    expect(find.text('Phone A'), findsNothing);
+    expect(find.textContaining('RSSI -42'), findsOneWidget);
+  });
+
+  testWidgets('keeps same-name devices with different identifiers separate', (
+    tester,
+  ) async {
+    final fake = FakeBleTransport();
+    await tester.pumpWidget(MaterialApp(home: BleTestPage(transport: fake)));
+    await tester.tap(find.text('Start Scan'));
+    await tester.pumpAndSettle();
+    for (final id in ['AA:BB', 'CC:DD']) {
+      fake.controller.add(
+        BleEvent(
+          type: 'deviceFound',
+          device: BleDevice(id: id, name: 'Same name'),
+        ),
+      );
+    }
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).first, const Offset(0, -500));
+    await tester.pumpAndSettle();
+    expect(find.text('Same name'), findsNWidgets(2));
+  });
+
+  testWidgets('does not create a device row from an unknown connection event', (
+    tester,
+  ) async {
+    final fake = FakeBleTransport();
+    await tester.pumpWidget(MaterialApp(home: BleTestPage(transport: fake)));
+    await tester.tap(find.text('Start Scan'));
+    await tester.pumpAndSettle();
+
+    fake.controller.add(
+      const BleEvent(
+        type: 'connecting',
+        device: BleDevice(id: '7C:9C:0A:74:4F:2E'),
+        attempt: 4,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unnamed device'), findsNothing);
+  });
+
+  testWidgets('connection callbacks update the existing scan row', (
+    tester,
+  ) async {
+    final fake = FakeBleTransport();
+    await tester.pumpWidget(MaterialApp(home: BleTestPage(transport: fake)));
+    await tester.tap(find.text('Start Scan'));
+    await tester.pumpAndSettle();
+    fake.controller.add(
+      const BleEvent(
+        type: 'deviceFound',
+        device: BleDevice(id: 'AA:BB', name: 'Phone A'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    fake.controller.add(
+      const BleEvent(
+        type: 'connecting',
+        device: BleDevice(id: 'aa:bb', name: 'Phone A'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Phone A'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.textContaining('AA:BB'), findsOneWidget);
+    expect(find.textContaining('State: connecting'), findsOneWidget);
+  });
+
+  testWidgets('does not start duplicate scan operations in one session', (
+    tester,
+  ) async {
+    final fake = FakeBleTransport();
+    await tester.pumpWidget(MaterialApp(home: BleTestPage(transport: fake)));
+    await tester.tap(find.text('Start Scan'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Start Scan'));
+    await tester.pumpAndSettle();
+    expect(fake.calls.where((call) => call == 'scan'), hasLength(1));
+  });
+
+  testWidgets(
+    'new scan session clears old devices and ignores stopped events',
+    (tester) async {
+      final fake = FakeBleTransport();
+      await tester.pumpWidget(MaterialApp(home: BleTestPage(transport: fake)));
+      await tester.tap(find.text('Start Scan'));
+      await tester.pumpAndSettle();
+      fake.controller.add(
+        const BleEvent(
+          type: 'deviceFound',
+          device: BleDevice(id: 'AA:BB', name: 'Old device'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Stop Scan'));
+      await tester.pumpAndSettle();
+      fake.controller.add(
+        const BleEvent(
+          type: 'deviceFound',
+          device: BleDevice(id: 'CC:DD', name: 'Stale device'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Stale device'), findsNothing);
+      await tester.tap(find.text('Start Scan'));
+      await tester.pumpAndSettle();
+      expect(find.text('Old device'), findsNothing);
+    },
+  );
+
+  testWidgets('ignores scan events without a usable identifier', (
+    tester,
+  ) async {
+    final fake = FakeBleTransport();
+    await tester.pumpWidget(MaterialApp(home: BleTestPage(transport: fake)));
+    await tester.tap(find.text('Start Scan'));
+    await tester.pumpAndSettle();
+    fake.controller.add(
+      const BleEvent(
+        type: 'deviceFound',
+        device: BleDevice(id: '', name: 'Unnamed'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Unnamed'), findsNothing);
+  });
+
   testWidgets('connects and sends only after connected event', (tester) async {
     final fake = FakeBleTransport();
     await tester.pumpWidget(MaterialApp(home: BleTestPage(transport: fake)));
+    await tester.tap(find.text('Start Scan'));
+    await tester.pumpAndSettle();
     fake.controller.add(
       const BleEvent(
         type: 'deviceFound',
@@ -158,6 +321,24 @@ void main() {
     expect(find.textContaining('permissions failed'), findsOneWidget);
   });
 
+  testWidgets(
+    'permission grant after the initial denial retries initialization',
+    (tester) async {
+      final fake = GrantAfterDenialTransport();
+      await tester.pumpWidget(MaterialApp(home: BleTestPage(transport: fake)));
+      await tester.pump();
+      await tester.tap(find.text('Permissions'));
+      await tester.pumpAndSettle();
+      expect(fake.calls, contains('initialize'));
+      await tester.scrollUntilVisible(
+        find.textContaining('Transport initialized'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.textContaining('Transport initialized'), findsOneWidget);
+    },
+  );
+
   testWidgets('native scan errors are written to diagnostics', (tester) async {
     final fake = FakeBleTransport();
     await tester.pumpWidget(MaterialApp(home: BleTestPage(transport: fake)));
@@ -184,7 +365,7 @@ void main() {
     fake.initialization.complete();
     await tester.pumpAndSettle();
 
-    expect(fake.calls, isEmpty);
+    expect(fake.calls, ['permissions']);
     expect(fake.disposed, isFalse);
   });
 }
@@ -210,4 +391,16 @@ class DelayedInitializationTransport extends FakeBleTransport {
 
   @override
   Future<void> initialize() => initialization.future;
+}
+
+class GrantAfterDenialTransport extends FakeBleTransport {
+  var permissionAttempts = 0;
+
+  @override
+  Future<void> requestPermissions() async {
+    calls.add('permissions');
+    if (permissionAttempts++ == 0) {
+      throw const BleTransportException('permissions denied');
+    }
+  }
 }

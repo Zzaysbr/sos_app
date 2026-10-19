@@ -128,6 +128,10 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
       setState(() => _messages.add(message));
       try {
         await widget.onMessageCreated?.call(message);
+        // The coordinator may have advanced the durable status to awaiting
+        // acknowledgement before this callback returns. Reload from Drift so
+        // the rendered status remains sourced from persistence.
+        if (mounted) await _loadMessages(sosId);
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

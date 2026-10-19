@@ -16,4 +16,14 @@ class MainActivity : FlutterActivity() {
         ble?.dispose()
         super.onDestroy()
     }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        if (ble?.onRequestPermissionsResult(requestCode, permissions, grantResults) != true) {
+            super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        }
+    }
 }

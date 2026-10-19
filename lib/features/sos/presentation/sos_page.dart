@@ -5,7 +5,10 @@ import 'package:flutter/material.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../nearby_ble/data/ble_transport.dart';
+import '../../nearby_ble/data/sos_ble_coordinator.dart';
+import '../../nearby_ble/presentation/ble_recipient_picker_page.dart';
 import '../../nearby_ble/presentation/ble_test_page.dart';
+import '../../nearby_ble/domain/ble_delivery_state.dart';
 import '../data/sos_repository.dart';
 import '../data/chat_repository.dart';
 import 'account_page.dart';
@@ -19,12 +22,14 @@ class SosPage extends StatefulWidget {
     super.key,
     required this.repository,
     this.bleTransport,
+    this.bleCoordinator,
     this.chatRepository,
     this.onChatMessageCreated,
   });
 
   final SosRepository repository;
   final BleTransportClient? bleTransport;
+  final SosBleCoordinator? bleCoordinator;
   final ChatRepository? chatRepository;
   final Future<void> Function(EmergencyChatMessage message)?
   onChatMessageCreated;
@@ -1160,8 +1165,12 @@ class _SosPageState extends State<SosPage> {
                               if (sosId == null) return;
                               Navigator.of(context).push<void>(
                                 MaterialPageRoute<void>(
-                                  builder: (_) =>
-                                      EmergencyChatPage(sosId: sosId),
+                                  builder: (_) => EmergencyChatPage(
+                                    sosId: sosId,
+                                    repository: widget.chatRepository,
+                                    onMessageCreated:
+                                        widget.onChatMessageCreated,
+                                  ),
                                 ),
                               );
                             },
@@ -1500,6 +1509,16 @@ class _SosPageState extends State<SosPage> {
     final id = DateTime.now().microsecondsSinceEpoch.toString();
 
     try {
+      String? destinationId;
+      if (widget.bleTransport != null) {
+        destinationId = await Navigator.of(context).push<String>(
+          MaterialPageRoute<String>(
+            builder: (_) =>
+                BleRecipientPickerPage(transport: widget.bleTransport!),
+          ),
+        );
+        if (!mounted) return;
+      }
       final position = await _getCurrentLocation();
 
       if (!mounted) {
@@ -1512,6 +1531,7 @@ class _SosPageState extends State<SosPage> {
         message: 'Emergency SOS',
         latitude: position?.latitude,
         longitude: position?.longitude,
+        destinationId: destinationId,
       );
 
       if (!mounted) {
@@ -1576,6 +1596,8 @@ class _SosPageState extends State<SosPage> {
                   label: 'Type',
                   value: sos.type,
                 ),
+                if (widget.bleCoordinator != null)
+                  _buildBleDeliveryDetail(sos, sheetContext),
                 _buildDetailRow(
                   icon: Icons.schedule,
                   label: 'Created',
@@ -1607,7 +1629,11 @@ class _SosPageState extends State<SosPage> {
                       Navigator.of(sheetContext).pop();
                       Navigator.of(context).push<void>(
                         MaterialPageRoute<void>(
-                          builder: (_) => EmergencyChatPage(sosId: sos.id),
+                          builder: (_) => EmergencyChatPage(
+                            sosId: sos.id,
+                            repository: widget.chatRepository,
+                            onMessageCreated: widget.onChatMessageCreated,
+                          ),
                         ),
                       );
                     },
@@ -1662,6 +1688,81 @@ class _SosPageState extends State<SosPage> {
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBleDeliveryDetail(SosMessage sos, BuildContext sheetContext) {
+    return StreamBuilder<BleOutboxData?>(
+      stream: widget.bleCoordinator!.watchDeliveryForSos(sos.id),
+      builder: (context, snapshot) {
+        final row = snapshot.data;
+        final state = row == null ? null : BleOutboxState.parse(row.state);
+        final label = switch (state) {
+          null => 'Waiting for recipient',
+          BleOutboxState.queued =>
+            row!.destinationId == null ? 'Waiting for recipient' : 'Queued',
+          BleOutboxState.sending => 'Sending',
+          BleOutboxState.writeAccepted ||
+          BleOutboxState.awaitingAcknowledgement =>
+            'Awaiting receiver confirmation',
+          BleOutboxState.acknowledged => 'Confirmed received',
+          BleOutboxState.failed => 'Failed; will retry',
+          BleOutboxState.expired => 'Expired; retry unavailable',
+        };
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDetailRow(
+              icon: state == BleOutboxState.acknowledged
+                  ? Icons.check_circle_outline
+                  : Icons.bluetooth,
+              label: 'BLE delivery',
+              value: label,
+            ),
+            if (row?.destinationId != null)
+              _buildDetailRow(
+                icon: Icons.person_search_outlined,
+                label: 'Recipient',
+                value: row!.destinationId!,
+              ),
+            if (row != null &&
+                row.destinationId == null &&
+                state != BleOutboxState.acknowledged)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final selected = await Navigator.of(sheetContext)
+                        .push<String>(
+                          MaterialPageRoute<String>(
+                            builder: (_) => BleRecipientPickerPage(
+                              transport: widget.bleTransport!,
+                            ),
+                          ),
+                        );
+                    if (selected == null || !context.mounted) return;
+                    try {
+                      await widget.bleCoordinator!.assignSosDestination(
+                        sos.id,
+                        selected,
+                      );
+                    } catch (error) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Unable to set recipient: $error'),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.add_link),
+                  label: const Text('Choose recipient'),
+                ),
+              ),
+          ],
         );
       },
     );

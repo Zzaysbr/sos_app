@@ -40,7 +40,19 @@ class BleTransport implements BleTransportClient {
     if (_disposed) {
       throw const BleTransportException('BLE transport was disposed');
     }
-    return _initializeFuture ??= _call('initialize');
+    final existing = _initializeFuture;
+    if (existing != null) return existing;
+    final initialization = _call('initialize');
+    _initializeFuture = initialization;
+    // A denied permission or another transient native failure must not poison
+    // this transport instance forever. The next call can retry after the user
+    // grants permission.
+    initialization.catchError((Object _) {
+      if (identical(_initializeFuture, initialization)) {
+        _initializeFuture = null;
+      }
+    });
+    return initialization;
   }
 
   @override

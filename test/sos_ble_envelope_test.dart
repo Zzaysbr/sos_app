@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sos_app/core/database/app_database.dart';
+import 'package:sos_app/features/nearby_ble/data/ble_protocol.dart';
 import 'package:sos_app/features/nearby_ble/domain/sos_ble_envelope.dart';
 
 SosMessage _sos({double? latitude = 13.7563, double? longitude = 100.5018}) =>
@@ -57,6 +58,23 @@ void main() {
     );
     expect(
       () => SosBleEnvelope.fromJson({..._deliveryJson(), 'schemaVersion': 999}),
+      throwsA(isA<SosBleEnvelopeException>()),
+    );
+  });
+
+  test('rejects a transport type that disagrees with the envelope kind', () {
+    final envelope = SosBleEnvelope.fromSosMessage(
+      _sos(),
+      messageId: 'transport-mismatch',
+    );
+    final message = BleMessage(
+      id: envelope.messageId,
+      type: 'chat.message',
+      createdAt: envelope.createdAt,
+      payload: envelope.toJson(),
+    );
+    expect(
+      () => SosBleEnvelope.fromBleMessage(message),
       throwsA(isA<SosBleEnvelopeException>()),
     );
   });

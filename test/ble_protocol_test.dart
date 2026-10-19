@@ -31,6 +31,59 @@ List<int> _withCount(List<int> frame, int count) {
 }
 
 void main() {
+  test('bounds delivered-message deduplication and expires old IDs', () {
+    final assembler = BleMessageAssembler(
+      timeout: const Duration(seconds: 5),
+      maxDeliveredIds: 2,
+    );
+    final first = BleMessageCodec.encode(
+      _message(id: 'one'),
+      maxFrameBytes: 256,
+    );
+    final second = BleMessageCodec.encode(
+      _message(id: 'two'),
+      maxFrameBytes: 256,
+    );
+    final third = BleMessageCodec.encode(
+      _message(id: 'three'),
+      maxFrameBytes: 256,
+    );
+    expect(assembler.accept(first.single, now: DateTime.utc(2026)), isNotNull);
+    expect(
+      assembler.accept(second.single, now: DateTime.utc(2026, 1, 1, 0, 0, 1)),
+      isNotNull,
+    );
+    expect(
+      assembler.accept(third.single, now: DateTime.utc(2026, 1, 1, 0, 0, 2)),
+      isNotNull,
+    );
+    // The oldest ID was evicted, so a legitimate retransmission can be handled.
+    expect(
+      assembler.accept(first.single, now: DateTime.utc(2026, 1, 1, 0, 0, 3)),
+      isNotNull,
+    );
+    expect(
+      assembler.accept(second.single, now: DateTime.utc(2026, 1, 1, 0, 0, 4)),
+      isNotNull,
+    );
+    // A duplicate within the TTL is suppressed.
+    expect(
+      assembler.accept(second.single, now: DateTime.utc(2026, 1, 1, 0, 0, 4)),
+      isNull,
+    );
+    final expired = BleMessageCodec.encode(
+      _message(id: 'expired'),
+      maxFrameBytes: 256,
+    );
+    expect(
+      assembler.accept(expired.single, now: DateTime.utc(2026)),
+      isNotNull,
+    );
+    expect(
+      assembler.accept(expired.single, now: DateTime.utc(2026, 1, 1, 0, 0, 6)),
+      isNotNull,
+    );
+  });
   test('round trips frames received in reverse order', () {
     final frames = _frames();
     final decoded = BleMessageCodec.decode(frames.reversed);

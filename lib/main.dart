@@ -173,6 +173,7 @@ class _AuthGateState extends State<AuthGate> {
         return SosPage(
           repository: _repository!,
           bleTransport: _bleCoordinator?.transport,
+          bleCoordinator: _bleCoordinator,
           chatRepository: _chatRepository,
           onChatMessageCreated: _bleCoordinator?.enqueueChat,
         );
