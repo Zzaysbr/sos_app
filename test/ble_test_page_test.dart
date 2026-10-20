@@ -6,6 +6,7 @@ import 'package:sos_app/features/nearby_ble/data/ble_protocol.dart';
 import 'package:sos_app/features/nearby_ble/data/ble_transport.dart';
 import 'package:sos_app/features/nearby_ble/domain/ble_models.dart';
 import 'package:sos_app/features/nearby_ble/presentation/ble_test_page.dart';
+import 'package:sos_app/features/nearby_ble/presentation/ble_recipient_picker_page.dart';
 
 class FakeBleTransport implements BleTransportClient {
   final controller = StreamController<BleEvent>.broadcast();
@@ -45,6 +46,30 @@ class FakeBleTransport implements BleTransportClient {
 }
 
 void main() {
+  testWidgets('recipient picker cleans up shared scan resources on dispose', (
+    tester,
+  ) async {
+    final fake = FakeBleTransport();
+    await tester.pumpWidget(
+      MaterialApp(home: BleRecipientPickerPage(transport: fake)),
+    );
+    await tester.pumpAndSettle();
+    expect(fake.calls, contains('scan'));
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+    expect(fake.calls, contains('stopScan'));
+    expect(fake.disposed, isFalse);
+
+    fake.controller.add(
+      const BleEvent(
+        type: 'deviceFound',
+        device: BleDevice(id: 'stale-peer'),
+      ),
+    );
+    await tester.pump();
+  });
+
   testWidgets('starts and stops scanning and renders discovered device', (
     tester,
   ) async {

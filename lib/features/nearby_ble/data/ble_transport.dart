@@ -42,16 +42,20 @@ class BleTransport implements BleTransportClient {
     }
     final existing = _initializeFuture;
     if (existing != null) return existing;
+
     final initialization = _call('initialize');
     _initializeFuture = initialization;
-    // A denied permission or another transient native failure must not poison
-    // this transport instance forever. The next call can retry after the user
-    // grants permission.
-    initialization.catchError((Object _) {
-      if (identical(_initializeFuture, initialization)) {
-        _initializeFuture = null;
-      }
-    });
+    // Keep successful initialization single-flight, but allow a transient
+    // permission/native failure to be retried. The identity check prevents an
+    // older failed attempt from clearing a newer attempt's future.
+    initialization.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stackTrace) {
+        if (identical(_initializeFuture, initialization)) {
+          _initializeFuture = null;
+        }
+      },
+    );
     return initialization;
   }
 

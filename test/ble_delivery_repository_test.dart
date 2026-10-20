@@ -34,7 +34,7 @@ void main() {
 
   tearDown(() async => database.close());
 
-  test('schema 4 creates BLE tables and preserves SOS rows', () async {
+  test('schema 5 creates BLE and chat tables and preserves SOS rows', () async {
     final now = DateTime.utc(2026);
     await database
         .into(database.sosMessages)
@@ -50,9 +50,10 @@ void main() {
           ),
         );
 
-    expect(database.schemaVersion, 4);
+    expect(database.schemaVersion, 5);
     expect(await database.select(database.bleOutbox).get(), isEmpty);
     expect(await database.select(database.bleInbox).get(), isEmpty);
+    expect(await database.select(database.chatMessages).get(), isEmpty);
     expect(
       (await database.select(database.sosMessages).getSingle()).id,
       'existing-sos',
@@ -96,12 +97,52 @@ void main() {
     );
 
     final migrated = AppDatabase.forTesting(oldExecutor);
-    expect(migrated.schemaVersion, 4);
+    expect(migrated.schemaVersion, 5);
     expect(await migrated.select(migrated.bleOutbox).get(), isEmpty);
     expect(await migrated.select(migrated.bleInbox).get(), isEmpty);
+    expect(await migrated.select(migrated.chatMessages).get(), isEmpty);
     expect(
       (await migrated.select(migrated.sosMessages).getSingle()).id,
       'old-sos',
+    );
+    await migrated.close();
+  });
+
+  test('migrates a version 1 database through all delivery tables', () async {
+    final oldExecutor = NativeDatabase.memory(
+      setup: (db) {
+        db.execute('''
+      CREATE TABLE sos_messages (
+        id TEXT NOT NULL PRIMARY KEY,
+        owner_id TEXT NOT NULL,
+        type TEXT NOT NULL,
+        message TEXT,
+        latitude REAL,
+        longitude REAL,
+        status TEXT NOT NULL,
+        sync_state TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+        db.execute('PRAGMA user_version = 1');
+        db.execute(
+          'INSERT INTO sos_messages '
+          '(id, owner_id, type, status, sync_state, created_at, updated_at) '
+          "VALUES ('v1-sos', 'owner', 'emergency', 'active', 'local', 0, 0)",
+        );
+      },
+    );
+
+    final migrated = AppDatabase.forTesting(oldExecutor);
+    expect(migrated.schemaVersion, 5);
+    expect(await migrated.select(migrated.sosSyncQueue).get(), isEmpty);
+    expect(await migrated.select(migrated.bleOutbox).get(), isEmpty);
+    expect(await migrated.select(migrated.bleInbox).get(), isEmpty);
+    expect(await migrated.select(migrated.chatMessages).get(), isEmpty);
+    expect(
+      (await migrated.select(migrated.sosMessages).getSingle()).id,
+      'v1-sos',
     );
     await migrated.close();
   });
@@ -438,6 +479,27 @@ void main() {
   });
 
   test(
+    'destination assignment cannot redirect an in-flight delivery',
+    () async {
+      final row = await repository.enqueueOutbox(
+        _delivery(messageId: 'in-flight'),
+      );
+      await repository.transitionOutboxState(
+        row.messageId,
+        BleOutboxState.sending,
+      );
+
+      final unchanged = await repository.assignDestinationIfMissing(
+        row.messageId,
+        'peer-2',
+      );
+
+      expect(unchanged.state, BleOutboxState.sending.wireValue);
+      expect(unchanged.destinationId, isNull);
+    },
+  );
+
+  test(
     'remote persisted ACK is recorded separately from write acceptance',
     () async {
       final now = DateTime.utc(2026, 1, 1, 12);
@@ -478,6 +540,46 @@ void main() {
       expect(acknowledged.acknowledgedAt?.toUtc(), now);
     },
   );
+
+  test('a peer ACK cannot claim an unassigned outbox row', () async {
+    final now = DateTime.utc(2026, 1, 1, 12);
+    await repository.enqueueOutbox(_delivery(), now: now);
+    await repository.transitionOutboxState(
+      'message-1',
+      BleOutboxState.sending,
+      now: now,
+    );
+    await repository.transitionOutboxState(
+      'message-1',
+      BleOutboxState.writeAccepted,
+      now: now,
+    );
+    await repository.transitionOutboxState(
+      'message-1',
+      BleOutboxState.awaitingAcknowledgement,
+      now: now,
+    );
+    final ack = SosBleEnvelope.acknowledgement(
+      messageId: 'ack-unassigned',
+      sosId: 'sos-1',
+      ackFor: 'message-1',
+      ackStatus: SosBleAckStatus.persisted,
+      createdAt: now,
+    );
+
+    await expectLater(
+      repository.recordAcknowledgement(
+        ack,
+        sourceDeviceId: 'unexpected-peer',
+        now: now,
+      ),
+      throwsA(isA<BleDeliveryStateException>()),
+    );
+    expect(
+      (await repository.lookupOutbox('message-1'))!.state,
+      BleOutboxState.awaitingAcknowledgement.wireValue,
+    );
+  });
 
   test(
     'recovers stale in-progress outbox work without changing messageId',

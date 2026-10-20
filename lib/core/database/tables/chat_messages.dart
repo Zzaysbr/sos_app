@@ -9,6 +9,8 @@ class ChatMessages extends Table {
 
   TextColumn get senderId => text()();
 
+  TextColumn get recipientId => text().nullable()();
+
   TextColumn get messageType => text()();
 
   TextColumn get textContent => text().nullable()();

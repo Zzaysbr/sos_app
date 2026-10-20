@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sos_app/core/database/app_database.dart';
@@ -48,6 +50,7 @@ void main() {
     final first = await repository.insertMessage(
       sosId: 'sos-a',
       messageId: 'chat-1',
+      recipientId: 'peer-helper',
       text: 'first',
     );
     await Future<void>.delayed(const Duration(milliseconds: 1));
@@ -61,6 +64,7 @@ void main() {
     expect(messages.map((message) => message.text), ['first', 'second']);
     expect(messages.first.status, ChatDeliveryStatus.delivered);
     expect(messages.first.isMine, isTrue);
+    expect(messages.first.recipientId, 'peer-helper');
   });
 
   test(
@@ -110,6 +114,70 @@ void main() {
     );
   });
 
+  test('schema 4 chat data upgrades with a nullable recipient', () async {
+    final oldExecutor = NativeDatabase.memory(
+      setup: (db) {
+        db.execute('''
+          CREATE TABLE sos_messages (
+            id TEXT NOT NULL PRIMARY KEY,
+            owner_id TEXT NOT NULL,
+            type TEXT NOT NULL,
+            message TEXT,
+            latitude REAL,
+            longitude REAL,
+            status TEXT NOT NULL,
+            sync_state TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+          )
+        ''');
+        db.execute('''
+          CREATE TABLE chat_messages (
+            message_id TEXT NOT NULL PRIMARY KEY,
+            sos_id TEXT NOT NULL,
+            owner_id TEXT NOT NULL,
+            sender_id TEXT NOT NULL,
+            message_type TEXT NOT NULL,
+            text_content TEXT,
+            created_at INTEGER NOT NULL,
+            delivery_status TEXT NOT NULL,
+            attachment_path TEXT,
+            attachment_mime_type TEXT,
+            attachment_name TEXT,
+            remote_message_id TEXT,
+            transport_metadata TEXT
+          )
+        ''');
+        db.execute('PRAGMA user_version = 4');
+      },
+    );
+    final upgraded = AppDatabase.forTesting(oldExecutor);
+    await upgraded
+        .into(upgraded.sosMessages)
+        .insert(
+          SosMessagesCompanion.insert(
+            id: 'migrated-sos',
+            ownerId: 'owner-a',
+            type: 'emergency',
+            status: 'active',
+            syncState: 'local',
+            createdAt: DateTime.utc(2026),
+            updatedAt: DateTime.utc(2026),
+          ),
+        );
+    final migratedRepository = PersistentChatRepository(
+      database: upgraded,
+      ownerId: 'owner-a',
+    );
+    final message = await migratedRepository.insertMessage(
+      sosId: 'migrated-sos',
+      text: 'still here',
+      recipientId: 'peer-after-upgrade',
+    );
+    expect(message.recipientId, 'peer-after-upgrade');
+    await upgraded.close();
+  });
+
   test('rejects empty text unless an attachment exists', () async {
     expect(
       () => repository.insertMessage(sosId: 'sos-a', text: '   '),
@@ -125,4 +193,56 @@ void main() {
     expect(message.text, isEmpty);
     expect(message.attachmentName, 'photo.jpg');
   });
+
+  test(
+    'pending chat and recipient survive a file-backed database restart',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'sos-chat-restart-',
+      );
+      final file = File('${directory.path}/database.sqlite');
+      try {
+        final first = AppDatabase.forTesting(NativeDatabase(file));
+        await first
+            .into(first.sosMessages)
+            .insert(
+              SosMessagesCompanion.insert(
+                id: 'restart-chat-sos',
+                ownerId: 'owner-a',
+                type: 'emergency',
+                status: 'active',
+                syncState: 'local',
+                createdAt: DateTime.utc(2026),
+                updatedAt: DateTime.utc(2026),
+              ),
+            );
+        final firstRepository = PersistentChatRepository(
+          database: first,
+          ownerId: 'owner-a',
+        );
+        await firstRepository.insertMessage(
+          sosId: 'restart-chat-sos',
+          messageId: 'restart-chat-1',
+          recipientId: 'peer-a',
+          text: 'pending after restart',
+        );
+        await first.close();
+
+        final second = AppDatabase.forTesting(NativeDatabase(file));
+        final secondRepository = PersistentChatRepository(
+          database: second,
+          ownerId: 'owner-a',
+        );
+        final restored = await secondRepository.loadMessages(
+          'restart-chat-sos',
+        );
+        expect(restored.single.id, 'restart-chat-1');
+        expect(restored.single.recipientId, 'peer-a');
+        expect(restored.single.status, ChatDeliveryStatus.pending);
+        await second.close();
+      } finally {
+        if (await directory.exists()) await directory.delete(recursive: true);
+      }
+    },
+  );
 }

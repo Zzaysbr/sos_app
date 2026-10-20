@@ -9,11 +9,14 @@ import '../../nearby_ble/data/sos_ble_coordinator.dart';
 import '../../nearby_ble/presentation/ble_recipient_picker_page.dart';
 import '../../nearby_ble/presentation/ble_test_page.dart';
 import '../../nearby_ble/domain/ble_delivery_state.dart';
+import '../../nearby_ble/domain/location_ble_envelope.dart';
 import '../data/sos_repository.dart';
 import '../data/chat_repository.dart';
 import 'account_page.dart';
 import 'emergency_chat_page.dart';
 import 'in_app_notifications_page.dart';
+import 'incident_map_page.dart';
+import 'location_sharing_panel.dart';
 
 import 'package:geolocator/geolocator.dart';
 
@@ -1135,8 +1138,21 @@ class _SosPageState extends State<SosPage> {
   Widget _buildChat() {
     return EmergencyChatPage(
       repository: widget.chatRepository,
-      onMessageCreated: widget.onChatMessageCreated,
+      onMessageCreatedWithDestination: _enqueueChat,
+      bleTransport: widget.bleTransport,
     );
+  }
+
+  Future<void> _enqueueChat(
+    EmergencyChatMessage message, {
+    String? destinationId,
+  }) async {
+    final coordinator = widget.bleCoordinator;
+    if (coordinator != null) {
+      await coordinator.enqueueChat(message, destinationId: destinationId);
+      return;
+    }
+    await widget.onChatMessageCreated?.call(message);
   }
 
   Widget _buildSettings() {
@@ -1168,8 +1184,9 @@ class _SosPageState extends State<SosPage> {
                                   builder: (_) => EmergencyChatPage(
                                     sosId: sosId,
                                     repository: widget.chatRepository,
-                                    onMessageCreated:
-                                        widget.onChatMessageCreated,
+                                    onMessageCreatedWithDestination:
+                                        _enqueueChat,
+                                    bleTransport: widget.bleTransport,
                                   ),
                                 ),
                               );
@@ -1538,7 +1555,10 @@ class _SosPageState extends State<SosPage> {
         return;
       }
 
-      final hasLocation = position != null;
+      final hasLocation = isValidSosCoordinatePair(
+        position?.latitude,
+        position?.longitude,
+      );
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1572,120 +1592,201 @@ class _SosPageState extends State<SosPage> {
       showDragHandle: true,
       builder: (sheetContext) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'SOS Details',
-                        style: Theme.of(sheetContext).textTheme.headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                    _buildStatusChip(sos.status),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                _buildDetailRow(
-                  icon: Icons.warning_amber_rounded,
-                  label: 'Type',
-                  value: sos.type,
-                ),
-                if (widget.bleCoordinator != null)
-                  _buildBleDeliveryDetail(sos, sheetContext),
-                _buildDetailRow(
-                  icon: Icons.schedule,
-                  label: 'Created',
-                  value: _formatDateTime(sos.createdAt),
-                ),
-                _buildDetailRow(
-                  icon: Icons.update,
-                  label: 'Updated',
-                  value: _formatDateTime(sos.updatedAt),
-                ),
-                _buildDetailRow(
-                  icon: sos.syncState == 'synced'
-                      ? Icons.cloud_done
-                      : Icons.cloud_upload_outlined,
-                  label: 'Sync',
-                  value: sos.syncState == 'synced' ? 'Synced' : 'Pending sync',
-                ),
-                if (sos.message != null && sos.message!.isNotEmpty)
-                  _buildDetailRow(
-                    icon: Icons.message_outlined,
-                    label: 'Message',
-                    value: sos.message!,
-                  ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.of(sheetContext).pop();
-                      Navigator.of(context).push<void>(
-                        MaterialPageRoute<void>(
-                          builder: (_) => EmergencyChatPage(
-                            sosId: sos.id,
-                            repository: widget.chatRepository,
-                            onMessageCreated: widget.onChatMessageCreated,
-                          ),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'SOS Details',
+                          style: Theme.of(sheetContext).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.chat_bubble_outline),
-                    label: const Text('Open incident chat'),
+                      ),
+                      _buildStatusChip(sos.status),
+                    ],
                   ),
-                ),
-                if (sos.latitude != null && sos.longitude != null)
+                  const SizedBox(height: 24),
                   _buildDetailRow(
-                    icon: Icons.location_on_outlined,
-                    label: 'Location',
-                    value:
-                        '${sos.latitude!.toStringAsFixed(6)}, '
-                        '${sos.longitude!.toStringAsFixed(6)}',
+                    icon: Icons.warning_amber_rounded,
+                    label: 'Type',
+                    value: sos.type,
                   ),
-                const SizedBox(height: 20),
-                if (sos.status == 'active') ...[
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: () async {
-                        Navigator.of(sheetContext).pop();
-                        await _changeSosStatus(sos, 'resolved');
-                      },
-                      icon: const Icon(Icons.check_circle_outline),
-                      label: const Text('Mark as Resolved'),
+                  if (widget.bleCoordinator != null)
+                    _buildBleDeliveryDetail(sos, sheetContext),
+                  if (sos.status == 'active' &&
+                      widget.bleCoordinator != null &&
+                      widget.bleTransport != null) ...[
+                    const SizedBox(height: 12),
+                    LocationSharingPanel(
+                      sos: sos,
+                      coordinator: widget.bleCoordinator!,
+                      transport: widget.bleTransport!,
                     ),
+                  ],
+                  if (widget.bleCoordinator != null) ...[
+                    const SizedBox(height: 12),
+                    StreamBuilder<LocationBleEnvelope?>(
+                      stream: widget.bleCoordinator!.watchIncomingLocation(
+                        sos.id,
+                      ),
+                      builder: (context, snapshot) {
+                        final location = snapshot.data;
+                        if (location == null) {
+                          return const Text(
+                            'No verified shared location is available for this incident.',
+                            style: TextStyle(color: Color(0xFF777777)),
+                          );
+                        }
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildDetailRow(
+                              icon: Icons.share_location,
+                              label: 'Shared location',
+                              value:
+                                  '${location.latitude!.toStringAsFixed(6)}, '
+                                  '${location.longitude!.toStringAsFixed(6)}\n'
+                                  '${_formatDateTime(location.createdAt)}',
+                            ),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  Navigator.of(sheetContext).pop();
+                                  Navigator.of(context).push<void>(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => IncidentMapPage(
+                                        incident: sos,
+                                        incomingLocation: location,
+                                        incomingSenderDeviceId:
+                                            location.senderDeviceId,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.map_outlined),
+                                label: const Text('View shared location'),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                  _buildDetailRow(
+                    icon: Icons.schedule,
+                    label: 'Created',
+                    value: _formatDateTime(sos.createdAt),
                   ),
-                  const SizedBox(height: 10),
+                  _buildDetailRow(
+                    icon: Icons.update,
+                    label: 'Updated',
+                    value: _formatDateTime(sos.updatedAt),
+                  ),
+                  _buildDetailRow(
+                    icon: sos.syncState == 'synced'
+                        ? Icons.cloud_done
+                        : Icons.cloud_upload_outlined,
+                    label: 'Sync',
+                    value: sos.syncState == 'synced'
+                        ? 'Synced'
+                        : 'Pending sync',
+                  ),
+                  if (sos.message != null && sos.message!.isNotEmpty)
+                    _buildDetailRow(
+                      icon: Icons.message_outlined,
+                      label: 'Message',
+                      value: sos.message!,
+                    ),
+                  const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: () async {
-                        Navigator.of(sheetContext).pop();
-                        await _changeSosStatus(sos, 'cancelled');
-                      },
-                      icon: const Icon(Icons.cancel_outlined),
-                      label: const Text('Cancel SOS'),
-                    ),
-                  ),
-                ],
-                if (sos.status != 'active')
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
                       onPressed: () {
                         Navigator.of(sheetContext).pop();
+                        Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) => EmergencyChatPage(
+                              sosId: sos.id,
+                              repository: widget.chatRepository,
+                              onMessageCreatedWithDestination: _enqueueChat,
+                              bleTransport: widget.bleTransport,
+                            ),
+                          ),
+                        );
                       },
-                      child: const Text('Close'),
+                      icon: const Icon(Icons.chat_bubble_outline),
+                      label: const Text('Open incident chat'),
                     ),
                   ),
-              ],
+                  if (sos.latitude != null && sos.longitude != null) ...[
+                    _buildDetailRow(
+                      icon: Icons.location_on_outlined,
+                      label: 'Location',
+                      value:
+                          '${sos.latitude!.toStringAsFixed(6)}, '
+                          '${sos.longitude!.toStringAsFixed(6)}',
+                    ),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(sheetContext).pop();
+                          Navigator.of(context).push<void>(
+                            MaterialPageRoute<void>(
+                              builder: (_) => IncidentMapPage(incident: sos),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.map_outlined),
+                        label: const Text('View on map'),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  if (sos.status == 'active') ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () async {
+                          Navigator.of(sheetContext).pop();
+                          await _changeSosStatus(sos, 'resolved');
+                        },
+                        icon: const Icon(Icons.check_circle_outline),
+                        label: const Text('Mark as Resolved'),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          Navigator.of(sheetContext).pop();
+                          await _changeSosStatus(sos, 'cancelled');
+                        },
+                        icon: const Icon(Icons.cancel_outlined),
+                        label: const Text('Cancel SOS'),
+                      ),
+                    ),
+                  ],
+                  if (sos.status != 'active')
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.of(sheetContext).pop();
+                        },
+                        child: const Text('Close'),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         );

@@ -169,9 +169,15 @@ class BleMessageAssembler {
   BleMessageAssembler({
     this.timeout = const Duration(seconds: 10),
     this.maxDeliveredIds = 1024,
+    this.dropDuplicateMessages = true,
   }) : assert(maxDeliveredIds > 0);
   final Duration timeout;
   final int maxDeliveredIds;
+
+  /// Coordinators that must re-ACK durable duplicate deliveries can disable
+  /// this transport-level suppression and let their idempotent repository
+  /// decide how to handle the repeated logical message.
+  final bool dropDuplicateMessages;
   final _frames = <int, List<List<int>>>{};
   final _updated = <int, DateTime>{};
   final _delivered = <String, DateTime>{};
@@ -192,7 +198,7 @@ class BleMessageAssembler {
       _frames.remove(token);
       _updated.remove(token);
       final previousDelivery = _delivered[message.id];
-      if (previousDelivery != null) return null;
+      if (previousDelivery != null && dropDuplicateMessages) return null;
       _delivered[message.id] = current;
       _evictDeliveredIfNeeded();
       return message;

@@ -4,7 +4,9 @@ import 'package:drift/drift.dart';
 
 import '../../../core/database/app_database.dart';
 import '../domain/ble_delivery_state.dart';
+import 'ble_protocol.dart';
 import '../domain/sos_ble_envelope.dart';
+import '../domain/location_ble_envelope.dart';
 
 class BleDeliveryRepository {
   BleDeliveryRepository(this._database);
@@ -55,10 +57,126 @@ class BleDeliveryRepository {
     });
   }
 
+  /// Enqueues one explicit-recipient location update. Older queued location
+  /// updates for the same SOS are discarded so stale fixes cannot grow the
+  /// durable queue or be displayed as current.
+  Future<BleOutboxData> enqueueLocationOutbox(
+    LocationBleEnvelope envelope, {
+    required String destinationId,
+    DateTime? now,
+  }) async {
+    final destination = destinationId.trim();
+    if (destination.isEmpty || destination != envelope.recipientId) {
+      throw const BleDeliveryStateException(
+        'Location recipient and BLE destination must match.',
+      );
+    }
+    final payload = jsonEncode(envelope.toJson());
+    final timestamp = (now ?? DateTime.now()).toUtc();
+    envelope.validate(now: timestamp);
+    return _database.transaction(() async {
+      final existing = await (_database.select(
+        _database.bleOutbox,
+      )..where((table) => table.sosId.equals(envelope.sosId))).get();
+      for (final row in existing) {
+        if (row.messageId == envelope.messageId ||
+            !_isLocationUpdate(row.payload) ||
+            !(row.state == BleOutboxState.queued.wireValue ||
+                row.state == BleOutboxState.failed.wireValue)) {
+          continue;
+        }
+        if (row.destinationId == destination) {
+          await (_database.delete(
+            _database.bleOutbox,
+          )..where((table) => table.messageId.equals(row.messageId))).go();
+        } else {
+          await (_database.update(_database.bleOutbox)..where(
+                (table) =>
+                    table.messageId.equals(row.messageId) &
+                    table.state.equals(row.state),
+              ))
+              .write(
+                BleOutboxCompanion(
+                  state: Value(BleOutboxState.expired.wireValue),
+                  nextRetryAt: const Value(null),
+                  lastError: const Value(
+                    'Recipient changed; previous location update was stopped.',
+                  ),
+                  updatedAt: Value(timestamp),
+                ),
+              );
+        }
+      }
+      await _database
+          .into(_database.bleOutbox)
+          .insert(
+            BleOutboxCompanion.insert(
+              messageId: envelope.messageId,
+              sosId: envelope.sosId,
+              destinationId: Value(destination),
+              schemaVersion: LocationBleEnvelope.schemaVersion,
+              payload: payload,
+              state: BleOutboxState.queued.wireValue,
+              createdAt: timestamp,
+              updatedAt: timestamp,
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+      final row = await lookupOutbox(envelope.messageId);
+      if (row == null ||
+          row.payload != payload ||
+          row.destinationId != destination) {
+        throw const BleDeliveryStateException(
+          'messageId is already used for a different location payload.',
+        );
+      }
+      return row;
+    });
+  }
+
   Future<BleOutboxData?> lookupOutbox(String messageId) {
     return (_database.select(
       _database.bleOutbox,
     )..where((table) => table.messageId.equals(messageId))).getSingleOrNull();
+  }
+
+  /// Stops pending location updates for an SOS without touching SOS or Chat
+  /// deliveries. A stopped share must not resume from a queued retry later.
+  Future<int> expireLocationOutbox(
+    String sosId, {
+    String reason = 'Location sharing stopped.',
+    DateTime? now,
+  }) async {
+    final timestamp = (now ?? DateTime.now()).toUtc();
+    return _database.transaction(() async {
+      final rows = await (_database.select(
+        _database.bleOutbox,
+      )..where((table) => table.sosId.equals(sosId))).get();
+      var changed = 0;
+      for (final row in rows) {
+        if (!_isLocationUpdate(row.payload)) continue;
+        final state = BleOutboxState.parse(row.state);
+        if (state == BleOutboxState.acknowledged ||
+            state == BleOutboxState.expired) {
+          continue;
+        }
+        changed +=
+            await (_database.update(_database.bleOutbox)..where(
+                  (table) =>
+                      table.messageId.equals(row.messageId) &
+                      table.state.equals(row.state),
+                ))
+                .write(
+                  BleOutboxCompanion(
+                    state: Value(BleOutboxState.expired.wireValue),
+                    nextRetryAt: const Value(null),
+                    lastError: Value(reason),
+                    updatedAt: Value(timestamp),
+                  ),
+                );
+      }
+      return changed;
+    });
   }
 
   /// Watches the persisted delivery row for an SOS. The delivery envelope has
@@ -69,6 +187,21 @@ class BleDeliveryRepository {
           ..orderBy([(table) => OrderingTerm.asc(table.createdAt)])
           ..limit(1))
         .watchSingleOrNull();
+  }
+
+  /// Watches the newest location update for an SOS without confusing it with
+  /// the primary SOS delivery row.
+  Stream<BleOutboxData?> watchLocationDeliveryForSos(String sosId) {
+    return (_database.select(_database.bleOutbox)
+          ..where((table) => table.sosId.equals(sosId))
+          ..orderBy([(table) => OrderingTerm.desc(table.createdAt)]))
+        .watch()
+        .map((rows) {
+          for (final row in rows) {
+            if (_isLocationUpdate(row.payload)) return row;
+          }
+          return null;
+        });
   }
 
   /// Recreates the durable SOS delivery row when local SOS persistence
@@ -169,10 +302,8 @@ class BleDeliveryRepository {
         await (_database.update(_database.bleOutbox)..where(
               (table) =>
                   table.messageId.equals(messageId) &
-                  table.state.isNotValue(
-                    BleOutboxState.acknowledged.wireValue,
-                  ) &
-                  table.state.isNotValue(BleOutboxState.expired.wireValue) &
+                  (table.state.equals(BleOutboxState.queued.wireValue) |
+                      table.state.equals(BleOutboxState.failed.wireValue)) &
                   (table.destinationId.isNull() |
                       table.destinationId.equals('')),
             ))
@@ -322,12 +453,17 @@ class BleDeliveryRepository {
           'Acknowledgement does not match a BLE outbox message.',
         );
       }
-      if (sourceDeviceId != null &&
-          current.destinationId != null &&
-          current.destinationId != sourceDeviceId) {
-        throw const BleDeliveryStateException(
-          'Acknowledgement came from an unexpected BLE peer.',
-        );
+      if (sourceDeviceId != null) {
+        final expectedPeer = current.destinationId?.trim();
+        final actualPeer = sourceDeviceId.trim();
+        if (expectedPeer == null ||
+            expectedPeer.isEmpty ||
+            actualPeer.isEmpty ||
+            expectedPeer != actualPeer) {
+          throw const BleDeliveryStateException(
+            'Acknowledgement came from an unexpected BLE peer.',
+          );
+        }
       }
       final outboundKind = _decodeEnvelopeKind(current.payload);
       final isChatAck =
@@ -378,6 +514,71 @@ class BleDeliveryRepository {
     });
   }
 
+  Future<BleOutboxData> recordLocationAcknowledgement(
+    LocationBleEnvelope acknowledgement, {
+    String? sourceDeviceId,
+    DateTime? now,
+  }) async {
+    acknowledgement.validate();
+    if (acknowledgement.kind != 'location.ack') {
+      throw const BleDeliveryStateException('Expected a location ACK.');
+    }
+    final timestamp = (now ?? DateTime.now()).toUtc();
+    return _database.transaction(() async {
+      final current = await lookupOutbox(acknowledgement.ackFor!);
+      if (current == null ||
+          !_isLocationUpdate(current.payload) ||
+          current.sosId != acknowledgement.sosId) {
+        throw const BleDeliveryStateException(
+          'Location ACK does not match a location outbox message.',
+        );
+      }
+      final expected = current.destinationId?.trim();
+      if (sourceDeviceId != null &&
+          (expected == null ||
+              expected.isEmpty ||
+              expected != sourceDeviceId.trim())) {
+        throw const BleDeliveryStateException(
+          'Location ACK came from an unexpected BLE peer.',
+        );
+      }
+      final state = BleOutboxState.parse(current.state);
+      if (state == BleOutboxState.acknowledged) return current;
+      if (!_acknowledgementStates.contains(state)) {
+        throw BleDeliveryStateException(
+          'Cannot acknowledge location in ${state.wireValue} state.',
+        );
+      }
+      final persisted = acknowledgement.ackStatus == 'persisted';
+      final next = persisted
+          ? BleOutboxState.acknowledged
+          : BleOutboxState.failed;
+      final changed =
+          await (_database.update(_database.bleOutbox)..where(
+                (table) =>
+                    table.messageId.equals(current.messageId) &
+                    table.state.equals(current.state),
+              ))
+              .write(
+                BleOutboxCompanion(
+                  state: Value(next.wireValue),
+                  lastError: Value(acknowledgement.error),
+                  nextRetryAt: const Value(null),
+                  acknowledgedAt: persisted
+                      ? Value(timestamp)
+                      : const Value.absent(),
+                  updatedAt: Value(timestamp),
+                ),
+              );
+      if (changed != 1) {
+        throw const BleDeliveryStateException(
+          'Location ACK raced with another update.',
+        );
+      }
+      return (await lookupOutbox(current.messageId))!;
+    });
+  }
+
   Future<BleInboxInsertResult> insertInboxDelivery(
     SosBleEnvelope envelope, {
     DateTime? now,
@@ -413,6 +614,82 @@ class BleDeliveryRepository {
       if (row.payload != payload || row.sosId != envelope.sosId) {
         throw const BleDeliveryStateException(
           'Duplicate messageId contains a different payload.',
+        );
+      }
+      return BleInboxInsertResult(row: row, inserted: existed == null);
+    });
+  }
+
+  Future<BleInboxInsertResult> persistIncomingLocation(
+    LocationBleEnvelope envelope, {
+    required String expectedRecipientId,
+    String? sourceDeviceId,
+    DateTime? now,
+  }) async {
+    final timestamp = (now ?? DateTime.now()).toUtc();
+    envelope.validate(now: timestamp);
+    if (envelope.recipientId != expectedRecipientId) {
+      throw const BleDeliveryStateException(
+        'Location update has the wrong recipient.',
+      );
+    }
+    if (sourceDeviceId != null &&
+        envelope.senderDeviceId != null &&
+        envelope.senderDeviceId!.trim() != sourceDeviceId.trim()) {
+      throw const BleDeliveryStateException(
+        'Location update sender does not match the BLE peer.',
+      );
+    }
+    final payload = jsonEncode(envelope.toJson());
+    return _database.transaction(() async {
+      final existed = await lookupInbox(envelope.messageId);
+      if (existed == null) {
+        final history = await (_database.select(
+          _database.bleInbox,
+        )..where((table) => table.sosId.equals(envelope.sosId))).get();
+        for (final row in history) {
+          try {
+            final value = jsonDecode(row.payload);
+            if (value is Map && value['kind'] == 'location.update') {
+              final created = DateTime.parse(value['createdAt'] as String);
+              if (!envelope.createdAt.isAfter(created.toUtc())) {
+                throw const BleDeliveryStateException(
+                  'Location update is older than the latest persisted update.',
+                );
+              }
+            }
+          } on BleDeliveryStateException {
+            rethrow;
+          } on Object {
+            // Malformed historical rows are ignored; they are not a source
+            // of truth for rejecting a newly validated update.
+          }
+        }
+      }
+      await _database
+          .into(_database.bleInbox)
+          .insert(
+            BleInboxCompanion.insert(
+              messageId: envelope.messageId,
+              sosId: envelope.sosId,
+              senderDeviceId: Value(envelope.senderDeviceId),
+              schemaVersion: LocationBleEnvelope.schemaVersion,
+              payload: payload,
+              processingState: BleInboxState.persisted.wireValue,
+              receivedAt: timestamp,
+              persistedAt: Value(timestamp),
+              acknowledgementStatus: Value(
+                BleAcknowledgementStatus.persisted.wireValue,
+              ),
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+      final row = await lookupInbox(envelope.messageId);
+      if (row == null ||
+          row.payload != payload ||
+          row.sosId != envelope.sosId) {
+        throw const BleDeliveryStateException(
+          'Duplicate location messageId has a different payload.',
         );
       }
       return BleInboxInsertResult(row: row, inserted: existed == null);
@@ -549,6 +826,74 @@ class BleDeliveryRepository {
     return (_database.select(
       _database.bleInbox,
     )..where((table) => table.messageId.equals(messageId))).getSingleOrNull();
+  }
+
+  /// Returns the newest non-expired inbound location for an SOS. Expired or
+  /// malformed historical updates are never exposed as the current position.
+  Future<LocationBleEnvelope?> latestIncomingLocation(
+    String sosId, {
+    String? requiredSenderDeviceId,
+    DateTime? now,
+  }) async {
+    final timestamp = (now ?? DateTime.now()).toUtc();
+    final expectedSender = requiredSenderDeviceId?.trim();
+    final rows =
+        await (_database.select(_database.bleInbox)
+              ..where((table) => table.sosId.equals(sosId))
+              ..orderBy([(table) => OrderingTerm.desc(table.receivedAt)]))
+            .get();
+    for (final row in rows) {
+      try {
+        final value = jsonDecode(row.payload);
+        if (value is! Map || value['kind'] != 'location.update') continue;
+        final map = Map<String, Object?>.from(value);
+        final createdAt = DateTime.parse(map['createdAt'] as String).toUtc();
+        final envelope = LocationBleEnvelope.fromBleMessage(
+          BleMessage(
+            id: map['messageId'] as String,
+            type: 'location.update',
+            createdAt: createdAt,
+            payload: map,
+          ),
+        );
+        if (expectedSender != null &&
+            (envelope.senderDeviceId == null ||
+                envelope.senderDeviceId!.trim() != expectedSender)) {
+          continue;
+        }
+        envelope.validate(now: timestamp);
+        return envelope;
+      } on Object {
+        // Ignore malformed/expired history and continue to the next candidate.
+      }
+    }
+    return null;
+  }
+
+  /// Emits the newest valid location whenever the inbox changes. The sender
+  /// filter is deliberate: a nearby BLE peer is not automatically the
+  /// incident participant, so callers must provide the peer identity they
+  /// have already established for this incident.
+  Stream<LocationBleEnvelope?> watchIncomingLocation(
+    String sosId, {
+    String? requiredSenderDeviceId,
+  }) =>
+      (_database.select(
+        _database.bleInbox,
+      )..where((table) => table.sosId.equals(sosId))).watch().asyncMap(
+        (_) => latestIncomingLocation(
+          sosId,
+          requiredSenderDeviceId: requiredSenderDeviceId,
+        ),
+      );
+
+  static bool _isLocationUpdate(String payload) {
+    try {
+      final value = jsonDecode(payload);
+      return value is Map && value['kind'] == 'location.update';
+    } on Object {
+      return false;
+    }
   }
 
   Future<BleInboxData> transitionInboxState(

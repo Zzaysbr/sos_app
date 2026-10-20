@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/native.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -66,6 +68,139 @@ void main() {
     expect(sos.syncState, 'pending');
     expect(queue, hasLength(1));
     expect(queue.single.operation, 'create');
+  });
+
+  test('create persists a valid incident snapshot unchanged', () async {
+    when(
+      () => cloud.create(
+        id: any(named: 'id'),
+        ownerId: any(named: 'ownerId'),
+        type: any(named: 'type'),
+        message: any(named: 'message'),
+        latitude: any(named: 'latitude'),
+        longitude: any(named: 'longitude'),
+        status: any(named: 'status'),
+        createdAt: any(named: 'createdAt'),
+        updatedAt: any(named: 'updatedAt'),
+      ),
+    ).thenAnswer((_) async {});
+
+    await repository.create(
+      id: 'sos-location-1',
+      type: 'emergency',
+      latitude: 13.7563,
+      longitude: 100.5018,
+    );
+
+    final sos = await repository.findById('sos-location-1');
+    expect(sos!.latitude, 13.7563);
+    expect(sos.longitude, 100.5018);
+  });
+
+  test(
+    'invalid incident coordinates do not block creation or enter storage',
+    () async {
+      when(
+        () => cloud.create(
+          id: any(named: 'id'),
+          ownerId: any(named: 'ownerId'),
+          type: any(named: 'type'),
+          message: any(named: 'message'),
+          latitude: any(named: 'latitude'),
+          longitude: any(named: 'longitude'),
+          status: any(named: 'status'),
+          createdAt: any(named: 'createdAt'),
+          updatedAt: any(named: 'updatedAt'),
+        ),
+      ).thenAnswer((_) async {});
+
+      await repository.create(
+        id: 'sos-location-invalid',
+        type: 'emergency',
+        latitude: double.nan,
+        longitude: 200,
+      );
+
+      final sos = await repository.findById('sos-location-invalid');
+      expect(sos, isNotNull);
+      expect(sos!.latitude, isNull);
+      expect(sos.longitude, isNull);
+    },
+  );
+
+  test(
+    'pending cloud sync retains the incident location in its payload',
+    () async {
+      when(
+        () => cloud.create(
+          id: any(named: 'id'),
+          ownerId: any(named: 'ownerId'),
+          type: any(named: 'type'),
+          message: any(named: 'message'),
+          latitude: any(named: 'latitude'),
+          longitude: any(named: 'longitude'),
+          status: any(named: 'status'),
+          createdAt: any(named: 'createdAt'),
+          updatedAt: any(named: 'updatedAt'),
+        ),
+      ).thenThrow(Exception('offline'));
+
+      await repository.create(
+        id: 'sos-location-queued',
+        type: 'emergency',
+        latitude: 13.7563,
+        longitude: 100.5018,
+      );
+
+      final queue = await database.select(database.sosSyncQueue).getSingle();
+      final payload = jsonDecode(queue.payload!) as Map<String, dynamic>;
+      expect(payload['latitude'], 13.7563);
+      expect(payload['longitude'], 100.5018);
+    },
+  );
+
+  test('updating an SOS cannot replace its valid incident snapshot', () async {
+    final now = DateTime.now();
+    await database
+        .into(database.sosMessages)
+        .insert(
+          SosMessagesCompanion.insert(
+            id: 'sos-location-preserve',
+            ownerId: 'test-user-1',
+            type: 'emergency',
+            latitude: const Value(13.7563),
+            longitude: const Value(100.5018),
+            status: 'active',
+            syncState: 'synced',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+
+    when(
+      () => cloud.update(
+        id: any(named: 'id'),
+        type: any(named: 'type'),
+        message: any(named: 'message'),
+        latitude: any(named: 'latitude'),
+        longitude: any(named: 'longitude'),
+        status: any(named: 'status'),
+        updatedAt: any(named: 'updatedAt'),
+      ),
+    ).thenAnswer((_) async {});
+
+    await repository.update(
+      id: 'sos-location-preserve',
+      type: 'emergency',
+      message: 'Updated without changing location',
+      latitude: 14.0,
+      longitude: 101.0,
+      status: 'active',
+    );
+
+    final sos = await repository.findById('sos-location-preserve');
+    expect(sos!.latitude, 13.7563);
+    expect(sos.longitude, 100.5018);
   });
 
   test('syncPending retries a queued create successfully', () async {

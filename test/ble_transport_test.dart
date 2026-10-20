@@ -88,6 +88,43 @@ void main() {
         .setMockMethodCallHandler(methods, null);
   });
 
+  test(
+    'repeated initialization failures do not poison later retries',
+    () async {
+      const methods = MethodChannel('ble_transport_retry_twice/methods');
+      const events = EventChannel('ble_transport_retry_twice/events');
+      var attempts = 0;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(methods, (call) async {
+            if (call.method == 'initialize') {
+              attempts++;
+              if (attempts < 3) {
+                throw PlatformException(
+                  code: 'unauthorized',
+                  message: 'permission denied',
+                );
+              }
+            }
+            return null;
+          });
+
+      final transport = BleTransport(methods: methods, events: events);
+      await expectLater(
+        transport.initialize(),
+        throwsA(isA<BleTransportException>()),
+      );
+      await expectLater(
+        transport.initialize(),
+        throwsA(isA<BleTransportException>()),
+      );
+      await transport.initialize();
+      expect(attempts, 3);
+
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(methods, null);
+    },
+  );
+
   test('coalesces concurrent initialize calls', () async {
     const methods = MethodChannel('ble_transport_once/methods');
     const events = EventChannel('ble_transport_once/events');

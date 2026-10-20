@@ -2459,6 +2459,17 @@ class $ChatMessagesTable extends ChatMessages
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _recipientIdMeta = const VerificationMeta(
+    'recipientId',
+  );
+  @override
+  late final GeneratedColumn<String> recipientId = GeneratedColumn<String>(
+    'recipient_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _messageTypeMeta = const VerificationMeta(
     'messageType',
   );
@@ -2565,6 +2576,7 @@ class $ChatMessagesTable extends ChatMessages
     sosId,
     ownerId,
     senderId,
+    recipientId,
     messageType,
     textContent,
     createdAt,
@@ -2618,6 +2630,15 @@ class $ChatMessagesTable extends ChatMessages
       );
     } else if (isInserting) {
       context.missing(_senderIdMeta);
+    }
+    if (data.containsKey('recipient_id')) {
+      context.handle(
+        _recipientIdMeta,
+        recipientId.isAcceptableOrUnknown(
+          data['recipient_id']!,
+          _recipientIdMeta,
+        ),
+      );
     }
     if (data.containsKey('message_type')) {
       context.handle(
@@ -2728,6 +2749,10 @@ class $ChatMessagesTable extends ChatMessages
         DriftSqlType.string,
         data['${effectivePrefix}sender_id'],
       )!,
+      recipientId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recipient_id'],
+      ),
       messageType: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}message_type'],
@@ -2778,6 +2803,7 @@ class ChatMessage extends DataClass implements Insertable<ChatMessage> {
   final String sosId;
   final String ownerId;
   final String senderId;
+  final String? recipientId;
   final String messageType;
   final String? textContent;
   final DateTime createdAt;
@@ -2792,6 +2818,7 @@ class ChatMessage extends DataClass implements Insertable<ChatMessage> {
     required this.sosId,
     required this.ownerId,
     required this.senderId,
+    this.recipientId,
     required this.messageType,
     this.textContent,
     required this.createdAt,
@@ -2809,6 +2836,9 @@ class ChatMessage extends DataClass implements Insertable<ChatMessage> {
     map['sos_id'] = Variable<String>(sosId);
     map['owner_id'] = Variable<String>(ownerId);
     map['sender_id'] = Variable<String>(senderId);
+    if (!nullToAbsent || recipientId != null) {
+      map['recipient_id'] = Variable<String>(recipientId);
+    }
     map['message_type'] = Variable<String>(messageType);
     if (!nullToAbsent || textContent != null) {
       map['text_content'] = Variable<String>(textContent);
@@ -2839,6 +2869,9 @@ class ChatMessage extends DataClass implements Insertable<ChatMessage> {
       sosId: Value(sosId),
       ownerId: Value(ownerId),
       senderId: Value(senderId),
+      recipientId: recipientId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(recipientId),
       messageType: Value(messageType),
       textContent: textContent == null && nullToAbsent
           ? const Value.absent()
@@ -2873,6 +2906,7 @@ class ChatMessage extends DataClass implements Insertable<ChatMessage> {
       sosId: serializer.fromJson<String>(json['sosId']),
       ownerId: serializer.fromJson<String>(json['ownerId']),
       senderId: serializer.fromJson<String>(json['senderId']),
+      recipientId: serializer.fromJson<String?>(json['recipientId']),
       messageType: serializer.fromJson<String>(json['messageType']),
       textContent: serializer.fromJson<String?>(json['textContent']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -2896,6 +2930,7 @@ class ChatMessage extends DataClass implements Insertable<ChatMessage> {
       'sosId': serializer.toJson<String>(sosId),
       'ownerId': serializer.toJson<String>(ownerId),
       'senderId': serializer.toJson<String>(senderId),
+      'recipientId': serializer.toJson<String?>(recipientId),
       'messageType': serializer.toJson<String>(messageType),
       'textContent': serializer.toJson<String?>(textContent),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -2913,6 +2948,7 @@ class ChatMessage extends DataClass implements Insertable<ChatMessage> {
     String? sosId,
     String? ownerId,
     String? senderId,
+    Value<String?> recipientId = const Value.absent(),
     String? messageType,
     Value<String?> textContent = const Value.absent(),
     DateTime? createdAt,
@@ -2927,6 +2963,7 @@ class ChatMessage extends DataClass implements Insertable<ChatMessage> {
     sosId: sosId ?? this.sosId,
     ownerId: ownerId ?? this.ownerId,
     senderId: senderId ?? this.senderId,
+    recipientId: recipientId.present ? recipientId.value : this.recipientId,
     messageType: messageType ?? this.messageType,
     textContent: textContent.present ? textContent.value : this.textContent,
     createdAt: createdAt ?? this.createdAt,
@@ -2953,6 +2990,9 @@ class ChatMessage extends DataClass implements Insertable<ChatMessage> {
       sosId: data.sosId.present ? data.sosId.value : this.sosId,
       ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
       senderId: data.senderId.present ? data.senderId.value : this.senderId,
+      recipientId: data.recipientId.present
+          ? data.recipientId.value
+          : this.recipientId,
       messageType: data.messageType.present
           ? data.messageType.value
           : this.messageType,
@@ -2988,6 +3028,7 @@ class ChatMessage extends DataClass implements Insertable<ChatMessage> {
           ..write('sosId: $sosId, ')
           ..write('ownerId: $ownerId, ')
           ..write('senderId: $senderId, ')
+          ..write('recipientId: $recipientId, ')
           ..write('messageType: $messageType, ')
           ..write('textContent: $textContent, ')
           ..write('createdAt: $createdAt, ')
@@ -3007,6 +3048,7 @@ class ChatMessage extends DataClass implements Insertable<ChatMessage> {
     sosId,
     ownerId,
     senderId,
+    recipientId,
     messageType,
     textContent,
     createdAt,
@@ -3025,6 +3067,7 @@ class ChatMessage extends DataClass implements Insertable<ChatMessage> {
           other.sosId == this.sosId &&
           other.ownerId == this.ownerId &&
           other.senderId == this.senderId &&
+          other.recipientId == this.recipientId &&
           other.messageType == this.messageType &&
           other.textContent == this.textContent &&
           other.createdAt == this.createdAt &&
@@ -3041,6 +3084,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessage> {
   final Value<String> sosId;
   final Value<String> ownerId;
   final Value<String> senderId;
+  final Value<String?> recipientId;
   final Value<String> messageType;
   final Value<String?> textContent;
   final Value<DateTime> createdAt;
@@ -3056,6 +3100,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessage> {
     this.sosId = const Value.absent(),
     this.ownerId = const Value.absent(),
     this.senderId = const Value.absent(),
+    this.recipientId = const Value.absent(),
     this.messageType = const Value.absent(),
     this.textContent = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -3072,6 +3117,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessage> {
     required String sosId,
     required String ownerId,
     required String senderId,
+    this.recipientId = const Value.absent(),
     required String messageType,
     this.textContent = const Value.absent(),
     required DateTime createdAt,
@@ -3094,6 +3140,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessage> {
     Expression<String>? sosId,
     Expression<String>? ownerId,
     Expression<String>? senderId,
+    Expression<String>? recipientId,
     Expression<String>? messageType,
     Expression<String>? textContent,
     Expression<DateTime>? createdAt,
@@ -3110,6 +3157,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessage> {
       if (sosId != null) 'sos_id': sosId,
       if (ownerId != null) 'owner_id': ownerId,
       if (senderId != null) 'sender_id': senderId,
+      if (recipientId != null) 'recipient_id': recipientId,
       if (messageType != null) 'message_type': messageType,
       if (textContent != null) 'text_content': textContent,
       if (createdAt != null) 'created_at': createdAt,
@@ -3129,6 +3177,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessage> {
     Value<String>? sosId,
     Value<String>? ownerId,
     Value<String>? senderId,
+    Value<String?>? recipientId,
     Value<String>? messageType,
     Value<String?>? textContent,
     Value<DateTime>? createdAt,
@@ -3145,6 +3194,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessage> {
       sosId: sosId ?? this.sosId,
       ownerId: ownerId ?? this.ownerId,
       senderId: senderId ?? this.senderId,
+      recipientId: recipientId ?? this.recipientId,
       messageType: messageType ?? this.messageType,
       textContent: textContent ?? this.textContent,
       createdAt: createdAt ?? this.createdAt,
@@ -3172,6 +3222,9 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessage> {
     }
     if (senderId.present) {
       map['sender_id'] = Variable<String>(senderId.value);
+    }
+    if (recipientId.present) {
+      map['recipient_id'] = Variable<String>(recipientId.value);
     }
     if (messageType.present) {
       map['message_type'] = Variable<String>(messageType.value);
@@ -3213,6 +3266,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessage> {
           ..write('sosId: $sosId, ')
           ..write('ownerId: $ownerId, ')
           ..write('senderId: $senderId, ')
+          ..write('recipientId: $recipientId, ')
           ..write('messageType: $messageType, ')
           ..write('textContent: $textContent, ')
           ..write('createdAt: $createdAt, ')
@@ -4447,6 +4501,7 @@ typedef $$ChatMessagesTableCreateCompanionBuilder =
       required String sosId,
       required String ownerId,
       required String senderId,
+      Value<String?> recipientId,
       required String messageType,
       Value<String?> textContent,
       required DateTime createdAt,
@@ -4464,6 +4519,7 @@ typedef $$ChatMessagesTableUpdateCompanionBuilder =
       Value<String> sosId,
       Value<String> ownerId,
       Value<String> senderId,
+      Value<String?> recipientId,
       Value<String> messageType,
       Value<String?> textContent,
       Value<DateTime> createdAt,
@@ -4502,6 +4558,11 @@ class $$ChatMessagesTableFilterComposer
 
   ColumnFilters<String> get senderId => $composableBuilder(
     column: $table.senderId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recipientId => $composableBuilder(
+    column: $table.recipientId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4580,6 +4641,11 @@ class $$ChatMessagesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get recipientId => $composableBuilder(
+    column: $table.recipientId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get messageType => $composableBuilder(
     column: $table.messageType,
     builder: (column) => ColumnOrderings(column),
@@ -4646,6 +4712,11 @@ class $$ChatMessagesTableAnnotationComposer
 
   GeneratedColumn<String> get senderId =>
       $composableBuilder(column: $table.senderId, builder: (column) => column);
+
+  GeneratedColumn<String> get recipientId => $composableBuilder(
+    column: $table.recipientId,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get messageType => $composableBuilder(
     column: $table.messageType,
@@ -4726,6 +4797,7 @@ class $$ChatMessagesTableTableManager
                 Value<String> sosId = const Value.absent(),
                 Value<String> ownerId = const Value.absent(),
                 Value<String> senderId = const Value.absent(),
+                Value<String?> recipientId = const Value.absent(),
                 Value<String> messageType = const Value.absent(),
                 Value<String?> textContent = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -4741,6 +4813,7 @@ class $$ChatMessagesTableTableManager
                 sosId: sosId,
                 ownerId: ownerId,
                 senderId: senderId,
+                recipientId: recipientId,
                 messageType: messageType,
                 textContent: textContent,
                 createdAt: createdAt,
@@ -4758,6 +4831,7 @@ class $$ChatMessagesTableTableManager
                 required String sosId,
                 required String ownerId,
                 required String senderId,
+                Value<String?> recipientId = const Value.absent(),
                 required String messageType,
                 Value<String?> textContent = const Value.absent(),
                 required DateTime createdAt,
@@ -4773,6 +4847,7 @@ class $$ChatMessagesTableTableManager
                 sosId: sosId,
                 ownerId: ownerId,
                 senderId: senderId,
+                recipientId: recipientId,
                 messageType: messageType,
                 textContent: textContent,
                 createdAt: createdAt,

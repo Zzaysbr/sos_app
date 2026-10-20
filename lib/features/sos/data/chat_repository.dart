@@ -9,6 +9,7 @@ class EmergencyChatMessage {
     required this.id,
     required this.sosId,
     required this.senderId,
+    this.recipientId,
     required this.text,
     required this.createdAt,
     required this.status,
@@ -21,6 +22,7 @@ class EmergencyChatMessage {
   final String id;
   final String sosId;
   final String senderId;
+  final String? recipientId;
   final String text;
   final DateTime createdAt;
   final ChatDeliveryStatus status;
@@ -33,10 +35,14 @@ class EmergencyChatMessage {
 abstract interface class ChatRepository {
   Future<List<EmergencyChatMessage>> loadMessages(String sosId);
 
+  Stream<List<EmergencyChatMessage>> watchMessages(String sosId) =>
+      Stream.fromFuture(loadMessages(sosId));
+
   Future<EmergencyChatMessage> insertMessage({
     required String sosId,
     required String text,
     String? messageId,
+    String? recipientId,
     String messageType = 'text',
     String? attachmentPath,
     String? attachmentMimeType,
@@ -52,6 +58,7 @@ abstract interface class ChatRepository {
     required String messageId,
     required String sosId,
     required String senderId,
+    String? recipientId,
     required String text,
     required DateTime createdAt,
   });
@@ -88,6 +95,7 @@ class PersistentChatRepository implements ChatRepository {
     required String sosId,
     required String text,
     String? messageId,
+    String? recipientId,
     String messageType = 'text',
     String? attachmentPath,
     String? attachmentMimeType,
@@ -110,6 +118,7 @@ class PersistentChatRepository implements ChatRepository {
               sosId: sosId,
               ownerId: _ownerId,
               senderId: _senderId,
+              recipientId: Value(recipientId),
               messageType: messageType,
               textContent: Value(trimmed.isEmpty ? null : trimmed),
               createdAt: now,
@@ -128,6 +137,7 @@ class PersistentChatRepository implements ChatRepository {
           existing.sosId != sosId ||
           existing.ownerId != _ownerId ||
           existing.senderId != _senderId ||
+          existing.recipientId != recipientId ||
           existing.textContent != (trimmed.isEmpty ? null : trimmed)) {
         throw const ChatRepositoryException(
           'A chat message ID is already used for different content.',
@@ -136,6 +146,18 @@ class PersistentChatRepository implements ChatRepository {
       stored = existing;
     });
     return _toMessage(stored!);
+  }
+
+  @override
+  Stream<List<EmergencyChatMessage>> watchMessages(String sosId) {
+    final query = _database.select(_database.chatMessages)
+      ..where(
+        (table) => table.ownerId.equals(_ownerId) & table.sosId.equals(sosId),
+      )
+      ..orderBy([(table) => OrderingTerm.asc(table.createdAt)]);
+    return query.watch().map(
+      (rows) => rows.map(_toMessage).toList(growable: false),
+    );
   }
 
   @override
@@ -160,6 +182,7 @@ class PersistentChatRepository implements ChatRepository {
     required String messageId,
     required String sosId,
     required String senderId,
+    String? recipientId,
     required String text,
     required DateTime createdAt,
   }) async {
@@ -177,6 +200,7 @@ class PersistentChatRepository implements ChatRepository {
               sosId: sosId,
               ownerId: _ownerId,
               senderId: senderId,
+              recipientId: Value(recipientId ?? _ownerId),
               messageType: 'text',
               textContent: Value(text),
               createdAt: timestamp,
@@ -190,6 +214,7 @@ class PersistentChatRepository implements ChatRepository {
       if (row == null ||
           row.sosId != sosId ||
           row.senderId != senderId ||
+          row.recipientId != (recipientId ?? _ownerId) ||
           row.textContent != text) {
         throw const ChatRepositoryException(
           'A chat message ID is already used for different content.',
@@ -220,6 +245,7 @@ class PersistentChatRepository implements ChatRepository {
     id: row.messageId,
     sosId: row.sosId,
     senderId: row.senderId,
+    recipientId: row.recipientId,
     text: row.textContent ?? '',
     createdAt: row.createdAt,
     status: _parseStatus(row.deliveryStatus),

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -11,6 +12,7 @@ import 'package:sos_app/features/nearby_ble/data/sos_ble_coordinator.dart';
 import 'package:sos_app/features/nearby_ble/domain/ble_delivery_state.dart';
 import 'package:sos_app/features/nearby_ble/domain/ble_models.dart';
 import 'package:sos_app/features/nearby_ble/domain/sos_ble_envelope.dart';
+import 'package:sos_app/features/nearby_ble/domain/location_ble_envelope.dart';
 import 'package:sos_app/features/sos/data/chat_repository.dart';
 
 class FakeBleTransport implements BleTransportClient {
@@ -83,6 +85,10 @@ class FakeBleTransport implements BleTransportClient {
 
 class FailingChatRepository implements ChatRepository {
   @override
+  Stream<List<EmergencyChatMessage>> watchMessages(String sosId) =>
+      Stream.value(const []);
+
+  @override
   Future<List<EmergencyChatMessage>> loadMessages(String sosId) async => [];
 
   @override
@@ -90,6 +96,7 @@ class FailingChatRepository implements ChatRepository {
     required String sosId,
     required String text,
     String? messageId,
+    String? recipientId,
     String messageType = 'text',
     String? attachmentPath,
     String? attachmentMimeType,
@@ -107,6 +114,7 @@ class FailingChatRepository implements ChatRepository {
     required String messageId,
     required String sosId,
     required String senderId,
+    String? recipientId,
     required String text,
     required DateTime createdAt,
   }) => Future.error(const ChatRepositoryException('persistence failed'));
@@ -259,6 +267,29 @@ void main() {
   });
 
   test(
+    'concurrent duplicate SOS waits for persistence then receives an ACK',
+    () async {
+      final delivery = SosBleEnvelope.fromSosMessage(
+        _sos(),
+        messageId: 'incoming-concurrent-duplicate',
+        senderDeviceId: device.id,
+      );
+      final frames = BleMessageCodec.encode(delivery.toBleMessage());
+      for (final frame in frames) {
+        transport.emit(BleEvent(type: 'data', device: device, payload: frame));
+      }
+      for (final frame in frames) {
+        transport.emit(BleEvent(type: 'data', device: device, payload: frame));
+      }
+      await _settle();
+
+      expect(await database.select(database.sosMessages).get(), hasLength(1));
+      expect(await database.select(database.bleInbox).get(), hasLength(1));
+      expect(transport.sent.length, greaterThanOrEqualTo(2));
+    },
+  );
+
+  test(
     'enqueues chat, frames it, and delivers only after matching chat ACK',
     () async {
       final now = DateTime.utc(2026, 1, 1);
@@ -402,6 +433,49 @@ void main() {
     expect(transport.sentDeviceIds, everyElement(peerA.id));
     expect(transport.connectCalls, isNot(contains(peerB.id)));
     expect(row.destinationId, peerA.id);
+  });
+
+  test('concurrent SOS and chat drains keep outbox rows isolated', () async {
+    final now = DateTime.utc(2026, 1, 1);
+    await database
+        .into(database.sosMessages)
+        .insert(
+          SosMessagesCompanion.insert(
+            id: _sos().id,
+            ownerId: 'owner-1',
+            type: 'emergency',
+            status: 'active',
+            syncState: 'pending',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    final chat = await chatRepository.insertMessage(
+      sosId: _sos().id,
+      messageId: 'mixed-chat-1',
+      text: 'Separate delivery',
+      recipientId: device.id,
+    );
+    final sosRow = await coordinator.enqueueSos(
+      _sos(),
+      destinationId: device.id,
+    );
+    final chatRow = await coordinator.enqueueChat(chat);
+
+    await Future.wait([coordinator.processDue(), coordinator.processDue()]);
+
+    final storedSos = await coordinatorFor(database)
+        .lookupOutbox(sosRow.messageId);
+    final storedChat = await coordinatorFor(database)
+        .lookupOutbox(chatRow.messageId);
+    expect(storedSos!.sosId, _sos().id);
+    expect(storedSos.destinationId, device.id);
+    expect(storedChat!.messageId, chat.id);
+    expect(storedChat.sosId, chat.sosId);
+    expect(storedChat.destinationId, device.id);
+    expect(storedSos.state, BleOutboxState.awaitingAcknowledgement.wireValue);
+    expect(storedChat.state, BleOutboxState.awaitingAcknowledgement.wireValue);
+    expect(transport.sentDeviceIds, everyElement(device.id));
   });
 
   test('a chat ACK cannot acknowledge an SOS outbox row', () async {
@@ -839,6 +913,139 @@ void main() {
       expect(diagnosticCoordinator.isStarted, isTrue);
       await diagnosticCoordinator.dispose();
       await diagnosticDatabase.close();
+    },
+  );
+
+  test(
+    'location sharing requires enablement and stops for cancelled SOS',
+    () async {
+      final now = DateTime.utc(2026, 1, 1, 12);
+      await database
+          .into(database.sosMessages)
+          .insert(
+            SosMessagesCompanion.insert(
+              id: 'sos-location',
+              ownerId: 'owner-1',
+              type: 'emergency',
+              status: 'active',
+              syncState: 'pending',
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+
+      expect(
+        () => coordinator.publishLocationUpdate(
+          sosId: 'sos-location',
+          messageId: 'location-before-enable',
+          destinationId: device.id,
+          latitude: 13.7,
+          longitude: 100.5,
+          createdAt: now,
+          expiresAt: now.add(const Duration(minutes: 1)),
+        ),
+        throwsA(isA<BleDeliveryStateException>()),
+      );
+
+      await coordinator.enableLocationSharing(
+        sosId: 'sos-location',
+        destinationId: device.id,
+      );
+      final queued = await coordinator.publishLocationUpdate(
+        sosId: 'sos-location',
+        messageId: 'location-enabled',
+        destinationId: device.id,
+        latitude: 13.7,
+        longitude: 100.5,
+        createdAt: now,
+        expiresAt: now.add(const Duration(minutes: 1)),
+      );
+      expect(queued.destinationId, device.id);
+
+      await coordinator.disableLocationSharing('sos-location');
+      expect(
+        () => coordinator.publishLocationUpdate(
+          sosId: 'sos-location',
+          messageId: 'location-after-stop',
+          destinationId: device.id,
+          latitude: 13.7,
+          longitude: 100.5,
+          createdAt: now,
+          expiresAt: now.add(const Duration(minutes: 1)),
+        ),
+        throwsA(isA<BleDeliveryStateException>()),
+      );
+
+      await coordinator.enableLocationSharing(
+        sosId: 'sos-location',
+        destinationId: device.id,
+      );
+      await (database.update(database.sosMessages)
+            ..where((table) => table.id.equals('sos-location')))
+          .write(const SosMessagesCompanion(status: Value('cancelled')));
+      expect(
+        () => coordinator.publishLocationUpdate(
+          sosId: 'sos-location',
+          messageId: 'location-after-cancel',
+          destinationId: device.id,
+          latitude: 13.7,
+          longitude: 100.5,
+          createdAt: now,
+          expiresAt: now.add(const Duration(minutes: 1)),
+        ),
+        throwsA(isA<BleDeliveryStateException>()),
+      );
+    },
+  );
+
+  test(
+    'retries of a persisted location update receive a duplicate ACK',
+    () async {
+      transport.emit(
+        const BleEvent(
+          type: 'connected',
+          device: device,
+          role: BleSessionRole.peripheral,
+        ),
+      );
+      await _settle();
+      final update = LocationBleEnvelope.update(
+        messageId: 'location-retry-same-id',
+        sosId: 'sos-location-retry',
+        senderDeviceId: device.id,
+        recipientId: 'owner-1',
+        latitude: 13.7,
+        longitude: 100.5,
+        createdAt: DateTime.utc(2026, 1, 1, 12),
+        expiresAt: DateTime.utc(2026, 1, 1, 12, 1),
+      );
+      final frames = BleMessageCodec.encode(update.toBleMessage());
+
+      Future<void> deliver() async {
+        for (final frame in frames) {
+          transport.emit(
+            BleEvent(
+              type: 'data',
+              device: device,
+              payload: frame,
+              role: BleSessionRole.peripheral,
+            ),
+          );
+        }
+        await _settle();
+      }
+
+      await deliver();
+      final firstAckCount = transport.sent.length;
+      await deliver();
+
+      final inbox = await database.select(database.bleInbox).get();
+      expect(inbox, hasLength(1));
+      expect(transport.sent.length, firstAckCount * 2);
+      final ack = _decodeSent(transport.sent.sublist(firstAckCount));
+      expect(ack.type, 'location.ack');
+      expect(ack.payload['ackFor'], update.messageId);
+      expect(ack.payload['ackStatus'], 'persisted');
     },
   );
 

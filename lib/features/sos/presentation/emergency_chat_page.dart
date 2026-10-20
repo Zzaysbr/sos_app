@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../nearby_ble/data/ble_transport.dart';
+import '../../nearby_ble/presentation/ble_recipient_picker_page.dart';
 import '../data/chat_repository.dart';
 
 /// Temporary in-memory adapter. It deliberately reports Sent only; Delivered
@@ -17,6 +19,7 @@ class MockEmergencyChatRepository implements ChatRepository {
     required String sosId,
     required String text,
     String? messageId,
+    String? recipientId,
     String messageType = 'text',
     String? attachmentPath,
     String? attachmentMimeType,
@@ -30,6 +33,7 @@ class MockEmergencyChatRepository implements ChatRepository {
       createdAt: DateTime.now(),
       status: ChatDeliveryStatus.sent,
       isMine: true,
+      recipientId: recipientId,
     );
     (_messages[sosId] ??= []).add(message);
     return message;
@@ -44,6 +48,11 @@ class MockEmergencyChatRepository implements ChatRepository {
       messagesFor(sosId);
 
   @override
+  Stream<List<EmergencyChatMessage>> watchMessages(String sosId) async* {
+    yield messagesFor(sosId);
+  }
+
+  @override
   Future<void> updateDeliveryStatus(
     String messageId,
     ChatDeliveryStatus status,
@@ -54,9 +63,15 @@ class MockEmergencyChatRepository implements ChatRepository {
     required String messageId,
     required String sosId,
     required String senderId,
+    String? recipientId,
     required String text,
     required DateTime createdAt,
-  }) => insertMessage(sosId: sosId, text: text, messageId: messageId);
+  }) => insertMessage(
+    sosId: sosId,
+    text: text,
+    messageId: messageId,
+    recipientId: recipientId,
+  );
 }
 
 class EmergencyChatPage extends StatefulWidget {
@@ -66,12 +81,20 @@ class EmergencyChatPage extends StatefulWidget {
     this.contactName = 'Emergency helper',
     this.repository,
     this.onMessageCreated,
+    this.onMessageCreatedWithDestination,
+    this.bleTransport,
   });
 
   final String? sosId;
   final String contactName;
   final ChatRepository? repository;
   final Future<void> Function(EmergencyChatMessage message)? onMessageCreated;
+  final Future<void> Function(
+    EmergencyChatMessage message, {
+    String? destinationId,
+  })?
+  onMessageCreatedWithDestination;
+  final BleTransportClient? bleTransport;
 
   @override
   State<EmergencyChatPage> createState() => _EmergencyChatPageState();
@@ -81,6 +104,8 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
   final _controller = TextEditingController();
   late final ChatRepository _repository;
   final _messages = <EmergencyChatMessage>[];
+  StreamSubscription<List<EmergencyChatMessage>>? _messagesSubscription;
+  String? _selectedDestinationId;
   bool _sending = false;
 
   @override
@@ -88,7 +113,26 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
     super.initState();
     _repository = widget.repository ?? MockEmergencyChatRepository();
     final sosId = widget.sosId;
-    if (sosId != null) unawaited(_loadMessages(sosId));
+    if (sosId != null) {
+      _messagesSubscription = _repository.watchMessages(sosId).listen((
+        messages,
+      ) {
+        if (!mounted) return;
+        setState(
+          () => _messages
+            ..clear()
+            ..addAll(messages),
+        );
+        for (final message in messages.reversed) {
+          final recipient = message.recipientId;
+          if (recipient != null && recipient.isNotEmpty) {
+            _selectedDestinationId = recipient;
+            break;
+          }
+        }
+      });
+      unawaited(_loadMessages(sosId));
+    }
   }
 
   Future<void> _loadMessages(String sosId) async {
@@ -113,6 +157,7 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
   @override
   void dispose() {
     _controller.dispose();
+    unawaited(_messagesSubscription?.cancel() ?? Future<void>.value());
     super.dispose();
   }
 
@@ -122,12 +167,36 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
     if (text.isEmpty || _sending || sosId == null) return;
     setState(() => _sending = true);
     try {
-      final message = await _repository.insertMessage(sosId: sosId, text: text);
+      String? destinationId;
+      if (_selectedDestinationId != null) {
+        destinationId = _selectedDestinationId;
+      } else if (widget.bleTransport != null) {
+        destinationId = await Navigator.of(context).push<String>(
+          MaterialPageRoute<String>(
+            builder: (_) =>
+                BleRecipientPickerPage(transport: widget.bleTransport!),
+          ),
+        );
+        if (!mounted) return;
+        _selectedDestinationId = destinationId;
+      }
+      final message = await _repository.insertMessage(
+        sosId: sosId,
+        text: text,
+        recipientId: destinationId,
+      );
       if (!mounted) return;
       _controller.clear();
       setState(() => _messages.add(message));
       try {
-        await widget.onMessageCreated?.call(message);
+        if (widget.onMessageCreatedWithDestination != null) {
+          await widget.onMessageCreatedWithDestination!.call(
+            message,
+            destinationId: destinationId,
+          );
+        } else {
+          await widget.onMessageCreated?.call(message);
+        }
         // The coordinator may have advanced the durable status to awaiting
         // acknowledgement before this callback returns. Reload from Drift so
         // the rendered status remains sourced from persistence.
@@ -174,7 +243,7 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
                     style: const TextStyle(fontSize: 16),
                   ),
                   const Text(
-                    'SOS chat · offline test mode',
+                    'SOS chat · offline-first',
                     style: TextStyle(fontSize: 12),
                   ),
                 ],
@@ -192,7 +261,7 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
                   : 'Incident ${widget.sosId} · Delivered requires receiver confirmation.',
             ),
             leading: const Icon(Icons.info_outline),
-            actions: [TextButton(onPressed: () {}, child: const Text('MOCK'))],
+            actions: [TextButton(onPressed: () {}, child: const Text('Info'))],
           ),
           Expanded(
             child: _messages.isEmpty
@@ -232,7 +301,7 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${_time(message.createdAt)} · ${message.status.name}',
+                                '${_time(message.createdAt)} · ${_statusLabel(message.status)}',
                                 style: Theme.of(context).textTheme.labelSmall,
                               ),
                             ],
@@ -296,4 +365,11 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
   void _notAvailable(String message) =>
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(message)));
+
+  String _statusLabel(ChatDeliveryStatus status) => switch (status) {
+    ChatDeliveryStatus.pending => 'Queued',
+    ChatDeliveryStatus.sent => 'Awaiting confirmation (sent)',
+    ChatDeliveryStatus.delivered => 'Confirmed received',
+    ChatDeliveryStatus.failed => 'Failed; retryable',
+  };
 }

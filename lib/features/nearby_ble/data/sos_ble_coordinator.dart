@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:drift/drift.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../../core/database/app_database.dart';
@@ -9,6 +10,7 @@ import '../../sos/data/chat_repository.dart';
 import '../domain/ble_delivery_state.dart';
 import '../domain/ble_models.dart';
 import '../domain/sos_ble_envelope.dart';
+import '../domain/location_ble_envelope.dart';
 import 'ble_delivery_repository.dart';
 import 'ble_protocol.dart';
 import 'ble_transport.dart';
@@ -25,6 +27,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
   SosBleCoordinator({
     required AppDatabase database,
     required this.ownerId,
+    String? localDeviceId,
     BleTransportClient? transport,
     BleDeliveryRepository? deliveryRepository,
     this.chatRepository,
@@ -36,7 +39,9 @@ class SosBleCoordinator with WidgetsBindingObserver {
     this.maxRetryAttempts = 8,
     this.staleAfter = const Duration(seconds: 30),
     this.pollInterval = const Duration(seconds: 5),
-  }) : _transport = transport ?? BleTransport(),
+  }) : _database = database,
+       _localDeviceId = localDeviceId ?? ownerId,
+       _transport = transport ?? BleTransport(),
        _ownsTransport = transport == null,
        _deliveryRepository =
            deliveryRepository ?? BleDeliveryRepository(database),
@@ -45,6 +50,8 @@ class SosBleCoordinator with WidgetsBindingObserver {
        assert(maxRetryAttempts > 0);
 
   final String ownerId;
+  final AppDatabase _database;
+  final String _localDeviceId;
   final BleTransportClient _transport;
   final bool _ownsTransport;
   final BleDeliveryRepository _deliveryRepository;
@@ -64,9 +71,10 @@ class SosBleCoordinator with WidgetsBindingObserver {
   final _assemblers = <String, BleMessageAssembler>{};
   final _connected = <String, Set<BleSessionRole>>{};
   final _connecting = <String>{};
-  final _processingMessages = <String>{};
+  final _inflightDeliveries = <String, Future<bool>>{};
   final _sendingMessages = <String>{};
   final _pendingConnectionMessages = <String, Set<String>>{};
+  final _locationSharing = <String, String>{};
   StreamSubscription<BleEvent>? _eventsSubscription;
   Timer? _pollTimer;
   Future<void>? _drainFuture;
@@ -76,6 +84,33 @@ class SosBleCoordinator with WidgetsBindingObserver {
   bool _drainRequested = false;
 
   bool get isStarted => _started;
+
+  Stream<BleOutboxData?> watchLocationDeliveryForSos(String sosId) =>
+      _deliveryRepository.watchLocationDeliveryForSos(sosId);
+
+  /// Returns only a location update from the peer that established the
+  /// incident reply route. Without that route, presenting a nearby peer's
+  /// coordinates would be unsafe and ambiguous.
+  Future<LocationBleEnvelope?> latestIncomingLocation(String sosId) async {
+    final sender = await _deliveryRepository.lookupReplyDestination(sosId);
+    if (sender == null) return null;
+    return _deliveryRepository.latestIncomingLocation(
+      sosId,
+      requiredSenderDeviceId: sender,
+    );
+  }
+
+  Stream<LocationBleEnvelope?> watchIncomingLocation(String sosId) async* {
+    final sender = await _deliveryRepository.lookupReplyDestination(sosId);
+    if (sender == null) {
+      yield null;
+      return;
+    }
+    yield* _deliveryRepository.watchIncomingLocation(
+      sosId,
+      requiredSenderDeviceId: sender,
+    );
+  }
 
   /// The shared transport owned by this coordinator.
   ///
@@ -126,6 +161,14 @@ class SosBleCoordinator with WidgetsBindingObserver {
     _connecting.clear();
     _pendingConnectionMessages.clear();
     _assemblers.clear();
+    final sharingSosIds = _locationSharing.keys.toList(growable: false);
+    _locationSharing.clear();
+    for (final sosId in sharingSosIds) {
+      await _deliveryRepository.expireLocationOutbox(
+        sosId,
+        reason: 'Location sharing stopped with BLE coordinator.',
+      );
+    }
     await _drainFuture;
   }
 
@@ -210,6 +253,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
     _ensureUsable();
     final resolvedDestination =
         destinationId ??
+        chat.recipientId ??
         await _deliveryRepository.lookupReplyDestination(chat.sosId);
     final envelope = SosBleEnvelope.chatMessage(
       messageId: chat.id,
@@ -228,6 +272,87 @@ class SosBleCoordinator with WidgetsBindingObserver {
       'enqueue chat sosId=${chat.sosId} messageId=${chat.id} state=${row.state}',
     );
     if (_started) unawaited(processDue());
+    return row;
+  }
+
+  /// Enables explicit-recipient sharing for one active SOS. This phase only
+  /// publishes caller-supplied fixes; it does not start GPS polling.
+  Future<void> enableLocationSharing({
+    required String sosId,
+    required String destinationId,
+  }) async {
+    _ensureUsable();
+    final destination = destinationId.trim();
+    if (destination.isEmpty) {
+      throw const BleDeliveryStateException(
+        'A location recipient is required.',
+      );
+    }
+    final sos =
+        await (_database.select(_database.sosMessages)..where(
+              (table) => table.id.equals(sosId) & table.ownerId.equals(ownerId),
+            ))
+            .getSingleOrNull();
+    if (sos == null || sos.status != 'active') {
+      throw const BleDeliveryStateException(
+        'Location sharing requires an active SOS.',
+      );
+    }
+    _locationSharing[sosId] = destination;
+    _log('locationSharingEnabled sosId=$sosId peer=$destination');
+  }
+
+  Future<void> disableLocationSharing(String sosId) async {
+    _locationSharing.remove(sosId);
+    await _deliveryRepository.expireLocationOutbox(sosId);
+    _log('locationSharingDisabled sosId=$sosId');
+  }
+
+  Future<BleOutboxData> publishLocationUpdate({
+    required String sosId,
+    required String messageId,
+    required String destinationId,
+    required double latitude,
+    required double longitude,
+    required DateTime expiresAt,
+    double? accuracyMeters,
+    String? senderDeviceId,
+    DateTime? createdAt,
+  }) async {
+    _ensureUsable();
+    final destination = destinationId.trim();
+    if (_locationSharing[sosId] != destination) {
+      throw const BleDeliveryStateException(
+        'Location sharing is not enabled for this recipient.',
+      );
+    }
+    final sos =
+        await (_database.select(_database.sosMessages)..where(
+              (table) => table.id.equals(sosId) & table.ownerId.equals(ownerId),
+            ))
+            .getSingleOrNull();
+    if (sos == null || sos.status != 'active') {
+      await disableLocationSharing(sosId);
+      throw const BleDeliveryStateException('SOS is no longer active.');
+    }
+    final envelope = LocationBleEnvelope.update(
+      messageId: messageId,
+      sosId: sosId,
+      senderDeviceId: senderDeviceId ?? _localDeviceId,
+      recipientId: destination,
+      latitude: latitude,
+      longitude: longitude,
+      accuracyMeters: accuracyMeters,
+      createdAt: (createdAt ?? _now()).toUtc(),
+      expiresAt: expiresAt.toUtc(),
+    );
+    final row = await _deliveryRepository.enqueueLocationOutbox(
+      envelope,
+      destinationId: destination,
+      now: _now(),
+    );
+    if (_started) unawaited(processDue());
+    _log('locationQueued sosId=$sosId messageId=$messageId peer=$destination');
     return row;
   }
 
@@ -335,14 +460,20 @@ class SosBleCoordinator with WidgetsBindingObserver {
         now: _now(),
       );
       if (sending == null) return;
-      final envelope = _decodeEnvelope(sending.payload);
+      final locationEnvelope = _decodeLocationEnvelope(
+        sending.payload,
+        now: _now(),
+      );
+      final envelope = locationEnvelope == null
+          ? _decodeEnvelope(sending.payload)
+          : null;
       final frames = BleMessageCodec.encode(
-        envelope.toBleMessage(),
+        (locationEnvelope?.toBleMessage() ?? envelope!.toBleMessage()),
         maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
       );
       final role = _sendRoleFor(deviceId);
       _log(
-        'send sosId=${envelope.sosId} messageId=${envelope.messageId} '
+        'send sosId=${sending.sosId} messageId=${sending.messageId} '
         'peer=$deviceId role=${role.wireValue} frames=${frames.length}',
       );
       for (final frame in frames) {
@@ -360,11 +491,13 @@ class SosBleCoordinator with WidgetsBindingObserver {
       );
       await _updateChatStatus(row, ChatDeliveryStatus.sent);
       _log(
-        'writeAccepted sosId=${envelope.sosId} messageId=${row.messageId} '
+        'writeAccepted sosId=${sending.sosId} messageId=${row.messageId} '
         'state=${BleOutboxState.awaitingAcknowledgement.wireValue}',
       );
     } on SosBleEnvelopeException catch (error) {
       await _expire(row.messageId, 'invalid stored envelope: $error');
+    } on LocationBleEnvelopeException catch (error) {
+      await _expire(row.messageId, 'invalid stored location envelope: $error');
     } catch (error) {
       await _markFailed(row, 'send failed: $error');
     } finally {
@@ -456,7 +589,10 @@ class SosBleCoordinator with WidgetsBindingObserver {
     }
     final assembler = _assemblers.putIfAbsent(
       assemblerKey,
-      BleMessageAssembler.new,
+      // Durable inbox rows are idempotent, but a retry whose ACK was lost
+      // still needs a fresh positive ACK. Let the coordinator see duplicate
+      // complete messages so it can persist/ACK them again.
+      () => BleMessageAssembler(dropDuplicateMessages: false),
     );
     try {
       final message = assembler.accept(frame);
@@ -465,6 +601,15 @@ class SosBleCoordinator with WidgetsBindingObserver {
         'assemblyComplete peer=$deviceId role=${role.wireValue} '
         'messageId=${message.id}',
       );
+      if (message.type == 'location.update' || message.type == 'location.ack') {
+        final location = LocationBleEnvelope.fromBleMessage(message);
+        if (location.kind == 'location.ack') {
+          await _handleLocationAcknowledgement(deviceId, location);
+        } else {
+          await _handleLocationUpdate(deviceId, role, location);
+        }
+        return;
+      }
       if (!SosBleMessageKind.values.any(
         (kind) => kind.wireValue == message.type,
       )) {
@@ -475,6 +620,14 @@ class SosBleCoordinator with WidgetsBindingObserver {
         return;
       }
       final envelope = SosBleEnvelope.fromBleMessage(message);
+      final declaredSender = envelope.senderDeviceId?.trim();
+      if (declaredSender != null &&
+          declaredSender.isNotEmpty &&
+          declaredSender != deviceId) {
+        throw const SosBleEnvelopeException(
+          'BLE envelope sender does not match the transport peer.',
+        );
+      }
       _log(
         'validated kind=${envelope.kind.wireValue} sosId=${envelope.sosId} '
         'messageId=${envelope.messageId} peer=$deviceId role=${role.wireValue}',
@@ -530,23 +683,128 @@ class SosBleCoordinator with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _handleLocationAcknowledgement(
+    String deviceId,
+    LocationBleEnvelope envelope,
+  ) async {
+    try {
+      await _deliveryRepository.recordLocationAcknowledgement(
+        envelope,
+        sourceDeviceId: deviceId,
+        now: _now(),
+      );
+      _log(
+        'locationAcknowledged sosId=${envelope.sosId} '
+        'messageId=${envelope.ackFor} ackId=${envelope.messageId} peer=$deviceId',
+      );
+    } on BleDeliveryStateException catch (error) {
+      _log(
+        'locationAckRejected sosId=${envelope.sosId} '
+        'messageId=${envelope.ackFor} peer=$deviceId reason=$error',
+      );
+    }
+  }
+
+  Future<void> _handleLocationUpdate(
+    String deviceId,
+    BleSessionRole role,
+    LocationBleEnvelope envelope,
+  ) async {
+    try {
+      await _deliveryRepository.persistIncomingLocation(
+        envelope,
+        expectedRecipientId: _localDeviceId,
+        sourceDeviceId: deviceId,
+        now: _now(),
+      );
+      await _sendLocationAcknowledgement(deviceId, role, envelope, 'persisted');
+      _log(
+        'locationPersisted sosId=${envelope.sosId} '
+        'messageId=${envelope.messageId} peer=$deviceId',
+      );
+    } on Object catch (error) {
+      _log(
+        'locationPersistRejected sosId=${envelope.sosId} '
+        'messageId=${envelope.messageId} reason=$error',
+      );
+      await _sendLocationAcknowledgement(
+        deviceId,
+        role,
+        envelope,
+        'rejected',
+        error: error.toString(),
+      );
+    }
+  }
+
+  Future<void> _sendLocationAcknowledgement(
+    String deviceId,
+    BleSessionRole role,
+    LocationBleEnvelope update,
+    String status, {
+    String? error,
+  }) async {
+    if (!(_connected[deviceId]?.contains(role) ?? false)) return;
+    final acknowledgement = LocationBleEnvelope.ack(
+      messageId: 'location-ack:${update.messageId}',
+      sosId: update.sosId,
+      ackFor: update.messageId,
+      ackStatus: status,
+      senderDeviceId: _localDeviceId,
+      error: error,
+      createdAt: _now().toUtc(),
+    );
+    try {
+      for (final frame in BleMessageCodec.encode(
+        acknowledgement.toBleMessage(),
+        maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
+      )) {
+        await _transport.send(deviceId, frame, role: role);
+      }
+      _log(
+        'locationAckSent sosId=${update.sosId} messageId=${update.messageId} '
+        'status=$status peer=$deviceId',
+      );
+    } on Object catch (sendError) {
+      _log(
+        'locationAckSendFailed messageId=${update.messageId} reason=$sendError',
+      );
+    }
+  }
+
   Future<void> _handleDelivery(
     String deviceId,
     BleSessionRole role,
     SosBleEnvelope envelope,
   ) async {
-    if (!_processingMessages.add(envelope.messageId)) return;
+    final key = '${envelope.kind.wireValue}:${envelope.messageId}:$deviceId';
+    final existing = _inflightDeliveries[key];
+    if (existing != null) {
+      final persisted = await existing;
+      await _sendAcknowledgement(
+        deviceId,
+        role,
+        envelope,
+        persisted ? SosBleAckStatus.persisted : SosBleAckStatus.rejected,
+        persisted ? null : 'The original delivery attempt was rejected.',
+      );
+      return;
+    }
+    final completion = Completer<bool>();
+    _inflightDeliveries[key] = completion.future;
+    var persisted = false;
     try {
       try {
-        final persisted = await _deliveryRepository.persistIncomingDelivery(
+        final result = await _deliveryRepository.persistIncomingDelivery(
           envelope,
           ownerId: ownerId,
           now: _now(),
         );
         _log(
           'persisted sosId=${envelope.sosId} messageId=${envelope.messageId} '
-          'duplicate=${persisted.duplicate} peer=$deviceId',
+          'duplicate=${result.duplicate} peer=$deviceId',
         );
+        persisted = true;
       } catch (error) {
         _log(
           'persistRejected sosId=${envelope.sosId} '
@@ -569,7 +827,8 @@ class SosBleCoordinator with WidgetsBindingObserver {
         null,
       );
     } finally {
-      _processingMessages.remove(envelope.messageId);
+      if (!completion.isCompleted) completion.complete(persisted);
+      _inflightDeliveries.remove(key);
     }
   }
 
@@ -587,19 +846,36 @@ class SosBleCoordinator with WidgetsBindingObserver {
       );
       return;
     }
-    if (!_processingMessages.add(envelope.messageId)) return;
+    final key = '${envelope.kind.wireValue}:${envelope.messageId}:$deviceId';
+    final existing = _inflightDeliveries[key];
+    if (existing != null) {
+      final persisted = await existing;
+      await _sendChatAcknowledgement(
+        deviceId,
+        role,
+        envelope,
+        persisted ? SosBleAckStatus.persisted : SosBleAckStatus.rejected,
+        persisted ? null : 'The original chat delivery attempt was rejected.',
+      );
+      return;
+    }
+    final completion = Completer<bool>();
+    _inflightDeliveries[key] = completion.future;
+    var persisted = false;
     try {
       try {
         await chatRepository.insertIncomingMessage(
           messageId: envelope.messageId,
           sosId: envelope.sosId,
           senderId: envelope.chatSenderId!,
+          recipientId: ownerId,
           text: envelope.chatText!,
           createdAt: envelope.createdAt,
         );
         _log(
           'chatPersisted sosId=${envelope.sosId} messageId=${envelope.messageId} peer=$deviceId',
         );
+        persisted = true;
       } catch (error) {
         _log(
           'chatPersistRejected messageId=${envelope.messageId} reason=$error',
@@ -621,7 +897,8 @@ class SosBleCoordinator with WidgetsBindingObserver {
         null,
       );
     } finally {
-      _processingMessages.remove(envelope.messageId);
+      if (!completion.isCompleted) completion.complete(persisted);
+      _inflightDeliveries.remove(key);
     }
   }
 
@@ -715,6 +992,30 @@ class SosBleCoordinator with WidgetsBindingObserver {
       throw const SosBleEnvelopeException('Stored payload is not an object.');
     }
     return SosBleEnvelope.fromJson(Map<String, Object?>.from(value));
+  }
+
+  LocationBleEnvelope? _decodeLocationEnvelope(
+    String payload, {
+    DateTime? now,
+  }) {
+    final value = jsonDecode(payload);
+    if (value is! Map ||
+        (value['kind'] != 'location.update' &&
+            value['kind'] != 'location.ack')) {
+      return null;
+    }
+    final map = Map<String, Object?>.from(value);
+    final createdAt = DateTime.parse(map['createdAt'] as String).toUtc();
+    final envelope = LocationBleEnvelope.fromBleMessage(
+      BleMessage(
+        id: map['messageId'] as String,
+        type: map['kind'] as String,
+        createdAt: createdAt,
+        payload: map,
+      ),
+    );
+    envelope.validate(now: now);
+    return envelope;
   }
 
   Future<void> _markFailed(BleOutboxData row, String error) async {

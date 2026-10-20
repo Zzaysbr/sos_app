@@ -7,6 +7,16 @@ import 'package:flutter/foundation.dart';
 import '../../../core/database/app_database.dart';
 import 'sos_cloud_service.dart';
 
+bool isValidSosCoordinatePair(double? latitude, double? longitude) {
+  if (latitude == null || longitude == null) return false;
+  if (!latitude.isFinite || !longitude.isFinite) return false;
+  if (latitude == 0 && longitude == 0) return false;
+  return latitude >= -90 &&
+      latitude <= 90 &&
+      longitude >= -180 &&
+      longitude <= 180;
+}
+
 class SosRepository {
   SosRepository({
     required this._database,
@@ -64,14 +74,15 @@ class SosRepository {
   }) async {
     final ownerId = _requireOwner();
     final now = DateTime.now();
+    final location = _normalizedLocation(latitude, longitude);
 
     final payload = <String, dynamic>{
       'id': id,
       'ownerId': ownerId,
       'type': type,
       'message': message,
-      'latitude': latitude,
-      'longitude': longitude,
+      'latitude': location.latitude,
+      'longitude': location.longitude,
       'status': 'active',
       'createdAt': now.toIso8601String(),
       'updatedAt': now.toIso8601String(),
@@ -93,8 +104,8 @@ class SosRepository {
               ownerId: ownerId,
               type: type,
               message: Value(message),
-              latitude: Value(latitude),
-              longitude: Value(longitude),
+              latitude: Value(location.latitude),
+              longitude: Value(location.longitude),
               status: 'active',
               syncState: 'pending',
               createdAt: now,
@@ -153,14 +164,28 @@ class SosRepository {
     }
 
     final now = DateTime.now();
+    // An incident location is a creation-time snapshot. Never replace a valid
+    // snapshot during a status/message update; only legacy records without a
+    // snapshot may be populated by an explicit valid coordinate.
+    final location = _normalizedLocation(latitude, longitude);
+    final existingLocation = _normalizedLocation(
+      existing.latitude,
+      existing.longitude,
+    );
+    final latitudeToStore = existingLocation.hasValue
+        ? existingLocation.latitude
+        : location.latitude;
+    final longitudeToStore = existingLocation.hasValue
+        ? existingLocation.longitude
+        : location.longitude;
 
     final payload = <String, dynamic>{
       'id': id,
       'ownerId': ownerId,
       'type': type,
       'message': message,
-      'latitude': latitude,
-      'longitude': longitude,
+      'latitude': latitudeToStore,
+      'longitude': longitudeToStore,
       'status': status,
       'createdAt': existing.createdAt.toIso8601String(),
       'updatedAt': now.toIso8601String(),
@@ -179,8 +204,8 @@ class SosRepository {
         SosMessagesCompanion(
           type: Value(type),
           message: Value(message),
-          latitude: Value(latitude),
-          longitude: Value(longitude),
+          latitude: Value(latitudeToStore),
+          longitude: Value(longitudeToStore),
           status: Value(status),
           syncState: const Value('pending'),
           updatedAt: Value(now),
@@ -482,6 +507,26 @@ class SosRepository {
 
     return DateTime.parse(value);
   }
+
+  _SosLocation _normalizedLocation(double? latitude, double? longitude) {
+    if (!isValidSosCoordinatePair(latitude, longitude)) {
+      return const _SosLocation.empty();
+    }
+    return _SosLocation(latitude: latitude, longitude: longitude);
+  }
+}
+
+class _SosLocation {
+  const _SosLocation({required this.latitude, required this.longitude})
+    : hasValue = true;
+  const _SosLocation.empty()
+    : latitude = null,
+      longitude = null,
+      hasValue = false;
+
+  final double? latitude;
+  final double? longitude;
+  final bool hasValue;
 }
 
 class SosRepositoryException implements Exception {
