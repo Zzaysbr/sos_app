@@ -1,0 +1,57 @@
+[
+  {
+    "utc": "2026-10-20T09:28:54.464291+00:00",
+    "active_build_tools": [
+      {
+        "elapsed": "06:40",
+        "cpu_percent": 6.8,
+        "tool": "xcodebuild"
+      },
+      {
+        "elapsed": "00:06",
+        "cpu_percent": 0.0,
+        "tool": "clang"
+      },
+      {
+        "elapsed": "00:06",
+        "cpu_percent": 48.8,
+        "tool": "clang"
+      },
+      {
+        "elapsed": "00:04",
+        "cpu_percent": 0.0,
+        "tool": "clang"
+      },
+      {
+        "elapsed": "00:04",
+        "cpu_percent": 50.8,
+        "tool": "clang"
+      },
+      {
+        "elapsed": "00:03",
+        "cpu_percent": 0.0,
+        "tool": "clang"
+      },
+      {
+        "elapsed": "00:03",
+        "cpu_percent": 45.4,
+        "tool": "clang"
+      },
+      {
+        "elapsed": "00:03",
+        "cpu_percent": 0.0,
+        "tool": "clang"
+      },
+      {
+        "elapsed": "00:03",
+        "cpu_percent": 45.9,
+        "tool": "clang"
+      },
+      {
+        "elapsed": "00:00",
+        "cpu_percent": 29.8,
+        "tool": "clang"
+      }
+    ]
+  }
+]

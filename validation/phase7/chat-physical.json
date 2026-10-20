@@ -1,0 +1,48 @@
+{
+  "date": "2026-10-20",
+  "timezone": "Asia/Bangkok",
+  "sender": "iPhone 15 Plus / iOS 27.0.1 / reply-route profile build",
+  "receiver": "Galaxy A53 / Android 14 / reply-route debug build",
+  "mode": "Guest/offline, latest Android-origin incident, known incident reply route",
+  "synthetic_message_alias": "phase7-chat-02",
+  "end_to_end": "FAIL",
+  "route_transmission": "PASS narrowly: complete Chat frames reached intended Android receiver",
+  "receiver_rejection": "BLE envelope sender does not match the transport peer",
+  "completed_attempts": [
+    {
+      "time": "22:22:40.686",
+      "message_id": "chat-1792509760141895"
+    },
+    {
+      "time": "22:23:13.156",
+      "message_id": "chat-1792509760141895"
+    },
+    {
+      "time": "22:23:43.195",
+      "message_id": "chat-1792509760141895"
+    },
+    {
+      "time": "22:24:13.124",
+      "message_id": "chat-1792509760141895"
+    },
+    {
+      "time": "22:24:43.231",
+      "message_id": "chat-1792509760141895"
+    }
+  ],
+  "rejection_times": [
+    "22:22:40.688",
+    "22:23:13.157",
+    "22:23:43.195",
+    "22:24:13.124",
+    "22:24:43.232"
+  ],
+  "retry_identity_stable": true,
+  "limits": [
+    "No positive Chat ACK or receiver persistence PASS",
+    "Retries following identity rejection do not prove controlled ACK loss or successful duplicate handling",
+    "No physical wrong-peer security PASS inferred from rejection of this legitimate sender",
+    "Observed attempt count does not by itself establish sender expiry or successful recovery"
+  ],
+  "retry_attempts_observed": 5
+}

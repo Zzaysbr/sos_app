@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -20,12 +21,14 @@ class IncidentMapPage extends StatefulWidget {
     this.locationLoader,
     this.incomingLocation,
     this.incomingSenderDeviceId,
+    this.tileProvider,
   });
 
   final SosMessage incident;
   final LocationLoader? locationLoader;
   final LocationBleEnvelope? incomingLocation;
   final String? incomingSenderDeviceId;
+  final MapTileProviderConfig? tileProvider;
 
   @override
   State<IncidentMapPage> createState() => _IncidentMapPageState();
@@ -37,6 +40,9 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
   bool _loadingLocation = false;
   bool _tileError = false;
   int _tileRetryToken = 0;
+
+  MapTileProviderConfig get _tileProvider =>
+      widget.tileProvider ?? MapTileProviderConfig.current;
 
   static const _minLatitude = -90.0;
   static const _maxLatitude = 90.0;
@@ -158,6 +164,22 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
     return 'Unable to get the current location.';
   }
 
+  Widget _attributionLink(String label, String url) => TextButton(
+    style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+    onPressed: () async {
+      try {
+        await const MethodChannel('sos_app/external_links')
+            .invokeMethod<void>('open', url);
+      } on Object {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to open attribution link.')),
+        );
+      }
+    },
+    child: Text(label),
+  );
+
   @override
   Widget build(BuildContext context) {
     final incidentPoint = _incidentPoint;
@@ -219,25 +241,57 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
                 : FlutterMap(
                     options: MapOptions(initialCenter: center, initialZoom: 15),
                     children: [
-                      TileLayer(
-                        key: ValueKey(_tileRetryToken),
-                        urlTemplate: MapTileProviderConfig.current.urlTemplate,
-                        userAgentPackageName:
-                            MapTileProviderConfig.current.userAgentPackageName,
-                        errorTileCallback: (tile, error, stackTrace) {
-                          if (mounted && !_tileError) {
-                            setState(() => _tileError = true);
-                          }
-                        },
-                      ),
+                      if (_tileProvider.isUsable)
+                        TileLayer(
+                          key: ValueKey(_tileRetryToken),
+                          urlTemplate: _tileProvider.urlTemplate,
+                          userAgentPackageName:
+                              _tileProvider.userAgentPackageName,
+                          errorTileCallback: (tile, error, stackTrace) {
+                            if (mounted && !_tileError) {
+                              setState(() => _tileError = true);
+                            }
+                          },
+                        ),
                       MarkerLayer(markers: markers),
-                      RichAttributionWidget(
-                        attributions: [
-                          TextSourceAttribution(
-                            MapTileProviderConfig.current.attribution,
+                      if (_tileProvider.attribution.trim().isNotEmpty)
+                        Align(
+                          alignment: Alignment.bottomCenter,
+                          child: SafeArea(
+                            child: ColoredBox(
+                              color: Theme.of(context).colorScheme.surface,
+                              child: Padding(
+                                padding: const EdgeInsets.all(4),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'flutter_map | ${_tileProvider.attribution}',
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    Wrap(
+                                      alignment: WrapAlignment.center,
+                                      children: [
+                                        _attributionLink(
+                                          'OpenStreetMap copyright',
+                                          'https://www.openstreetmap.org/copyright',
+                                        ),
+                                        if (Uri.tryParse(
+                                              _tileProvider.urlTemplate,
+                                            )?.host.endsWith('geoapify.com') ??
+                                            false)
+                                          _attributionLink(
+                                            'Geoapify',
+                                            'https://www.geoapify.com/',
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ),
-                        ],
-                      ),
+                        ),
                     ],
                   ),
           ),
@@ -328,7 +382,17 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
                       child: const Text('Retry map tiles'),
                     ),
                   ],
-                  if (MapTileProviderConfig.current.isDevelopmentFallback)
+                  if (!_tileProvider.isUsable)
+                    Text(
+                      _tileProvider.validationError ??
+                          'Map provider is unavailable for this build.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.error,
+                      ),
+                    ),
+                  if (_tileProvider.isDevelopmentFallback &&
+                      _tileProvider.isUsable)
                     const Text(
                       'Development tile provider; configure MAP_TILE_URL for production.',
                       style: TextStyle(fontSize: 12),

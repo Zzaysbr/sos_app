@@ -5,9 +5,10 @@ import 'dart:async';
 import '../data/auth_service.dart';
 
 class AuthPage extends StatefulWidget {
-  const AuthPage({super.key, required this.authService});
+  const AuthPage({super.key, required this.authService, this.onAuthenticated});
 
   final AuthService authService;
+  final VoidCallback? onAuthenticated;
 
   @override
   State<AuthPage> createState() => _AuthPageState();
@@ -57,6 +58,7 @@ class _AuthPageState extends State<AuthPage> {
           password: _passwordController.text,
         );
       }
+      if (mounted) widget.onAuthenticated?.call();
     } on AuthException catch (error) {
       if (!mounted) return;
 

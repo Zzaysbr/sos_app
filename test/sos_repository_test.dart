@@ -70,6 +70,38 @@ void main() {
     expect(queue.single.operation, 'create');
   });
 
+  test(
+    'guest creates local SOS without attempting authenticated cloud sync',
+    () async {
+      when(() => auth.currentUser).thenReturn(null);
+      final guestRepository = SosRepository(
+        database: database,
+        cloudService: cloud,
+        firebaseAuth: auth,
+        localOwnerId: 'guest-local-device',
+      );
+
+      await guestRepository.create(id: 'guest-sos', type: 'emergency');
+
+      final sos = await guestRepository.findById('guest-sos');
+      expect(guestRepository.isGuest, isTrue);
+      expect(sos?.ownerId, 'guest-local-device');
+      verifyNever(
+        () => cloud.create(
+          id: any(named: 'id'),
+          ownerId: any(named: 'ownerId'),
+          type: any(named: 'type'),
+          message: any(named: 'message'),
+          latitude: any(named: 'latitude'),
+          longitude: any(named: 'longitude'),
+          status: any(named: 'status'),
+          createdAt: any(named: 'createdAt'),
+          updatedAt: any(named: 'updatedAt'),
+        ),
+      );
+    },
+  );
+
   test('create persists a valid incident snapshot unchanged', () async {
     when(
       () => cloud.create(

@@ -1,6 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:sos_app/core/database/app_database.dart';
@@ -36,6 +40,8 @@ Position _position({DateTime? timestamp}) => Position(
   floor: null,
   isMocked: true,
 );
+
+class _FailedTile extends Mock implements TileImage {}
 
 void main() {
   testWidgets('shows incident map and unavailable current location', (
@@ -251,6 +257,36 @@ void main() {
     );
   });
 
+  testWidgets(
+    'keeps the incident marker when the tile provider is unavailable',
+    (tester) async {
+      const unavailable = MapTileProviderConfig(
+        urlTemplate: '',
+        attribution: '',
+        userAgentPackageName: '',
+        isDevelopmentFallback: false,
+        validationError: 'Map provider is not configured for this build.',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: IncidentMapPage(
+            incident: _incident(),
+            tileProvider: unavailable,
+            locationLoader: () async => null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.location_on), findsOneWidget);
+      expect(find.byType(TileLayer), findsNothing);
+      expect(
+        find.text('Map provider is not configured for this build.'),
+        findsOneWidget,
+      );
+      expect(find.text('Incident: 13.700000, 100.500000'), findsOneWidget);
+    },
+  );
+
   testWidgets('shows timeout and preserves the last valid position', (
     tester,
   ) async {
@@ -280,4 +316,96 @@ void main() {
     expect(find.byIcon(Icons.my_location), findsNWidgets(2));
     expect(find.byTooltip('Refresh current location'), findsOneWidget);
   });
+  testWidgets('provider attribution is visible without opening a popup', (
+    tester,
+  ) async {
+    const provider = MapTileProviderConfig(
+      urlTemplate: 'https://tiles.example.test/{z}/{x}/{y}.png',
+      attribution: 'Example Maps / OpenStreetMap contributors',
+      userAgentPackageName: 'com.example.sos_app',
+      isDevelopmentFallback: false,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: IncidentMapPage(
+          incident: _incident(),
+          tileProvider: provider,
+          locationLoader: () async => null,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find
+          .textContaining('Example Maps / OpenStreetMap contributors')
+          .hitTestable(),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'provider failure and network loss keep coordinates and allow tile retry',
+    (tester) async {
+      const provider = MapTileProviderConfig(
+        urlTemplate: 'https://tiles.example.test/{z}/{x}/{y}.png',
+        attribution: 'Example Maps',
+        userAgentPackageName: 'com.example.sos_app',
+        isDevelopmentFallback: false,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: IncidentMapPage(
+            incident: _incident(),
+            tileProvider: provider,
+            locationLoader: () async => null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      for (final error in [
+        StateError('synthetic provider failure'),
+        const SocketException('synthetic offline'),
+      ]) {
+        final tile = tester.widget<TileLayer>(find.byType(TileLayer));
+        tile.errorTileCallback!(_FailedTile(), error, StackTrace.current);
+        await tester.pump();
+        expect(find.text('Retry map tiles'), findsOneWidget);
+        expect(find.byIcon(Icons.location_on), findsOneWidget);
+        expect(find.text('Incident: 13.700000, 100.500000'), findsOneWidget);
+        await tester.tap(find.text('Retry map tiles'));
+        await tester.pump();
+        expect(
+          tester.widget<TileLayer>(find.byType(TileLayer)).key,
+          isNot(tile.key),
+        );
+      }
+    },
+  );
+  testWidgets(
+    'map attribution has a 48px link and opens only the public credit URL',
+    (tester) async {
+      String? opened;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('sos_app/external_links'),
+        (call) async {
+          opened = call.arguments as String;
+          return null;
+        },
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: IncidentMapPage(
+            incident: _incident(),
+            locationLoader: () async => null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final link = find.widgetWithText(TextButton, 'OpenStreetMap copyright');
+      expect(tester.getSize(link).height, greaterThanOrEqualTo(48));
+      await tester.tap(link);
+      await tester.pumpAndSettle();
+      expect(opened, 'https://www.openstreetmap.org/copyright');
+    },
+  );
 }

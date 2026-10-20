@@ -1,0 +1,226 @@
+{
+  "run": "phase7-1792486492-7b0d98",
+  "layer": "live Firebase REST (not physical UI)",
+  "results": [
+    {
+      "test": "create controlled account A",
+      "http_status": 200,
+      "expected": [
+        200
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "create controlled account B",
+      "http_status": 200,
+      "expected": [
+        200
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "persist own SOS A",
+      "http_status": 200,
+      "expected": [
+        200
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "read own persisted SOS A",
+      "http_status": 200,
+      "expected": [
+        200
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "persist own SOS B",
+      "http_status": 200,
+      "expected": [
+        200
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "read own persisted SOS B",
+      "http_status": 200,
+      "expected": [
+        200
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "A denied GET of other account SOS",
+      "http_status": 403,
+      "expected": [
+        403
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "A denied PATCH of other account SOS",
+      "http_status": 403,
+      "expected": [
+        403
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "A denied DELETE of other account SOS",
+      "http_status": 403,
+      "expected": [
+        403
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "A denied forged owner create",
+      "http_status": 403,
+      "expected": [
+        403
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "B denied GET of other account SOS",
+      "http_status": 403,
+      "expected": [
+        403
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "B denied PATCH of other account SOS",
+      "http_status": 403,
+      "expected": [
+        403
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "B denied DELETE of other account SOS",
+      "http_status": 403,
+      "expected": [
+        403
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "B denied forged owner create",
+      "http_status": 403,
+      "expected": [
+        403
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "unauthenticated Guest cannot read account SOS",
+      "http_status": 403,
+      "expected": [
+        401,
+        403
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "unauthenticated Guest cannot create cloud SOS",
+      "http_status": 403,
+      "expected": [
+        401,
+        403
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "login token cannot upload SOS retaining Guest owner",
+      "http_status": 403,
+      "expected": [
+        403
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "Guest document absent or unauthorized after denied uploads",
+      "http_status": 403,
+      "expected": [
+        403,
+        404
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "failed login rejected",
+      "http_status": 400,
+      "expected": [
+        400
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "controlled sign-in A",
+      "http_status": 200,
+      "expected": [
+        200
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "account switch preserves own Cloud SOS A",
+      "http_status": 200,
+      "expected": [
+        200
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "controlled sign-in B",
+      "http_status": 200,
+      "expected": [
+        200
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "account switch preserves own Cloud SOS B",
+      "http_status": 200,
+      "expected": [
+        200
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "controlled sign-in A",
+      "http_status": 200,
+      "expected": [
+        200
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "account switch preserves own Cloud SOS A",
+      "http_status": 200,
+      "expected": [
+        200
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "cloud authorization failure with invalid token",
+      "http_status": 401,
+      "expected": [
+        401,
+        403
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "retry after authorization failure succeeds",
+      "http_status": 200,
+      "expected": [
+        200
+      ],
+      "result": "PASS"
+    }
+  ]
+}

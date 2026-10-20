@@ -1,0 +1,20 @@
+{
+  "layer": "live Firestore query after user-observed app Login A and B",
+  "scope": "exact observed synthetic offline SOS id plus controlled account owner; no other documents queried",
+  "results": [
+    {
+      "account": "A",
+      "http_status": 200,
+      "matching_documents": 0,
+      "result": "PASS"
+    },
+    {
+      "account": "B",
+      "http_status": 200,
+      "matching_documents": 0,
+      "result": "PASS"
+    }
+  ],
+  "limit": "Snapshot absence under A/B at this time; not a full network trace or proof against later writes/changed IDs",
+  "observed_message_identity_consistent": true
+}

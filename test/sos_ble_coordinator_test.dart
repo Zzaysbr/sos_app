@@ -25,6 +25,7 @@ class FakeBleTransport implements BleTransportClient {
   bool initialized = false;
   bool disposed = false;
   bool failWrites = false;
+  void Function()? onSend;
   bool failConnect = false;
 
   @override
@@ -72,6 +73,7 @@ class FakeBleTransport implements BleTransportClient {
     sent.add(List<int>.from(frame));
     sentDeviceIds.add(deviceId);
     sentRoles.add(role);
+    onSend?.call();
   }
 
   @override
@@ -687,6 +689,124 @@ void main() {
     // identity or copied into the authenticated sender fields.
   });
 
+  test(
+    'default incoming SOS retains its observed peer for a chat reply',
+    () async {
+      final delivery = SosBleEnvelope.fromSosMessage(
+        _sos(),
+        messageId: 'default-reply-route',
+      );
+      expect(delivery.senderDeviceId, isNull);
+      for (final frame in BleMessageCodec.encode(delivery.toBleMessage())) {
+        transport.emit(BleEvent(type: 'data', device: device, payload: frame));
+      }
+      await _settle();
+      final inbox = await coordinatorFor(database)
+          .lookupInbox(delivery.messageId);
+      expect(inbox, isNotNull);
+      expect(inbox!.senderDeviceId, device.id);
+      final chat = await chatRepository.insertMessage(
+        sosId: _sos().id,
+        messageId: 'default-route-reply',
+        text: 'synthetic reply',
+      );
+      final row = await coordinator.enqueueChat(chat);
+      expect(row.destinationId, device.id);
+      expect(
+        (await database.select(database.sosMessages).getSingle()).ownerId,
+        'owner-1',
+      );
+      expect(await database.select(database.sosSyncQueue).get(), isEmpty);
+      expect(delivery.toJson().containsKey('senderDeviceId'), isFalse);
+    },
+  );
+
+  test('another peer cannot replay a default SOS and receive an ACK', () async {
+    final delivery = SosBleEnvelope.fromSosMessage(
+      _sos(),
+      messageId: 'bound-default-delivery',
+    );
+    final frames = BleMessageCodec.encode(delivery.toBleMessage());
+    for (final frame in frames) {
+      transport.emit(BleEvent(type: 'data', device: device, payload: frame));
+    }
+    await _settle();
+    await coordinatorFor(database).lookupInbox(delivery.messageId);
+    await _settle();
+    final before = transport.sent.length;
+    expect(before, greaterThan(0));
+    const other = BleDevice(id: 'other-peer');
+    transport.emit(const BleEvent(type: 'connected', device: other));
+    for (var replay = 0; replay < 2; replay++) {
+      for (final frame in frames) {
+        transport.emit(BleEvent(type: 'data', device: other, payload: frame));
+      }
+    }
+    await _settle();
+    await coordinatorFor(database).lookupInbox(delivery.messageId);
+    await _settle();
+    expect(transport.sent.length, before);
+    expect(await database.select(database.bleInbox).get(), hasLength(1));
+    expect(await database.select(database.sosMessages).get(), hasLength(1));
+  });
+
+  test(
+    'same peer can re-ACK a default SOS without duplicate records',
+    () async {
+      final delivery = SosBleEnvelope.fromSosMessage(
+        _sos(),
+        messageId: 'default-retry-delivery',
+      );
+      final frames = BleMessageCodec.encode(delivery.toBleMessage());
+      for (final frame in frames) {
+        transport.emit(BleEvent(type: 'data', device: device, payload: frame));
+      }
+      await _settle();
+      await coordinatorFor(database).lookupInbox(delivery.messageId);
+      await _settle();
+      final firstAckFrameCount = transport.sent.length;
+      expect(firstAckFrameCount, greaterThan(0));
+      for (final frame in frames) {
+        transport.emit(BleEvent(type: 'data', device: device, payload: frame));
+      }
+      await _settle();
+      await coordinatorFor(database).lookupInbox(delivery.messageId);
+      await _settle();
+      expect(transport.sent.length, firstAckFrameCount * 2);
+      final inbox = await database.select(database.bleInbox).getSingle();
+      expect(inbox.messageId, delivery.messageId);
+      expect(inbox.senderDeviceId, device.id);
+      expect(await database.select(database.sosMessages).get(), hasLength(1));
+      expect(await database.select(database.sosSyncQueue).get(), isEmpty);
+    },
+  );
+
+  test('legacy unbound SOS is not rebound from a replay', () async {
+    final delivery = SosBleEnvelope.fromSosMessage(
+      _sos(),
+      messageId: 'legacy-unbound-delivery',
+    );
+    final repository = coordinatorFor(database);
+    await repository.persistIncomingDelivery(delivery, ownerId: 'owner-1');
+    final before = await repository.lookupInbox(delivery.messageId);
+    expect(before!.senderDeviceId, isNull);
+    for (final frame in BleMessageCodec.encode(delivery.toBleMessage())) {
+      transport.emit(BleEvent(type: 'data', device: device, payload: frame));
+    }
+    await _settle();
+    final after = await repository.lookupInbox(delivery.messageId);
+    await _settle();
+    expect(after!.senderDeviceId, isNull);
+    expect(after.payload, before.payload);
+    expect(await repository.lookupReplyDestination(_sos().id), isNull);
+    expect(transport.sent, isEmpty);
+    expect(await database.select(database.bleInbox).get(), hasLength(1));
+    expect(
+      (await database.select(database.sosMessages).getSingle()).ownerId,
+      'owner-1',
+    );
+  });
+
   test('disconnect during chat delivery keeps the row retryable', () async {
     final now = DateTime.utc(2026, 1, 1);
     await database
@@ -1046,6 +1166,89 @@ void main() {
       expect(ack.type, 'location.ack');
       expect(ack.payload['ackFor'], update.messageId);
       expect(ack.payload['ackStatus'], 'persisted');
+    },
+  );
+
+  test(
+    'authenticated BLE session only drains its owner and stops on auth change',
+    () async {
+      await coordinator.dispose();
+      final delivery = BleDeliveryRepository(database);
+      for (final owner in ['A', 'B', 'guest-local-device']) {
+        final sos = _sos().copyWith(
+          id: 'sos-$owner',
+          ownerId: owner,
+          syncState: 'synced',
+        );
+        await database.into(database.sosMessages).insert(sos.toCompanion(true));
+        await delivery.enqueueOutbox(
+          SosBleEnvelope.fromSosMessage(sos, messageId: 'message-$owner'),
+          destinationId: device.id,
+          now: DateTime.utc(2026, 1, 1, 12),
+        );
+      }
+      final others = await (database.select(
+        database.bleOutbox,
+      )..where((t) => t.messageId.isNotValue('message-A'))).get();
+      var sessionActive = true;
+      coordinator = SosBleCoordinator(
+        database: database,
+        ownerId: 'A',
+        transport: transport,
+        isSessionCurrent: () => sessionActive,
+        now: () => DateTime.utc(2026, 1, 1, 12),
+        pollInterval: const Duration(hours: 1),
+      );
+      await coordinator.start();
+      transport.emit(const BleEvent(type: 'connected', device: device));
+      await _settle();
+      await coordinator.processDue();
+      expect(transport.sent, isNotEmpty);
+      expect(_decodeSent(transport.sent).payload['sosId'], 'sos-A');
+      expect(
+        await (database.select(
+          database.bleOutbox,
+        )..where((t) => t.messageId.isNotValue('message-A'))).get(),
+        others,
+      );
+      final before = await database.select(database.bleOutbox).get();
+      sessionActive = false;
+      await coordinator.processDue();
+      transport.emit(const BleEvent(type: 'connected', device: device));
+      await _settle();
+      expect(await database.select(database.bleOutbox).get(), before);
+    },
+  );
+
+  test(
+    'auth changes between BLE frames stop the old session immediately',
+    () async {
+      await coordinator.dispose();
+      var sessionActive = true;
+      final sos = _sos().copyWith(
+        message: Value('x' * 1000),
+        syncState: 'synced',
+      );
+      await database.into(database.sosMessages).insert(sos.toCompanion(true));
+      coordinator = SosBleCoordinator(
+        database: database,
+        ownerId: sos.ownerId,
+        transport: transport,
+        isSessionCurrent: () => sessionActive,
+        now: () => DateTime.utc(2026, 1, 1, 12),
+        pollInterval: const Duration(hours: 1),
+      );
+      await coordinator.enqueueSos(sos, destinationId: device.id);
+      transport.onSend = () => sessionActive = false;
+      await coordinator.start();
+      transport.emit(const BleEvent(type: 'connected', device: device));
+      await _settle();
+      await coordinator.processDue();
+      expect(transport.sent, hasLength(1));
+      final row = await database.select(database.bleOutbox).getSingle();
+      expect(row.messageId, 'sos:sos-1:delivery:v1');
+      expect(row.state, BleOutboxState.sending.wireValue);
+      expect(row.payload, contains('x' * 1000));
     },
   );
 

@@ -622,4 +622,102 @@ void main() {
       expect(await database.select(database.sosMessages).get(), isEmpty);
     },
   );
+  SosBleEnvelope ack({SosBleAckStatus status = SosBleAckStatus.persisted}) =>
+      SosBleEnvelope.acknowledgement(
+        messageId: 'ack-race',
+        sosId: 'sos-1',
+        ackFor: 'message-1',
+        ackStatus: status,
+        createdAt: DateTime.utc(2026),
+      );
+
+  Future<void> sending() async {
+    await repository.enqueueOutbox(_delivery(), destinationId: 'selected-peer');
+    await repository.claimOutboxForSending('message-1');
+  }
+
+  test(
+    'early persisted ACK survives a later native write completion',
+    () async {
+      await sending();
+      final confirmed = await repository.recordAcknowledgement(
+        ack(),
+        sourceDeviceId: 'selected-peer',
+      );
+      final completed = await repository.finishWriting('message-1');
+      expect(completed.state, 'acknowledged');
+      expect(completed.acknowledgedAt, confirmed.acknowledgedAt);
+      expect(completed.retryCount, 1);
+    },
+  );
+
+  test(
+    'write completion without ACK remains awaiting, never confirmed',
+    () async {
+      await sending();
+      final completed = await repository.finishWriting('message-1');
+      expect(completed.state, 'awaitingAcknowledgement');
+      expect(completed.acknowledgedAt, isNull);
+    },
+  );
+
+  test(
+    'delayed selected-peer ACK can confirm a timed-out failed attempt',
+    () async {
+      await sending();
+      await repository.transitionOutboxState(
+        'message-1',
+        BleOutboxState.failed,
+      );
+      final completed = await repository.recordAcknowledgement(
+        ack(),
+        sourceDeviceId: 'selected-peer',
+      );
+      expect(completed.state, 'acknowledged');
+      expect(completed.retryCount, 1);
+    },
+  );
+
+  test('delayed wrong-peer ACK cannot confirm a failed attempt', () async {
+    await sending();
+    await repository.transitionOutboxState('message-1', BleOutboxState.failed);
+    await expectLater(
+      repository.recordAcknowledgement(ack(), sourceDeviceId: 'other-peer'),
+      throwsA(isA<BleDeliveryStateException>()),
+    );
+    expect((await repository.lookupOutbox('message-1'))!.state, 'failed');
+  });
+
+  test('negative duplicate ACK cannot regress confirmed delivery', () async {
+    await sending();
+    final confirmed = await repository.recordAcknowledgement(
+      ack(),
+      sourceDeviceId: 'selected-peer',
+    );
+    final duplicate = await repository.recordAcknowledgement(
+      ack(status: SosBleAckStatus.rejected),
+      sourceDeviceId: 'selected-peer',
+    );
+    expect(duplicate.state, 'acknowledged');
+    expect(duplicate.acknowledgedAt, confirmed.acknowledgedAt);
+  });
+
+  test(
+    'expired delivery is not revived by late ACK or native completion',
+    () async {
+      await sending();
+      await repository.transitionOutboxState(
+        'message-1',
+        BleOutboxState.expired,
+      );
+      await expectLater(
+        repository.recordAcknowledgement(
+          ack(),
+          sourceDeviceId: 'selected-peer',
+        ),
+        throwsA(isA<BleDeliveryStateException>()),
+      );
+      expect((await repository.finishWriting('message-1')).state, 'expired');
+    },
+  );
 }

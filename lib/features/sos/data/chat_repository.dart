@@ -87,7 +87,7 @@ class PersistentChatRepository implements ChatRepository {
               )
               ..orderBy([(table) => OrderingTerm.asc(table.createdAt)]))
             .get();
-    return rows.map(_toMessage).toList(growable: false);
+    return _messagesWithOrigin(rows);
   }
 
   @override
@@ -145,7 +145,7 @@ class PersistentChatRepository implements ChatRepository {
       }
       stored = existing;
     });
-    return _toMessage(stored!);
+    return _toMessage(stored!, outgoing: true);
   }
 
   @override
@@ -155,9 +155,7 @@ class PersistentChatRepository implements ChatRepository {
         (table) => table.ownerId.equals(_ownerId) & table.sosId.equals(sosId),
       )
       ..orderBy([(table) => OrderingTerm.asc(table.createdAt)]);
-    return query.watch().map(
-      (rows) => rows.map(_toMessage).toList(growable: false),
-    );
+    return query.watch().asyncMap(_messagesWithOrigin);
   }
 
   @override
@@ -165,16 +163,21 @@ class PersistentChatRepository implements ChatRepository {
     String messageId,
     ChatDeliveryStatus status,
   ) async {
-    final changed =
-        await (_database.update(_database.chatMessages)..where(
-              (table) =>
-                  table.messageId.equals(messageId) &
-                  table.ownerId.equals(_ownerId),
-            ))
-            .write(ChatMessagesCompanion(deliveryStatus: Value(status.name)));
-    if (changed != 1) {
-      throw const ChatRepositoryException('Chat message was not found.');
-    }
+    await _database.transaction(() async {
+      final query = _database.select(_database.chatMessages)
+        ..where(
+          (t) => t.messageId.equals(messageId) & t.ownerId.equals(_ownerId),
+        );
+      final row = await query.getSingleOrNull();
+      if (row == null) {
+        throw const ChatRepositoryException('Chat message was not found.');
+      }
+      if (row.deliveryStatus == ChatDeliveryStatus.delivered.name) return;
+      await (_database.update(_database.chatMessages)..where(
+            (t) => t.messageId.equals(messageId) & t.ownerId.equals(_ownerId),
+          ))
+          .write(ChatMessagesCompanion(deliveryStatus: Value(status.name)));
+    });
   }
 
   @override
@@ -241,19 +244,32 @@ class PersistentChatRepository implements ChatRepository {
     }
   }
 
-  EmergencyChatMessage _toMessage(ChatMessage row) => EmergencyChatMessage(
-    id: row.messageId,
-    sosId: row.sosId,
-    senderId: row.senderId,
-    recipientId: row.recipientId,
-    text: row.textContent ?? '',
-    createdAt: row.createdAt,
-    status: _parseStatus(row.deliveryStatus),
-    isMine: row.senderId == _senderId,
-    attachmentPath: row.attachmentPath,
-    attachmentMimeType: row.attachmentMimeType,
-    attachmentName: row.attachmentName,
-  );
+  Future<List<EmergencyChatMessage>> _messagesWithOrigin(
+    List<ChatMessage> rows,
+  ) async {
+    final outgoing = await (_database.select(
+      _database.bleOutbox,
+    )..where((t) => t.messageId.isIn(rows.map((r) => r.messageId)))).get();
+    final ids = outgoing.map((r) => r.messageId).toSet();
+    return rows
+        .map((row) => _toMessage(row, outgoing: ids.contains(row.messageId)))
+        .toList(growable: false);
+  }
+
+  EmergencyChatMessage _toMessage(ChatMessage row, {bool outgoing = false}) =>
+      EmergencyChatMessage(
+        id: row.messageId,
+        sosId: row.sosId,
+        senderId: row.senderId,
+        recipientId: row.recipientId,
+        text: row.textContent ?? '',
+        createdAt: row.createdAt,
+        status: _parseStatus(row.deliveryStatus),
+        isMine: outgoing || row.senderId == _senderId,
+        attachmentPath: row.attachmentPath,
+        attachmentMimeType: row.attachmentMimeType,
+        attachmentName: row.attachmentName,
+      );
 
   ChatDeliveryStatus _parseStatus(String value) =>
       ChatDeliveryStatus.values.firstWhere(

@@ -1,0 +1,9 @@
+{
+  "map_define_presence": {
+    "MAP_TILE_URL": false,
+    "MAP_TILE_ATTRIBUTION": false,
+    "MAP_TILE_USER_AGENT": false
+  },
+  "release_artifact_runtime_test": "NOT RUN",
+  "offline_tile_download_implemented": false
+}

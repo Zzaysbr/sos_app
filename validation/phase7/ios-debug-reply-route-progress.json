@@ -1,0 +1,286 @@
+[
+  {
+    "utc": "2026-10-20T15:29:41.549460+00:00",
+    "tools": [
+      {
+        "tool": "xcodebuild",
+        "elapsed": "09:58",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:20",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:20",
+        "cpu_percent": 18.7,
+        "source_basename": "google_c2p_resolver.cc"
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:18",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:18",
+        "cpu_percent": 21.6,
+        "source_basename": "gcp_authentication_filter.cc"
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:17",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:17",
+        "cpu_percent": 25.9,
+        "source_basename": "frame_window_update.cc"
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:07",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:07",
+        "cpu_percent": 21.6,
+        "source_basename": "frame_settings.cc"
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:06",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:06",
+        "cpu_percent": 18.9,
+        "source_basename": "frame_security.cc"
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:05",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:05",
+        "cpu_percent": 23.0,
+        "source_basename": "frame_rst_stream.cc"
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:02",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:02",
+        "cpu_percent": 18.7,
+        "source_basename": "frame_ping.cc"
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:02",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:02",
+        "cpu_percent": 19.6,
+        "source_basename": "frame_handler.cc"
+      }
+    ]
+  },
+  {
+    "utc": "2026-10-20T15:32:44.521535+00:00",
+    "tools": [
+      {
+        "tool": "xcodebuild",
+        "elapsed": "13:01",
+        "cpu_percent": 1.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:15",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:14",
+        "cpu_percent": 32.8,
+        "source_basename": "channel.cc"
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:11",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:11",
+        "cpu_percent": 30.7,
+        "source_basename": "certificate_provider_store.cc"
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:06",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:06",
+        "cpu_percent": 29.3,
+        "source_basename": "certificate_provider_registry.cc"
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:05",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:05",
+        "cpu_percent": 26.5,
+        "source_basename": "cds.cc"
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:04",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:04",
+        "cpu_percent": 35.1,
+        "source_basename": "call_utils.cc"
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:04",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:04",
+        "cpu_percent": 28.0,
+        "source_basename": "call_tracer_wrapper.cc"
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:03",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:03",
+        "cpu_percent": 27.9,
+        "source_basename": "call_tracer.cc"
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:01",
+        "cpu_percent": 6.2,
+        "source_basename": "call_state.cc"
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:01",
+        "cpu_percent": 21.9,
+        "source_basename": "call_state.cc"
+      }
+    ]
+  },
+  {
+    "utc": "2026-10-20T15:36:58.991082+00:00",
+    "tools": [
+      {
+        "tool": "xcodebuild",
+        "elapsed": "17:15",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:14",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:14",
+        "cpu_percent": 30.8,
+        "source_basename": "query_core.cc"
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:10",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:09",
+        "cpu_percent": 34.0,
+        "source_basename": "proto_sizer.cc"
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:05",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:05",
+        "cpu_percent": 30.0,
+        "source_basename": "precondition.cc"
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:05",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:05",
+        "cpu_percent": 27.6,
+        "source_basename": "pipeline_util.cc"
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:04",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:04",
+        "cpu_percent": 29.1,
+        "source_basename": "pipeline_run.cc"
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:01",
+        "cpu_percent": 0.0
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:01",
+        "cpu_percent": 30.3,
+        "source_basename": "pipeline_result_change.cc"
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:01",
+        "cpu_percent": 0.3
+      },
+      {
+        "tool": "clang",
+        "elapsed": "00:01",
+        "cpu_percent": 31.4,
+        "source_basename": "pipeline_result.cc"
+      }
+    ]
+  }
+]

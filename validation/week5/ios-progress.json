@@ -1,0 +1,82 @@
+[
+  {
+    "elapsed": "01:24",
+    "cpu": "2.2",
+    "process": "xcodebuild"
+  },
+  {
+    "elapsed": "00:02",
+    "cpu": "0.0",
+    "process": "clang"
+  },
+  {
+    "elapsed": "00:02",
+    "cpu": "48.6",
+    "process": "clang"
+  },
+  {
+    "elapsed": "00:02",
+    "cpu": "0.0",
+    "process": "clang"
+  },
+  {
+    "elapsed": "00:02",
+    "cpu": "51.3",
+    "process": "clang"
+  },
+  {
+    "elapsed": "00:02",
+    "cpu": "0.0",
+    "process": "clang"
+  },
+  {
+    "elapsed": "00:02",
+    "cpu": "46.8",
+    "process": "clang"
+  },
+  {
+    "elapsed": "00:01",
+    "cpu": "0.3",
+    "process": "clang"
+  },
+  {
+    "elapsed": "00:01",
+    "cpu": "46.8",
+    "process": "clang"
+  },
+  {
+    "elapsed": "00:01",
+    "cpu": "0.7",
+    "process": "clang"
+  },
+  {
+    "elapsed": "00:01",
+    "cpu": "41.8",
+    "process": "clang"
+  },
+  {
+    "elapsed": "00:01",
+    "cpu": "1.1",
+    "process": "clang"
+  },
+  {
+    "elapsed": "00:01",
+    "cpu": "46.0",
+    "process": "clang"
+  },
+  {
+    "elapsed": "00:01",
+    "cpu": "0.0",
+    "process": "clang"
+  },
+  {
+    "elapsed": "00:01",
+    "cpu": "0.0",
+    "process": "clang"
+  },
+  {
+    "elapsed": "00:01",
+    "cpu": "0.0",
+    "process": "clang"
+  }
+]

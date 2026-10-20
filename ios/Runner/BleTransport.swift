@@ -38,6 +38,8 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   private var nextConnectionAttempt = 0
   private var scanSession = 0
   private let gattSetupTimeout: TimeInterval = 15
+  private var initializationResults = [FlutterResult]()
+  private var initializationTimeout: DispatchWorkItem?
   private var disposed = false
 
   init(messenger: FlutterBinaryMessenger) {
@@ -63,12 +65,28 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
 
   private func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     trace("method \(call.method)")
-    if disposed && call.method != "initialize" {
+    if call.method == "deviceIdentity" {
+      let key = "sos.localDeviceIdentity.v1"
+      let identity = UserDefaults.standard.string(forKey: key) ?? UUID().uuidString
+      UserDefaults.standard.set(identity, forKey: key)
+      result(identity)
+      return
+    }
+    if disposed && (call.method == "requestPermissions" || call.method == "initialize") {
+      // Replace managers; delegates from a retired session cannot reach the
+      // current managers' state. Permission requests still precede initialize.
+      central.delegate = nil
+      peripheral.delegate = nil
+      disposed = false
+      central = CBCentralManager(delegate: self, queue: .main)
+      peripheral = CBPeripheralManager(delegate: self, queue: .main)
+    }
+    if disposed && call.method != "dispose" {
       result(FlutterError(code: "disposed", message: "BLE transport was disposed", details: nil))
       return
     }
     switch call.method {
-    case "initialize": result(nil)
+    case "initialize": initialize(result)
     case "requestPermissions": result(nil)
     case "startDiscovery": startDiscovery(result)
     case "stopDiscovery": central.stopScan(); emit(["type": "state", "state": centralState()]); result(nil)
@@ -80,6 +98,33 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     case "dispose": dispose(); result(nil)
     default: result(FlutterMethodNotImplemented)
     }
+  }
+
+  private func initialize(_ result: @escaping FlutterResult) {
+    initializationResults.append(result)
+    completeInitializationIfReady()
+    if initializationResults.isEmpty || initializationTimeout != nil { return }
+    let timeout = DispatchWorkItem { [weak self] in
+      guard let self else { return }
+      let results = self.initializationResults
+      self.initializationResults.removeAll()
+      self.initializationTimeout = nil
+      for result in results {
+        result(FlutterError(code: "initialize_timeout", message: "Bluetooth readiness timed out. Try again after granting permission.", details: nil))
+      }
+    }
+    initializationTimeout = timeout
+    DispatchQueue.main.asyncAfter(deadline: .now() + 15, execute: timeout)
+  }
+
+  private func completeInitializationIfReady() {
+    guard !disposed, central.state != .unknown, central.state != .resetting,
+          peripheral.state != .unknown, peripheral.state != .resetting else { return }
+    initializationTimeout?.cancel()
+    initializationTimeout = nil
+    let results = initializationResults
+    initializationResults.removeAll()
+    results.forEach { $0(nil) }
   }
 
   private func startDiscovery(_ result: @escaping FlutterResult) {
@@ -149,6 +194,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
       result(FlutterError(code: "busy", message: "A connection already exists for this device", details: nil))
       return
     }
+    discovered[uuid] = p
     connecting.insert(uuid)
     nextConnectionAttempt += 1
     connectionAttempts[uuid] = nextConnectionAttempt
@@ -244,14 +290,23 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   private func dispose() {
     trace("dispose: stopping scan/advertising and cancelling \(connected.count) central connections")
     disposed = true
+    initializationTimeout?.cancel()
+    initializationTimeout = nil
+    let initializing = initializationResults
+    initializationResults.removeAll()
+    initializing.forEach { $0(FlutterError(code: "disposed", message: "BLE transport was disposed", details: nil)) }
+    for timeout in setupTimeouts.values { timeout.cancel() }
+    setupTimeouts.removeAll()
     central.stopScan()
     peripheral.stopAdvertising()
     advertisingActive = false
     advertisingResult?(FlutterError(code: "disposed", message: "BLE transport was disposed", details: nil))
     advertisingResult = nil
-    for p in connected.values {
-      disconnectReasons[p.identifier] = "transport dispose()"
-      central.cancelPeripheralConnection(p)
+    var retiring = discovered
+    for (id, p) in connected { retiring[id] = p }
+    for p in retiring.values {
+      p.delegate = nil
+      if p.state != .disconnected { central.cancelPeripheralConnection(p) }
     }
     for pending in pendingPeripheralSends.values.flatMap({ $0 }) {
       pending.result(FlutterError(code: "disposed", message: "BLE transport was disposed", details: nil))
@@ -267,16 +322,21 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   }
 
   func centralManagerDidUpdateState(_ central: CBCentralManager) {
+    guard !disposed, central === self.central else { return }
+    completeInitializationIfReady()
     trace("centralManagerDidUpdateState state=\(centralState())")
     emit(["type": "centralState", "state": centralState()])
   }
 
   func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
+    guard !disposed, peripheral === self.peripheral else { return }
+    completeInitializationIfReady()
     trace("peripheralManagerDidUpdateState state=\(peripheralState())")
     emit(["type": "peripheralState", "state": peripheralState()])
   }
 
   func peripheralManager(_ peripheral: CBPeripheralManager, didAdd service: CBService, error: Error?) {
+    guard !disposed, peripheral === self.peripheral else { return }
     trace("didAdd service=\(service.uuid.uuidString) error=\(error?.localizedDescription ?? "none")")
     guard service.uuid == Self.service else { return }
     if let error {
@@ -290,6 +350,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   }
 
   func peripheralManagerDidStartAdvertising(_ peripheral: CBPeripheralManager, error: Error?) {
+    guard !disposed, peripheral === self.peripheral else { return }
     trace("didStartAdvertising error=\(error?.localizedDescription ?? "none")")
     if let error {
       advertisingResult?(FlutterError(code: "advertise_failed", message: error.localizedDescription, details: nil))
@@ -305,6 +366,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   }
 
   func centralManager(_ central: CBCentralManager, didDiscover p: CBPeripheral, advertisementData: [String: Any], rssi RSSI: NSNumber) {
+    guard !disposed, central === self.central else { return }
     trace("didDiscover session=\(scanSession) id=\(p.identifier.uuidString) name=\(p.name ?? "unknown") rssi=\(RSSI)")
     discovered[p.identifier] = p
     p.delegate = self
@@ -312,6 +374,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   }
 
   func centralManager(_ central: CBCentralManager, didConnect p: CBPeripheral) {
+    guard !disposed, central === self.central else { return }
     if let current = connected[p.identifier], current !== p {
       trace("ignoring stale didConnect id=\(p.identifier.uuidString)")
       central.cancelPeripheralConnection(p)
@@ -327,6 +390,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   }
 
   func centralManager(_ central: CBCentralManager, didFailToConnect p: CBPeripheral, error: Error?) {
+    guard !disposed, central === self.central else { return }
     guard connected[p.identifier] == nil || connected[p.identifier] === p else {
       trace("ignoring stale didFailToConnect id=\(p.identifier.uuidString)")
       return
@@ -345,6 +409,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   }
 
   func centralManager(_ central: CBCentralManager, didDisconnectPeripheral p: CBPeripheral, error: Error?) {
+    guard !disposed, central === self.central else { return }
     guard connected[p.identifier] === p ||
           (connected[p.identifier] == nil && connecting.contains(p.identifier)) else {
       trace("ignoring stale didDisconnectPeripheral id=\(p.identifier.uuidString)")
@@ -368,6 +433,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   }
 
   func peripheral(_ p: CBPeripheral, didDiscoverServices error: Error?) {
+    guard !disposed, connected[p.identifier] === p else { return }
     guard connected[p.identifier] === p else {
       trace("ignoring stale didDiscoverServices id=\(p.identifier.uuidString)")
       return
@@ -386,6 +452,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   }
 
   func peripheral(_ p: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
+    guard !disposed, connected[p.identifier] === p else { return }
     guard connected[p.identifier] === p else {
       trace("ignoring stale didDiscoverCharacteristics id=\(p.identifier.uuidString)")
       return
@@ -412,6 +479,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   }
 
   func peripheral(_ p: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
+    guard !disposed, connected[p.identifier] === p else { return }
     guard connected[p.identifier] === p else {
       trace("ignoring stale didUpdateNotificationState id=\(p.identifier.uuidString)")
       return
@@ -433,6 +501,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   }
 
   func peripheral(_ p: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
+    guard !disposed, connected[p.identifier] === p else { return }
     trace("didWriteValue id=\(p.identifier.uuidString) uuid=\(characteristic.uuid.uuidString) error=\(error?.localizedDescription ?? "none")")
     guard characteristic.uuid == Self.rx else { return }
     let result = writeResults[p.identifier]?.removeFirst()
@@ -447,6 +516,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   }
 
   func peripheral(_ p: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
+    guard !disposed, connected[p.identifier] === p else { return }
     trace("didUpdateValue id=\(p.identifier.uuidString) uuid=\(characteristic.uuid.uuidString) bytes=\(characteristic.value?.count ?? 0) error=\(error?.localizedDescription ?? "none")")
     guard characteristic.uuid == Self.tx else { return }
     guard error == nil, let data = characteristic.value else {
@@ -457,6 +527,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   }
 
   func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
+    guard !disposed, peripheral === self.peripheral else { return }
     trace("didReceiveWrite requests=\(requests.count)")
     for request in requests {
       let supported = request.characteristic.uuid == Self.rx && request.offset == 0
@@ -468,6 +539,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   }
 
   func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didSubscribeTo characteristic: CBCharacteristic) {
+    guard !disposed, peripheral === self.peripheral else { return }
     guard characteristic.uuid == Self.tx else { return }
     subscribedCentrals[central.identifier] = central
     trace("didSubscribeTo id=\(central.identifier.uuidString) characteristic=\(characteristic.uuid.uuidString)")
@@ -476,6 +548,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   }
 
   func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didUnsubscribeFrom characteristic: CBCharacteristic) {
+    guard !disposed, peripheral === self.peripheral else { return }
     guard characteristic.uuid == Self.tx else { return }
     let id = central.identifier
     subscribedCentrals.removeValue(forKey: id)
@@ -487,6 +560,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   }
 
   func peripheralManagerIsReady(toUpdateSubscribers peripheral: CBPeripheralManager) {
+    guard !disposed, peripheral === self.peripheral else { return }
     for uuid in subscribedCentrals.keys {
       flushPeripheral(uuid)
     }

@@ -25,6 +25,9 @@ class BleTransport implements BleTransportClient {
   final MethodChannel _methods;
   final EventChannel _events;
   Stream<BleEvent>? _stream;
+  StreamSubscription<BleEvent>? _nativeSubscription;
+  StreamController<BleEvent>? _eventController;
+  final _connections = <String, BleEvent>{};
   Future<void>? _initializeFuture;
   Future<void>? _disposeFuture;
   Completer<void>? _idleCompleter;
@@ -32,9 +35,50 @@ class BleTransport implements BleTransportClient {
   bool _disposed = false;
 
   @override
-  Stream<BleEvent> get events => _stream ??= _events
-      .receiveBroadcastStream()
-      .map((e) => BleEvent.fromMap(Map<Object?, Object?>.from(e as Map)));
+  Stream<BleEvent> get events {
+    return _stream ??= _createEvents();
+  }
+
+  Stream<BleEvent> _createEvents() {
+    final source = StreamController<BleEvent>.broadcast();
+    _eventController = source;
+    _nativeSubscription = _events
+        .receiveBroadcastStream()
+        .map((value) {
+          final event = BleEvent.fromMap(
+            Map<Object?, Object?>.from(value as Map),
+          );
+          final peer = event.device?.id;
+          if (peer != null && !_disposed) {
+            final key = '$peer|${event.role?.wireValue ?? 'central'}';
+            if (event.type == 'connected') _connections[key] = event;
+            if (event.type == 'disconnected') {
+              _connections.removeWhere(
+                (k, _) =>
+                    event.role == null ? k.startsWith('$peer|') : k == key,
+              );
+            }
+          }
+          return event;
+        })
+        .listen((event) {
+          if (!_disposed) source.add(event);
+        }, onError: source.addError);
+
+    return Stream<BleEvent>.multi((controller) {
+      // Subscribe before the snapshot so there is no missing readiness window.
+      final subscription = source.stream.listen(
+        controller.add,
+        onError: controller.addError,
+        onDone: controller.close,
+      );
+      for (final event in _connections.values) {
+        controller.add(event);
+      }
+      controller.onCancel = subscription.cancel;
+    }, isBroadcast: true);
+  }
+
   @override
   Future<void> initialize() {
     if (_disposed) {
@@ -87,10 +131,14 @@ class BleTransport implements BleTransportClient {
   Future<void> dispose() {
     if (_disposeFuture != null) return _disposeFuture!;
     _disposed = true;
+    _connections.clear();
     return _disposeFuture = _dispose();
   }
 
   Future<void> _dispose() async {
+    await _nativeSubscription?.cancel();
+    _nativeSubscription = null;
+    unawaited(_eventController?.close());
     final idle = _idleCompleter?.future;
     if (idle != null) await idle;
     try {

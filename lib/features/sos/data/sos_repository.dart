@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
@@ -17,17 +18,26 @@ bool isValidSosCoordinatePair(double? latitude, double? longitude) {
       longitude <= 180;
 }
 
+// Stable namespace in the persistent device database; not an authentication ID.
+// Keep this value compatible with existing installations.
+const guestDeviceOwnerId = 'guest-local-device';
+
 class SosRepository {
   SosRepository({
     required this._database,
     required this._cloudService,
     FirebaseAuth? firebaseAuth,
+    this.localOwnerId,
     this._onSosCreated,
-  }) : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance;
+  }) : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance {
+    _sessionOwnerId = _firebaseAuth.currentUser?.uid ?? localOwnerId;
+  }
 
   final AppDatabase _database;
   final SosCloudService _cloudService;
   final FirebaseAuth _firebaseAuth;
+  final String? localOwnerId;
+  late final String? _sessionOwnerId;
   final Future<void> Function(SosMessage sos, {String? destinationId})?
   _onSosCreated;
 
@@ -37,31 +47,59 @@ class SosRepository {
 
   String? get currentOwnerId => _ownerId;
 
-  String? get _ownerId => _firebaseAuth.currentUser?.uid;
+  String? get _ownerId =>
+      _sessionOwnerId != null && _isOwnerCurrent(_sessionOwnerId)
+      ? _sessionOwnerId
+      : null;
+
+  bool get isGuest => _firebaseAuth.currentUser == null && localOwnerId != null;
 
   bool _isOwnerCurrent(String ownerId) =>
-      _firebaseAuth.currentUser?.uid == ownerId;
+      _firebaseAuth.currentUser?.uid == ownerId ||
+      (_firebaseAuth.currentUser == null && localOwnerId == ownerId);
 
   Stream<List<SosMessage>> watchAll() {
     final ownerId = _ownerId;
     if (ownerId == null) return Stream.value(const []);
 
-    return (_database.select(_database.sosMessages)
-          ..where((t) => t.ownerId.equals(ownerId))
-          ..orderBy([
-            (t) =>
-                OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
-          ]))
-        .watch();
+    // Invalidate retained subscriptions immediately on logout/account change.
+    return Stream<List<SosMessage>>.multi((controller) {
+      final rows =
+          (_database.select(_database.sosMessages)
+                ..where((t) => t.ownerId.equals(ownerId))
+                ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+              .watch()
+              .listen(
+                (rows) =>
+                    controller.add(_isOwnerCurrent(ownerId) ? rows : const []),
+                onError: controller.addError,
+              );
+      final auth = _firebaseAuth.authStateChanges().listen((_) {
+        if (!_isOwnerCurrent(ownerId)) controller.add(const []);
+      }, onError: controller.addError);
+      controller.onCancel = () async {
+        await rows.cancel();
+        await auth.cancel();
+      };
+    });
   }
 
-  Future<SosMessage?> findById(String id) {
-    final ownerId = _ownerId;
-    if (ownerId == null) return Future.value(null);
+  // Explicit read-only scope: guest records only, never other account caches.
+  Stream<List<SosMessage>> watchDeviceHistory() =>
+      (_database.select(_database.sosMessages)
+            ..where((t) => t.ownerId.equals(guestDeviceOwnerId))
+            ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+          .watch();
 
-    return (_database.select(_database.sosMessages)
-          ..where((t) => t.id.equals(id) & t.ownerId.equals(ownerId)))
-        .getSingleOrNull();
+  Future<SosMessage?> findById(String id) async {
+    final ownerId = _ownerId;
+    if (ownerId == null) return null;
+
+    final row =
+        await (_database.select(_database.sosMessages)
+              ..where((t) => t.id.equals(id) & t.ownerId.equals(ownerId)))
+            .getSingleOrNull();
+    return _isOwnerCurrent(ownerId) ? row : null;
   }
 
   Future<void> create({
@@ -256,8 +294,11 @@ class SosRepository {
   }
 
   Future<void> syncPending() async {
+    // Guest records are intentionally local-only. Firestore security rules
+    // continue to require an authenticated Firebase owner.
+    if (_firebaseAuth.currentUser == null) return;
     final ownerId = _ownerId;
-    if (ownerId == null || _isSyncing) return;
+    if (ownerId == null || ownerId == guestDeviceOwnerId || _isSyncing) return;
 
     _isSyncing = true;
 

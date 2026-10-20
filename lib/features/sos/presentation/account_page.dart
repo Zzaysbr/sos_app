@@ -102,6 +102,7 @@ class _AccountPageState extends State<AccountPage> {
 
   Future<void> _signOut() async {
     final confirmed = await showDialog<bool>(
+      useRootNavigator: false,
       context: context,
       builder: (dialogContext) {
         return AlertDialog(

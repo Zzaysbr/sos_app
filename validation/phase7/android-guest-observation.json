@@ -1,0 +1,19 @@
+{
+  "device": "Samsung Galaxy A53 / Android 14",
+  "source": "user observation plus app-native diagnostic log",
+  "guest_sos_created": true,
+  "gps_off_no_coordinate_fallback": "observed by user",
+  "ble_outbox_enqueued": "observed in app log",
+  "destination": "none selected",
+  "application_ack": "NOT RUN",
+  "detail_close_action": "PASS: user retested the updated physical Android build; header x returns to app",
+  "activity_flutter_engine_restarts": "observed in native log",
+  "row_visible_after_restart": "PASS: user confirmed all prior Guest records remain after update/reopen",
+  "new_record_count": "exact count not supplied; user confirmed no records missing",
+  "guest_visibility_after_login_A": "PASS: user opened ข้อมูลในเครื่อง and confirmed original Guest SOS remains and opens",
+  "account_history_separation": "PASS: user initially saw only A records on History, then found Guest records on separate local history",
+  "logout_and_account_B": "PASS: user confirmed A history hidden after logout and Login B, with original Guest SOS still opening in both stages",
+  "failed_login_then_exit": "PASS: user intentionally entered wrong test password after logout, returned to app, original Guest SOS remained accessible and A/B history absent",
+  "bluetooth_off": "PASS: user disabled Bluetooth, Start Scan reported Bluetooth off/unavailable, original Guest SOS remained accessible; Bluetooth restore requested",
+  "nearby_permission_denied": "PASS: user denied Nearby devices, BLE Test reported permission problem, original Guest SOS remained accessible; permission restored"
+}

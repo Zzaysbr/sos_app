@@ -124,6 +124,8 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
             ..addAll(messages),
         );
         for (final message in messages.reversed) {
+          // Incoming recipientId is the local owner scope, not a radio route.
+          if (!message.isMine) continue;
           final recipient = message.recipientId;
           if (recipient != null && recipient.isNotEmpty) {
             _selectedDestinationId = recipient;

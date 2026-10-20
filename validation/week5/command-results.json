@@ -1,0 +1,109 @@
+{
+  "baseline": {
+    "full_test_pass": 169,
+    "full_test_fail": 2
+  },
+  "full_tests": {
+    "command": "flutter test",
+    "exit_code": 0,
+    "passed": 203,
+    "failed": 0,
+    "log": "flutter-test.log"
+  },
+  "analyze": {
+    "command": "flutter analyze lib test",
+    "exit_code": 0,
+    "log": "flutter-analyze.log"
+  },
+  "added_tests": 32,
+  "original_identity_tests_fixed": 2,
+  "android_debug": {
+    "exit_code": 0,
+    "seconds_gradle": 29.2,
+    "log": "android-debug-validated-build.log",
+    "revision": "frozen W5-09 source"
+  },
+  "android_initial_build": {
+    "exit_code": 1,
+    "reason": "Kotlin scan session Int/Long mismatch",
+    "log": "android-debug-build-initial.log"
+  },
+  "ios_profile": {
+    "status": "final frozen-source incremental confirmation running",
+    "log": "ios-profile-validated-build.log"
+  },
+  "ios_debug": {
+    "status": "refresh required for W5-08 Dart changes"
+  },
+  "signed_ios_release": {
+    "status": "NOT RUN"
+  },
+  "physical_updated_android_continuity": {
+    "status": "PASS",
+    "evidence": "user confirmed all original SOS and Confirmed received retained"
+  },
+  "physical_fixed_chat_location": {
+    "status": "NOT RUN"
+  },
+  "focused_tests": {
+    "exit_code": 0,
+    "passed": 90,
+    "failed": 0,
+    "log": "focused-final.log"
+  },
+  "physical_android_guest_to_A_ble": {
+    "status": "PASS",
+    "evidence": "user reported Guest advertising followed by Login A and Start Scan works",
+    "scope": "before final generation/scheduling refresh, same native bridge"
+  },
+  "ios_profile_initial": {
+    "exit_code": 0,
+    "seconds_xcode": 843.2,
+    "log": "ios-profile-build.log",
+    "note": "source changed during build; final incremental confirmation pending"
+  },
+  "physical_android_A_to_guest_ble": {
+    "status": "PASS",
+    "evidence": "user reported Logout A followed by Guest Start Advertising works",
+    "scope": "same native bridge before final generation/scheduling refresh"
+  },
+  "android_final_install": {
+    "exit_code": 0,
+    "preserved_data": true
+  },
+  "ios_profile_install": {
+    "exit_code": 0,
+    "preserved_data": true
+  },
+  "ios_launch": {
+    "status": "BLOCKED",
+    "exit_code": 1,
+    "reason": "CoreDevice 10002/FBS security: invalid signature, entitlements or developer trust; disk signature verifies, target/profile valid",
+    "user_trust_check": "user subsequently confirmed app opens"
+  },
+  "ios_launch_initial_cli": {
+    "exit_code": 64,
+    "reason": "unsupported terminate-existing-process option; corrected using installed --help"
+  },
+  "ios_runtime": {
+    "status": "PASS",
+    "evidence": "user opened the installed profile app after Trust/Verify check",
+    "note": "CLI security rejection retained as historical; no BLE interoperability implied"
+  },
+  "ios_debug_before_reply_ui": {
+    "exit_code": 0,
+    "seconds_xcode": 464.3,
+    "log": "ios-debug-build.log"
+  },
+  "latest_source_validation": "203 full, 90 focused and analyzer pass; frozen source Android build pass",
+  "ios_profile_reply_ui": {
+    "exit_code": 0,
+    "seconds_xcode": 475.7,
+    "log": "ios-profile-reply-ui-build.log",
+    "note": "source changed for W5-09 during build; final no-pub incremental confirmation running"
+  },
+  "diff_check": {
+    "exit_code": 0,
+    "log": "git-diff-check.log"
+  }
+}

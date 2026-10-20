@@ -1,0 +1,12 @@
+{
+  "android_debug": {
+    "sha256": "80b4a6e6ceedef8f7c103217dfdb3e4c0a6ee836c10a859a78f9fad1377a7eef",
+    "bytes": 199386572,
+    "source": "final Dart/Android source including permission cleanup"
+  },
+  "ios_profile": {
+    "aot_sha256": "b4027ae9eeb6ef101e1d303dfda22039b79a612c3e56a575349022ed6a5e3021",
+    "aot_bytes": 10784272,
+    "kernel_blob_present": false
+  }
+}

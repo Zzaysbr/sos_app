@@ -28,6 +28,9 @@ class SosPage extends StatefulWidget {
     this.bleCoordinator,
     this.chatRepository,
     this.onChatMessageCreated,
+    this.onBleStartRequested,
+    this.isGuest = false,
+    this.onLoginRequested,
   });
 
   final SosRepository repository;
@@ -36,6 +39,9 @@ class SosPage extends StatefulWidget {
   final ChatRepository? chatRepository;
   final Future<void> Function(EmergencyChatMessage message)?
   onChatMessageCreated;
+  final Future<void> Function()? onBleStartRequested;
+  final bool isGuest;
+  final VoidCallback? onLoginRequested;
 
   @override
   State<SosPage> createState() => _SosPageState();
@@ -193,8 +199,12 @@ class _SosPageState extends State<SosPage> {
             ),
           ),
           IconButton(
-            tooltip: _syncing ? 'Syncing' : 'Sync pending SOS',
-            onPressed: _syncing ? null : _syncPending,
+            tooltip: widget.isGuest
+                ? 'Guest SOS stays on this device'
+                : _syncing
+                ? 'Syncing'
+                : 'Sync pending SOS',
+            onPressed: widget.isGuest || _syncing ? null : _syncPending,
             style: IconButton.styleFrom(
               backgroundColor: Colors.white,
               minimumSize: const Size(52, 52),
@@ -542,7 +552,7 @@ class _SosPageState extends State<SosPage> {
               ),
               SizedBox(height: 10),
               Text(
-                'Press and hold the red SOS button to create an alert. Your record is saved locally first, then synchronized when the connection is available.',
+                'Press and hold the red SOS button to create an alert. Guest SOS stays on this device, including after sign-in. SOS created while signed in is saved locally first and synchronized only with that account.',
               ),
             ],
           ),
@@ -605,6 +615,27 @@ class _SosPageState extends State<SosPage> {
                 ),
               ),
             ),
+            SliverToBoxAdapter(
+              child: Material(
+                color: background,
+                child: ListTile(
+                  leading: const Icon(Icons.phone_android),
+                  title: const Text('ข้อมูลในเครื่อง'),
+                  subtitle: const Text(
+                    'Guest SOS บนอุปกรณ์นี้ • ไม่ส่งขึ้น Cloud • ผู้ใช้เครื่องนี้เปิดดูได้',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _openDeviceHistory,
+                ),
+              ),
+            ),
+            if (!widget.isGuest)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: Text('ประวัติบัญชีปัจจุบัน (รวมรายการรอซิงก์)'),
+                ),
+              ),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 22, 20, 32),
               sliver: StreamBuilder<List<SosMessage>>(
@@ -1150,6 +1181,7 @@ class _SosPageState extends State<SosPage> {
     final coordinator = widget.bleCoordinator;
     if (coordinator != null) {
       await coordinator.enqueueChat(message, destinationId: destinationId);
+      unawaited(widget.onBleStartRequested?.call());
       return;
     }
     await widget.onChatMessageCreated?.call(message);
@@ -1207,12 +1239,16 @@ class _SosPageState extends State<SosPage> {
                       icon: Icons.bluetooth_outlined,
                       title: 'BLE Test (Debug)',
                       subtitle: 'Test nearby Bluetooth between phones',
-                      onTap: () => Navigator.of(context).push<void>(
-                        MaterialPageRoute<void>(
-                          builder: (_) =>
-                              BleTestPage(transport: widget.bleTransport),
-                        ),
-                      ),
+                      onTap: () async {
+                        await _prepareBleForInteraction();
+                        if (!mounted) return;
+                        await Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                BleTestPage(transport: widget.bleTransport),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -1251,18 +1287,23 @@ class _SosPageState extends State<SosPage> {
   Widget _buildAccountCard() {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final email =
-        FirebaseAuth.instance.currentUser?.email ?? 'No email available';
-    final currentEmail = FirebaseAuth.instance.currentUser?.email;
+    final email = widget.isGuest
+        ? 'Saved on this device'
+        : FirebaseAuth.instance.currentUser?.email ?? 'No email available';
+    final currentEmail = widget.isGuest
+        ? null
+        : FirebaseAuth.instance.currentUser?.email;
     final initial = (currentEmail?.isNotEmpty ?? false)
         ? currentEmail![0].toUpperCase()
         : '?';
-    final verified = FirebaseAuth.instance.currentUser?.emailVerified ?? false;
+    final verified =
+        !widget.isGuest &&
+        (FirebaseAuth.instance.currentUser?.emailVerified ?? false);
 
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: _openAccountPage,
+        onTap: widget.isGuest ? widget.onLoginRequested : _openAccountPage,
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Row(
@@ -1321,7 +1362,11 @@ class _SosPageState extends State<SosPage> {
                           ),
                           const SizedBox(width: 5),
                           Text(
-                            verified ? 'Email verified' : 'Email not verified',
+                            widget.isGuest
+                                ? 'Sign in for new cloud SOS'
+                                : verified
+                                ? 'Email verified'
+                                : 'Email not verified',
                             style: theme.textTheme.labelMedium?.copyWith(
                               color: verified
                                   ? colors.primary
@@ -1514,6 +1559,17 @@ class _SosPageState extends State<SosPage> {
   // SOS ACTIONS
   // ---------------------------------------------------------------------------
 
+  Future<void> _prepareBleForInteraction() async {
+    try {
+      // Subscribe the coordinator before the picker/debug page can establish a
+      // native connection. Broadcast connection events cannot be replayed later.
+      await widget.onBleStartRequested?.call();
+    } catch (_) {
+      // Permission/startup failure must still allow local SOS creation.
+      debugPrint('BLE startup unavailable; local SOS remains available.');
+    }
+  }
+
   Future<void> _sendSos() async {
     if (_sendingSos) {
       return;
@@ -1528,6 +1584,8 @@ class _SosPageState extends State<SosPage> {
     try {
       String? destinationId;
       if (widget.bleTransport != null) {
+        await _prepareBleForInteraction();
+        if (!mounted) return;
         destinationId = await Navigator.of(context).push<String>(
           MaterialPageRoute<String>(
             builder: (_) =>
@@ -1550,6 +1608,10 @@ class _SosPageState extends State<SosPage> {
         longitude: position?.longitude,
         destinationId: destinationId,
       );
+
+      // Local persistence is independent from BLE permission/initialization.
+      // A denied permission must not lose the saved SOS.
+      unawaited(widget.onBleStartRequested?.call());
 
       if (!mounted) {
         return;
@@ -1585,7 +1647,40 @@ class _SosPageState extends State<SosPage> {
     }
   }
 
-  Future<void> _showSosDetail(SosMessage sos) async {
+  void _openDeviceHistory() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('ข้อมูลในเครื่อง')),
+          body: StreamBuilder<List<SosMessage>>(
+            stream: widget.repository.watchDeviceHistory(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return _buildErrorCard('Unable to load device history.');
+              }
+              final rows = snapshot.data ?? const <SosMessage>[];
+              return ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  const Text(
+                    'Guest SOS เก็บอยู่เฉพาะอุปกรณ์นี้ ไม่ผูกกับบัญชีและไม่ส่งขึ้น Cloud ผู้ใช้เครื่องนี้เปิดดูได้',
+                  ),
+                  const SizedBox(height: 16),
+                  if (rows.isEmpty) const Text('ไม่มีข้อมูล Guest ในเครื่อง'),
+                  for (final row in rows) ...[
+                    _buildSosCard(row, readOnly: true),
+                    const SizedBox(height: 12),
+                  ],
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showSosDetail(SosMessage sos, {bool readOnly = false}) async {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -1609,6 +1704,11 @@ class _SosPageState extends State<SosPage> {
                         ),
                       ),
                       _buildStatusChip(sos.status),
+                      IconButton(
+                        tooltip: 'Close SOS details',
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        icon: const Icon(Icons.close),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -1617,9 +1717,10 @@ class _SosPageState extends State<SosPage> {
                     label: 'Type',
                     value: sos.type,
                   ),
-                  if (widget.bleCoordinator != null)
+                  if (!readOnly && widget.bleCoordinator != null)
                     _buildBleDeliveryDetail(sos, sheetContext),
-                  if (sos.status == 'active' &&
+                  if (!readOnly &&
+                      sos.status == 'active' &&
                       widget.bleCoordinator != null &&
                       widget.bleTransport != null) ...[
                     const SizedBox(height: 12),
@@ -1627,9 +1728,10 @@ class _SosPageState extends State<SosPage> {
                       sos: sos,
                       coordinator: widget.bleCoordinator!,
                       transport: widget.bleTransport!,
+                      onBleStartRequested: widget.onBleStartRequested,
                     ),
                   ],
-                  if (widget.bleCoordinator != null) ...[
+                  if (!readOnly && widget.bleCoordinator != null) ...[
                     const SizedBox(height: 12),
                     StreamBuilder<LocationBleEnvelope?>(
                       stream: widget.bleCoordinator!.watchIncomingLocation(
@@ -1690,11 +1792,15 @@ class _SosPageState extends State<SosPage> {
                     value: _formatDateTime(sos.updatedAt),
                   ),
                   _buildDetailRow(
-                    icon: sos.syncState == 'synced'
+                    icon: sos.ownerId == guestDeviceOwnerId
+                        ? Icons.phone_android
+                        : sos.syncState == 'synced'
                         ? Icons.cloud_done
                         : Icons.cloud_upload_outlined,
                     label: 'Sync',
-                    value: sos.syncState == 'synced'
+                    value: sos.ownerId == guestDeviceOwnerId
+                        ? 'ข้อมูลในเครื่องเท่านั้น'
+                        : sos.syncState == 'synced'
                         ? 'Synced'
                         : 'Pending sync',
                   ),
@@ -1705,26 +1811,27 @@ class _SosPageState extends State<SosPage> {
                       value: sos.message!,
                     ),
                   const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(sheetContext).pop();
-                        Navigator.of(context).push<void>(
-                          MaterialPageRoute<void>(
-                            builder: (_) => EmergencyChatPage(
-                              sosId: sos.id,
-                              repository: widget.chatRepository,
-                              onMessageCreatedWithDestination: _enqueueChat,
-                              bleTransport: widget.bleTransport,
+                  if (!readOnly)
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(sheetContext).pop();
+                          Navigator.of(context).push<void>(
+                            MaterialPageRoute<void>(
+                              builder: (_) => EmergencyChatPage(
+                                sosId: sos.id,
+                                repository: widget.chatRepository,
+                                onMessageCreatedWithDestination: _enqueueChat,
+                                bleTransport: widget.bleTransport,
+                              ),
                             ),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.chat_bubble_outline),
-                      label: const Text('Open incident chat'),
+                          );
+                        },
+                        icon: const Icon(Icons.chat_bubble_outline),
+                        label: const Text('Open incident chat'),
+                      ),
                     ),
-                  ),
                   if (sos.latitude != null && sos.longitude != null) ...[
                     _buildDetailRow(
                       icon: Icons.location_on_outlined,
@@ -1750,7 +1857,7 @@ class _SosPageState extends State<SosPage> {
                     ),
                   ],
                   const SizedBox(height: 20),
-                  if (sos.status == 'active') ...[
+                  if (!readOnly && sos.status == 'active') ...[
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
@@ -1775,7 +1882,7 @@ class _SosPageState extends State<SosPage> {
                       ),
                     ),
                   ],
-                  if (sos.status != 'active')
+                  if (readOnly || sos.status != 'active')
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton(
@@ -1873,6 +1980,7 @@ class _SosPageState extends State<SosPage> {
     final isResolved = status == 'resolved';
 
     final confirmed = await showDialog<bool>(
+      useRootNavigator: false,
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -1945,6 +2053,7 @@ class _SosPageState extends State<SosPage> {
 
   Future<void> _editSos(SosMessage sos) async {
     final result = await showDialog<String?>(
+      useRootNavigator: false,
       context: context,
       builder: (dialogContext) {
         return _EditSosDialog(initialMessage: sos.message ?? '');
@@ -1984,6 +2093,7 @@ class _SosPageState extends State<SosPage> {
 
   Future<void> _deleteSos(SosMessage sos) async {
     final confirmed = await showDialog<bool>(
+      useRootNavigator: false,
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -2085,6 +2195,7 @@ class _SosPageState extends State<SosPage> {
     SosMessage sos, {
     bool showActions = false,
     bool historyStyle = false,
+    bool readOnly = false,
   }) {
     final isActive = sos.status == 'active';
     final isSynced = sos.syncState == 'synced';
@@ -2108,7 +2219,7 @@ class _SosPageState extends State<SosPage> {
       ),
       child: InkWell(
         onTap: () {
-          _showSosDetail(sos);
+          _showSosDetail(sos, readOnly: readOnly);
         },
         child: Padding(
           padding: EdgeInsets.fromLTRB(
@@ -2195,12 +2306,20 @@ class _SosPageState extends State<SosPage> {
               Row(
                 children: [
                   Icon(
-                    isSynced ? Icons.cloud_done : Icons.cloud_upload_outlined,
+                    sos.ownerId == guestDeviceOwnerId
+                        ? Icons.phone_android
+                        : isSynced
+                        ? Icons.cloud_done
+                        : Icons.cloud_upload_outlined,
                     size: 16,
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    isSynced ? 'Synced' : 'Pending sync',
+                    sos.ownerId == guestDeviceOwnerId
+                        ? 'ข้อมูลในเครื่องเท่านั้น'
+                        : isSynced
+                        ? 'Synced'
+                        : 'Pending sync',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const Spacer(),

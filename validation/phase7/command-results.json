@@ -1,0 +1,163 @@
+{
+  "flutter_test": {
+    "exit_code": 1,
+    "passed": 169,
+    "failed": 2,
+    "failures": [
+      "default Chat sender / transport-peer namespace mismatch",
+      "default Location recipient / local-owner namespace mismatch"
+    ],
+    "evidence": "flutter-test-reply-route.log"
+  },
+  "flutter_analyze_lib_test": {
+    "exit_code": 0,
+    "evidence": "flutter-analyze-reply-route.log"
+  },
+  "flutter_build_apk_debug": {
+    "exit_code": 0,
+    "evidence": "android-debug-reply-route-build.log"
+  },
+  "map_guard_reproducer_before_fix": {
+    "exit_code": 1
+  },
+  "map_attribution_reproducer_before_fix": {
+    "exit_code": 1
+  },
+  "map_focused_after_fix": {
+    "exit_code": 0,
+    "passed": 18
+  },
+  "ble_start_order_after_fix": {
+    "exit_code": 0,
+    "passed": 2
+  },
+  "live_firebase_rest": {
+    "exit_code": 0,
+    "passed": 27
+  },
+  "ios_debug_no_codesign_final": {
+    "exit_code": 0,
+    "xcode_build_seconds": 1268.4,
+    "evidence": "ios-debug-reply-route-build.log"
+  },
+  "signed_release": {
+    "status": "NOT RUN"
+  },
+  "ios_profile_build": {
+    "exit_code": 0,
+    "xcode_build_seconds": 463.7,
+    "mode": "development-signed profile, not signed release",
+    "evidence": "ios-profile-reply-route-build.log"
+  },
+  "flutter_doctor": {
+    "exit_code": 0
+  },
+  "guest_cloud_snapshot_after_login": {
+    "exit_code": 0,
+    "passed": 2,
+    "matching_documents_A": 0,
+    "matching_documents_B": 0
+  },
+  "ios_profile_install": {
+    "exit_code": 0
+  },
+  "ios_profile_launch": {
+    "process_launch_confirmed": true,
+    "visible_runtime_confirmation": "PASS: user confirmed app opens and BLE Test available"
+  },
+  "git_diff_check": {
+    "exit_code": 0
+  },
+  "profile_ack_diagnostics_first_build": {
+    "exit_code": 1,
+    "reason": "syntax typo in diagnostics change; corrected; failure log retained"
+  },
+  "profile_ack_diagnostics_fixed_build": {
+    "exit_code": 0,
+    "xcode_build_seconds": 26.9,
+    "install_exit_code": 0
+  },
+  "flutter_test_ack_diagnostics_fixed": {
+    "exit_code": 1,
+    "passed": 165,
+    "failed": 2
+  },
+  "flutter_analyze_ack_diagnostics_fixed": {
+    "exit_code": 0
+  },
+  "android_debug_ack_diagnostics": {
+    "exit_code": 0
+  },
+  "ios_debug_ack_diagnostics": {
+    "exit_code": 0,
+    "xcode_build_seconds": 391.0
+  },
+  "focused_ack_diagnostics": {
+    "exit_code": 0,
+    "passed": 68
+  },
+  "reply_route_before_fix": {
+    "exit_code": 1,
+    "failed": 2,
+    "reproduced": [
+      "default SOS reply route absent",
+      "wrong peer replay receives ACK"
+    ]
+  },
+  "focused_reply_route": {
+    "exit_code": 0,
+    "passed": 72
+  },
+  "reply_route_full_test": {
+    "exit_code": 1,
+    "passed": 169,
+    "failed": 2,
+    "failures": [
+      "Chat sender/peer identity",
+      "Location recipient/local identity"
+    ]
+  },
+  "reply_route_analyze": {
+    "exit_code": 0
+  },
+  "reply_route_android_build": {
+    "exit_code": 0
+  },
+  "reply_route_ios_profile_build": {
+    "exit_code": 0,
+    "xcode_build_seconds": 463.7
+  },
+  "reply_route_ios_debug_build": {
+    "exit_code": 0,
+    "xcode_build_seconds": 1268.4,
+    "evidence": "ios-debug-reply-route-build.log"
+  },
+  "reply_route_android_install": {
+    "exit_code": 0,
+    "launch_exit_code": 0,
+    "preserve_data_flag": "-r"
+  },
+  "artifact_credential_scan": {
+    "exit_code": 0,
+    "files_scanned": 64,
+    "matching_files": 0,
+    "scope": "controlled account credentials/UIDs and Firebase config API key values compared without logging values"
+  },
+  "reply_route_ios_profile_install": {
+    "exit_code": 0,
+    "process_launch_confirmed": true
+  },
+  "flutter_test_before_reply_route": {
+    "exit_code": 1,
+    "passed": 165,
+    "failed": 2,
+    "failures": [
+      "default Chat sender / transport-peer namespace mismatch",
+      "default Location recipient / local-owner namespace mismatch"
+    ]
+  },
+  "ios_debug_no_codesign_before_reply_route": {
+    "exit_code": 0,
+    "xcode_build_seconds": 502.8
+  }
+}

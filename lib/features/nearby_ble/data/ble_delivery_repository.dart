@@ -8,6 +8,11 @@ import 'ble_protocol.dart';
 import '../domain/sos_ble_envelope.dart';
 import '../domain/location_ble_envelope.dart';
 
+class BlePeerMismatchException extends BleDeliveryStateException {
+  const BlePeerMismatchException()
+    : super('SOS delivery does not match the recorded transport peer.');
+}
+
 class BleDeliveryRepository {
   BleDeliveryRepository(this._database);
 
@@ -63,10 +68,12 @@ class BleDeliveryRepository {
   Future<BleOutboxData> enqueueLocationOutbox(
     LocationBleEnvelope envelope, {
     required String destinationId,
+    String? expectedRecipientId,
     DateTime? now,
   }) async {
     final destination = destinationId.trim();
-    if (destination.isEmpty || destination != envelope.recipientId) {
+    if (destination.isEmpty ||
+        (expectedRecipientId ?? destination) != envelope.recipientId) {
       throw const BleDeliveryStateException(
         'Location recipient and BLE destination must match.',
       );
@@ -272,18 +279,69 @@ class BleDeliveryRepository {
   /// treated as an authenticated user identity and may become stale if the
   /// peer changes its platform identifier.
   Future<String?> lookupReplyDestination(String sosId) async {
-    final row =
+    final rows =
         await (_database.select(_database.bleInbox)
               ..where(
-                (table) =>
-                    table.sosId.equals(sosId) &
-                    table.senderDeviceId.isNotNull(),
+                (t) => t.sosId.equals(sosId) & t.senderDeviceId.isNotNull(),
               )
-              ..orderBy([(table) => OrderingTerm.desc(table.receivedAt)])
-              ..limit(1))
-            .getSingleOrNull();
-    final sender = row?.senderDeviceId?.trim();
-    return sender == null || sender.isEmpty ? null : sender;
+              ..orderBy([(t) => OrderingTerm.desc(t.receivedAt)]))
+            .get();
+    for (final row in rows) {
+      if (_isSosDelivery(row.payload)) {
+        final peer = row.senderDeviceId?.trim();
+        if (peer != null && peer.isNotEmpty) return peer;
+      }
+    }
+    return null;
+  }
+
+  Future<String?> lookupIncidentDestination(String sosId) async {
+    final reply = await lookupReplyDestination(sosId);
+    if (reply != null) return reply;
+    final rows =
+        await (_database.select(_database.bleOutbox)
+              ..where(
+                (t) => t.sosId.equals(sosId) & t.destinationId.isNotNull(),
+              )
+              ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+            .get();
+    for (final row in rows) {
+      if (_isSosDelivery(row.payload)) {
+        return row.destinationId;
+      }
+    }
+    return null;
+  }
+
+  bool _isSosDelivery(String payload) {
+    try {
+      final value = jsonDecode(payload);
+      return value is Map && value['kind'] == 'sos.delivery';
+    } on FormatException {
+      return false;
+    }
+  }
+
+  /// Route established by SOS delivery/explicit SOS recipient only. Location
+  /// packets must never be able to establish their own authorization route.
+  Future<bool> isIncidentPeer(String sosId, String peer) async {
+    final incoming =
+        await (_database.select(_database.bleInbox)..where(
+              (t) => t.sosId.equals(sosId) & t.senderDeviceId.equals(peer),
+            ))
+            .get();
+    final outgoing =
+        await (_database.select(_database.bleOutbox)..where(
+              (t) => t.sosId.equals(sosId) & t.destinationId.equals(peer),
+            ))
+            .get();
+    for (final payload in [
+      ...incoming.map((r) => r.payload),
+      ...outgoing.map((r) => r.payload),
+    ]) {
+      if (_isSosDelivery(payload)) return true;
+    }
+    return false;
   }
 
   Future<BleOutboxData> assignDestinationIfMissing(
@@ -323,12 +381,28 @@ class BleDeliveryRepository {
     return (await lookupOutbox(messageId))!;
   }
 
-  Future<List<BleOutboxData>> dueOutbox({DateTime? now, int limit = 50}) async {
+  Expression<bool> _outboxOwnerScope($BleOutboxTable table, String? ownerId) {
+    if (ownerId == null) return const Constant(true);
+    final incidents = _database.selectOnly(_database.sosMessages)
+      ..addColumns([_database.sosMessages.id])
+      ..where(_database.sosMessages.ownerId.equals(ownerId));
+    final chats = _database.selectOnly(_database.chatMessages)
+      ..addColumns([_database.chatMessages.messageId])
+      ..where(_database.chatMessages.ownerId.equals(ownerId));
+    return table.sosId.isInQuery(incidents) | table.messageId.isInQuery(chats);
+  }
+
+  Future<List<BleOutboxData>> dueOutbox({
+    DateTime? now,
+    int limit = 50,
+    String? ownerId,
+  }) async {
     if (limit <= 0) return const [];
     final timestamp = (now ?? DateTime.now()).toUtc();
     return (_database.select(_database.bleOutbox)
           ..where(
             (table) =>
+                _outboxOwnerScope(table, ownerId) &
                 table.destinationId.isNotNull() &
                 table.destinationId.isNotValue('') &
                 (table.state.equals(BleOutboxState.queued.wireValue) |
@@ -514,6 +588,28 @@ class BleDeliveryRepository {
     });
   }
 
+  /// Native write completion may race an application ACK. Terminal state wins.
+  Future<BleOutboxData> finishWriting(
+    String messageId, {
+    DateTime? now,
+  }) => _database.transaction(() async {
+    final row = await lookupOutbox(messageId);
+    if (row == null) throw const BleDeliveryStateException('Missing outbox.');
+    if (row.state == BleOutboxState.sending.wireValue ||
+        row.state == BleOutboxState.writeAccepted.wireValue) {
+      await (_database.update(_database.bleOutbox)..where(
+            (t) => t.messageId.equals(messageId) & t.state.equals(row.state),
+          ))
+          .write(
+            BleOutboxCompanion(
+              state: Value(BleOutboxState.awaitingAcknowledgement.wireValue),
+              updatedAt: Value((now ?? DateTime.now()).toUtc()),
+            ),
+          );
+    }
+    return (await lookupOutbox(messageId))!;
+  });
+
   Future<BleOutboxData> recordLocationAcknowledgement(
     LocationBleEnvelope acknowledgement, {
     String? sourceDeviceId,
@@ -624,6 +720,7 @@ class BleDeliveryRepository {
     LocationBleEnvelope envelope, {
     required String expectedRecipientId,
     String? sourceDeviceId,
+    String? expectedSenderId,
     DateTime? now,
   }) async {
     final timestamp = (now ?? DateTime.now()).toUtc();
@@ -635,7 +732,8 @@ class BleDeliveryRepository {
     }
     if (sourceDeviceId != null &&
         envelope.senderDeviceId != null &&
-        envelope.senderDeviceId!.trim() != sourceDeviceId.trim()) {
+        envelope.senderDeviceId!.trim() !=
+            (expectedSenderId ?? sourceDeviceId.trim())) {
       throw const BleDeliveryStateException(
         'Location update sender does not match the BLE peer.',
       );
@@ -643,6 +741,11 @@ class BleDeliveryRepository {
     final payload = jsonEncode(envelope.toJson());
     return _database.transaction(() async {
       final existed = await lookupInbox(envelope.messageId);
+      if (existed != null &&
+          sourceDeviceId != null &&
+          existed.senderDeviceId != sourceDeviceId) {
+        throw const BlePeerMismatchException();
+      }
       if (existed == null) {
         final history = await (_database.select(
           _database.bleInbox,
@@ -672,7 +775,7 @@ class BleDeliveryRepository {
             BleInboxCompanion.insert(
               messageId: envelope.messageId,
               sosId: envelope.sosId,
-              senderDeviceId: Value(envelope.senderDeviceId),
+              senderDeviceId: Value(sourceDeviceId ?? envelope.senderDeviceId),
               schemaVersion: LocationBleEnvelope.schemaVersion,
               payload: payload,
               processingState: BleInboxState.persisted.wireValue,
@@ -701,21 +804,39 @@ class BleDeliveryRepository {
   Future<BleInboundPersistResult> persistIncomingDelivery(
     SosBleEnvelope envelope, {
     required String ownerId,
+    String? sourceDeviceId,
+    String? expectedSenderId,
     DateTime? now,
   }) async {
     _requireDelivery(envelope);
+    final source = sourceDeviceId?.trim();
+    final declaredSender = envelope.senderDeviceId?.trim();
+    if (source != null &&
+        (source.isEmpty ||
+            (declaredSender != null &&
+                declaredSender != (expectedSenderId ?? source)))) {
+      throw const BlePeerMismatchException();
+    }
     final payload = jsonEncode(envelope.toJson());
     final timestamp = (now ?? DateTime.now()).toUtc();
 
     return _database.transaction(() async {
       final existedInbox = await lookupInbox(envelope.messageId);
+      // Bind new inbox rows to the observed radio route, not account ownership
+      // or an optional envelope field. Never infer a missing legacy binding
+      // from a replay: its original transport peer is unknown.
+      if (existedInbox != null &&
+          source != null &&
+          existedInbox.senderDeviceId?.trim() != source) {
+        throw const BlePeerMismatchException();
+      }
       await _database
           .into(_database.bleInbox)
           .insert(
             BleInboxCompanion.insert(
               messageId: envelope.messageId,
               sosId: envelope.sosId,
-              senderDeviceId: Value(envelope.senderDeviceId),
+              senderDeviceId: Value(source ?? envelope.senderDeviceId),
               schemaVersion: SosBleEnvelope.schemaVersion,
               payload: payload,
               processingState: BleInboxState.received.wireValue,
@@ -784,11 +905,13 @@ class BleDeliveryRepository {
     required DateTime olderThan,
     required DateTime nextRetryAt,
     String error = 'Recovered after an interrupted BLE attempt.',
+    String? ownerId,
     DateTime? now,
   }) async {
     final timestamp = (now ?? DateTime.now()).toUtc();
     return (_database.update(_database.bleOutbox)..where(
           (table) =>
+              _outboxOwnerScope(table, ownerId) &
               table.updatedAt.isSmallerOrEqualValue(olderThan) &
               (table.state.equals(BleOutboxState.sending.wireValue) |
                   table.state.equals(BleOutboxState.writeAccepted.wireValue) |
@@ -857,8 +980,7 @@ class BleDeliveryRepository {
           ),
         );
         if (expectedSender != null &&
-            (envelope.senderDeviceId == null ||
-                envelope.senderDeviceId!.trim() != expectedSender)) {
+            (row.senderDeviceId?.trim() != expectedSender)) {
           continue;
         }
         envelope.validate(now: timestamp);
@@ -945,6 +1067,7 @@ class BleDeliveryRepository {
   }
 
   static const _acknowledgementStates = {
+    BleOutboxState.failed,
     BleOutboxState.sending,
     BleOutboxState.writeAccepted,
     BleOutboxState.awaitingAcknowledgement,

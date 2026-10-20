@@ -1,0 +1,9 @@
+{
+  "provision_decode_exit": 0,
+  "expires_utc": "2026-10-27T08:55:28",
+  "provisioned_device_count": 2,
+  "hardware_has_udid": true,
+  "target_in_provision": true,
+  "application_identifier_matches_bundle": true,
+  "get_task_allow": true
+}

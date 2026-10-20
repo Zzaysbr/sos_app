@@ -21,6 +21,7 @@ class LocationSharingPanel extends StatefulWidget {
     required this.transport,
     this.locationLoader,
     this.now,
+    this.onBleStartRequested,
   });
 
   final SosMessage sos;
@@ -28,6 +29,7 @@ class LocationSharingPanel extends StatefulWidget {
   final BleTransportClient transport;
   final ForegroundLocationLoader? locationLoader;
   final DateTime Function()? now;
+  final Future<void> Function()? onBleStartRequested;
 
   @override
   State<LocationSharingPanel> createState() => _LocationSharingPanelState();
@@ -40,6 +42,23 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
   String? _error;
   DateTime? _lastPublishedAt;
   Future<void>? _pendingOperation;
+
+  late Stream<BleOutboxData?> _delivery;
+
+  @override
+  void initState() {
+    super.initState();
+    _delivery = widget.coordinator.watchLocationDeliveryForSos(widget.sos.id);
+  }
+
+  @override
+  void didUpdateWidget(covariant LocationSharingPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.coordinator != widget.coordinator ||
+        oldWidget.sos.id != widget.sos.id) {
+      _delivery = widget.coordinator.watchLocationDeliveryForSos(widget.sos.id);
+    }
+  }
 
   DateTime get _now => (widget.now ?? DateTime.now).call().toUtc();
 
@@ -69,6 +88,8 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
       _error = null;
     });
     try {
+      await widget.onBleStartRequested?.call();
+      if (!mounted) return;
       final selected = await Navigator.of(context).push<String>(
         MaterialPageRoute<String>(
           builder: (_) => BleRecipientPickerPage(transport: widget.transport),
@@ -183,7 +204,7 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<BleOutboxData?>(
-      stream: widget.coordinator.watchLocationDeliveryForSos(widget.sos.id),
+      stream: _delivery,
       builder: (context, snapshot) {
         final state = snapshot.data == null
             ? null
@@ -214,7 +235,15 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
                         style: TextStyle(fontWeight: FontWeight.w700),
                       ),
                     ),
-                    Text(stateText),
+                    Flexible(
+                      child: Semantics(
+                        container: true,
+                        liveRegion: true,
+                        excludeSemantics: true,
+                        label: 'Location delivery: $stateText',
+                        child: Text(stateText),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -238,17 +267,26 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
                   children: [
                     if (!_sharing)
                       FilledButton(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size(48, 48),
+                        ),
                         onPressed: _busy ? null : _start,
                         child: Text(_busy ? 'Starting…' : 'Start sharing'),
                       )
                     else ...[
                       OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(48, 48),
+                        ),
                         onPressed: _busy ? null : _publish,
                         child: Text(
                           _busy ? 'Getting location…' : 'Send location',
                         ),
                       ),
                       TextButton(
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(48, 48),
+                        ),
                         onPressed: _stop,
                         child: const Text('Stop sharing'),
                       ),

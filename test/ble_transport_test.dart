@@ -150,4 +150,47 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(methods, null);
   });
+  for (final disconnect in [false, true]) {
+    test(disconnect ? 'late listener never replays a disconnected peer' : 'late picker listener receives existing readiness without reconnect', () async {
+      const methods = MethodChannel('replay/methods');
+      const events = EventChannel('replay/events');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      late MockStreamHandlerEventSink native;
+      var cancellations = 0;
+      messenger.setMockMethodCallHandler(methods, (_) async => null);
+      messenger.setMockStreamHandler(
+        events,
+        MockStreamHandler.inline(
+          onListen: (_, sink) => native = sink,
+          onCancel: (_) => cancellations++,
+        ),
+      );
+      final transport = BleTransport(methods: methods, events: events);
+      final first = transport.events.listen((_) {});
+      await Future<void>.delayed(Duration.zero);
+      native.success({
+        'type': 'connected',
+        'device': {'id': 'selected-peer'},
+        'role': 'peripheral',
+      });
+      await Future<void>.delayed(Duration.zero);
+      if (disconnect) {
+        native.success({
+          'type': 'disconnected',
+          'device': {'id': 'selected-peer'},
+          'role': 'peripheral',
+        });
+        await Future<void>.delayed(Duration.zero);
+      }
+      final replay = <BleEvent>[];
+      final second = transport.events.listen(replay.add);
+      await Future<void>.delayed(Duration.zero);
+      expect(replay.map((e) => e.type), disconnect ? isEmpty : ['connected']);
+      await first.cancel();
+      await second.cancel();
+      await transport.dispose();
+      expect(cancellations, 1);
+    });
+  }
 }

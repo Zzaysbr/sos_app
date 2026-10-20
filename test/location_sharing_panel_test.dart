@@ -41,56 +41,90 @@ class _Transport implements BleTransportClient {
 }
 
 void main() {
-  testWidgets(
-    'location sharing starts off and requires an explicit recipient',
-    (tester) async {
-      final database = AppDatabase.forTesting(NativeDatabase.memory());
-      final now = DateTime.utc(2026, 1, 1);
-      await database
-          .into(database.sosMessages)
-          .insert(
-            SosMessagesCompanion.insert(
-              id: 'sos-ui',
-              ownerId: 'owner',
-              type: 'emergency',
-              status: 'active',
-              syncState: 'synced',
-              createdAt: now,
-              updatedAt: now,
-            ),
-          );
-      final transport = _Transport();
-      final coordinator = SosBleCoordinator(
-        database: database,
-        ownerId: 'owner',
-        transport: transport,
-      );
-      final sos = await (database.select(
-        database.sosMessages,
-      )..where((table) => table.id.equals('sos-ui'))).getSingle();
+  for (final scale in [1.0, 2.0]) {
+    testWidgets(
+      'location sharing at text scale $scale waits for readiness and explicit recipient',
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+        final ready = Completer<void>();
+        final database = AppDatabase.forTesting(NativeDatabase.memory());
+        final now = DateTime.utc(2026, 1, 1);
+        await database
+            .into(database.sosMessages)
+            .insert(
+              SosMessagesCompanion.insert(
+                id: 'sos-ui',
+                ownerId: 'owner',
+                type: 'emergency',
+                status: 'active',
+                syncState: 'synced',
+                createdAt: now,
+                updatedAt: now,
+              ),
+            );
+        final transport = _Transport();
+        final coordinator = SosBleCoordinator(
+          database: database,
+          ownerId: 'owner',
+          transport: transport,
+        );
+        final sos = await (database.select(
+          database.sosMessages,
+        )..where((table) => table.id.equals('sos-ui'))).getSingle();
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: LocationSharingPanel(
-              sos: sos,
-              coordinator: coordinator,
-              transport: transport,
+        await tester.pumpWidget(
+          MaterialApp(
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: TextScaler.linear(scale)),
+              child: child!,
+            ),
+            home: Scaffold(
+              body: LocationSharingPanel(
+                sos: sos,
+                coordinator: coordinator,
+                transport: transport,
+                onBleStartRequested: () => ready.future,
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      expect(find.text('Foreground location sharing'), findsOneWidget);
-      expect(find.text('Off'), findsOneWidget);
-      expect(find.text('Start sharing'), findsOneWidget);
-      expect(
-        find.text('Select a connected recipient to start sharing.'),
-        findsNothing,
-      );
+        expect(find.text('Foreground location sharing'), findsOneWidget);
+        expect(find.text('Off'), findsOneWidget);
+        expect(find.text('Start sharing'), findsOneWidget);
+        expect(
+          tester
+              .getSize(find.widgetWithText(FilledButton, 'Start sharing'))
+              .height,
+          greaterThanOrEqualTo(48),
+        );
+        expect(find.bySemanticsLabel('Location delivery: Off'), findsOneWidget);
+        expect(
+          find.text('Select a connected recipient to start sharing.'),
+          findsNothing,
+        );
 
-      await coordinator.dispose();
-      await database.close();
-    },
-  );
+        expect(tester.takeException(), isNull);
+        await tester.tap(find.text('Start sharing'));
+        await tester.pump();
+        expect(find.text('Choose BLE recipient'), findsNothing);
+        ready.complete();
+        await tester.pumpAndSettle();
+        expect(find.text('Choose BLE recipient'), findsOneWidget);
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        expect(find.text('Off'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.pump(const Duration(seconds: 1));
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(seconds: 1));
+        semantics.dispose();
+        await tester.runAsync(() async {
+          await coordinator.dispose();
+          await database.close();
+        });
+      },
+    );
+  }
 }

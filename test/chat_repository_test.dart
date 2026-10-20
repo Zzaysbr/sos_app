@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sos_app/core/database/app_database.dart';
+import 'package:sos_app/features/nearby_ble/data/ble_delivery_repository.dart';
+import 'package:sos_app/features/nearby_ble/domain/sos_ble_envelope.dart';
 import 'package:sos_app/features/sos/data/chat_repository.dart';
 
 void main() {
@@ -245,4 +247,57 @@ void main() {
       }
     },
   );
+  test(
+    'late sent and failed updates cannot regress a delivered Chat bubble',
+    () async {
+      final message = await repository.insertMessage(
+        sosId: 'sos-a',
+        text: 'test',
+      );
+      await repository.updateDeliveryStatus(
+        message.id,
+        ChatDeliveryStatus.delivered,
+      );
+      await repository.updateDeliveryStatus(
+        message.id,
+        ChatDeliveryStatus.sent,
+      );
+      await repository.updateDeliveryStatus(
+        message.id,
+        ChatDeliveryStatus.failed,
+      );
+      expect(
+        (await repository.loadMessages('sos-a')).single.status,
+        ChatDeliveryStatus.delivered,
+      );
+    },
+  );
+
+  test('stable device identity preserves legacy outgoing Chat origin without rewriting it', () async {
+    final old = await repository.insertMessage(
+      sosId: 'sos-a',
+      messageId: 'legacy-chat',
+      text: 'old',
+    );
+    await BleDeliveryRepository(database).enqueueOutbox(
+      SosBleEnvelope.chatMessage(
+        messageId: old.id,
+        sosId: old.sosId,
+        senderDeviceId: 'owner-a',
+        chatSenderId: old.senderId,
+        chatText: old.text,
+        createdAt: old.createdAt,
+      ),
+    );
+    final current = PersistentChatRepository(
+      database: database,
+      ownerId: 'owner-a',
+      senderId: 'install-A',
+    );
+    final retained = (await current.loadMessages('sos-a')).single;
+    expect(retained.isMine, isTrue);
+    expect(retained.id, old.id);
+    expect(retained.senderId, old.senderId);
+    expect(retained.status, old.status);
+  });
 }

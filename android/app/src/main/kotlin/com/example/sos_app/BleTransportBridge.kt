@@ -85,6 +85,7 @@ class BleTransportBridge(
     private val maxPendingNotifications = 32
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var disposed = false
+    private var generation = 0
     private var scanSession = 0L
 
     fun register() {
@@ -105,8 +106,9 @@ class BleTransportBridge(
         }
         logDebug("dispose requested; activeCentral=${clients.size} serverClients=${serverClients.size} advertising=$advertisingActive")
         disposed = true
+        generation += 1
         stopDiscovery()
-        advertiser?.stopAdvertising(advertiseCallback)
+        try { advertiser?.stopAdvertising(advertiseCallback) } catch (_: SecurityException) { }
         advertiser = null
         advertiseCallback = null
         advertisingActive = false
@@ -114,7 +116,10 @@ class BleTransportBridge(
         advertisingResult = null
         permissionResult?.error("disposed", "BLE transport was disposed", null)
         permissionResult = null
-        clients.values.toList().forEach { it.disconnect(); it.close() }
+        clients.values.toList().forEach {
+            try { it.disconnect() } catch (_: SecurityException) { }
+            try { it.close() } catch (_: SecurityException) { }
+        }
         failAllGattWrites("disposed", "BLE transport was disposed")
         clients.clear()
         readyClients.clear()
@@ -129,7 +134,7 @@ class BleTransportBridge(
         setupTimeouts.values.forEach(mainHandler::removeCallbacks)
         setupTimeouts.clear()
         connectionAttempts.clear()
-        server?.close()
+        try { server?.close() } catch (_: SecurityException) { }
         server = null
         serverTxCharacteristic = null
         serverReady = false
@@ -155,6 +160,24 @@ class BleTransportBridge(
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         if (Looper.myLooper() != Looper.getMainLooper()) {
             mainHandler.post { onMethodCall(call, result) }
+            return
+        }
+        if (call.method == "deviceIdentity") {
+            val preferences = context.getSharedPreferences("sos_device", Context.MODE_PRIVATE)
+            val identity = preferences.getString("identity", null) ?: UUID.randomUUID().toString().also {
+                if (!preferences.edit().putString("identity", it).commit()) {
+                    result.error("storage_failed", "Cannot persist device identity", null)
+                    return
+                }
+            }
+            result.success(identity)
+            return
+        }
+        if (disposed && (call.method == "requestPermissions" || call.method == "initialize")) {
+            disposed = false
+        }
+        if (disposed && call.method != "dispose") {
+            result.error("disposed", "BLE transport was disposed", null)
             return
         }
         if (call.method == "requestPermissions") {
@@ -283,10 +306,14 @@ class BleTransportBridge(
         return true
     }
 
-    private fun adapterState(): String = when {
-        adapter == null -> "unsupported"
-        !adapter.isEnabled -> "poweredOff"
-        else -> "idle"
+    private fun adapterState(): String {
+        if (adapter == null) return "unsupported"
+        if (!hasPermissionFor("initialize")) return "unauthorized"
+        return try {
+            if (adapter.isEnabled) "idle" else "poweredOff"
+        } catch (_: SecurityException) {
+            "unauthorized"
+        }
     }
 
     private fun ensureServer(result: MethodChannel.Result? = null) {
@@ -294,7 +321,7 @@ class BleTransportBridge(
             result?.success(null)
             return
         }
-        server = manager.openGattServer(context, serverCallback)
+        server = manager.openGattServer(context, serverCallback(generation))
         if (server == null) {
             result?.error("server_failed", "Could not open the GATT server", null)
             emitError("Could not open the GATT server")
@@ -397,6 +424,7 @@ class BleTransportBridge(
         scanner?.stopScan(scanCallback)
         scanner = current
         val session = ++scanSession
+        scanCallback = createScanCallback(session)
         logDebug("scan start session=$session")
         try {
             current.startScan(
@@ -415,6 +443,8 @@ class BleTransportBridge(
     private fun stopDiscovery() {
         try { scanner?.stopScan(scanCallback) } catch (_: Exception) { }
         scanner = null
+        scanCallback = null
+        scanSession += 1
         emit(mapOf("type" to "state", "state" to adapterState()))
     }
 
@@ -701,16 +731,19 @@ class BleTransportBridge(
         }
     }
 
-    private val scanCallback = object : ScanCallback() {
+    private var scanCallback: ScanCallback? = null
+
+    private fun createScanCallback(session: Long) = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             onMain {
-                val session = scanSession
+                if (disposed || session != scanSession) return@onMain
                 logDebug("onScanResult session=$session callbackType=$callbackType id=${result.device.address} rssi=${result.rssi}")
                 emit(mapOf("type" to "deviceFound", "device" to device(result.device, result.rssi), "scanSession" to session))
             }
         }
         override fun onScanFailed(errorCode: Int) {
             onMain {
+                if (disposed || session != scanSession) return@onMain
                 scanner = null
                 emitError("Android scan failed (code $errorCode)")
             }
@@ -911,9 +944,10 @@ class BleTransportBridge(
         logDebug("GATT cleanup complete id=$id")
     }
 
-    private val serverCallback = object : BluetoothGattServerCallback() {
+    private fun serverCallback(session: Int) = object : BluetoothGattServerCallback() {
         override fun onServiceAdded(status: Int, service: BluetoothGattService) {
             onMain {
+                if (disposed || session != generation) return@onMain
                 logDebug("onServiceAdded uuid=${service.uuid} status=$status")
                 if (service.uuid != SERVICE) return@onMain
                 if (status == BluetoothGatt.GATT_SUCCESS) {
@@ -937,6 +971,7 @@ class BleTransportBridge(
             value: ByteArray,
         ) {
             onMain {
+                if (disposed || session != generation) return@onMain
                 val supported = characteristic.uuid == RX && !preparedWrite && offset == 0
                 logDebug("onCharacteristicWriteRequest id=${device.address} uuid=${characteristic.uuid} requestId=$requestId prepared=$preparedWrite offset=$offset responseNeeded=$responseNeeded bytes=${value.size}")
                 if (supported) {
@@ -969,6 +1004,7 @@ class BleTransportBridge(
                 descriptor.characteristic?.uuid == TX &&
                 !preparedWrite && offset == 0 && (enabled || disabled)
             onMain {
+                if (disposed || session != generation) return@onMain
                 logDebug(
                     "onDescriptorWriteRequest id=${device.address} uuid=${descriptor.uuid} " +
                         "characteristic=${descriptor.characteristic?.uuid} requestId=$requestId " +
@@ -1004,6 +1040,7 @@ class BleTransportBridge(
 
         override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
             onMain {
+                if (disposed || session != generation) return@onMain
                 logDebug("server onConnectionStateChange id=${device.address} status=$status newState=$newState")
                 if (newState == BluetoothProfile.STATE_CONNECTED && status == BluetoothGatt.GATT_SUCCESS) {
                     serverClients.add(device.address)
@@ -1023,6 +1060,7 @@ class BleTransportBridge(
 
         override fun onNotificationSent(device: BluetoothDevice, status: Int) {
             onMain {
+                if (disposed || session != generation) return@onMain
                 logDebug("onNotificationSent id=${device.address} status=$status subscribed=${notificationClients.contains(device.address)}")
                 val id = device.address
                 val queue = notificationQueues[id]

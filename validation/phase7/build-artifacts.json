@@ -1,0 +1,14 @@
+{
+  "android_debug_apk_sha256": "ff4d9d6ba69d5800747d5b82414e460aa0be5c931480c6bae912178384a538dc",
+  "android_application_id": "com.example.sos_app",
+  "ios_bundle_id": "com.n1cxltine.sosapp",
+  "signed_release": "NOT RUN",
+  "android_current_artifact": "reply-route/source-binding fix; installed preserving data, affected physical retest pending",
+  "reply_route_profile_app_framework_sha256": "ec005cfd259da4415449b2a8de5fe06304e95c44a719fc1ddaac9e0665b2086a",
+  "profile_backup": "private temporary directory; retained for installation independently of debug validation",
+  "historical_initial_profile_runner_sha256": "068f3d7c42e4d15c6d6bec704162eab27cc161469237295f4f4ac8d4caaac694",
+  "ios_deployed_mode": "development-signed profile, reply-route fix",
+  "ios_latest_validation_output_mode": "unsigned debug, reply-route fix",
+  "ios_reply_route_debug_runner_sha256": "2f62b8066bb4d25f0c56449628f931ebd83e48782ce3905c6ae825c130265063",
+  "ios_reply_route_debug_kernel_sha256": "ed44573a68abb13a72241d52086a11ac6c0ebde4353104b8cfa5c835019c0bee"
+}

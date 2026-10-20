@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-20",
+  "devices": [
+    {
+      "alias": "Android A",
+      "model": "Samsung Galaxy A53 (SM-A536E)",
+      "os": "Android 14",
+      "physical": true,
+      "connected": true
+    },
+    {
+      "alias": "iPhone",
+      "model": "iPhone 15 Plus",
+      "os": "iOS 27.0.1",
+      "physical": true,
+      "connected": true,
+      "developerMode": "enabled"
+    },
+    {
+      "alias": "Android B",
+      "available": false
+    }
+  ],
+  "identifiers": "omitted"
+}

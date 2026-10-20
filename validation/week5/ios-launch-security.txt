@@ -1,0 +1,5 @@
+ERROR: The application failed to launch. (com.apple.dt.CoreDeviceError error 10002 (0x2712))
+           NSLocalizedFailureReason = The request was denied by service delegate (SBMainWorkspace) for reason: Security ("Unable to launch com.n1cxltine.sosapp because it has an invalid code signature, inadequate entitlements or its profile has not been explicitly trusted by the user").
+           BSErrorCodeDescription = RequestDenied
+               NSLocalizedFailureReason = Unable to launch com.n1cxltine.sosapp because it has an invalid code signature, inadequate entitlements or its profile has not been explicitly trusted by the user.
+               BSErrorCodeDescription = Security
