@@ -1,12 +1,18 @@
 {
   "android_debug": {
-    "sha256": "80b4a6e6ceedef8f7c103217dfdb3e4c0a6ee836c10a859a78f9fad1377a7eef",
-    "bytes": 199386572,
-    "source": "final Dart/Android source including permission cleanup"
+    "sha256": "9c62c49b180dbf1f8e7e81300e98853bab43fff97d4c5e0076407f64ca6a1f75",
+    "bytes": 199395004,
+    "source": "final Phase 7 source"
   },
   "ios_profile": {
-    "aot_sha256": "b4027ae9eeb6ef101e1d303dfda22039b79a612c3e56a575349022ed6a5e3021",
-    "aot_bytes": 10784272,
-    "kernel_blob_present": false
+    "status": "built and installed",
+    "exit_code": 0,
+    "source": "final Phase 7 source",
+    "note": "The local Runner.app was later replaced by the required unsigned debug build."
+  },
+  "ios_debug_app_framework": {
+    "sha256": "4262e7dd815cdab560f6254888106e426e958b2ba694edee9fd750706f16e6e6",
+    "bytes": 34896,
+    "source": "final Phase 7 source"
   }
 }

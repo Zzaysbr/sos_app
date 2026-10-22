@@ -103,6 +103,15 @@ class SosBleCoordinator with WidgetsBindingObserver {
   /// incident reply route. Without that route, presenting a nearby peer's
   /// coordinates would be unsafe and ambiguous.
   Future<LocationBleEnvelope?> latestIncomingLocation(String sosId) async {
+    final identity = await _deliveryRepository.lookupIncidentPeerIdentity(
+      sosId,
+    );
+    if (identity != null) {
+      return _deliveryRepository.latestIncomingLocation(
+        sosId,
+        requiredSenderIdentity: identity,
+      );
+    }
     final sender = await _deliveryRepository.lookupIncidentDestination(sosId);
     if (sender == null) return null;
     return _deliveryRepository.latestIncomingLocation(
@@ -112,6 +121,16 @@ class SosBleCoordinator with WidgetsBindingObserver {
   }
 
   Stream<LocationBleEnvelope?> watchIncomingLocation(String sosId) async* {
+    final identity = await _deliveryRepository.lookupIncidentPeerIdentity(
+      sosId,
+    );
+    if (identity != null) {
+      yield* _deliveryRepository.watchIncomingLocation(
+        sosId,
+        requiredSenderIdentity: identity,
+      );
+      return;
+    }
     final sender = await _deliveryRepository.lookupIncidentDestination(sosId);
     if (sender == null) {
       yield null;
@@ -227,6 +246,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
     final envelope = SosBleEnvelope.fromSosMessage(
       sos,
       messageId: messageId ?? 'sos:${sos.id}:delivery:v1',
+      senderDeviceId: requirePeerBinding ? _localDeviceId : null,
     );
     final row = await _deliveryRepository.enqueueOutbox(
       envelope,
@@ -447,7 +467,8 @@ class SosBleCoordinator with WidgetsBindingObserver {
     // A missing destination is intentionally left unsent. Selecting the first
     // connected peer can deliver an SOS or chat message to the wrong person.
     // Callers that know the intended recipient must persist destinationId.
-    final destination = row.destinationId?.isNotEmpty == true
+    var activeRow = row;
+    final destination = activeRow.destinationId?.isNotEmpty == true
         ? row.destinationId
         : null;
     if (destination == null) {
@@ -457,45 +478,82 @@ class SosBleCoordinator with WidgetsBindingObserver {
       );
       return;
     }
-    final deviceId = destination;
-    final roles = _connected[deviceId];
+    var deviceId = destination;
+    var roles = _connected[deviceId];
+    var identityRoutedPayload = false;
+    try {
+      final stored = jsonDecode(activeRow.payload);
+      identityRoutedPayload =
+          stored is Map &&
+          (stored['kind'] == SosBleMessageKind.chatMessage.wireValue ||
+              stored['kind'] == 'location.update');
+    } on Object {
+      // Malformed payloads are expired by the normal decode path below.
+    }
+    if (requirePeerBinding &&
+        identityRoutedPayload &&
+        (roles == null || roles.isEmpty)) {
+      final expectedIdentity = await _deliveryRepository
+          .lookupIncidentPeerIdentity(activeRow.sosId);
+      if (expectedIdentity != null) {
+        final matches = _peerBindings.entries
+            .where(
+              (entry) =>
+                  entry.value == expectedIdentity &&
+                  (_connected[entry.key]?.isNotEmpty ?? false),
+            )
+            .map((entry) => entry.key)
+            .toList(growable: false);
+        if (matches.length == 1 && matches.single != deviceId) {
+          activeRow = await _deliveryRepository.reassignPendingDestination(
+            activeRow.messageId,
+            expectedDestinationId: deviceId,
+            destinationId: matches.single,
+            now: _now(),
+          );
+          deviceId = matches.single;
+          roles = _connected[deviceId];
+          _log('deliveryRouteReboundByIdentity');
+        }
+      }
+    }
     if (roles == null || roles.isEmpty) {
       _pendingConnectionMessages
           .putIfAbsent(deviceId, () => <String>{})
-          .add(row.messageId);
+          .add(activeRow.messageId);
       if (_connecting.add(deviceId)) {
         try {
           _log(
-            'connect sosId=${row.sosId} messageId=${row.messageId} '
+            'connect sosId=${activeRow.sosId} messageId=${activeRow.messageId} '
             'peer=$deviceId',
           );
           await _transport.connect(deviceId);
         } catch (error) {
           _connecting.remove(deviceId);
-          _pendingConnectionMessages[deviceId]?.remove(row.messageId);
+          _pendingConnectionMessages[deviceId]?.remove(activeRow.messageId);
           final reason = 'connect failed: $error';
           try {
             // Count connection attempts in the durable outbox as well as
             // write attempts, otherwise an unreachable fixed peer can retry
             // forever with retryCount stuck at zero.
             final attempted = await _deliveryRepository.transitionOutboxState(
-              row.messageId,
+              activeRow.messageId,
               BleOutboxState.sending,
               now: _now(),
             );
             await _markFailed(attempted, reason);
           } catch (transitionError) {
             _log('Unable to record BLE connect attempt: $transitionError');
-            await _markFailed(row, reason);
+            await _markFailed(activeRow, reason);
           }
         }
       }
       return;
     }
 
-    _sendingMessages.add(row.messageId);
+    _sendingMessages.add(activeRow.messageId);
     try {
-      final stored = jsonDecode(row.payload);
+      final stored = jsonDecode(activeRow.payload);
       if (requirePeerBinding &&
           stored is Map &&
           (stored['kind'] == 'chat.message' ||
@@ -507,7 +565,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
         return;
       }
       final sending = await _deliveryRepository.claimOutboxForSending(
-        row.messageId,
+        activeRow.messageId,
         now: _now(),
       );
       if (sending == null || !_sessionActive || _disposed) return;
@@ -533,27 +591,30 @@ class SosBleCoordinator with WidgetsBindingObserver {
       }
       if (!_sessionActive || _disposed) return;
       final completed = await _deliveryRepository.finishWriting(
-        row.messageId,
+        activeRow.messageId,
         now: _now(),
       );
       await _updateChatStatus(
-        row,
+        activeRow,
         completed.state == BleOutboxState.acknowledged.wireValue
             ? ChatDeliveryStatus.delivered
             : ChatDeliveryStatus.sent,
       );
       _log(
-        'writeAccepted sosId=${sending.sosId} messageId=${row.messageId} '
+        'writeAccepted sosId=${sending.sosId} messageId=${activeRow.messageId} '
         'state=${BleOutboxState.awaitingAcknowledgement.wireValue}',
       );
     } on SosBleEnvelopeException catch (error) {
-      await _expire(row.messageId, 'invalid stored envelope: $error');
+      await _expire(activeRow.messageId, 'invalid stored envelope: $error');
     } on LocationBleEnvelopeException catch (error) {
-      await _expire(row.messageId, 'invalid stored location envelope: $error');
+      await _expire(
+        activeRow.messageId,
+        'invalid stored location envelope: $error',
+      );
     } catch (error) {
-      await _markFailed(row, 'send failed: $error');
+      await _markFailed(activeRow, 'send failed: $error');
     } finally {
-      _sendingMessages.remove(row.messageId);
+      _sendingMessages.remove(activeRow.messageId);
     }
   }
 
@@ -873,6 +934,18 @@ class SosBleCoordinator with WidgetsBindingObserver {
               : ChatDeliveryStatus.failed,
         );
       }
+      if (envelope.kind == SosBleMessageKind.acknowledgement &&
+          envelope.senderDeviceId?.trim().isNotEmpty == true) {
+        try {
+          await _deliveryRepository.persistInboundSosAcknowledgement(
+            envelope,
+            sourceDeviceId: deviceId,
+            now: _now(),
+          );
+        } on BleDeliveryStateException catch (error) {
+          _log('ackRoutePersistRejected reason=$error');
+        }
+      }
       _log(
         'acknowledged sosId=${envelope.sosId} messageId=${envelope.ackFor} '
         'ackId=${envelope.messageId} status=${envelope.ackStatus!.wireValue} '
@@ -918,6 +991,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
             !await _deliveryRepository.isIncidentPeer(
               envelope.sosId,
               deviceId,
+              peerIdentity: _peerBindings[deviceId],
             ))) {
       _log('locationPeerOrRecipientRejected');
       return;
@@ -1069,6 +1143,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
             !await _deliveryRepository.isIncidentPeer(
               envelope.sosId,
               deviceId,
+              peerIdentity: _peerBindings[deviceId],
             ))) {
       _log('chatIncidentPeerRejected');
       return;
@@ -1169,6 +1244,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
       sosId: delivery.sosId,
       ackFor: delivery.messageId,
       ackStatus: status,
+      senderDeviceId: _localDeviceId,
       error: error,
       createdAt: _now(),
     );
@@ -1213,6 +1289,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
       sosId: delivery.sosId,
       ackFor: delivery.messageId,
       ackStatus: status,
+      senderDeviceId: _localDeviceId,
       error: error,
       createdAt: _now(),
     );

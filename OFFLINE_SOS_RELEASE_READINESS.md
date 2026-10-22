@@ -1,6 +1,6 @@
 # Offline SOS release readiness
 
-Current gate: **BLOCKED**. The integrated Week 5 update and actual validation are in [WEEK_5_BUG_LOG.md](WEEK_5_BUG_LOG.md) and [PHASE_7_RELEASE_VERIFICATION.md](PHASE_7_RELEASE_VERIFICATION.md). Historical checklists below are retained.
+Current gate: **BLOCKED**. Android↔iPhone SOS and Chat pass both directions, and foreground Location passes initial/subsequent delivery, persisted ACK, map presentation and Stop on the tested devices. Remaining blockers are listed below. Integrated evidence is in [WEEK_5_BUG_LOG.md](WEEK_5_BUG_LOG.md) and [PHASE_7_RELEASE_VERIFICATION.md](PHASE_7_RELEASE_VERIFICATION.md). Historical checklists below are retained.
 
 This checklist describes the implementation currently in this repository. It
 does not claim Android/iOS BLE interoperability until a physical-device test
@@ -202,10 +202,29 @@ active gRPC/Firestore compilation; this was a slow build, not a proven hang.
 Signed release and all unexecuted physical scenarios remain NOT RUN.
 
 
-## Week 5 integrated continuation (2026-10-20)
+## Week 5 integrated continuation (20–22 October 2026)
 
 Release remains **BLOCKED**. See `WEEK_5_BUG_LOG.md` and the Week 5 section of `PHASE_7_RELEASE_VERIFICATION.md` for current source fixes, historical physical evidence and open gates. This section supersedes older source-only identity/lifecycle statements without changing their historical test results.
 
 Implemented explicit installation-ID/native-peer session binding for Chat/Location, selected incident route and author validation, native disposed-session reactivation/fencing, serialized AuthGate BLE teardown/startup, readiness snapshot replay, terminal ACK/Chat-state reconciliation and concurrent duplicate-content checks. No account ownership changes, Guest cloud merge, database migration, dependency, BLE UUID or framing changes. The additive capability message and old-peer fail-closed behavior are documented in the bug log. Device binding is not cryptographic authentication.
 
-Location sharing waits for listener readiness, retains a stable delivery stream and provides live screen-reader status/48px controls with 200% text tests. Visible map attribution includes safe native HTTPS links. Android update continuity was physically confirmed; fixed Chat/Location and native-session recovery still await new physical acceptance. Old unbound records remain intact; explicit legacy recovery remains open. Free-only provider deployment, live app sync retry/expiry, unavailable second Android and signed release remain unverified. Final commands/results: `validation/week5/command-results.json`.
+Location sharing waits for listener readiness, retains a stable delivery stream and provides live screen-reader status/48px controls with 200% text tests. Visible map attribution includes safe native HTTPS links. Android update continuity was physically confirmed; fixed Chat/Location and native-session recovery still await new physical acceptance. Old unbound records remain intact; explicit legacy recovery remains open. Free-only provider deployment, live app sync retry/expiry, unavailable second Android and signed release remain unverified. Frozen-source validation passes 203 full tests, 90 focused tests, analyzer, diff check, Android debug, signed iOS profile and unsigned iOS debug builds; exact exit codes and logs are in `validation/week5/command-results.json`.
+
+## Final Phase 7 acceptance update — 22 October 2026
+
+Final physical acceptance passes Android↔iPhone SOS and Chat in both directions
+with application ACKs and exactly one receiver record. Android→iPhone Location
+passes two updates, persisted ACKs, verified shared-location presentation and
+Stop = Off. Guest data remained accessible after restart/login/logout/account
+switching without ownership transfer or automatic Guest cloud sync.
+
+Final source validation passes 206 tests and 46 focused tests; analyzer,
+Android debug, signed development iOS profile, unsigned iOS debug, doctor and
+diff checks exit 0. Xcode 26.6 completed the unsigned debug build in 260.3s.
+Signed release remains NOT RUN.
+
+Release remains blocked by Android↔Android testing (second Android absent),
+controlled real-radio ACK-loss/wrong-peer/close-while-pending tests, the complete
+iPhone permission matrix, a configured/live-tested free production map provider
+and signed App Store/release validation. Geoapify Free remains a candidate;
+public OSM stays blocked in release and offline tiles are absent.

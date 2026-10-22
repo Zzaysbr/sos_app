@@ -313,6 +313,34 @@ class BleDeliveryRepository {
     return null;
   }
 
+  /// Returns the stable installation identity that was observed on a
+  /// validated SOS delivery or its application ACK. Chat and Location rows
+  /// cannot establish this association by themselves.
+  Future<String?> lookupIncidentPeerIdentity(String sosId) async {
+    final rows =
+        await (_database.select(_database.bleInbox)
+              ..where((t) => t.sosId.equals(sosId))
+              ..orderBy([(t) => OrderingTerm.desc(t.receivedAt)]))
+            .get();
+    for (final row in rows) {
+      try {
+        final value = jsonDecode(row.payload);
+        if (value is! Map ||
+            (value['kind'] != SosBleMessageKind.delivery.wireValue &&
+                value['kind'] != SosBleMessageKind.acknowledgement.wireValue)) {
+          continue;
+        }
+        final identity = value['senderDeviceId'];
+        if (identity is String && identity.trim().isNotEmpty) {
+          return identity.trim();
+        }
+      } on Object {
+        // Malformed historical rows are not an identity source.
+      }
+    }
+    return null;
+  }
+
   bool _isSosDelivery(String payload) {
     try {
       final value = jsonDecode(payload);
@@ -324,7 +352,11 @@ class BleDeliveryRepository {
 
   /// Route established by SOS delivery/explicit SOS recipient only. Location
   /// packets must never be able to establish their own authorization route.
-  Future<bool> isIncidentPeer(String sosId, String peer) async {
+  Future<bool> isIncidentPeer(
+    String sosId,
+    String peer, {
+    String? peerIdentity,
+  }) async {
     final incoming =
         await (_database.select(_database.bleInbox)..where(
               (t) => t.sosId.equals(sosId) & t.senderDeviceId.equals(peer),
@@ -341,7 +373,65 @@ class BleDeliveryRepository {
     ]) {
       if (_isSosDelivery(payload)) return true;
     }
-    return false;
+    final expectedIdentity = await lookupIncidentPeerIdentity(sosId);
+    return expectedIdentity != null &&
+        peerIdentity != null &&
+        expectedIdentity == peerIdentity.trim();
+  }
+
+  /// Moves a pending row to a newly observed native route only after the
+  /// coordinator has matched that route to the incident's persisted stable
+  /// installation identity. Message identity and payload remain unchanged.
+  Future<BleOutboxData> reassignPendingDestination(
+    String messageId, {
+    required String expectedDestinationId,
+    required String destinationId,
+    DateTime? now,
+  }) async {
+    final oldDestination = expectedDestinationId.trim();
+    final newDestination = destinationId.trim();
+    if (oldDestination.isEmpty || newDestination.isEmpty) {
+      throw const BleDeliveryStateException(
+        'BLE destinations must not be empty.',
+      );
+    }
+    final timestamp = (now ?? DateTime.now()).toUtc();
+    return _database.transaction(() async {
+      final current = await lookupOutbox(messageId);
+      if (current == null) {
+        throw const BleDeliveryStateException('BLE outbox message not found.');
+      }
+      if (current.destinationId == newDestination) return current;
+      final state = BleOutboxState.parse(current.state);
+      if (current.destinationId != oldDestination ||
+          (state != BleOutboxState.queued && state != BleOutboxState.failed)) {
+        throw const BleDeliveryStateException(
+          'Only the expected queued or failed BLE route can be reassigned.',
+        );
+      }
+      final changed =
+          await (_database.update(_database.bleOutbox)..where(
+                (t) =>
+                    t.messageId.equals(messageId) &
+                    t.destinationId.equals(oldDestination) &
+                    t.state.equals(current.state),
+              ))
+              .write(
+                BleOutboxCompanion(
+                  destinationId: Value(newDestination),
+                  state: Value(BleOutboxState.queued.wireValue),
+                  nextRetryAt: const Value(null),
+                  lastError: const Value(null),
+                  updatedAt: Value(timestamp),
+                ),
+              );
+      if (changed != 1) {
+        throw const BleDeliveryStateException(
+          'BLE destination changed concurrently.',
+        );
+      }
+      return (await lookupOutbox(messageId))!;
+    });
   }
 
   Future<BleOutboxData> assignDestinationIfMissing(
@@ -585,6 +675,61 @@ class BleDeliveryRepository {
         );
       }
       return (await lookupOutbox(current.messageId))!;
+    });
+  }
+
+  /// Retains the validated SOS ACK route so a later connection can be matched
+  /// by installation identity even when the platform-native peer ID rotates.
+  Future<BleInboxData> persistInboundSosAcknowledgement(
+    SosBleEnvelope acknowledgement, {
+    required String sourceDeviceId,
+    DateTime? now,
+  }) async {
+    if (acknowledgement.kind != SosBleMessageKind.acknowledgement ||
+        acknowledgement.senderDeviceId?.trim().isEmpty != false) {
+      throw const BleDeliveryStateException(
+        'A routed SOS acknowledgement requires a sender identity.',
+      );
+    }
+    final source = sourceDeviceId.trim();
+    if (source.isEmpty) {
+      throw const BleDeliveryStateException(
+        'A routed SOS acknowledgement requires a native source.',
+      );
+    }
+    final payload = jsonEncode(acknowledgement.toJson());
+    final timestamp = (now ?? DateTime.now()).toUtc();
+    return _database.transaction(() async {
+      await _database
+          .into(_database.bleInbox)
+          .insert(
+            BleInboxCompanion.insert(
+              messageId: acknowledgement.messageId,
+              sosId: acknowledgement.sosId,
+              senderDeviceId: Value(source),
+              schemaVersion: SosBleEnvelope.schemaVersion,
+              payload: payload,
+              processingState: BleInboxState.persisted.wireValue,
+              receivedAt: timestamp,
+              persistedAt: Value(timestamp),
+              acknowledgementStatus: Value(
+                acknowledgement.ackStatus == SosBleAckStatus.persisted
+                    ? BleAcknowledgementStatus.persisted.wireValue
+                    : BleAcknowledgementStatus.rejected.wireValue,
+              ),
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+      final row = await lookupInbox(acknowledgement.messageId);
+      if (row == null ||
+          row.sosId != acknowledgement.sosId ||
+          row.senderDeviceId != source ||
+          row.payload != payload) {
+        throw const BleDeliveryStateException(
+          'SOS acknowledgement route conflicts with persisted data.',
+        );
+      }
+      return row;
     });
   }
 
@@ -956,10 +1101,12 @@ class BleDeliveryRepository {
   Future<LocationBleEnvelope?> latestIncomingLocation(
     String sosId, {
     String? requiredSenderDeviceId,
+    String? requiredSenderIdentity,
     DateTime? now,
   }) async {
     final timestamp = (now ?? DateTime.now()).toUtc();
     final expectedSender = requiredSenderDeviceId?.trim();
+    final expectedIdentity = requiredSenderIdentity?.trim();
     final rows =
         await (_database.select(_database.bleInbox)
               ..where((table) => table.sosId.equals(sosId))
@@ -983,6 +1130,10 @@ class BleDeliveryRepository {
             (row.senderDeviceId?.trim() != expectedSender)) {
           continue;
         }
+        if (expectedIdentity != null &&
+            envelope.senderDeviceId?.trim() != expectedIdentity) {
+          continue;
+        }
         envelope.validate(now: timestamp);
         return envelope;
       } on Object {
@@ -999,6 +1150,7 @@ class BleDeliveryRepository {
   Stream<LocationBleEnvelope?> watchIncomingLocation(
     String sosId, {
     String? requiredSenderDeviceId,
+    String? requiredSenderIdentity,
   }) =>
       (_database.select(
         _database.bleInbox,
@@ -1006,6 +1158,7 @@ class BleDeliveryRepository {
         (_) => latestIncomingLocation(
           sosId,
           requiredSenderDeviceId: requiredSenderDeviceId,
+          requiredSenderIdentity: requiredSenderIdentity,
         ),
       );
 

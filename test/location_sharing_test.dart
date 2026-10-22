@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:sos_app/core/database/app_database.dart';
 import 'package:sos_app/features/nearby_ble/data/ble_delivery_repository.dart';
+import 'package:sos_app/features/nearby_ble/data/ble_protocol.dart';
 import 'package:sos_app/features/nearby_ble/domain/ble_delivery_state.dart';
 import 'package:sos_app/features/nearby_ble/domain/location_ble_envelope.dart';
 import 'package:sos_app/features/nearby_ble/domain/sos_ble_envelope.dart';
@@ -59,6 +60,46 @@ void main() {
         expiresAt: DateTime.utc(2026, 1, 1, 1),
       ).toBleMessage(),
       throwsA(isA<LocationBleEnvelopeException>()),
+    );
+  });
+
+  test('compact location wire payload stays compatible and reduces frames', () {
+    final update = LocationBleEnvelope.update(
+      messageId: 'location:1792647517396437:2026-10-22T06:25:22.258294Z',
+      sosId: '1792647517396437',
+      senderDeviceId: '12345678-1234-1234-1234-123456789012',
+      recipientId: '87654321-4321-4321-4321-210987654321',
+      latitude: 13.7,
+      longitude: 100.5,
+      accuracyMeters: 4,
+      createdAt: DateTime.utc(2026, 10, 22, 6, 25, 22, 258, 294),
+      expiresAt: DateTime.utc(2026, 10, 22, 6, 27, 22, 258, 294),
+    );
+
+    final message = update.toBleMessage();
+    expect(message.payload, isNot(contains('kind')));
+    expect(message.payload, isNot(contains('messageId')));
+    expect(message.payload, isNot(contains('createdAt')));
+    final frames = BleMessageCodec.encode(message);
+    expect(frames.length, lessThan(80));
+
+    final decoded = LocationBleEnvelope.fromBleMessage(
+      BleMessageCodec.decode(frames),
+    );
+    expect(decoded.messageId, update.messageId);
+    expect(decoded.kind, update.kind);
+    expect(decoded.createdAt, update.createdAt);
+
+    // Receivers remain compatible with the original redundant payload shape.
+    final legacy = BleMessage(
+      id: update.messageId,
+      type: update.kind,
+      createdAt: update.createdAt,
+      payload: update.toJson(),
+    );
+    expect(
+      LocationBleEnvelope.fromBleMessage(legacy).recipientId,
+      update.recipientId,
     );
   });
 
@@ -200,6 +241,43 @@ void main() {
         now: DateTime.utc(2026, 1, 1, 12),
       ),
       isNull,
+    );
+  });
+
+  test('stable sender identity survives a native BLE route rotation', () async {
+    final update = LocationBleEnvelope.update(
+      messageId: 'location-rotated-route',
+      sosId: 'sos-1',
+      senderDeviceId: 'stable-installation-a',
+      recipientId: 'peer-1',
+      latitude: 13.7,
+      longitude: 100.5,
+      createdAt: DateTime.utc(2026, 1, 1, 12),
+      expiresAt: DateTime.utc(2026, 1, 1, 12, 10),
+    );
+    await repository.persistIncomingLocation(
+      update,
+      expectedRecipientId: 'peer-1',
+      expectedSenderId: 'stable-installation-a',
+      sourceDeviceId: 'new-native-route',
+      now: DateTime.utc(2026, 1, 1, 12),
+    );
+
+    expect(
+      await repository.latestIncomingLocation(
+        'sos-1',
+        requiredSenderDeviceId: 'old-native-route',
+        now: DateTime.utc(2026, 1, 1, 12, 1),
+      ),
+      isNull,
+    );
+    expect(
+      (await repository.latestIncomingLocation(
+        'sos-1',
+        requiredSenderIdentity: 'stable-installation-a',
+        now: DateTime.utc(2026, 1, 1, 12, 1),
+      ))?.messageId,
+      'location-rotated-route',
     );
   });
 

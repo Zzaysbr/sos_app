@@ -1,8 +1,8 @@
 # Phase 7 — End-to-End Release Verification
 
-Date: 20 October 2026 (Asia/Bangkok). **Release gate remains BLOCKED.**
+Date: 20–22 October 2026 (Asia/Bangkok). **Release gate remains BLOCKED.**
 
-**Current source update:** see [Week 5 bug log](WEEK_5_BUG_LOG.md) and the continuation section below: 203 automated tests pass; final focused/build refresh is pending; analyzer and Android debug build pass. Older failure sections/matrix retain historical hardware results. Fixed Chat/Location physical acceptance and current iOS builds remain pending.
+**Current source update:** the final 22 October source passes 206 full tests and 46 final focused tests, analyzer, Android debug, signed development iOS profile and unsigned iOS debug builds. The final APK/profile were installed with app data preserved. The final acceptance section at the end of this report supersedes older historical failure rows without deleting that evidence.
 
 This report distinguishes real-device actions, live Firebase REST requests, SQLite/widget tests and build results. A successful test using fake radios is never a physical BLE PASS. A successful debug build is never a signed release PASS.
 
@@ -234,5 +234,92 @@ Android update/install/launch exited 0, preserving app data. The user confirmed 
 
 Latest validation logs and final exit codes are recorded under `validation/week5/`, superseding only the current source test/build status above. Build completion is never inferred from Xcode activity. Signed development profile is for device testing only; signed release remains NOT RUN. Map provider remains conditional/free-only, no account/key provisioned, no offline tiles, and production configuration remains a release blocker.
 
+## Final physical acceptance and release status — 22 October 2026
 
-Week 5 automated result: **199 tests PASS (exit 0), 86 focused PASS (exit 0), analyzer no issues (exit 0), final Android debug APK build exit 0 (43.8s Gradle)**. Added 28 tests; two original identity failure tests remain enabled and pass. First Kotlin compile failure is retained, corrected without dependency changes. The user also confirmed Guest advertising → Login A → BLE Start Scan works on the updated Android native bridge: physical reactivation PASS for that direction only, before final generation/scheduling refresh. iOS profile/debug statuses remain pending confirmed command exits.
+This is the current result. Earlier failures remain as reproduction history.
+Tests used a Samsung Galaxy A53 (SM-A536E), Android 14, and an iPhone 15
+Plus, iOS 27.0.1. Exported evidence excludes device/account identifiers,
+credentials, message payloads and coordinates.
+
+| Scenario | Direction | Final result | Evidence / limit |
+| --- | --- | --- | --- |
+| Discovery and GATT readiness | iPhone → Android | PASS | Android discovered; connection reached GATT Ready |
+| SOS persistence and application ACK | Android → iPhone | PASS | Sender Confirmed; receiver got exactly 1 new SOS and opened Details |
+| SOS persistence and application ACK | iPhone → Android | PASS | Sender Confirmed; receiver got exactly 1 new SOS and opened Details |
+| Incident Chat persistence and ACK | iPhone → Android | PASS | Sender Delivered; receiver got exactly 1 new Chat |
+| Incident Chat persistence and ACK | Android → iPhone | PASS | Sender Delivered; receiver got exactly 1 new Chat |
+| Location initial/subsequent updates | Android → iPhone | PASS | Two verified updates persisted and each returned an application ACK |
+| Location UI and Stop | Android → iPhone | PASS | View shared location appeared; Stop returned to Off |
+| Reopen/reconnect retention | iPhone ↔ Android | PASS | SOS/Confirmed and Chat/Delivered remained; receiver Chat count was 1 |
+| Close app while message is still pending | iPhone → Android | NOT RUN | Message completed before closure; automated file-backed/recovery coverage passes |
+| Duplicate and controlled ACK loss | Both | NOT RUN | No real-radio ACK suppression harness; automated same-ID retry/idempotency passes |
+| Wrong peer / wrong logical sender | Both | NOT RUN | Requires a third controlled peer/injection; automated rejection passes |
+| Android A ↔ Android B | Both | NOT RUN | Second Android unavailable |
+| Bluetooth off / Nearby permission denied | Android | PASS | Clear error; Guest SOS remained accessible; permission restored |
+| GPS unavailable | Android | PASS | SOS persisted without coordinates; Location timeout did not create false delivery |
+| iPhone permission revoke/regrant | iPhone | NOT RUN | Full permission matrix was not performed |
+
+The Location failure had two reproduced causes. The original redundant wire
+representation required 97 guaranteed-MTU frames; every Android write was
+accepted but iPhone never assembled or persisted the message. The wire payload
+now omits values already authenticated by the outer v1 envelope, while the
+decoder still accepts the original representation. The final physical message
+used 75 frames and received a persisted application ACK. The receiver then
+stored two verified updates but the UI filtered them using the old native route
+after a process/update rotation. Display now requires the stable installation
+identity from validated incident evidence, with a legacy native-route fallback.
+No UUID, database schema, ownership, Firebase Rules, message identity or SOS/BLE
+delivery state was rewritten.
+
+The Chat reconnect defect also came from native route rotation. A queued
+Chat/Location route may be rebound only when exactly one connected peer proves
+the stable installation identity already stored by a validated SOS/ACK. Old
+unbound fixtures remain preserved and are not guessed or reassigned.
+
+### Guest and Firebase isolation
+
+- PASS: Guest SOS remained available after update/restart and in the separate
+  **ข้อมูลในเครื่อง** view after Login.
+- PASS: Logout hid account A history; account B did not see account A history;
+  Guest device history remained accessible.
+- PASS: failed/cancelled Login did not change Guest visibility or expose A/B
+  history.
+- PASS: live REST checks with controlled A/B accounts verified account
+  isolation and Guest cloud absence. This is separate from SQLite/BLE evidence.
+- NOT RUN: a new live-app cloud-failure retry/session-expiry sequence was not
+  repeated in the final device pass.
+
+### Final build and toolchain evidence
+
+| Command | Exit | Result |
+| --- | ---: | --- |
+| `flutter test` | 0 | 206 passed |
+| final focused Location/identity/map tests | 0 | 46 passed |
+| `flutter analyze lib test` | 0 | No issues found |
+| `flutter build apk --debug --no-pub` | 0 | Gradle 7.1s; installed with data preserved |
+| signed development `flutter build ios --profile --no-pub` | 0 | Xcode 24.5s; installed with data preserved |
+| `flutter build ios --debug --no-codesign --no-pub` | 0 | Xcode 260.3s; exited successfully |
+| `flutter doctor -v` | 0 | No issues found |
+| `git diff --check` | 0 | No whitespace errors |
+
+Xcode is 26.6 (17F113), CocoaPods 1.17.0. The unsigned iOS build spent
+260.3 seconds in active Xcode compilation and exited 0; it was a slow build,
+not a dependency-resolution failure or hang. The signed development profile is
+a physical-test artifact. Signed App Store/release remains NOT RUN.
+
+### Map decision and remaining release blockers
+
+Geoapify Free remains the free-only candidate. No account-owned key or release
+configuration was supplied, so production maps remain fail-closed and public
+OSM is rejected for release. Provider outage/quota behavior has automated
+coordinate-fallback coverage but no live production-provider test. Offline map
+tiles are not implemented.
+
+The release gate remains **BLOCKED** by the missing second Android, controlled
+physical ACK-loss/wrong-peer/pending-restart tests, iPhone permission matrix,
+production map account/configuration and signed release validation.
+Android↔iPhone SOS, Chat and foreground Location are no longer blockers on the
+tested devices.
+
+
+Week 5 frozen-source automated result: **203 tests PASS (exit 0), 90 focused PASS (exit 0), analyzer no issues (exit 0), `git diff --check` exit 0, Android debug APK build exit 0 (29.2s Gradle), signed iOS profile build exit 0 (12.6s Xcode), and unsigned iOS debug build exit 0 (289.1s Xcode)**. Added 32 tests; the two original identity failure tests remain enabled and pass. The first Kotlin compile failure is retained and was corrected without dependency changes. The final APK/profile were installed with update-in-place semantics and both processes launched. The user also confirmed Guest advertising → Login A → BLE Start Scan and Logout → Guest Advertising on the updated Android native bridge; final new-input SOS/Chat acceptance is still pending. Signed release and all unexecuted physical scenarios remain NOT RUN.

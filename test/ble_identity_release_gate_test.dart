@@ -8,6 +8,7 @@ import 'package:sos_app/core/database/app_database.dart';
 import 'package:sos_app/features/nearby_ble/data/ble_protocol.dart';
 import 'package:sos_app/features/nearby_ble/data/ble_delivery_repository.dart';
 import 'package:sos_app/features/nearby_ble/data/sos_ble_coordinator.dart';
+import 'package:sos_app/features/nearby_ble/domain/ble_delivery_state.dart';
 import 'package:sos_app/features/nearby_ble/domain/ble_models.dart';
 import 'package:sos_app/features/nearby_ble/domain/location_ble_envelope.dart';
 import 'package:sos_app/features/nearby_ble/domain/sos_ble_envelope.dart';
@@ -17,7 +18,7 @@ import 'sos_ble_coordinator_test.dart' show FakeBleTransport;
 
 class PairedRadio extends FakeBleTransport {
   PairedRadio(this.source);
-  final String source;
+  String source;
   late PairedRadio other;
   bool forward = true;
   @override
@@ -479,6 +480,110 @@ void main() {
       expect(await receiverChat.loadMessages(chat.sosId), hasLength(1));
     },
   );
+  test('pending Chat follows the same bound installation after native route rotation', () async {
+    const incident = 'rotated-route-incident';
+    const rotatedSenderRoute = 'synthetic-radio-A-rotated';
+    final sos = SosMessage(
+      id: incident,
+      ownerId: 'test-account-A',
+      type: 'emergency',
+      status: 'active',
+      syncState: 'pending',
+      createdAt: now,
+      updatedAt: now,
+    );
+    await senderDb.into(senderDb.sosMessages).insert(sos);
+    senderRadio.forward = true;
+    final sosDelivery = await sender.enqueueSos(
+      sos,
+      destinationId: receiverRoute,
+    );
+    await sender.processDue();
+    final senderDelivery = BleDeliveryRepository(senderDb);
+    for (var i = 0; i < 300; i++) {
+      if ((await senderDelivery.lookupOutbox(sosDelivery.messageId))?.state ==
+          BleOutboxState.acknowledged.wireValue) {
+        break;
+      }
+      await Future<void>.delayed(Duration.zero);
+    }
+    expect(
+      (await senderDelivery.lookupOutbox(sosDelivery.messageId))?.state,
+      BleOutboxState.acknowledged.wireValue,
+    );
+    expect(
+      await senderDelivery.lookupIncidentPeerIdentity(incident),
+      'install-B',
+    );
+    expect(
+      await BleDeliveryRepository(receiverDb)
+          .lookupIncidentPeerIdentity(incident),
+      'install-A',
+    );
+
+    senderRadio.emit(
+      const BleEvent(
+        type: 'disconnected',
+        device: BleDevice(id: receiverRoute),
+      ),
+    );
+    receiverRadio.emit(
+      const BleEvent(
+        type: 'disconnected',
+        device: BleDevice(id: senderRoute),
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    final chat = await receiverChat.insertMessage(
+      sosId: incident,
+      text: 'survives native route rotation',
+      messageId: 'rotated-route-chat',
+    );
+    final queued = await receiver.enqueueChat(chat);
+    expect(queued.destinationId, senderRoute);
+    expect(queued.state, BleOutboxState.queued.wireValue);
+
+    final boundBefore = receiverLogs
+        .where((line) => line == 'peerSessionBound')
+        .length;
+    senderRadio.source = rotatedSenderRoute;
+    senderRadio.emit(
+      const BleEvent(
+        type: 'connected',
+        device: BleDevice(id: receiverRoute),
+      ),
+    );
+    receiverRadio.emit(
+      const BleEvent(
+        type: 'connected',
+        device: BleDevice(id: rotatedSenderRoute),
+      ),
+    );
+    for (var i = 0; i < 300; i++) {
+      await Future<void>.delayed(Duration.zero);
+      final boundAfter = receiverLogs
+          .where((line) => line == 'peerSessionBound')
+          .length;
+      if (boundAfter > boundBefore) break;
+    }
+    await receiver.processDue();
+    final receiverDelivery = BleDeliveryRepository(receiverDb);
+    for (var i = 0; i < 300; i++) {
+      if ((await receiverDelivery.lookupOutbox(chat.id))?.state ==
+          BleOutboxState.acknowledged.wireValue) {
+        break;
+      }
+      await Future<void>.delayed(Duration.zero);
+    }
+    final delivered = await receiverDelivery.lookupOutbox(chat.id);
+    expect(delivered?.destinationId, rotatedSenderRoute);
+    expect(delivered?.state, BleOutboxState.acknowledged.wireValue);
+    expect(
+      (await receiverChat.loadMessages(incident)).single.status,
+      ChatDeliveryStatus.delivered,
+    );
+    expect(await senderChat.loadMessages(incident), hasLength(1));
+  });
   test(
     'bound radio cannot impersonate the local Chat author identity',
     () async {

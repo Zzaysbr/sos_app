@@ -52,11 +52,19 @@ class LocationBleEnvelope {
 
   BleMessage toBleMessage() {
     validate();
+    // The outer BLE envelope already authenticates these values. Omitting the
+    // duplicate copies keeps a location update within the same practical frame
+    // budget as SOS and Chat on the guaranteed 20-byte ATT payload. Decoding
+    // remains compatible with previously emitted messages that include them.
+    final payload = toJson()
+      ..remove('kind')
+      ..remove('messageId')
+      ..remove('createdAt');
     return BleMessage(
       id: messageId,
       type: kind,
       createdAt: createdAt,
-      payload: toJson(),
+      payload: payload,
     );
   }
 
@@ -86,16 +94,28 @@ class LocationBleEnvelope {
   }
 
   factory LocationBleEnvelope.fromBleMessage(BleMessage message) {
-    if (message.type != message.payload['kind'] ||
-        message.payload['kind'] != 'location.update' &&
-            message.payload['kind'] != 'location.ack') {
+    final payloadKind = message.payload['kind'];
+    final kind = payloadKind ?? message.type;
+    if ((payloadKind != null && payloadKind != message.type) ||
+        kind != 'location.update' && kind != 'location.ack') {
       throw const LocationBleEnvelopeException(
         'Invalid location message kind.',
       );
     }
-    final json = message.payload;
+    final payloadMessageId = message.payload['messageId'];
+    final payloadCreatedAt = message.payload['createdAt'];
+    if ((payloadMessageId != null && payloadMessageId != message.id) ||
+        (payloadCreatedAt != null &&
+            _date(payloadCreatedAt) != message.createdAt.toUtc())) {
+      throw const LocationBleEnvelopeException('Invalid location metadata.');
+    }
+    final json = <String, Object?>{
+      ...message.payload,
+      'kind': kind,
+      'messageId': message.id,
+      'createdAt': message.createdAt.toUtc().toIso8601String(),
+    };
     if (json['schemaVersion'] != schemaVersion ||
-        json['messageId'] != message.id ||
         _date(json['createdAt']) != message.createdAt.toUtc()) {
       throw const LocationBleEnvelopeException('Invalid location metadata.');
     }

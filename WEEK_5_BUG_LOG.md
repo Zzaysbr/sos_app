@@ -1,6 +1,6 @@
 # Week 5 — Phase 7 defects and verification
 
-Continuation date: 2026-10-20 (the requested Week 5 heading refers to 21 Oct). Existing working-tree changes were retained. Release remains **BLOCKED** pending real-radio retests and release configuration. Automated results below never replace physical results in `PHASE_7_RELEASE_VERIFICATION.md`.
+Continuation date: 20–22 October 2026 (Asia/Bangkok). Existing working-tree changes were retained. Release remains **BLOCKED** pending real-radio retests and release configuration. Automated results below never replace physical results in `PHASE_7_RELEASE_VERIFICATION.md`.
 
 ## W5-01 — P0: Chat identity namespaces disagree
 
@@ -10,7 +10,7 @@ Continuation date: 2026-10-20 (the requested Week 5 heading refers to 21 Oct). E
 - Fix: a nonsecret installation ID is persisted in Android private preferences / iOS UserDefaults, independent of account and Guest ownership. Production coordinators perform a connection-local `peer.binding.v1` challenge/response exchange. Chat transport sender and Chat author IDs must both match that peer's bound app identity; the native peer must also match an incoming SOS route or explicitly selected outgoing SOS recipient. Another simultaneous peer cannot claim the same bound identity. Disconnect clears the binding. Existing messages/owners are not rewritten.
 - Compatibility: additive message type on existing v1 framing and existing service/characteristic UUIDs; no database migration, new dependency or Firebase Rules change. Old peers ignore the unknown type. SOS without optional sender identity remains compatible; Chat/Location with an old peer fail closed. A three-way response handles asymmetric GATT readiness; hello retries are bounded to three attempts. Binding frames retain immutable metadata across retries. Chat waiting for capability association remains queued without consuming retries or blocking SOS; Location UI waits at most 40 seconds for association. This is a session association with a user-selected radio peer, **not cryptographic identity verification, encryption or Firebase authentication**.
 - Tests: two independent in-memory databases/radios, valid Chat persistence/ACK, asymmetric readiness, wrong logical/native sender, forged local Chat author (failed before fix, passed after), unrelated incident, stale binding response, disconnect and same-peer replay. Original expected-success release tests remain enabled and now pass using the production binding mode.
-- Status: **FIXED IN SOURCE / PHYSICAL RETEST PENDING**. The updated app has not yet been installed/accepted on both devices in this continuation. Historical physical Chat result remains FAIL.
+- Status: **FIXED IN SOURCE / FINAL PHYSICAL RETEST PENDING**. Frozen-source Android and iPhone profile builds are installed with app data preserved. Historical physical Chat result remains FAIL until a new-input run succeeds.
 
 ## W5-02 — P0: Location recipient/sender/ACK disagree
 
@@ -64,7 +64,7 @@ Continuation date: 2026-10-20 (the requested Week 5 heading refers to 21 Oct). E
 
 ## Validation
 
-Final command results and source evidence: `validation/week5/command-results.json` (to be populated when each command exits). Logs remain in `validation/week5/`; intermediate failures are retained. At the latest completed full run: **203 tests PASS, exit 0**. Baseline was 169 PASS / 2 FAIL. This continuation adds 32 tests, fixes both original identity release tests and strengthens the existing location widget test. Final analyzer exits 0 with no issues. The first Android compile failed for an Int/Long scan-session mismatch; that failure log is retained and the corrected build exits 0. A final Android refresh includes the separately reproduced/fixed Chat-author guard. Signed development iOS profile builds exit 0 (initial 843.2s, final incremental 27.0s), installation exits 0. Runtime launch is currently blocked by the device security/trust error: disk signature verifies, provisioning includes this device/bundle and expires 2026-10-27. Trust/Verify check requested. Unsigned debug build remains in progress. No runtime PASS is inferred from compilation/installation.
+Final command results and source evidence: `validation/week5/command-results.json`. Logs remain in `validation/week5/`; intermediate failures are retained. The frozen W5-09 source passes **203 full tests** and **90 focused tests** (both exit 0). Baseline was 169 PASS / 2 FAIL. This continuation adds 32 tests, fixes both original identity release tests and strengthens the existing location widget test. Analyzer and `git diff --check` exit 0. The first Android compile failed for an Int/Long scan-session mismatch; that failure log is retained. Final Android debug build exits 0 (29.2s Gradle). Final signed development iOS profile build exits 0 (12.6s Xcode), installs and launches on the iPhone after the user's Trust/Verify action. Final unsigned iOS debug build exits 0 (289.1s Xcode). Signed release remains NOT RUN. Compilation/install/runtime are reported separately from BLE acceptance.
 
 
 ## Free-only map decision review (2026-10-20)
@@ -94,7 +94,7 @@ Final Android native permission-safety build: exit 0, 6.4s Gradle; installed wit
 - Root cause: UI restored recipientId from every history row; coordinator fallback considered incoming SOS only.
 - Fix: restore destinations only from outgoing Chat rows. Coordinator fallback uses the existing `lookupIncidentDestination`, which considers incoming SOS and explicit outgoing SOS destinations, never Location/history proximity. No legacy payload, ownership or message ID is changed.
 - Tests: widget reproducer fails with destination `local-owner`; outgoing-only incident test fails with null destination. Both fail before and pass after correction; all identity tests retained. The initial selector invocation matched no tests (exit 79) and was rerun correctly, not counted as a test result.
-- Status: **FIXED IN SOURCE / DEVICE REFRESH AND PHYSICAL RETEST PENDING**. This is a targeted routing correction, not Guest data migration.
+- Status: **FIXED IN SOURCE / FINAL PHYSICAL RETEST PENDING**. Frozen-source builds are installed on both devices. This is a targeted routing correction, not Guest data migration.
 
 Unsigned iOS debug validation before W5-08: **exit 0, 464.3s**, `ios-debug-build.log`. iPhone profile runtime subsequently opened after user Trust/Verify check: **USER PASS**; prior security/CLI failures are retained. W5-08 changes Dart source and therefore requires refreshed app/framework builds and final validation; earlier native compilation is preserved as historical evidence.
 
@@ -106,4 +106,62 @@ Unsigned iOS debug validation before W5-08: **exit 0, 464.3s**, `ios-debug-build
 - Root cause: comparing `_peerBindings[peer] != senderDeviceId` alone does not reject null/null.
 - Fix: require an actual current binding entry before comparing identity. Existing native-source, incident, recipient, freshness, payload and ACK checks remain.
 - Tests: both negative cases fail before the fix (unexpected inbox row / unexpected acknowledged state) and pass after the one-condition correction. Valid two-endpoint paths remain enabled.
-- Status: **FIXED IN SOURCE / FINAL VALIDATION AND DEVICE REFRESH PENDING**. No UUID, schema, ownership or additional wire-format change.
+- Status: **FIXED IN SOURCE / AUTOMATED VALIDATION PASS / PHYSICAL RETEST PENDING**. Frozen-source builds are installed. No UUID, schema, ownership or additional wire-format change.
+
+## W5-10 — P0: native route rotation stranded a valid incident reply
+
+- Reproduce: deliver and ACK an SOS, restart/update a peer so its native BLE
+  route changes, then enqueue Chat on the same incident. The durable destination
+  still points at the old route and the message remains queued.
+- Root cause: the live binding had a stable app installation identity, but
+  validated SOS/ACK evidence did not consistently persist it for route recovery.
+- Fix: SOS delivery and ACK carry the existing nonsecret installation identity.
+  A pending Chat/Location destination can change only when exactly one connected
+  route is bound to the identity recovered from a validated SOS or ACK. Message
+  ID, payload, owner and retry row are preserved. Chat/Location cannot establish
+  this trust. Legacy unbound messages remain unchanged.
+- Tests: full two-radio SOS/ACK, native-route rotation, reconnect/binding,
+  same-ID Chat delivery and one persisted ACK/receiver row.
+- Physical: new SOS passed Android→iPhone; Chat passed once in each direction
+  with Delivered and one receiver row. Reopened/reconnected Chat retained
+  Delivered and one receiver row.
+- Status: **FIXED / AUTOMATED AND ANDROID↔IPHONE PHYSICAL PASS**. Controlled
+  close-while-Queued and ACK suppression remain NOT RUN physically.
+
+## W5-11 — P0: large Location delivery and stale UI route filter
+
+- Reproduce 1: a production-shaped Location update encoded to 97 frames.
+  Android reported native write acceptance for every frame, while the iPhone
+  inbox had no Location row and no application ACK. Smaller SOS/Chat envelopes
+  had passed on the same connection.
+- Fix 1: omit `kind`, `messageId` and `createdAt` duplicates from the Location
+  payload because the outer v1 envelope authenticates them. The decoder accepts
+  compact and previous redundant representations and rejects conflicts. UUIDs,
+  framing version/header and stored payload format remain compatible.
+- Reproduce 2: after compact delivery, Android received two persisted ACKs and
+  iPhone stored two verified updates, but `View shared location` stayed hidden.
+  The query compared the current native source with the incident route saved
+  before process/update rotation.
+- Fix 2: current UI location selection uses the stable installation identity
+  from validated incident evidence, with native-route matching only as a legacy
+  fallback.
+- Tests: compact frame budget/old-format compatibility; stable identity across
+  route rotation; existing wrong sender/recipient, expiration, map and Stop
+  tests retained.
+- Physical: initial and subsequent Location updates received persisted ACKs;
+  iPhone displayed `View shared location`; Stop returned to Off. Coordinates
+  are not exported.
+- Status: **FIXED / AUTOMATED AND ANDROID→IPHONE PHYSICAL PASS**.
+
+## Final validation — 22 October 2026
+
+- `flutter test`: **206 passed**, exit 0.
+- Final focused Location/identity/map set: **46 passed**, exit 0.
+- `flutter analyze lib test`: **No issues found**, exit 0.
+- Android debug: exit 0, Gradle 7.1s; installed with data preserved.
+- Signed development iOS profile: exit 0, Xcode 24.5s; installed with data
+  preserved and used for final physical tests.
+- Unsigned iOS debug: exit 0, Xcode 260.3s; active compilation, not a
+  dependency-resolution delay or hang.
+- `flutter doctor -v`: exit 0, no issues; Xcode 26.6 (17F113), CocoaPods 1.17.0.
+- Signed App Store/release: NOT RUN.
