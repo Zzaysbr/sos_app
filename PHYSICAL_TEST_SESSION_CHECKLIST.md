@@ -1,5 +1,19 @@
 # Physical Test Session Checklist
 
+## Phase A2 role-specific gate
+
+Use the current Role UX build and start with one active Need Help incident plus
+one pending message. Record the incident ID, message ID, destination and queue
+state privately. Switch to Rescue through the warning sheet; verify the active
+SOS return banner, received-only Rescue list and unchanged pending state. Return
+through the banner, open the same incident and verify Chat/Location state and
+IDs are unchanged. Repeat across one process restart before beginning the BLE
+direction matrix. Application ACK wording must describe receiver persistence;
+local Rescue acceptance must not claim exclusive assignment, human acceptance
+or arrival. Capture Light, Dark and System screens with text/status meaning
+intact. If any identity/state changes, mark FAIL and stop before fault/range
+tests.
+
 ## Phase 10 release-candidate precondition
 
 Before installing a release candidate, record the owner's permanent identifier

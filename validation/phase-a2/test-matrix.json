@@ -1,0 +1,35 @@
+{
+  "phase": "A2",
+  "date": "2026-10-23",
+  "sourceRevision": "8e2b5ad with preserved Role UX working-tree changes",
+  "releaseGate": "BLOCKED",
+  "automated": [
+    {"id": "A2-A01", "name": "rapid SOS duplicate-submission guard", "status": "PASS", "evidence": "test/role_based_ux_test.dart"},
+    {"id": "A2-A02", "name": "role switch preserves SOS, Chat and queued SOS/Location state", "status": "PASS", "evidence": "test/role_based_ux_test.dart"},
+    {"id": "A2-A03", "name": "Rescue received-SOS owner scoping", "status": "PASS", "evidence": "test/role_based_ux_test.dart"},
+    {"id": "A2-A04", "name": "Rescue accept idempotence and ACK semantics", "status": "PASS", "evidence": "test/role_based_ux_test.dart"},
+    {"id": "A2-A05", "name": "Light/Dark/System theme contrast and role stability", "status": "PASS", "evidence": "test/role_based_ux_test.dart"},
+    {"id": "A2-A06", "name": "focused Role/Auth/BLE/Chat/Location/Map suite", "status": "PASS", "evidence": "156 tests"},
+    {"id": "A2-A07", "name": "full Flutter suite", "status": "PASS", "evidence": "224 tests"},
+    {"id": "A2-A08", "name": "application analyzer", "status": "PASS", "evidence": "flutter analyze lib test exit 0"},
+    {"id": "A2-A09", "name": "full repository analyzer", "status": "FAIL", "evidence": "32 info findings, all in vendored nearby-connections package/example"},
+    {"id": "A2-A10", "name": "Android release signing fails closed when unconfigured", "status": "PASS", "evidence": "expected build exit 1; no AAB"},
+    {"id": "A2-A11", "name": "synthetic production map configuration", "status": "PASS", "evidence": "6 tests; no real key"}
+  ],
+  "physical": [
+    {"id": "A2-P01", "name": "Android to iPhone SOS and ACK", "status": "NOT RUN"},
+    {"id": "A2-P02", "name": "iPhone to Android SOS and ACK", "status": "NOT RUN"},
+    {"id": "A2-P03", "name": "Android to Android both directions", "status": "NOT RUN", "reason": "second Android unavailable"},
+    {"id": "A2-P04", "name": "active/pending role switch and return", "status": "NOT RUN"},
+    {"id": "A2-P05", "name": "pending process restart and reconnect", "status": "NOT RUN"},
+    {"id": "A2-P06", "name": "Chat in both roles and directions", "status": "NOT RUN"},
+    {"id": "A2-P07", "name": "shared Location, Stop and permission recovery", "status": "NOT RUN"},
+    {"id": "A2-P08", "name": "duplicate delivery", "status": "NOT RUN"},
+    {"id": "A2-P09", "name": "controlled application ACK loss", "status": "NOT RUN", "reason": "approved harness unavailable"},
+    {"id": "A2-P10", "name": "wrong-peer ACK", "status": "NOT RUN", "reason": "third peer/injector unavailable"},
+    {"id": "A2-P11", "name": "iOS Bluetooth permission revoke/regrant", "status": "NOT RUN"},
+    {"id": "A2-P12", "name": "live Firebase expiry and recovery", "status": "NOT RUN"},
+    {"id": "A2-P13", "name": "current-build Guest/account isolation", "status": "NOT RUN"},
+    {"id": "A2-P14", "name": "5/10/20/30/50 m open and obstructed range", "status": "NOT RUN"}
+  ]
+}

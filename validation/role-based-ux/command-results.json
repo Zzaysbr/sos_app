@@ -1,0 +1,12 @@
+{
+  "phase": "role-based-ux",
+  "date": "2026-10-23",
+  "commands": [
+    {"command": "flutter test test/role_based_ux_test.dart test/local_device_history_test.dart test/ble_start_order_test.dart test/ble_delivery_repository_test.dart --reporter compact", "exitCode": 0, "result": "35 tests passed"},
+    {"command": "flutter test --reporter compact", "exitCode": 0, "result": "220 tests passed"},
+    {"command": "flutter analyze lib test", "exitCode": 0, "result": "No issues found"},
+    {"command": "flutter build apk --debug --no-pub", "exitCode": 0, "result": "build/app/outputs/flutter-apk/app-debug.apk"},
+    {"command": "flutter build ios --debug --no-codesign --no-pub", "exitCode": 0, "result": "build/ios/iphoneos/Runner.app; unsigned"},
+    {"command": "git diff --check", "exitCode": 0, "result": "No whitespace errors"}
+  ]
+}

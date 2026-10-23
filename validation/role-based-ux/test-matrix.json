@@ -1,0 +1,16 @@
+{
+  "phase": "role-based-ux",
+  "date": "2026-10-23",
+  "design": "Calm & Decisive; system Light/Dark",
+  "releaseGate": "BLOCKED",
+  "tests": [
+    {"id": "role-selection-persistence", "status": "PASS", "evidence": "test/role_based_ux_test.dart"},
+    {"id": "role-switch-preserves-active-incident", "status": "PASS", "evidence": "test/role_based_ux_test.dart"},
+    {"id": "need-help-duplicate-protection", "status": "PASS", "evidence": "test/role_based_ux_test.dart"},
+    {"id": "rescue-accept-idempotence", "status": "PASS", "evidence": "test/role_based_ux_test.dart"},
+    {"id": "ack-copy-does-not-imply-human-response", "status": "PASS", "evidence": "test/role_based_ux_test.dart"},
+    {"id": "guest-local-history-regression", "status": "PASS", "evidence": "test/local_device_history_test.dart"},
+    {"id": "ble-start-order-regression", "status": "PASS", "evidence": "test/ble_start_order_test.dart"},
+    {"id": "physical-role-flow-android-ios", "status": "NOT RUN", "reason": "No new physical device session for this UI change"}
+  ]
+}

@@ -325,3 +325,41 @@ Final Phase 9 automated rerun passes 102 focused and 211 full tests, analyzer,
 Android debug and unsigned iOS debug builds. Synthetic map config passes 5
 tests. Signed Android/iOS release, live map, forced live auth expiry and all
 remaining Phase 8 physical cases remain NOT RUN. Release Gate stays BLOCKED.
+
+## Role-based UX — 23 October 2026
+
+The app now has an explicit, locally persisted Need Help / Rescue choice with a
+Calm & Decisive Light/Dark interface. Switching roles does not modify incidents,
+ownership, BLE identity or durable delivery queues. Rescue lists only durable
+BLE incidents that also belong to the current repository scope. Rescue accept
+is clearly local, idempotent session state and does not claim exclusive or human
+acknowledgement. Need Help prevents duplicate own active incidents while an
+inbound incident does not block creating an SOS.
+
+Focused Role/Guest/BLE tests pass 35, full tests pass 220, analyzer exits 0,
+and Android debug plus iOS debug no-codesign builds exit 0. Physical role
+journeys are NOT RUN for this UI change. See
+`ROLE_BASED_UX_AUDIT.md` and `ROLE_BASED_UX_VALIDATION.md`. Release remains
+BLOCKED by the existing physical, production-map and signed-release gates.
+
+## Phase A2 role verification — 23 October 2026
+
+A rapid repeated-action race was found and fixed: SOS submission now acquires
+its in-flight guard before asynchronous active/inbound checks. Regression tests
+also preserve the active incident, Chat row and queued SOS/Location states over
+Need Help ↔ Rescue switching; verify Rescue owner scoping and accept
+idempotence; and cover Light/Dark/System contrast and status meaning.
+
+Focused Role/Auth/BLE/Chat/Location/Map tests pass 156, full tests pass 224 and
+`flutter analyze lib test` exits 0. Android debug, iOS unsigned debug and iOS
+development-signed debug builds exit 0. Android and iPhone current debug builds
+were installed update-in-place and launched, but no fresh coordinated BLE test
+was executed, so every physical behavior row remains NOT RUN. Full repository
+analysis still exits 1 on 32 `info` findings confined to the vendored
+nearby-connections package/example.
+
+Android release signing remains fail-closed (expected exit 1, no AAB). Owner
+identity decisions, account-owned Android/Apple distribution signing,
+account-owned Geoapify runtime configuration, live Firebase recovery and the
+physical matrix remain incomplete. See `PHASE_A2_ROLE_UX_PHYSICAL_VALIDATION.md`
+and `PHASE_A2_RELEASE_BLOCKERS.md`. Release Gate remains **BLOCKED**.

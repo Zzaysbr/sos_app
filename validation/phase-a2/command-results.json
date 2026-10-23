@@ -1,0 +1,30 @@
+{
+  "phase": "A2",
+  "date": "2026-10-23",
+  "sourceRevision": "8e2b5ad with preserved Role UX working-tree changes",
+  "commands": [
+    {"command": "focused Role/Auth/BLE/Chat/Location/Map suite", "exitCode": 0, "result": "156 tests passed"},
+    {"command": "flutter test", "exitCode": 0, "result": "224 tests passed"},
+    {"command": "flutter analyze lib test", "exitCode": 0, "result": "No issues found"},
+    {"command": "flutter analyze", "exitCode": 1, "result": "32 info findings in vendored nearby-connections package/example"},
+    {"command": "flutter build apk --debug --no-pub", "exitCode": 0, "artifact": "build/app/outputs/flutter-apk/app-debug.apk", "sha256": "b02f3e6d1ca2b2f16c38802b3990ee86234ee10aeef53972ce5da40f93d59769", "signing": "Android Debug"},
+    {"command": "flutter build ios --debug --no-codesign --no-pub", "exitCode": 0, "artifact": "build/ios/iphoneos/Runner.app", "signing": "unsigned build validation; later replaced by development-signed device build"},
+    {"command": "flutter build ios --debug --no-pub", "exitCode": 0, "artifact": "build/ios/iphoneos/Runner.app", "team": "78GZXS97G6", "signing": "development; not distribution"},
+    {"command": "flutter build appbundle --release --no-pub", "exitCode": 1, "expected": true, "result": "missing signing guard; no AAB"},
+    {"command": "synthetic Geoapify map tests", "exitCode": 0, "result": "6 tests passed; synthetic key only"},
+    {"command": "adb install -r current debug APK", "exitCode": 0, "result": "update-in-place success"},
+    {"command": "CoreDevice install current development-signed iOS app", "exitCode": 0, "result": "update-in-place success"},
+    {"command": "codesign --verify --deep --strict development iOS app", "exitCode": 1, "result": "CSSMERR_TP_NOT_TRUSTED; not distribution evidence"},
+    {"command": "tracked signing credential marker scan", "exitCode": 0, "result": "0 tracked private-key markers; 0 tracked signing-password assignments"},
+    {"command": "git diff --check", "exitCode": 0, "result": "No whitespace errors"}
+  ],
+  "proceduralAttemptsNotUsedAsValidation": [
+    {"command": "synthetic map test with unquoted zsh URL", "exitCode": 1, "reason": "shell glob expansion before Flutter started"},
+    {"command": "initial signing-artifact inspection", "exitCode": 127, "reason": "zsh special variable path replaced PATH; corrected read-only command passed"},
+    {"command": "initial APK certificate path", "exitCode": 1, "reason": "requested absent build-tools 36.1.0; corrected 37.0.0 command passed"}
+  ],
+  "physicalTestsPassed": 0,
+  "signedAndroidRelease": "NOT RUN",
+  "signedIosRelease": "NOT RUN",
+  "liveProductionMap": "NOT RUN"
+}
