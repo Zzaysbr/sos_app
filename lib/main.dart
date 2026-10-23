@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'core/database/app_database.dart';
+import 'core/theme/app_theme.dart';
 import 'features/auth/data/auth_service.dart';
 import 'features/auth/presentation/auth_page.dart';
 import 'features/auth/presentation/auth_session_navigator.dart';
@@ -48,10 +49,9 @@ class SosApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'SOS App',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.red),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: ThemeMode.system,
       home: StartupPage(
         onReady: (_) => AuthGate(
           authService: authService,

@@ -1,9 +1,12 @@
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sos_app/core/database/app_database.dart';
 import 'package:sos_app/features/sos/data/sos_repository.dart';
 import 'package:sos_app/features/sos/presentation/sos_page.dart';
+import 'package:sos_app/features/role/data/role_preference_store.dart';
+import 'package:sos_app/features/role/domain/app_role.dart';
 
 class HistoryRepository extends Mock implements SosRepository {}
 
@@ -12,6 +15,9 @@ void main() {
     'device history exposes Guest details and map without account actions',
     (tester) async {
       final repository = HistoryRepository();
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      when(() => repository.database).thenReturn(database);
       final sos = SosMessage(
         id: 'original-guest-id',
         ownerId: guestDeviceOwnerId,
@@ -28,10 +34,16 @@ void main() {
       when(() => repository.watchDeviceHistory())
           .thenAnswer((_) => Stream.value([sos]));
       await tester.pumpWidget(
-        MaterialApp(home: SosPage(repository: repository, isGuest: true)),
+        MaterialApp(
+          home: SosPage(
+            repository: repository,
+            isGuest: true,
+            rolePreferenceStore: MemoryRolePreferenceStore(AppRole.needHelp),
+          ),
+        ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('History'));
+      await tester.tap(find.text('ประวัติ'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('ข้อมูลในเครื่อง'));
       await tester.pumpAndSettle();
@@ -54,6 +66,9 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(800, 1200));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final repository = HistoryRepository();
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    when(() => repository.database).thenReturn(database);
     final sos = SosMessage(
       id: 'synthetic-active-guest',
       ownerId: guestDeviceOwnerId,
@@ -68,10 +83,16 @@ void main() {
     );
     when(() => repository.watchAll()).thenAnswer((_) => Stream.value([sos]));
     await tester.pumpWidget(
-      MaterialApp(home: SosPage(repository: repository, isGuest: true)),
+      MaterialApp(
+        home: SosPage(
+          repository: repository,
+          isGuest: true,
+          rolePreferenceStore: MemoryRolePreferenceStore(AppRole.needHelp),
+        ),
+      ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('History'));
+    await tester.tap(find.text('ประวัติ'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Synthetic active SOS'));
     await tester.tap(find.text('Synthetic active SOS'));
@@ -82,6 +103,6 @@ void main() {
     await tester.tap(close);
     await tester.pumpAndSettle();
     expect(find.text('SOS Details'), findsNothing);
-    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('ขอความช่วยเหลือ'), findsOneWidget);
   });
 }

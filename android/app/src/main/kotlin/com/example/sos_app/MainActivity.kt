@@ -27,6 +27,24 @@ class MainActivity : FlutterActivity() {
                     }
                 }
             }
+        MethodChannel(engine.dartExecutor.binaryMessenger, "sos_app/preferences")
+            .setMethodCallHandler { call, result ->
+                val preferences = getSharedPreferences("sos_ui", MODE_PRIVATE)
+                when (call.method) {
+                    "getPreferredRole" -> result.success(preferences.getString("preferred_role", null))
+                    "setPreferredRole" -> {
+                        val role = call.arguments as? String
+                        if (role !in setOf("needHelp", "rescue")) {
+                            result.error("invalid_role", "Unsupported role preference", null)
+                        } else if (preferences.edit().putString("preferred_role", role).commit()) {
+                            result.success(null)
+                        } else {
+                            result.error("storage_failed", "Unable to persist role preference", null)
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
         ble = BleTransportBridge(this, engine.dartExecutor.binaryMessenger).also { it.register() }
     }
     override fun onDestroy() {

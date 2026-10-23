@@ -1,11 +1,14 @@
 import 'dart:async';
 
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sos_app/core/database/app_database.dart';
 import 'package:sos_app/features/sos/data/sos_repository.dart';
 import 'package:sos_app/features/sos/presentation/sos_page.dart';
+import 'package:sos_app/features/role/data/role_preference_store.dart';
+import 'package:sos_app/features/role/domain/app_role.dart';
 
 import 'sos_ble_coordinator_test.dart' show FakeBleTransport;
 
@@ -20,12 +23,17 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(800, 1200));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final repository = _Repository();
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    when(() => repository.database).thenReturn(database);
     when(() => repository.watchAll())
         .thenAnswer((_) => Stream.value(<SosMessage>[]));
+    when(() => repository.listActiveIncidents()).thenAnswer((_) async => []);
     await tester.pumpWidget(
       MaterialApp(
         home: SosPage(
           repository: repository,
+          rolePreferenceStore: MemoryRolePreferenceStore(AppRole.needHelp),
           bleTransport: transport,
           isGuest: true,
           onBleStartRequested: start,
@@ -45,7 +53,7 @@ void main() {
         started = true;
         await ready.future;
       });
-      await tester.tap(find.text('Settings'));
+      await tester.tap(find.text('ตั้งค่า'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('BLE Test (Debug)'));
       await tester.tap(find.text('BLE Test (Debug)'));
@@ -70,7 +78,7 @@ void main() {
         started = true;
         await ready.future;
       });
-      await tester.tap(find.text('History'));
+      await tester.tap(find.text('ประวัติ'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Send SOS'));
       await tester.pumpAndSettle();

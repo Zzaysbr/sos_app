@@ -26,6 +26,23 @@ import UIKit
           else { result(FlutterError(code: "open_failed", message: "Unable to open attribution", details: nil)) }
         }
       }
+    FlutterMethodChannel(name: "sos_app/preferences", binaryMessenger: engineBridge.applicationRegistrar.messenger())
+      .setMethodCallHandler { call, result in
+        switch call.method {
+        case "getPreferredRole":
+          result(UserDefaults.standard.string(forKey: "sos.preferredRole.v1"))
+        case "setPreferredRole":
+          guard let role = call.arguments as? String,
+                ["needHelp", "rescue"].contains(role) else {
+            result(FlutterError(code: "invalid_role", message: "Unsupported role preference", details: nil))
+            return
+          }
+          UserDefaults.standard.set(role, forKey: "sos.preferredRole.v1")
+          result(nil)
+        default:
+          result(FlutterMethodNotImplemented)
+        }
+      }
     bleTransport = BleTransport(messenger: engineBridge.applicationRegistrar.messenger())
   }
 }

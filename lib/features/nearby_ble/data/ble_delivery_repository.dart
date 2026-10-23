@@ -196,6 +196,33 @@ class BleDeliveryRepository {
         .watchSingleOrNull();
   }
 
+  /// SOS identifiers that were durably received from a BLE peer.
+  ///
+  /// Callers must still intersect these IDs with the active repository owner
+  /// scope. Inbox membership describes transport origin, not authorization.
+  Stream<Set<String>> watchInboundSosIds() =>
+      _database.select(_database.bleInbox).watch().map(_inboundSosIds);
+
+  Future<Set<String>> listInboundSosIds() async =>
+      _inboundSosIds(await _database.select(_database.bleInbox).get());
+
+  Set<String> _inboundSosIds(List<BleInboxData> rows) {
+    final ids = <String>{};
+    for (final row in rows) {
+      try {
+        final value = jsonDecode(row.payload);
+        if (value is Map<String, dynamic> &&
+            value['kind'] == SosBleMessageKind.delivery.wireValue) {
+          ids.add(row.sosId);
+        }
+      } on FormatException {
+        // Ignore unrelated or malformed legacy inbox rows. The persisted SOS
+        // owner scope remains the authorization boundary.
+      }
+    }
+    return ids;
+  }
+
   /// Watches the newest location update for an SOS without confusing it with
   /// the primary SOS delivery row.
   Stream<BleOutboxData?> watchLocationDeliveryForSos(String sosId) {

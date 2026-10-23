@@ -5,6 +5,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../role/data/role_preference_store.dart';
+import '../../role/domain/app_role.dart';
+import '../../role/domain/role_workflow_controller.dart';
+import '../../role/presentation/role_selection_page.dart';
+import '../../nearby_ble/data/ble_delivery_repository.dart';
 import '../../nearby_ble/data/ble_transport.dart';
 import '../../nearby_ble/data/sos_ble_coordinator.dart';
 import '../../nearby_ble/presentation/ble_recipient_picker_page.dart';
@@ -32,6 +37,7 @@ class SosPage extends StatefulWidget {
     this.onBleStartRequested,
     this.isGuest = false,
     this.onLoginRequested,
+    this.rolePreferenceStore,
   });
 
   final SosRepository repository;
@@ -43,6 +49,7 @@ class SosPage extends StatefulWidget {
   final Future<void> Function()? onBleStartRequested;
   final bool isGuest;
   final VoidCallback? onLoginRequested;
+  final RolePreferenceStore? rolePreferenceStore;
 
   @override
   State<SosPage> createState() => _SosPageState();
@@ -50,6 +57,12 @@ class SosPage extends StatefulWidget {
 
 class _SosPageState extends State<SosPage> {
   int _currentIndex = 0;
+  AppRole? _role;
+  AppRole? _savingRole;
+  bool _loadingRole = true;
+  String? _roleError;
+  bool _rescueListening = false;
+  bool _rescueStarting = false;
   bool _syncing = false;
   bool _sendingSos = false;
   bool _sosHoldActive = false;
@@ -59,8 +72,37 @@ class _SosPageState extends State<SosPage> {
   String _historySearch = '';
   bool _historyNewestFirst = true;
   final _historySearchController = TextEditingController();
+  late final RolePreferenceStore _roleStore;
+  late final BleDeliveryRepository _deliveryRepository;
+  final RoleWorkflowController _roleWorkflow = RoleWorkflowController();
 
   static const _sosHoldDuration = Duration(milliseconds: 1400);
+
+  @override
+  void initState() {
+    super.initState();
+    _roleStore =
+        widget.rolePreferenceStore ?? const PlatformRolePreferenceStore();
+    _deliveryRepository = BleDeliveryRepository(widget.repository.database);
+    unawaited(_loadRole());
+  }
+
+  Future<void> _loadRole() async {
+    try {
+      final role = await _roleStore.load();
+      if (!mounted) return;
+      setState(() {
+        _role = role;
+        _loadingRole = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadingRole = false;
+        _roleError = 'ไม่สามารถอ่านโหมดที่บันทึกไว้ได้ กรุณาเลือกโหมดอีกครั้ง';
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -71,15 +113,28 @@ class _SosPageState extends State<SosPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loadingRole) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_role == null) {
+      return RoleSelectionPage(
+        savingRole: _savingRole,
+        errorText: _roleError,
+        onSelected: _selectRole,
+      );
+    }
+    final rescue = _role == AppRole.rescue;
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
-        children: [
-          _buildHome(),
-          _buildHistory(),
-          _buildChat(),
-          _buildSettings(),
-        ],
+        children: rescue
+            ? [
+                _buildRescueHome(),
+                _buildAcceptedIncidents(),
+                _buildChat(),
+                _buildSettings(),
+              ]
+            : [_buildHome(), _buildHistory(), _buildChat(), _buildSettings()],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
@@ -88,28 +143,590 @@ class _SosPageState extends State<SosPage> {
             _currentIndex = index;
           });
         },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
+        destinations: rescue
+            ? const [
+                NavigationDestination(
+                  icon: Icon(Icons.radar_outlined),
+                  selectedIcon: Icon(Icons.radar),
+                  label: 'เหตุใกล้เคียง',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.assignment_outlined),
+                  selectedIcon: Icon(Icons.assignment_turned_in),
+                  label: 'กำลังช่วย',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.chat_bubble_outline),
+                  selectedIcon: Icon(Icons.chat_bubble),
+                  label: 'แชต',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.settings_outlined),
+                  selectedIcon: Icon(Icons.settings),
+                  label: 'ตั้งค่า',
+                ),
+              ]
+            : const [
+                NavigationDestination(
+                  icon: Icon(Icons.sos_outlined),
+                  selectedIcon: Icon(Icons.sos),
+                  label: 'ขอความช่วยเหลือ',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.history_outlined),
+                  selectedIcon: Icon(Icons.history),
+                  label: 'ประวัติ',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.chat_bubble_outline),
+                  selectedIcon: Icon(Icons.chat_bubble),
+                  label: 'แชต',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.settings_outlined),
+                  selectedIcon: Icon(Icons.settings),
+                  label: 'ตั้งค่า',
+                ),
+              ],
+      ),
+    );
+  }
+
+  Future<void> _selectRole(AppRole role) async {
+    if (_savingRole != null) return;
+    setState(() {
+      _savingRole = role;
+      _roleError = null;
+    });
+    try {
+      await _roleStore.save(role);
+      if (!mounted) return;
+      setState(() {
+        _role = role;
+        _savingRole = null;
+        _currentIndex = 0;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _savingRole = null;
+        _roleError = 'บันทึกโหมดไม่สำเร็จ กรุณาลองอีกครั้ง';
+      });
+    }
+  }
+
+  Future<void> _requestRoleSwitch() async {
+    final target = _role == AppRole.needHelp
+        ? AppRole.rescue
+        : AppRole.needHelp;
+    final hasActiveIncident = await widget.repository.hasActiveIncident();
+    if (!mounted) return;
+    if (hasActiveIncident) {
+      final proceed = await showModalBottomSheet<bool>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheetContext) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'ยังมีเหตุที่กำลังดำเนินอยู่',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'การสลับโหมดจะไม่ยกเลิกเหตุ ไม่ลบข้อมูล และไม่หยุดคิว BLE คุณกลับมาเปิดเหตุเดิมได้ทุกเมื่อ',
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(sheetContext, false),
+                        child: const Text('อยู่โหมดเดิม'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => Navigator.pop(sheetContext, true),
+                        child: const Text('สลับโหมด'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.history_outlined),
-            selectedIcon: Icon(Icons.history),
-            label: 'History',
+        ),
+      );
+      if (proceed != true) return;
+    }
+    await _selectRole(target);
+  }
+
+  Widget _buildRescueHome() {
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    const rescue = Color(0xFF006B57);
+    final rescueColor = dark ? const Color(0xFF70D7B1) : rescue;
+    final background = dark ? const Color(0xFF101A18) : const Color(0xFFF3FAF7);
+    return SafeArea(
+      child: ColoredBox(
+        color: background,
+        child: StreamBuilder<List<SosMessage>>(
+          stream: widget.repository.watchAll(),
+          builder: (context, sosSnapshot) {
+            if (sosSnapshot.hasError) {
+              return _buildPageError('โหลดเหตุที่ได้รับไม่สำเร็จ');
+            }
+            return StreamBuilder<Set<String>>(
+              stream: _deliveryRepository.watchInboundSosIds(),
+              builder: (context, inboundSnapshot) {
+                if (inboundSnapshot.hasError) {
+                  return _buildPageError('ตรวจสอบแหล่งที่มาของเหตุไม่สำเร็จ');
+                }
+                final all = sosSnapshot.data ?? const <SosMessage>[];
+                final inboundIds = inboundSnapshot.data ?? const <String>{};
+                final received = all
+                    .where((sos) => inboundIds.contains(sos.id))
+                    .toList();
+                final ownActive = all.where(
+                  (sos) =>
+                      sos.status == 'active' && !inboundIds.contains(sos.id),
+                );
+                return CustomScrollView(
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 22, 16, 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'ศูนย์ช่วยเหลือใกล้ตัว',
+                                    style: theme.textTheme.headlineMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: -0.8,
+                                        ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'เหตุที่รับผ่าน BLE บนอุปกรณ์นี้',
+                                    style: theme.textTheme.bodyLarge?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'สลับไปโหมดขอความช่วยเหลือ',
+                              onPressed: _requestRoleSwitch,
+                              icon: const Icon(Icons.swap_horiz_rounded),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                      sliver: SliverList(
+                        delegate: SliverChildListDelegate([
+                          Material(
+                            color: dark
+                                ? const Color(0xFF12342C)
+                                : const Color(0xFFDDF3EB),
+                            borderRadius: BorderRadius.circular(24),
+                            child: Padding(
+                              padding: const EdgeInsets.all(22),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    Icons.health_and_safety_rounded,
+                                    size: 42,
+                                    color: rescueColor,
+                                  ),
+                                  const SizedBox(height: 18),
+                                  Text(
+                                    _rescueListening
+                                        ? 'พร้อมรับเหตุใกล้เคียง'
+                                        : 'เปิดรับเหตุเมื่อคุณพร้อม',
+                                    style: theme.textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    _rescueListening
+                                        ? 'Bluetooth กำลังเปิดรับการเชื่อมต่อ ให้แอปอยู่ด้านหน้าเพื่อความน่าเชื่อถือสูงสุด'
+                                        : 'ระบบจะขอสิทธิ์ Bluetooth เมื่อกดเริ่ม และจะไม่ถือว่าการเชื่อมต่อคือการรับช่วยเหลือ',
+                                    style: const TextStyle(height: 1.4),
+                                  ),
+                                  const SizedBox(height: 18),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: FilledButton.icon(
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: rescue,
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      onPressed:
+                                          _rescueStarting || _rescueListening
+                                          ? null
+                                          : _startRescueListening,
+                                      icon: _rescueStarting
+                                          ? const SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            )
+                                          : Icon(
+                                              _rescueListening
+                                                  ? Icons.check_circle
+                                                  : Icons.bluetooth_searching,
+                                            ),
+                                      label: Text(
+                                        _rescueStarting
+                                            ? 'กำลังเตรียม Bluetooth...'
+                                            : _rescueListening
+                                            ? 'กำลังเปิดรับเหตุ'
+                                            : 'เริ่มเปิดรับเหตุ',
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (ownActive.isNotEmpty) ...[
+                            const SizedBox(height: 16),
+                            _activeIncidentReturnBanner(ownActive.first),
+                          ],
+                          const SizedBox(height: 30),
+                          Row(
+                            children: [
+                              Text(
+                                'เหตุที่ได้รับ',
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const Spacer(),
+                              Text(
+                                '${received.length} เหตุ',
+                                style: TextStyle(color: rescueColor),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          if (sosSnapshot.connectionState ==
+                                  ConnectionState.waiting ||
+                              inboundSnapshot.connectionState ==
+                                  ConnectionState.waiting)
+                            const Padding(
+                              padding: EdgeInsets.all(36),
+                              child: Center(child: CircularProgressIndicator()),
+                            )
+                          else if (received.isEmpty)
+                            _buildRescueEmptyState()
+                          else
+                            for (final sos in received) ...[
+                              _buildRescueIncidentCard(sos),
+                              const SizedBox(height: 12),
+                            ],
+                        ]),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAcceptedIncidents() {
+    final theme = Theme.of(context);
+    return SafeArea(
+      child: StreamBuilder<List<SosMessage>>(
+        stream: widget.repository.watchAll(),
+        builder: (context, snapshot) => StreamBuilder<Set<String>>(
+          stream: _deliveryRepository.watchInboundSosIds(),
+          builder: (context, inboundSnapshot) {
+            final inboundIds = inboundSnapshot.data ?? const <String>{};
+            final accepted = (snapshot.data ?? const <SosMessage>[])
+                .where(
+                  (sos) =>
+                      inboundIds.contains(sos.id) &&
+                      _roleWorkflow.isAccepted(sos.id),
+                )
+                .toList();
+            return CustomScrollView(
+              slivers: [
+                SliverAppBar(
+                  pinned: true,
+                  title: const Text('เหตุที่กำลังช่วย'),
+                  actions: [
+                    IconButton(
+                      tooltip: 'สลับโหมด',
+                      onPressed: _requestRoleSwitch,
+                      icon: const Icon(Icons.swap_horiz_rounded),
+                    ),
+                  ],
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.all(20),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      Text(
+                        'บันทึกบนอุปกรณ์นี้',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'สถานะนี้ช่วยให้คุณกลับมาเปิดเหตุได้เร็ว แต่ยังไม่ใช่การมอบหมายแบบเอกสิทธิ์และยังไม่ได้ส่งการตอบรับถึงผู้ประสบภัย',
+                        style: TextStyle(height: 1.4),
+                      ),
+                      const SizedBox(height: 20),
+                      if (accepted.isEmpty)
+                        _buildEmptyCard(
+                          icon: Icons.assignment_outlined,
+                          title: 'ยังไม่มีเหตุที่รับติดตาม',
+                          message: 'เลือก “รับช่วยเหลือ” จากเหตุที่ได้รับเพื่อปักไว้ในหน้านี้',
+                          actionLabel: 'ดูเหตุที่ได้รับ',
+                          onAction: () => setState(() => _currentIndex = 0),
+                        )
+                      else
+                        for (final sos in accepted) ...[
+                          _buildRescueIncidentCard(sos),
+                          const SizedBox(height: 12),
+                        ],
+                    ]),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPageError(String message) => SafeArea(
+    child: Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: _buildErrorCard(message),
+      ),
+    ),
+  );
+
+  Widget _buildRescueEmptyState() => _buildEmptyCard(
+    icon: Icons.radar_rounded,
+    title: 'ยังไม่มีเหตุที่รับเข้ามา',
+    message: 'เปิดรับเหตุและให้ผู้ประสบภัยเลือกอุปกรณ์นี้เป็นผู้รับ เหตุจะปรากฏหลังบันทึกบนเครื่องสำเร็จ',
+  );
+
+  Widget _activeIncidentReturnBanner(SosMessage sos) {
+    return Material(
+      color: Theme.of(context).colorScheme.errorContainer,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () async {
+          await _selectRole(AppRole.needHelp);
+          if (!mounted) return;
+          await _showSosDetail(sos);
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(
+                Icons.sos_rounded,
+                color: Theme.of(context).colorScheme.onErrorContainer,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'SOS ของคุณยังทำงานอยู่ · แตะเพื่อกลับไปดู',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onErrorContainer,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline),
-            selectedIcon: Icon(Icons.chat_bubble),
-            label: 'Chat',
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRescueIncidentCard(SosMessage sos) {
+    final theme = Theme.of(context);
+    final accepted = _roleWorkflow.isAccepted(sos.id);
+    final accepting = _roleWorkflow.isAccepting(sos.id);
+    final age = DateTime.now().difference(sos.createdAt).abs();
+    final freshness = age.inMinutes < 1
+        ? 'เมื่อสักครู่'
+        : age.inHours < 1
+        ? '${age.inMinutes} นาทีที่ผ่านมา'
+        : '${age.inHours} ชั่วโมงที่ผ่านมา';
+    final stale = age > const Duration(minutes: 15);
+    return Card(
+      margin: EdgeInsets.zero,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => _showSosDetail(sos, rescueView: true),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.errorContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.warning_rounded,
+                      color: theme.colorScheme.onErrorContainer,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          sos.type.toUpperCase(),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '$freshness · ${sos.latitude == null ? 'ไม่มีพิกัดเหตุ' : 'มีพิกัดเมื่อสร้างเหตุ'}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: stale
+                                ? theme.colorScheme.error
+                                : theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    accepted
+                        ? Icons.assignment_turned_in
+                        : Icons.chevron_right_rounded,
+                    color: accepted ? const Color(0xFF006B57) : null,
+                  ),
+                ],
+              ),
+              if (stale) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'ข้อมูลเหตุเกิน 15 นาที ตำแหน่งอาจไม่ใช่ตำแหน่งปัจจุบัน',
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+              ],
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: accepted
+                    ? OutlinedButton.icon(
+                        onPressed: () => _showSosDetail(sos, rescueView: true),
+                        icon: const Icon(Icons.open_in_new_rounded),
+                        label: const Text('เปิดเหตุที่กำลังช่วย'),
+                      )
+                    : FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF006B57),
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: accepting
+                            ? null
+                            : () => _acceptIncident(sos),
+                        icon: accepting
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.volunteer_activism_rounded),
+                        label: Text(
+                          accepting ? 'กำลังบันทึก...' : 'รับช่วยเหลือ',
+                        ),
+                      ),
+              ),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _startRescueListening() async {
+    if (_rescueStarting || _rescueListening) return;
+    setState(() => _rescueStarting = true);
+    try {
+      await _prepareBleForInteraction();
+      final transport = widget.bleTransport;
+      if (transport == null) {
+        throw StateError('Bluetooth transport is unavailable.');
+      }
+      await transport.startAdvertising(name: 'Off Grid SOS Rescue');
+      if (!mounted) return;
+      setState(() => _rescueListening = true);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('เปิดรับเหตุไม่สำเร็จ: $error')));
+    } finally {
+      if (mounted) setState(() => _rescueStarting = false);
+    }
+  }
+
+  Future<void> _acceptIncident(SosMessage sos) async {
+    setState(() {});
+    final accepted = await _roleWorkflow.accept(sos.id);
+    if (!mounted) return;
+    setState(() {});
+    if (!accepted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'บันทึกไว้ใน “กำลังช่วย” บนเครื่องนี้แล้ว ยังไม่ได้ยืนยันแบบเอกสิทธิ์หรือส่งการตอบรับกลับ',
+        ),
       ),
     );
   }
@@ -119,9 +736,10 @@ class _SosPageState extends State<SosPage> {
   // ---------------------------------------------------------------------------
 
   Widget _buildHome() {
+    final colors = Theme.of(context).colorScheme;
     return SafeArea(
       child: ColoredBox(
-        color: const Color(0xFFFFFAF9),
+        color: colors.surface,
         child: CustomScrollView(
           slivers: [
             SliverToBoxAdapter(child: _buildHomeHeader()),
@@ -146,6 +764,7 @@ class _SosPageState extends State<SosPage> {
   }
 
   Widget _buildHomeHeader() {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 16, 4),
       child: Row(
@@ -178,26 +797,34 @@ class _SosPageState extends State<SosPage> {
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(height: 5),
-                Text(
-                  'Off Grid SOS',
+                const SizedBox(height: 5),
+                const Text(
+                  'ขอความช่วยเหลือ',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.5,
                   ),
                 ),
-                SizedBox(height: 3),
+                const SizedBox(height: 3),
                 Text(
-                  'Stay safe. We’re here when you need help.',
-                  style: TextStyle(color: Color(0xFF777777), fontSize: 16),
+                  'ส่ง SOS และติดตามเหตุของคุณจากที่เดียว',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontSize: 16,
+                  ),
                 ),
               ],
             ),
+          ),
+          IconButton(
+            tooltip: 'สลับไปโหมดผู้ช่วยเหลือ',
+            onPressed: _requestRoleSwitch,
+            icon: const Icon(Icons.swap_horiz_rounded),
           ),
           IconButton(
             tooltip: widget.isGuest
@@ -207,7 +834,7 @@ class _SosPageState extends State<SosPage> {
                 : 'Sync pending SOS',
             onPressed: widget.isGuest || _syncing ? null : _syncPending,
             style: IconButton.styleFrom(
-              backgroundColor: Colors.white,
+              backgroundColor: theme.colorScheme.surfaceContainerHighest,
               minimumSize: const Size(52, 52),
             ),
             icon: _syncing
@@ -234,23 +861,26 @@ class _SosPageState extends State<SosPage> {
         children: [
           _softIcon(Icons.shield_outlined, size: 52),
           const SizedBox(width: 16),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Emergency assistance',
+                const Text(
+                  'พร้อมเมื่อคุณต้องการความช่วยเหลือ',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                 ),
-                SizedBox(height: 6),
+                const SizedBox(height: 6),
                 Text(
-                  'Create an SOS alert and keep track of its status from one place.',
-                  style: TextStyle(color: Color(0xFF4B4746), height: 1.35),
+                  'กดค้างเพื่อป้องกันการส่งโดยไม่ตั้งใจ ข้อมูลจะบันทึกในเครื่องก่อนเสมอ',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    height: 1.35,
+                  ),
                 ),
               ],
             ),
           ),
-          const Icon(Icons.chevron_right_rounded, color: Color(0xFF4B4746)),
+          const Icon(Icons.chevron_right_rounded),
         ],
       ),
     );
@@ -260,7 +890,7 @@ class _SosPageState extends State<SosPage> {
     final progress = _sosHoldProgress.clamp(0.0, 1.0);
     return Semantics(
       button: true,
-      label: 'Press and hold to send SOS',
+      label: 'กดค้างเพื่อส่ง SOS',
       child: GestureDetector(
         onTapDown: _sendingSos ? null : (_) => _startSosHold(),
         onTapUp: _sendingSos ? null : (_) => _cancelSosHold(),
@@ -330,10 +960,10 @@ class _SosPageState extends State<SosPage> {
                   const SizedBox(height: 16),
                   Text(
                     _sendingSos
-                        ? 'SENDING SOS...'
+                        ? 'กำลังสร้าง SOS...'
                         : _sosHoldActive
-                        ? 'KEEP HOLDING'
-                        : 'SEND SOS',
+                        ? 'กดค้างต่อ'
+                        : 'ส่ง SOS',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 25,
@@ -344,10 +974,10 @@ class _SosPageState extends State<SosPage> {
                   const SizedBox(height: 4),
                   Text(
                     _sendingSos
-                        ? 'Getting your location'
+                        ? 'กำลังตรวจสอบตำแหน่ง'
                         : _sosHoldActive
                         ? '${((1 - progress) * 1.4).ceil()} sec'
-                        : 'Tap and hold to start',
+                        : 'กดค้างเพื่อเริ่ม',
                     style: const TextStyle(color: Colors.white, fontSize: 16),
                   ),
                 ],
@@ -365,10 +995,13 @@ class _SosPageState extends State<SosPage> {
         children: [
           _softIcon(Icons.shield_outlined, size: 42),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Text(
-              'Use SOS in an emergency.\nLocation availability depends on device settings and permissions.',
-              style: TextStyle(color: Color(0xFF4B4746), height: 1.35),
+              'ใช้ SOS เมื่อมีเหตุฉุกเฉิน\nตำแหน่งขึ้นอยู่กับสิทธิ์และการตั้งค่าอุปกรณ์',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                height: 1.35,
+              ),
             ),
           ),
           FutureBuilder<bool>(
@@ -387,12 +1020,13 @@ class _SosPageState extends State<SosPage> {
   }
 
   Widget _surfaceCard({required Widget child, VoidCallback? onTap}) {
+    final colors = Theme.of(context).colorScheme;
     final card = Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFF0ECEB)),
+        border: Border.all(color: colors.outlineVariant),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.035),
@@ -416,14 +1050,15 @@ class _SosPageState extends State<SosPage> {
   }
 
   Widget _softIcon(IconData icon, {required double size}) {
+    final colors = Theme.of(context).colorScheme;
     return Container(
       width: size,
       height: size,
-      decoration: const BoxDecoration(
-        color: Color(0xFFFCE8E7),
+      decoration: BoxDecoration(
+        color: colors.errorContainer,
         shape: BoxShape.circle,
       ),
-      child: Icon(icon, color: Color(0xFFD92323), size: 27),
+      child: Icon(icon, color: colors.onErrorContainer, size: 27),
     );
   }
 
@@ -567,7 +1202,8 @@ class _SosPageState extends State<SosPage> {
   // ---------------------------------------------------------------------------
 
   Widget _buildHistory() {
-    const background = Color(0xFFFFFAF9);
+    final theme = Theme.of(context);
+    final background = theme.colorScheme.surface;
     return SafeArea(
       child: ColoredBox(
         color: background,
@@ -579,23 +1215,23 @@ class _SosPageState extends State<SosPage> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'History',
+                          const Text(
+                            'ประวัติ SOS',
                             style: TextStyle(
                               fontSize: 32,
                               fontWeight: FontWeight.w800,
                               letterSpacing: -0.6,
                             ),
                           ),
-                          SizedBox(height: 6),
+                          const SizedBox(height: 6),
                           Text(
-                            'Review your SOS activity and status.',
+                            'ตรวจเหตุ สถานะการส่ง และข้อมูลที่เก็บในเครื่อง',
                             style: TextStyle(
-                              color: Color(0xFF777777),
+                              color: theme.colorScheme.onSurfaceVariant,
                               fontSize: 16,
                             ),
                           ),
@@ -606,8 +1242,11 @@ class _SosPageState extends State<SosPage> {
                       tooltip: 'Filter history',
                       onPressed: _showHistoryFilterSheet,
                       style: IconButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        side: const BorderSide(color: Color(0xFFE8E4E3)),
+                        backgroundColor:
+                            theme.colorScheme.surfaceContainerHighest,
+                        side: BorderSide(
+                          color: theme.colorScheme.outlineVariant,
+                        ),
                         minimumSize: const Size(52, 52),
                       ),
                       icon: const Icon(Icons.tune_rounded, size: 22),
@@ -826,13 +1465,14 @@ class _SosPageState extends State<SosPage> {
     required int resolved,
     required int cancelled,
   }) {
+    final colors = Theme.of(context).colorScheme;
     return Card(
       margin: EdgeInsets.zero,
       elevation: 0,
-      color: Colors.white,
+      color: colors.surfaceContainerLow,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: const BorderSide(color: Color(0xFFF0ECEB)),
+        side: BorderSide(color: colors.outlineVariant),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -933,7 +1573,7 @@ class _SosPageState extends State<SosPage> {
                   count.toString(),
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w800,
-                    color: Colors.black87,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
                 Text(
@@ -988,6 +1628,7 @@ class _SosPageState extends State<SosPage> {
     required String label,
   }) {
     final selected = _historyFilter == value;
+    final colors = Theme.of(context).colorScheme;
     return Semantics(
       button: true,
       selected: selected,
@@ -999,12 +1640,12 @@ class _SosPageState extends State<SosPage> {
           height: 48,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: selected ? const Color(0xFFFCE5E4) : Colors.white,
+            color: selected
+                ? colors.errorContainer
+                : colors.surfaceContainerLow,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: selected
-                  ? const Color(0xFFF2B8B5)
-                  : const Color(0xFFE4E0DF),
+              color: selected ? colors.error : colors.outlineVariant,
             ),
           ),
           child: FittedBox(
@@ -1013,19 +1654,13 @@ class _SosPageState extends State<SosPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (selected) ...[
-                  const Icon(
-                    Icons.check_rounded,
-                    size: 18,
-                    color: Color(0xFFD92323),
-                  ),
+                  Icon(Icons.check_rounded, size: 18, color: colors.error),
                   const SizedBox(width: 4),
                 ],
                 Text(
                   label,
                   style: TextStyle(
-                    color: selected
-                        ? const Color(0xFFD92323)
-                        : const Color(0xFF4B4746),
+                    color: selected ? colors.error : colors.onSurfaceVariant,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
@@ -1202,6 +1837,17 @@ class _SosPageState extends State<SosPage> {
                 _buildSettingsSection(
                   title: 'PREFERENCES',
                   children: [
+                    _buildSettingsTile(
+                      icon: _role == AppRole.rescue
+                          ? Icons.health_and_safety_outlined
+                          : Icons.sos_outlined,
+                      title: 'โหมดการใช้งาน',
+                      subtitle: _role == AppRole.rescue
+                          ? 'ผู้ช่วยเหลือ · แตะเพื่อเปลี่ยนโหมด'
+                          : 'ผู้ประสบภัย · แตะเพื่อเปลี่ยนโหมด',
+                      onTap: _requestRoleSwitch,
+                    ),
+                    const Divider(height: 1, indent: 56),
                     _buildSettingsTile(
                       icon: Icons.notifications_outlined,
                       title: 'Notifications',
@@ -1577,14 +2223,30 @@ class _SosPageState extends State<SosPage> {
     if (_sendingSos) {
       return;
     }
-
     setState(() {
       _sendingSos = true;
     });
 
-    final id = DateTime.now().microsecondsSinceEpoch.toString();
-
     try {
+      final messages = await widget.repository.listActiveIncidents();
+      final inboundIds = await _deliveryRepository.listInboundSosIds();
+      final activeOwn = messages.where(
+        (sos) => sos.status == 'active' && !inboundIds.contains(sos.id),
+      );
+      if (activeOwn.isNotEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'มี SOS ที่กำลังดำเนินอยู่แล้ว เปิดเหตุเดิมแทนการสร้างรายการซ้ำ',
+            ),
+          ),
+        );
+        await _showSosDetail(activeOwn.first);
+        return;
+      }
+
+      final id = DateTime.now().microsecondsSinceEpoch.toString();
       String? destinationId;
       if (widget.bleTransport != null) {
         await _prepareBleForInteraction();
@@ -1683,7 +2345,11 @@ class _SosPageState extends State<SosPage> {
     );
   }
 
-  Future<void> _showSosDetail(SosMessage sos, {bool readOnly = false}) async {
+  Future<void> _showSosDetail(
+    SosMessage sos, {
+    bool readOnly = false,
+    bool rescueView = false,
+  }) async {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -1720,8 +2386,24 @@ class _SosPageState extends State<SosPage> {
                     label: 'Type',
                     value: sos.type,
                   ),
-                  if (!readOnly && widget.bleCoordinator != null)
+                  if (!readOnly && !rescueView && widget.bleCoordinator != null)
                     _buildBleDeliveryDetail(sos, sheetContext),
+                  if (!readOnly && !rescueView)
+                    _buildDetailRow(
+                      icon: Icons.volunteer_activism_outlined,
+                      label: 'การตอบรับจากผู้ช่วยเหลือ',
+                      value: 'ยังไม่มีการยืนยันจากมนุษย์ใน protocol ปัจจุบัน สถานะ BLE ด้านบนยืนยันเฉพาะการบันทึกบนเครื่องผู้รับ',
+                    ),
+                  if (rescueView)
+                    _buildDetailRow(
+                      icon: _roleWorkflow.isAccepted(sos.id)
+                          ? Icons.assignment_turned_in
+                          : Icons.assignment_outlined,
+                      label: 'สถานะผู้ช่วยเหลือ',
+                      value: _roleWorkflow.isAccepted(sos.id)
+                          ? 'รับติดตามบนอุปกรณ์นี้แล้ว ไม่ใช่การมอบหมายแบบเอกสิทธิ์และยังไม่ได้ตอบกลับผู้ประสบภัย'
+                          : 'ยังไม่ได้รับติดตามบนอุปกรณ์นี้ การรับผ่าน BLE ไม่ใช่การตอบรับจากผู้ช่วยเหลือ',
+                    ),
                   if (!readOnly &&
                       sos.status == 'active' &&
                       widget.bleCoordinator != null &&
@@ -1814,7 +2496,7 @@ class _SosPageState extends State<SosPage> {
                       value: sos.message!,
                     ),
                   const SizedBox(height: 12),
-                  if (!readOnly)
+                  if (!readOnly || rescueView)
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
@@ -1860,7 +2542,7 @@ class _SosPageState extends State<SosPage> {
                     ),
                   ],
                   const SizedBox(height: 20),
-                  if (!readOnly && sos.status == 'active') ...[
+                  if (!readOnly && !rescueView && sos.status == 'active') ...[
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
@@ -1885,7 +2567,7 @@ class _SosPageState extends State<SosPage> {
                       ),
                     ),
                   ],
-                  if (readOnly || sos.status != 'active')
+                  if (readOnly || rescueView || sos.status != 'active')
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton(
@@ -1918,7 +2600,7 @@ class _SosPageState extends State<SosPage> {
           BleOutboxState.writeAccepted ||
           BleOutboxState.awaitingAcknowledgement =>
             'Awaiting receiver confirmation',
-          BleOutboxState.acknowledged => 'Confirmed received',
+          BleOutboxState.acknowledged => 'บันทึกบนเครื่องผู้รับแล้ว',
           BleOutboxState.failed => 'Failed; will retry',
           BleOutboxState.expired => 'Expired; retry unavailable',
         };

@@ -91,6 +91,21 @@ class SosRepository {
             ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
           .watch();
 
+  Future<bool> hasActiveIncident() async {
+    return (await listActiveIncidents()).isNotEmpty;
+  }
+
+  Future<List<SosMessage>> listActiveIncidents() async {
+    final ownerId = _ownerId;
+    if (ownerId == null) return const [];
+    final rows =
+        await (_database.select(_database.sosMessages)..where(
+              (t) => t.ownerId.equals(ownerId) & t.status.equals('active'),
+            ))
+            .get();
+    return _isOwnerCurrent(ownerId) ? rows : const [];
+  }
+
   Future<SosMessage?> findById(String id) async {
     final ownerId = _ownerId;
     if (ownerId == null) return null;
