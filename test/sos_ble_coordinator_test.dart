@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
@@ -1009,6 +1010,75 @@ void main() {
   test('exposes the injected transport for shared debug clients', () {
     expect(coordinator.transport, same(transport));
   });
+
+  test(
+    'process restart recovers the durable queue and sends the same message ID',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'sos-coordinator-restart-',
+      );
+      final file = File('${directory.path}/database.sqlite');
+      final queuedAt = DateTime.utc(2026, 1, 1, 12);
+      const messageId = 'restart-process-message';
+      try {
+        final firstDatabase = AppDatabase.forTesting(NativeDatabase(file));
+        await firstDatabase.into(firstDatabase.sosMessages).insert(_sos());
+        final firstTransport = FakeBleTransport();
+        final firstCoordinator = SosBleCoordinator(
+          database: firstDatabase,
+          ownerId: 'owner-1',
+          transport: firstTransport,
+          now: () => queuedAt,
+          pollInterval: const Duration(hours: 1),
+        );
+        await firstCoordinator.enqueueSos(
+          _sos(),
+          destinationId: device.id,
+          messageId: messageId,
+        );
+        await BleDeliveryRepository(firstDatabase).transitionOutboxState(
+          messageId,
+          BleOutboxState.sending,
+          now: queuedAt,
+        );
+        await firstCoordinator.dispose();
+        await firstTransport.controller.close();
+        await firstDatabase.close();
+
+        final secondDatabase = AppDatabase.forTesting(NativeDatabase(file));
+        final secondTransport = FakeBleTransport();
+        final secondCoordinator = SosBleCoordinator(
+          database: secondDatabase,
+          ownerId: 'owner-1',
+          transport: secondTransport,
+          now: () => queuedAt.add(const Duration(minutes: 1)),
+          staleAfter: const Duration(seconds: 30),
+          pollInterval: const Duration(hours: 1),
+        );
+        final starting = secondCoordinator.start();
+        secondTransport.emit(const BleEvent(type: 'connected', device: device));
+        await starting;
+
+        expect(_decodeSent(secondTransport.sent).id, messageId);
+        final recovered = await BleDeliveryRepository(secondDatabase)
+            .lookupOutbox(messageId);
+        expect(
+          recovered!.state,
+          BleOutboxState.awaitingAcknowledgement.wireValue,
+        );
+        expect(recovered.messageId, messageId);
+        expect(
+          await secondDatabase.select(secondDatabase.bleOutbox).get(),
+          hasLength(1),
+        );
+        await secondCoordinator.dispose();
+        await secondTransport.controller.close();
+        await secondDatabase.close();
+      } finally {
+        if (await directory.exists()) await directory.delete(recursive: true);
+      }
+    },
+  );
 
   test(
     'diagnostic logger failures do not affect coordinator lifecycle',

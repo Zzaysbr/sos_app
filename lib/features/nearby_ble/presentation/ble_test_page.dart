@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../data/ble_protocol.dart';
 import '../data/ble_transport.dart';
 import '../domain/ble_models.dart';
+import '../domain/ble_range_diagnostic.dart';
 
 class BleTestPage extends StatefulWidget {
   BleTestPage({super.key, BleTransportClient? transport})
@@ -37,6 +39,16 @@ class _BleTestPageState extends State<BleTestPage> {
   int _scanSession = 0;
   bool _disposed = false;
   late Future<void> _readyFuture;
+  BleRangeTestSession? _rangeSession;
+  Timer? _rangeTimer;
+  int _rangeSequence = 0;
+  bool _rangeSending = false;
+  bool _rangePingInFlight = false;
+  int _rangeDurationSeconds = 30;
+  String _rangeDistance = '5 m';
+  String _rangeEnvironment = 'Open space';
+
+  static const _rangeAckTimeout = Duration(seconds: 3);
 
   bool get _busy => _busyOperation != null;
   BleDevice? get _selectedDevice =>
@@ -119,6 +131,7 @@ class _BleTestPageState extends State<BleTestPage> {
         if (device != null) _states[_deviceKey(device.id)] = 'connected';
         if (device != null) {
           _connectionWaiters.remove(_deviceKey(device.id))?.complete();
+          if (_isRangeTarget(device.id)) _rangeSession?.recordConnected();
         }
         _log('Connected to ${device?.id ?? 'device'}');
         break;
@@ -129,6 +142,7 @@ class _BleTestPageState extends State<BleTestPage> {
           _assemblers.removeWhere(
             (key, _) => key.startsWith('${_deviceKey(device.id)}|'),
           );
+          if (_isRangeTarget(device.id)) _rangeSession?.recordDisconnected();
         }
         if (device != null) {
           _connectionWaiters
@@ -208,6 +222,35 @@ class _BleTestPageState extends State<BleTestPage> {
       if (message == null) return;
       final stamp = _time();
       final sender = event.device?.id ?? 'unknown sender';
+      if (message.type == bleRangePingType) {
+        final device = event.device;
+        if (device == null) {
+          _log('Range ping ignored because sender identity is unavailable');
+          return;
+        }
+        unawaited(_sendRangeAcknowledgement(device, event.role, message));
+        _log('Range ping ${message.id} received; sending application ACK');
+        return;
+      }
+      if (message.type == bleRangeAckType) {
+        final acknowledgedId = BleRangeDiagnosticMessage.acknowledgedMessageId(
+          message,
+        );
+        final accepted =
+            acknowledgedId != null &&
+            _rangeSession?.recordAcknowledgement(
+                  messageId: acknowledgedId,
+                  sourcePeerId: sender,
+                  receivedAt: DateTime.now().toUtc(),
+                ) ==
+                true;
+        _log(
+          accepted
+              ? 'Application ACK received for $acknowledgedId'
+              : 'Ignored unmatched, late, duplicate, or wrong-peer range ACK',
+        );
+        return;
+      }
       _received.insert(
         0,
         '$stamp · $sender · ${message.payload['text'] ?? message.type}',
@@ -352,6 +395,125 @@ class _BleTestPageState extends State<BleTestPage> {
     });
   }
 
+  bool _isRangeTarget(String deviceId) {
+    final session = _rangeSession;
+    return session != null &&
+        _deviceKey(session.targetPeerId) == _deviceKey(deviceId);
+  }
+
+  Future<void> _sendDiagnosticMessage(
+    BleDevice device,
+    BleMessage message, {
+    BleSessionRole? role,
+  }) async {
+    final frames = BleMessageCodec.encode(
+      message,
+      maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
+    );
+    for (final frame in frames) {
+      _assertActive();
+      await widget.transport.send(device.id, frame, role: role);
+    }
+  }
+
+  Future<void> _sendRangeAcknowledgement(
+    BleDevice device,
+    BleSessionRole? role,
+    BleMessage ping,
+  ) async {
+    try {
+      await _sendDiagnosticMessage(
+        device,
+        BleRangeDiagnosticMessage.acknowledgement(
+          ping: ping,
+          receivedAt: DateTime.now().toUtc(),
+        ),
+        role: role,
+      );
+    } catch (error) {
+      _log('Range application ACK native write failed: $error');
+    }
+  }
+
+  void _startRangeTest() {
+    final device = _selectedDevice;
+    if (_rangeSending ||
+        device == null ||
+        _states[_deviceKey(device.id)] != 'connected') {
+      return;
+    }
+    _rangeTimer?.cancel();
+    final now = DateTime.now().toUtc();
+    _rangeSequence = 0;
+    _rangeSession = BleRangeTestSession(
+      runId: 'range-${now.microsecondsSinceEpoch}',
+      targetPeerId: device.id,
+      startedAt: now,
+    );
+    _rangeSending = true;
+    _log(
+      'Range run started: $_rangeDistance, $_rangeEnvironment, '
+      '$_rangeDurationSeconds seconds. Distance is operator-recorded.',
+    );
+    unawaited(_sendRangePing());
+    _rangeTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      final session = _rangeSession;
+      if (session == null || _disposed) return;
+      final tick = DateTime.now().toUtc();
+      final snapshot = session.snapshot(tick);
+      if (_rangeSending &&
+          snapshot.elapsed >= Duration(seconds: _rangeDurationSeconds)) {
+        _rangeSending = false;
+        _log('Range send interval complete; waiting for outstanding ACKs');
+      }
+      session.expire(now: tick, timeout: _rangeAckTimeout);
+      if (_rangeSending) {
+        unawaited(_sendRangePing());
+      } else if (session.snapshot(tick).pending == 0) {
+        _rangeTimer?.cancel();
+        _log('Range run complete');
+      }
+      if (mounted) setState(() {});
+    });
+    setState(() {});
+  }
+
+  void _stopRangeTest() {
+    if (_rangeSession == null) return;
+    _rangeSending = false;
+    _log('Range sending stopped; outstanding ACKs keep their timeout window');
+    setState(() {});
+  }
+
+  Future<void> _sendRangePing() async {
+    final session = _rangeSession;
+    final device = _selectedDevice;
+    if (!_rangeSending ||
+        _rangePingInFlight ||
+        session == null ||
+        device == null) {
+      return;
+    }
+    _rangePingInFlight = true;
+    final sentAt = DateTime.now().toUtc();
+    final ping = BleRangeDiagnosticMessage.ping(
+      runId: session.runId,
+      sequence: _rangeSequence++,
+      sentAt: sentAt,
+    );
+    session.recordAttempt(ping.id, sentAt);
+    try {
+      await _sendDiagnosticMessage(device, ping);
+      _log('Range ${ping.id}: native write accepted; awaiting application ACK');
+    } catch (error) {
+      session.recordNativeFailure(ping.id);
+      _log('Range ${ping.id}: native write failed: $error');
+    } finally {
+      _rangePingInFlight = false;
+    }
+    if (mounted) setState(() {});
+  }
+
   void _log(String message) {
     if (_disposed) return;
     final line = '${_time()}  $message';
@@ -372,6 +534,7 @@ class _BleTestPageState extends State<BleTestPage> {
   @override
   void dispose() {
     _disposed = true;
+    _rangeTimer?.cancel();
     unawaited(_eventsSubscription?.cancel() ?? Future<void>.value());
     for (final waiter in _connectionWaiters.values) {
       if (!waiter.isCompleted) {
@@ -396,6 +559,11 @@ class _BleTestPageState extends State<BleTestPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (kReleaseMode) {
+      return const Scaffold(
+        body: Center(child: Text('Debug tool unavailable')),
+      );
+    }
     final selectedConnected =
         _selectedDevice != null &&
         _states[_deviceKey(_selectedDevice!.id)] == 'connected';
@@ -415,6 +583,8 @@ class _BleTestPageState extends State<BleTestPage> {
           _devicesCard(),
           const SizedBox(height: 12),
           _sendCard(selectedConnected),
+          const SizedBox(height: 12),
+          _rangeCard(selectedConnected),
           const SizedBox(height: 12),
           _receivedCard(),
           const SizedBox(height: 12),
@@ -462,7 +632,7 @@ class _BleTestPageState extends State<BleTestPage> {
     child: Padding(
       padding: EdgeInsets.all(14),
       child: Text(
-        'Android: scan, advertise, connect, write and receive GATT data.\niOS: scan, advertise, connect, write and receive CoreBluetooth data.\nForeground testing is required; background operation and delivery acknowledgements are not implemented.',
+        'Android: scan, advertise, connect, write and receive GATT data.\niOS: scan, advertise, connect, write and receive CoreBluetooth data.\nForeground testing is required. Range diagnostics use an application ACK; ordinary test messages report native write acceptance only.',
       ),
     ),
   );
@@ -567,6 +737,113 @@ class _BleTestPageState extends State<BleTestPage> {
       ),
     ),
   );
+
+  Widget _rangeCard(bool connected) {
+    final session = _rangeSession;
+    final snapshot = session?.snapshot(DateTime.now().toUtc());
+    final device = _selectedDevice;
+    String latency(Duration? value) =>
+        value == null ? 'n/a' : '${value.inMilliseconds} ms';
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'BLE range / quality diagnostic',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Record the real distance yourself. RSSI is signal strength and is never converted to distance. Repeat each distance in open and obstructed conditions.',
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                DropdownButton<int>(
+                  value: _rangeDurationSeconds,
+                  items: const [30, 60, 120]
+                      .map(
+                        (value) => DropdownMenuItem(
+                          value: value,
+                          child: Text('$value s'),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: _rangeSending
+                      ? null
+                      : (value) =>
+                            setState(() => _rangeDurationSeconds = value ?? 30),
+                ),
+                DropdownButton<String>(
+                  value: _rangeDistance,
+                  items: const ['5 m', '10 m', '20 m', '30 m', '50 m']
+                      .map(
+                        (value) =>
+                            DropdownMenuItem(value: value, child: Text(value)),
+                      )
+                      .toList(),
+                  onChanged: _rangeSending
+                      ? null
+                      : (value) =>
+                            setState(() => _rangeDistance = value ?? '5 m'),
+                ),
+                DropdownButton<String>(
+                  value: _rangeEnvironment,
+                  items: const ['Open space', 'Obstructed']
+                      .map(
+                        (value) =>
+                            DropdownMenuItem(value: value, child: Text(value)),
+                      )
+                      .toList(),
+                  onChanged: _rangeSending
+                      ? null
+                      : (value) => setState(
+                          () => _rangeEnvironment = value ?? 'Open space',
+                        ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Target: ${device?.id ?? 'none'}\n'
+              'RSSI: ${device?.rssi == null ? 'unavailable (transport exposes scan-time RSSI only)' : '${device!.rssi} dBm (last scan result)'}',
+            ),
+            if (snapshot != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Elapsed: ${snapshot.elapsed.inSeconds}s · State: ${snapshot.connectionState}\n'
+                'Attempted ${snapshot.attempted} · Application ACK ${snapshot.acknowledged} · Native failed ${snapshot.nativeFailed} · Timed out ${snapshot.timedOut} · Pending ${snapshot.pending}\n'
+                'PDR ${snapshot.packetDeliveryRate.toStringAsFixed(1)}% · ACK latency min/avg/p50/p95/max: '
+                '${latency(snapshot.minimumLatency)} / ${latency(snapshot.averageLatency)} / ${latency(snapshot.medianLatency)} / ${latency(snapshot.p95Latency)} / ${latency(snapshot.maximumLatency)}\n'
+                'Disconnects ${snapshot.disconnects} · Reconnects ${snapshot.reconnects}',
+              ),
+            ],
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              children: [
+                FilledButton.icon(
+                  onPressed: connected && !_rangeSending
+                      ? _startRangeTest
+                      : null,
+                  icon: const Icon(Icons.network_check),
+                  label: const Text('Start range run'),
+                ),
+                OutlinedButton(
+                  onPressed: _rangeSending ? _stopRangeTest : null,
+                  child: const Text('Stop'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _receivedCard() => Card(
     child: ExpansionTile(

@@ -67,14 +67,6 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 
-		<key>NSLocalNetworkUsageDescription</key>
-	<string>ใช้เครือข่ายใกล้เคียงเพื่อค้นหาและเชื่อมต่ออุปกรณ์สำหรับการสื่อสารฉุกเฉิน</string>
-
-	<key>NSBonjourServices</key>
-	<array>
-		<string>_mp-connection._tcp</string>
-	</array>
-
 	<key>UIRequiresPersistentWiFi</key>
 	<true/>
 
@@ -82,10 +74,11 @@
 	<string>ใช้ Bluetooth เพื่อค้นหาและเชื่อมต่ออุปกรณ์ใกล้เคียงสำหรับการสื่อสารฉุกเฉิน</string>
 
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>This app uses the local network to send emergency SOS messages to nearby devices.</string>
+	<string>ใช้เครือข่ายภายในเพื่อค้นหาและส่งข้อความ SOS ไปยังอุปกรณ์ใกล้เคียง</string>
 
 	<key>NSBonjourServices</key>
 	<array>
+		<string>_mp-connection._tcp</string>
 		<string>_sosapp._tcp</string>
 		<string>_sosapp._udp</string>
 	</array>

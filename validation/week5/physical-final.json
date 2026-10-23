@@ -55,5 +55,11 @@
   "android_bluetooth_off": {"status": "PASS"},
   "android_nearby_permission_denied": {"status": "PASS"},
   "android_gps_unavailable": {"status": "PASS"},
-  "ios_permission_matrix": {"status": "NOT RUN"}
+  "ios_permission_matrix": {"status": "NOT RUN"},
+  "ble_range_runs": {
+    "status": "NOT RUN",
+    "distances_metres": [5, 10, 20, 30, 50],
+    "environments": ["open", "obstructed"],
+    "reason": "Diagnostic implemented after the completed physical acceptance; no field measurements were performed."
+  }
 }

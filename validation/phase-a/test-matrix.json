@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-23",
+  "release_gate": "BLOCKED",
+  "automated": [
+    {"id": "PA-A01", "name": "BLE ACK, retry, peer isolation, deduplication and restart", "status": "PASS", "evidence": "focused release suite and full suite"},
+    {"id": "PA-A02", "name": "Guest/account ownership and local history isolation", "status": "PASS", "evidence": "guest continuity and repository suites"},
+    {"id": "PA-A03", "name": "session expiry and connectivity-driven cloud retry coordination", "status": "PASS", "evidence": "test/sos_sync_coordinator_test.dart; 3 tests"},
+    {"id": "PA-A04", "name": "map release fail-closed and coordinate retention", "status": "PASS", "evidence": "map and incident map tests; synthetic defines 6 tests"},
+    {"id": "PA-A05", "name": "Android release refuses missing signing configuration", "status": "PASS", "evidence": "expected build exit 1; no AAB"},
+    {"id": "PA-A06", "name": "full repository flutter analyze", "status": "FAIL", "evidence": "exit 1; 32 info findings in vendored nearby-connections package"},
+    {"id": "PA-A07", "name": "application lib/test analysis", "status": "PASS", "evidence": "flutter analyze lib test exit 0"},
+    {"id": "PA-A08", "name": "Android debug and iOS unsigned debug compilation", "status": "PASS", "evidence": "both build commands exit 0"}
+  ],
+  "manual_or_physical": [
+    {"id": "PA-M01", "name": "permanent identifier and distribution-history decision", "status": "NEEDS MANUAL ACTION", "reason": "repository cannot establish store/test distribution history"},
+    {"id": "PA-M02", "name": "signed Android release", "status": "NOT RUN", "reason": "account-owned upload keystore/properties absent"},
+    {"id": "PA-M03", "name": "signed iOS archive/export", "status": "NOT RUN", "reason": "distribution/App Store prerequisites not supplied"},
+    {"id": "PA-M04", "name": "live account-owned Geoapify runtime", "status": "NOT RUN", "reason": "account-owned key/config absent"},
+    {"id": "PA-P01", "name": "Android to iPhone SOS, Chat and Location on latest build", "status": "NOT RUN", "reason": "only historical Phase 7 physical evidence exists"},
+    {"id": "PA-P02", "name": "Android to Android both directions", "status": "NOT RUN", "reason": "two-device current-build evidence absent"},
+    {"id": "PA-P03", "name": "real-radio ACK loss, wrong-peer and duplicate cases", "status": "NOT RUN", "reason": "approved harness/third peer and current evidence absent"},
+    {"id": "PA-P04", "name": "close-pending and process restart/reconnect", "status": "NOT RUN", "reason": "current-build physical evidence absent"},
+    {"id": "PA-P05", "name": "Bluetooth and location permission revoke/regrant", "status": "NOT RUN", "reason": "current-build physical evidence absent"},
+    {"id": "PA-P06", "name": "open and obstructed BLE range at 5/10/20/30/50 metres", "status": "NOT RUN", "reason": "field measurements absent"},
+    {"id": "PA-P07", "name": "live Firebase expiry, cloud failure and retry", "status": "NOT RUN", "reason": "controlled live execution required"},
+    {"id": "PA-P08", "name": "Guest/account isolation on signed release candidate", "status": "NOT RUN", "reason": "signed candidate and fresh device evidence absent"}
+  ]
+}

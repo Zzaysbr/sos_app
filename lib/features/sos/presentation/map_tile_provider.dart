@@ -22,18 +22,20 @@ class MapTileProviderConfig {
   );
 
   factory MapTileProviderConfig.fromEnvironment({required bool isRelease}) {
-    final configuredUrl = String.fromEnvironment('MAP_TILE_URL');
+    const configuredUrl = String.fromEnvironment('MAP_TILE_URL');
+    const configuredAttribution = String.fromEnvironment(
+      'MAP_TILE_ATTRIBUTION',
+    );
+    const configuredUserAgent = String.fromEnvironment('MAP_TILE_USER_AGENT');
     final isFallback = configuredUrl.isEmpty;
     final config = MapTileProviderConfig(
       urlTemplate: isFallback ? _developmentUrl : configuredUrl,
-      attribution: String.fromEnvironment(
-        'MAP_TILE_ATTRIBUTION',
-        defaultValue: isFallback ? 'OpenStreetMap contributors' : '',
-      ),
-      userAgentPackageName: String.fromEnvironment(
-        'MAP_TILE_USER_AGENT',
-        defaultValue: isFallback ? 'com.example.sos_app' : '',
-      ),
+      attribution: configuredAttribution.isEmpty && isFallback
+          ? 'OpenStreetMap contributors'
+          : configuredAttribution,
+      userAgentPackageName: configuredUserAgent.isEmpty && isFallback
+          ? 'com.example.sos_app'
+          : configuredUserAgent,
       isDevelopmentFallback: isFallback,
     );
     return config.withValidation(isRelease: isRelease);
@@ -73,6 +75,10 @@ class MapTileProviderConfig {
         (host == 'tile.openstreetmap.org' ||
             host.endsWith('.tile.openstreetmap.org'))) {
       return 'The public OpenStreetMap tile service is development-only.';
+    }
+    if ((host == 'geoapify.com' || host.endsWith('.geoapify.com')) &&
+        (uri.queryParameters['apiKey']?.trim().isEmpty ?? true)) {
+      return 'The Geoapify API key is missing.';
     }
     if (!urlTemplate.contains('{z}') ||
         !urlTemplate.contains('{x}') ||

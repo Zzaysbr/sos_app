@@ -1,0 +1,45 @@
+{
+  "date": "2026-10-22",
+  "release_gate": "BLOCKED",
+  "devices_detected": {
+    "android": {
+      "status": "NOT DETECTED",
+      "evidence": "adb devices -l exited 0 with an empty list twice"
+    },
+    "ios": {
+      "model": "iPhone 15 Plus",
+      "os": "iOS 27.0.1",
+      "app_version": "0.1.0+1",
+      "status": "AVAILABLE",
+      "pairing": "paired",
+      "developer_mode": "enabled",
+      "tunnel": "connected",
+      "runner_destination": true,
+      "host_error": null,
+      "separate_unavailable_record": "iPhone 13 reports code -27"
+    }
+  },
+  "automated": {
+    "focused_initial": {
+      "exit_code": 1,
+      "loaded_tests_passed": 129,
+      "reason": "Nonexistent test/sos_sync_queue_test.dart selector"
+    },
+    "focused_corrected": {"exit_code": 0, "passed": 138},
+    "full_tests": {"exit_code": 0, "passed": 211},
+    "analyze": {"exit_code": 0, "result": "No issues found"},
+    "android_debug": {"exit_code": 0, "seconds_gradle": 7.0},
+    "ios_debug_no_codesign": {"exit_code": 0, "seconds_xcode": 10.0},
+    "diff_check": {"exit_code": 0}
+  },
+  "tests": [
+    {"id": "P8-P01", "name": "controlled production application ACK loss", "status": "NOT RUN", "reason": "No post-persistence ACK suppression harness"},
+    {"id": "P8-P02", "name": "wrong-peer ACK injection", "status": "NOT RUN", "reason": "Third peer or native injector unavailable"},
+    {"id": "P8-P03", "name": "close app while pending", "status": "NOT RUN", "reason": "No second endpoint; ADB inventory empty"},
+    {"id": "P8-P04", "name": "process restart and reconnect", "status": "NOT RUN", "reason": "No second endpoint and no Phase 8 device trace"},
+    {"id": "P8-P05", "name": "Android to Android both directions", "status": "NOT RUN", "reason": "No Android detected; Android B unavailable"},
+    {"id": "P8-P06", "name": "iOS Bluetooth permission revoke and regrant", "status": "NOT RUN", "reason": "iPhone ready; Android peer absent, so post-regrant ACK cannot be proven"},
+    {"id": "P8-P07", "name": "BLE range open 5/10/20/30/50 metres", "status": "NOT RUN", "reason": "No field run"},
+    {"id": "P8-P08", "name": "BLE range obstructed 5/10/20/30/50 metres", "status": "NOT RUN", "reason": "No field run"}
+  ]
+}

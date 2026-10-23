@@ -88,6 +88,21 @@ void main() {
     }
   });
 
+  test('Geoapify configuration without an API key fails closed', () {
+    const config = MapTileProviderConfig(
+      urlTemplate:
+          'https://maps.geoapify.com/v1/tile/osm-carto/{z}/{x}/{y}.png',
+      attribution: 'Powered by Geoapify | © OpenStreetMap contributors',
+      userAgentPackageName: 'com.example.sos_app',
+      isDevelopmentFallback: false,
+    );
+
+    final validated = config.withValidation(isRelease: true);
+    expect(validated.isUsable, isFalse);
+    expect(validated.validationError, 'The Geoapify API key is missing.');
+    expect(validated.validationError, isNot(contains('maps.geoapify.com')));
+  });
+
   test('actual release environment enforces public-provider safety', () {
     const configured = String.fromEnvironment('MAP_TILE_URL');
     final config = MapTileProviderConfig.fromEnvironment(isRelease: true);

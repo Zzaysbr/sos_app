@@ -1,0 +1,72 @@
+{
+  "date": "2026-10-22",
+  "focused_initial": {
+    "command": "flutter test [focused files including missing test/sos_sync_queue_test.dart]",
+    "exit_code": 1,
+    "loaded_tests_passed": 129,
+    "classification": "invalid test path; not an application test failure"
+  },
+  "focused_corrected": {
+    "command": "flutter test test/ble_range_diagnostic_test.dart test/ble_test_page_test.dart test/ble_delivery_repository_test.dart test/sos_ble_coordinator_test.dart test/ble_identity_release_gate_test.dart test/chat_repository_test.dart test/ble_transport_test.dart test/guest_continuity_test.dart test/local_device_history_test.dart test/auth_session_navigator_test.dart test/sos_repository_test.dart",
+    "exit_code": 0,
+    "passed": 138,
+    "failed": 0
+  },
+  "full_tests": {
+    "command": "flutter test",
+    "exit_code": 0,
+    "passed": 211,
+    "failed": 0
+  },
+  "analyze": {
+    "command": "flutter analyze lib test",
+    "exit_code": 0,
+    "result": "No issues found"
+  },
+  "android_debug": {
+    "command": "flutter build apk --debug --no-pub",
+    "exit_code": 0,
+    "seconds_gradle": 7.0
+  },
+  "ios_debug": {
+    "command": "flutter build ios --debug --no-codesign --no-pub",
+    "exit_code": 0,
+    "seconds_xcode": 10.0,
+    "codesigned": false
+  },
+  "device_inventory": {
+    "command": "flutter devices --device-timeout 10; adb devices -l; xcrun devicectl list devices; xcrun xcdevice list",
+    "exit_code": 0,
+    "android": "NOT DETECTED",
+    "ios": "iPhone 15 Plus AVAILABLE, paired, Developer Mode enabled, CoreDevice tunnel connected",
+    "code_minus_27": "Separate unavailable iPhone 13 record",
+    "sandbox_note": "Initial sandbox-only ADB/CoreDevice/Instruments failures are non-authoritative; unrestricted read-only reruns are authoritative"
+  },
+  "phase_8_1": {
+    "timestamp": "2026-10-22 22:14:00 +07",
+    "source_revision": "144f1cf with preserved working-tree changes",
+    "focused": {"exit_code": 0, "passed": 138},
+    "full_tests": {"exit_code": 0, "passed": 211},
+    "analyze": {"exit_code": 0, "result": "No issues found"},
+    "android_debug": {"exit_code": 0, "seconds_gradle": 2.059},
+    "ios_debug_no_codesign": {"exit_code": 0, "seconds_xcode": 7.1},
+    "flutter_devices": {"exit_code": 0, "android": "NOT DETECTED", "ios_15_plus": "AVAILABLE"},
+    "adb_devices": {"exit_code": 0, "devices": 0},
+    "devicectl_list": {"exit_code": 0, "ios_15_plus": "connected", "ios_13": "unavailable"},
+    "xcdevice_list": {"exit_code": 0, "ios_15_plus": "available", "ios_13_error": -27},
+    "devicectl_details": {"exit_code": 0, "pairing": "paired", "developer_mode": "enabled", "tunnel": "connected"},
+    "xcode_destinations": {"exit_code": 0, "runner_ios_destination": true},
+    "flutter_doctor": {"exit_code": 0, "result": "No issues found", "xcode": "26.6 (17F113)"},
+    "ios_installed_app": {"exit_code": 0, "version": "0.1.0", "build": "1"},
+    "diff_check": {"exit_code": 0},
+    "physical_tests_executed": 0,
+    "physical_reason": "Only one usable endpoint; required two-device evidence unavailable"
+  },
+  "diff_check": {
+    "command": "git diff --check",
+    "exit_code": 0
+  },
+  "signed_ios_release": {
+    "status": "NOT RUN"
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "date": "2026-10-23",
+  "source_revision": "144f1cf with preserved working-tree changes",
+  "focused_tests": {
+    "exit_code": 0,
+    "passed": 103,
+    "scope": "map, incident map, Guest/auth, SOS repository, BLE delivery/coordinator"
+  },
+  "full_tests": {
+    "exit_code": 0,
+    "passed": 212
+  },
+  "analyze_lib_test": {
+    "exit_code": 0,
+    "result": "No issues found"
+  },
+  "map_synthetic_defines": {
+    "exit_code": 0,
+    "passed": 6,
+    "secrets_used": false
+  },
+  "map_public_osm_release_guard": {
+    "exit_code": 0,
+    "passed": 6
+  },
+  "android_debug": {
+    "exit_code": 0,
+    "seconds_gradle": 9.3,
+    "application_id": "com.example.sos_app",
+    "version": "0.1.0+1",
+    "apk_sha256": "272f368754fd1c4b0160a431eb37f2d5c6fe041a93f98ac4d51ded47d3b3c2ec"
+  },
+  "ios_debug_no_codesign": {
+    "exit_code": 0,
+    "seconds_xcode": 266.0,
+    "bundle_identifier": "com.n1cxltine.sosapp",
+    "version": "0.1.0+1",
+    "codesigned": false
+  },
+  "ios_release_no_codesign": {
+    "exit_code": 0,
+    "seconds_xcode": 342.7,
+    "bundle_identifier": "com.n1cxltine.sosapp",
+    "version": "0.1.0+1",
+    "artifact_megabytes": 52.2,
+    "codesigned": false
+  },
+  "android_missing_signing_guard": {
+    "build_exit_code": 1,
+    "expected": true,
+    "artifact_check_exit_code": 0,
+    "signed_artifact_created": false
+  },
+  "android_invalid_keystore_guard": {
+    "build_exit_code": 1,
+    "expected": true,
+    "signed_artifact_created": false,
+    "temporary_properties_removed": true
+  },
+  "ios_info_plist_lint": {
+    "exit_code": 0,
+    "bonjour_services": [
+      "_mp-connection._tcp",
+      "_sosapp._tcp",
+      "_sosapp._udp"
+    ]
+  },
+  "diff_check": {
+    "exit_code": 0
+  },
+  "signed_android_release": "NOT RUN",
+  "signed_ios_release": "NOT RUN",
+  "live_map_runtime": "NOT RUN",
+  "physical_reliability": "NOT RUN"
+}

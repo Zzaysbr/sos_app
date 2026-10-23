@@ -1,6 +1,34 @@
 # Offline SOS release readiness
 
-Current gate: **BLOCKED**. Android↔iPhone SOS and Chat pass both directions, and foreground Location passes initial/subsequent delivery, persisted ACK, map presentation and Stop on the tested devices. Remaining blockers are listed below. Integrated evidence is in [WEEK_5_BUG_LOG.md](WEEK_5_BUG_LOG.md) and [PHASE_7_RELEASE_VERIFICATION.md](PHASE_7_RELEASE_VERIFICATION.md). Historical checklists below are retained.
+Current gate: **BLOCKED**. Phase 7 historical evidence records Android↔iPhone
+SOS and Chat in both directions plus foreground Location delivery, persisted
+ACK, map presentation and Stop on the devices used then. Those results are not
+a PASS for the current build; the latest-build physical matrix is NOT RUN.
+Remaining blockers are listed below. Integrated historical evidence is in
+[WEEK_5_BUG_LOG.md](WEEK_5_BUG_LOG.md) and
+[PHASE_7_RELEASE_VERIFICATION.md](PHASE_7_RELEASE_VERIFICATION.md).
+
+Phase A closure status (23 October 2026): repository-level BLE, Guest/account,
+map failure and signing-guard checks pass, including new direct coverage for
+connectivity retry and session-expiry gating. Full tests pass 215 and the
+focused release suite passes 108. Full-repository analysis remains non-green
+with 32 `info` findings confined to the vendored nearby-connections package;
+`flutter analyze lib test` passes. Current-build physical cases, live Firebase
+expiry/retry, account-owned map runtime and signed Android/iOS artifacts remain
+NOT RUN. Identity/distribution history requires an owner decision. See
+`PHASE_A_RELEASE_CLOSURE_REPORT.md`, `PHASE_A_MANUAL_ACTIONS.md`,
+`PHASE_B_ROADMAP.md` and `validation/phase-a/`.
+
+Phase 10 identity/signing evidence is in
+`PHASE_10_RELEASE_IDENTITY_SIGNING_AUDIT.md` and `validation/phase10/`. The
+current Android identity is `com.example.sos_app`; iOS is
+`com.n1cxltine.sosapp`. Neither was changed. The owner must decide the permanent
+identifiers before store registration because an Android identifier change
+creates a separate installation/data sandbox and requires a new Firebase app.
+Android release signing now fails safely when account-owned signing material is
+missing or invalid; signed Android and iOS releases remain NOT RUN. Geoapify
+configuration now also fails closed when its API key is absent. Live production
+map verification is still NOT RUN.
 
 This checklist describes the implementation currently in this repository. It
 does not claim Android/iOS BLE interoperability until a physical-device test
@@ -228,3 +256,72 @@ controlled real-radio ACK-loss/wrong-peer/close-while-pending tests, the complet
 iPhone permission matrix, a configured/live-tested free production map provider
 and signed App Store/release validation. Geoapify Free remains a candidate;
 public OSM stays blocked in release and offline tiles are absent.
+
+## Reliability/range continuation — 22 October 2026
+
+The durable queue now has an integration regression across a real file-backed
+database/coordinator restart, preserving one row and the same message ID. The
+existing delayed/lost ACK, wrong-peer, duplicate and stale-callback regressions
+remain enabled. Full tests pass 211; focused BLE reliability/range tests pass
+117; analyzer, Android debug and unsigned iOS debug builds exit 0.
+
+The new BLE quality diagnostic is debug-only and uses application ACKs rather
+than native write completion for PDR. It reports latency/timeouts/reconnects and
+only the scan-time RSSI exposed by the native bridges. Physical 5–50 m runs are
+NOT RUN and no range claim is made. LoRa remains a documented hardware-backed
+future option only; no production transport, dependency, schema, UUID or rules
+changed. All release blockers listed above remain open.
+
+## Phase 8 preparation — 22 October 2026
+
+`PHASE_8_PHYSICAL_TEST_RUNBOOK.md` now defines prerequisites, exact execution,
+logs, pass/fail and cleanup for controlled production ACK loss, wrong-peer ACK,
+close-while-pending, process restart/reconnect, Android↔Android, iOS Bluetooth
+permission recovery and 5–50 m open/obstructed range runs. The machine currently
+detects no Android; iPhone wireless discovery fails host connection with code
+-27. All new physical rows therefore remain NOT RUN.
+
+Automated validation passes: focused reliability/range/ownership 138, full 211,
+analyzer, Android debug build, unsigned iOS debug build and diff check all exit
+0. The initial focused command exited 1 only because it named a nonexistent test
+file and was corrected without suppressing tests. No production code or
+dependency changed in Phase 8 preparation. Release remains blocked by the
+physical fault/range matrix, Android B, production map configuration and signed
+release validation.
+
+## Phase 8.1 environment recovery — 22 October 2026
+
+The iOS host blocker is resolved for the active iPhone 15 Plus: CoreDevice and
+Xcode report iOS 27.0.1 paired, Developer Mode enabled, tunnel connected and
+available as a Runner destination; app 0.1.0+1 is installed. Flutter's `-27`
+message is attached to a separate unavailable iPhone 13 record with the same
+display name. No pairing reset is justified.
+
+Android remains absent from an unrestricted ADB inventory, so close-pending,
+restart/reconnect, iOS permission recovery with peer ACK, Android↔Android and
+range tests remain NOT RUN. No physical PASS was inferred. Focused 138 and full
+211 tests, analyzer, Android debug and unsigned iOS debug builds exit 0 in the
+Phase 8.1 rerun. A physical ACK-suppression control is not added while endpoints
+are unavailable; the runbook records a one-shot debug-only design gate. Release
+remains blocked by the physical matrix, a production map configuration and
+signed release validation.
+
+## Phase 9 release preparation — 22 October 2026
+
+Repository-only audit fixed three release configuration defects without
+changing BLE, ownership, schema, Firebase Rules or dependencies. Injected
+`MAP_TILE_*` values are now read as compile-time constants; Android main now
+declares Internet access; and Android release no longer uses the debug signing
+key. An unconfigured release task fails closed and no signed artifact is
+claimed.
+
+Geoapify Free remains the free-only production candidate, but no account-owned
+key is available. Public OSM remains rejected in release and offline tiles are
+not implemented. The exact owner actions, severity/remediation assessment and
+current signing prerequisites are in `PHASE_9_RELEASE_READINESS.md`. The single
+planned hardware session is in `PHYSICAL_TEST_SESSION_CHECKLIST.md`.
+
+Final Phase 9 automated rerun passes 102 focused and 211 full tests, analyzer,
+Android debug and unsigned iOS debug builds. Synthetic map config passes 5
+tests. Signed Android/iOS release, live map, forced live auth expiry and all
+remaining Phase 8 physical cases remain NOT RUN. Release Gate stays BLOCKED.

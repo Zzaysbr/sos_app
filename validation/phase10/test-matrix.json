@@ -1,0 +1,80 @@
+{
+  "date": "2026-10-23",
+  "release_gate": "BLOCKED",
+  "repository": [
+    {
+      "id": "P10-A01",
+      "name": "current Android and iOS identities documented without modification",
+      "status": "PASS",
+      "evidence": "PHASE_10_RELEASE_IDENTITY_SIGNING_AUDIT.md"
+    },
+    {
+      "id": "P10-A02",
+      "name": "Android release cannot silently use debug signing",
+      "status": "PASS",
+      "evidence": "missing and invalid signing configurations exited 1 before AAB creation"
+    },
+    {
+      "id": "P10-A03",
+      "name": "iOS unsigned Release compiles with configured bundle identity",
+      "status": "PASS",
+      "evidence": "unsigned Runner.app 0.1.0+1; build exit 0; codesign reports unsigned"
+    },
+    {
+      "id": "P10-A04",
+      "name": "production map values reach runtime and unsafe configuration fails closed",
+      "status": "PASS",
+      "evidence": "synthetic define/public OSM/missing Geoapify key and incident-map tests"
+    },
+    {
+      "id": "P10-A05",
+      "name": "Guest/account/session/SOS/BLE regression",
+      "status": "PASS",
+      "evidence": "focused 103 and full 212 tests; analyzer exit 0"
+    },
+    {
+      "id": "P10-A06",
+      "name": "iOS local network and Bonjour services remain complete",
+      "status": "PASS",
+      "evidence": "single plist keys, plutil lint exit 0, three required services present"
+    }
+  ],
+  "owner_or_physical": [
+    {
+      "id": "P10-E01",
+      "name": "permanent application identity decision",
+      "status": "NOT RUN",
+      "reason": "owner decision required before any identifier change or store registration"
+    },
+    {
+      "id": "P10-E02",
+      "name": "signed Android release artifact",
+      "status": "NOT RUN",
+      "reason": "account-owned upload keystore and ignored properties absent"
+    },
+    {
+      "id": "P10-E03",
+      "name": "signed iOS archive and export",
+      "status": "NOT RUN",
+      "reason": "distribution certificate/profile/App Store prerequisites unverified"
+    },
+    {
+      "id": "P10-E04",
+      "name": "live production Geoapify runtime",
+      "status": "NOT RUN",
+      "reason": "account-owned key and release configuration absent"
+    },
+    {
+      "id": "P10-E05",
+      "name": "physical reliability and range matrix",
+      "status": "NOT RUN",
+      "reason": "required physical evidence remains incomplete; see Phase 8 matrix"
+    },
+    {
+      "id": "P10-E06",
+      "name": "live Firebase forced session expiry and cloud retry",
+      "status": "NOT RUN",
+      "reason": "controlled live execution still required"
+    }
+  ]
+}

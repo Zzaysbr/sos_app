@@ -1,18 +1,18 @@
 {
   "android_debug": {
-    "sha256": "9c62c49b180dbf1f8e7e81300e98853bab43fff97d4c5e0076407f64ca6a1f75",
-    "bytes": 199395004,
-    "source": "final Phase 7 source"
+    "sha256": "7f05630408ad081f08f5a7b7c986a1ea56112ae2f85819718d9b64d8ff08d970",
+    "bytes": 199411556,
+    "source": "Phase 7 reliability/range continuation source"
   },
   "ios_profile": {
     "status": "built and installed",
     "exit_code": 0,
-    "source": "final Phase 7 source",
-    "note": "The local Runner.app was later replaced by the required unsigned debug build."
+    "source": "final physical-acceptance source before the range diagnostic",
+    "note": "Historical physical-test artifact; the range continuation was validated with an unsigned debug build, not a new signed profile."
   },
   "ios_debug_app_framework": {
-    "sha256": "4262e7dd815cdab560f6254888106e426e958b2ba694edee9fd750706f16e6e6",
+    "sha256": "a5dec32c457ebe161a081c5f44ed0e290feaf76650b7f244a86a3e67cf877fae",
     "bytes": 34896,
-    "source": "final Phase 7 source"
+    "source": "Phase 7 reliability/range continuation source"
   }
 }

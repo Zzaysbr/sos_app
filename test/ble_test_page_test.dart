@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sos_app/features/nearby_ble/data/ble_protocol.dart';
 import 'package:sos_app/features/nearby_ble/data/ble_transport.dart';
 import 'package:sos_app/features/nearby_ble/domain/ble_models.dart';
+import 'package:sos_app/features/nearby_ble/domain/ble_range_diagnostic.dart';
 import 'package:sos_app/features/nearby_ble/presentation/ble_test_page.dart';
 import 'package:sos_app/features/nearby_ble/presentation/ble_recipient_picker_page.dart';
 
@@ -12,6 +13,7 @@ class FakeBleTransport implements BleTransportClient {
   final controller = StreamController<BleEvent>.broadcast();
   final calls = <String>[];
   bool disposed = false;
+  final sentFrames = <List<int>>[];
 
   @override
   Stream<BleEvent> get events => controller.stream;
@@ -37,7 +39,11 @@ class FakeBleTransport implements BleTransportClient {
     String deviceId,
     List<int> frame, {
     BleSessionRole? role,
-  }) async => calls.add('send:$deviceId');
+  }) async {
+    calls.add('send:$deviceId');
+    sentFrames.add(List<int>.from(frame));
+  }
+
   @override
   Future<void> dispose() async {
     disposed = true;
@@ -330,6 +336,35 @@ void main() {
     );
     expect(find.textContaining('Received messages'), findsOneWidget);
     expect(find.textContaining('hello from phone'), findsOneWidget);
+  });
+
+  testWidgets('range ping receives a real application ACK on the same route', (
+    tester,
+  ) async {
+    final fake = FakeBleTransport();
+    await tester.pumpWidget(MaterialApp(home: BleTestPage(transport: fake)));
+    await tester.pump();
+    const peer = BleDevice(id: 'peer-a');
+    final ping = BleRangeDiagnosticMessage.ping(
+      runId: 'run-widget',
+      sequence: 1,
+      sentAt: DateTime.utc(2026),
+    );
+    for (final frame in BleMessageCodec.encode(ping)) {
+      fake.controller.add(
+        BleEvent(
+          type: 'data',
+          device: peer,
+          payload: frame,
+          role: BleSessionRole.peripheral,
+        ),
+      );
+    }
+    await tester.pumpAndSettle();
+
+    final ack = BleMessageCodec.decode(fake.sentFrames);
+    expect(ack.type, bleRangeAckType);
+    expect(BleRangeDiagnosticMessage.acknowledgedMessageId(ack), ping.id);
   });
 
   testWidgets('permission errors are written to diagnostics', (tester) async {

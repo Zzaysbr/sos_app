@@ -165,3 +165,21 @@ Unsigned iOS debug validation before W5-08: **exit 0, 464.3s**, `ios-debug-build
   dependency-resolution delay or hang.
 - `flutter doctor -v`: exit 0, no issues; Xcode 26.6 (17F113), CocoaPods 1.17.0.
 - Signed App Store/release: NOT RUN.
+
+## W5-12 — Debug BLE quality test lacked application delivery evidence
+
+- Reproduce: use `BLE Test (Debug)` and send a message. The page reports native
+  write acceptance but has no matched receiver ACK, PDR, latency, timeout or
+  reconnect summary. The Settings entry also remained present in release mode.
+- Root cause: the screen was a transport exerciser, not a two-endpoint quality
+  diagnostic, and its route was not guarded by `kDebugMode`.
+- Fix: add debug-only ping/ACK messages over the existing transport and framing,
+  plus deterministic PDR/latency/native-failure/timeout/reconnect statistics.
+  Settings hides the route outside debug and the page has a release-mode guard.
+  RSSI is explicitly the last scan result; no distance is inferred.
+- Tests: 19 focused BLE UI/statistics tests pass, including a decoded
+  application ACK, wrong-peer/late ACK rejection and reconnect transitions.
+  A process-restart test also proves a stale SQLite outbox sends the same message
+  ID once after a new coordinator/database session starts.
+- Physical range runs: **NOT RUN**. Use `BLE_RANGE_TEST_RUNBOOK.md`; no maximum
+  range claim is made.

@@ -1,0 +1,83 @@
+{
+  "date": "2026-10-23",
+  "source_revision": "144f1cf with preserved Phase 7-10 working-tree changes",
+  "procedural_attempts": [
+    {
+      "command": "dart format test/sos_sync_coordinator_test.dart && flutter test test/sos_sync_coordinator_test.dart",
+      "exit_code": 1,
+      "classification": "sandbox denied Flutter SDK cache write before tests started",
+      "used_as_validation": false
+    },
+    {
+      "command": "direct Dart SDK format",
+      "result": "interrupted",
+      "used_as_validation": false
+    }
+  ],
+  "focused_release_tests": {
+    "exit_code": 0,
+    "passed": 108
+  },
+  "sync_coordinator_tests": {
+    "exit_code": 0,
+    "passed": 3
+  },
+  "full_tests": {
+    "exit_code": 0,
+    "passed": 215
+  },
+  "analyze_full_repository": {
+    "exit_code": 1,
+    "issues": 32,
+    "severity": "info",
+    "scope": "vendored packages/flutter_nearby_connections_plus package, example and tests"
+  },
+  "analyze_app_lib_test": {
+    "exit_code": 0,
+    "result": "No issues found"
+  },
+  "android_debug": {
+    "exit_code": 0,
+    "seconds_gradle": 4.7,
+    "application_id": "com.example.sos_app",
+    "version": "0.1.0+1",
+    "apk_sha256": "272f368754fd1c4b0160a431eb37f2d5c6fe041a93f98ac4d51ded47d3b3c2ec"
+  },
+  "ios_debug_no_codesign": {
+    "exit_code": 0,
+    "seconds_xcode": 15.7,
+    "bundle_identifier": "com.n1cxltine.sosapp",
+    "version": "0.1.0+1",
+    "codesigned": false
+  },
+  "android_release_signing_guard": {
+    "build_exit_code": 1,
+    "expected": true,
+    "signed_artifact_created": false
+  },
+  "synthetic_geoapify_defines": {
+    "exit_code": 0,
+    "passed": 6,
+    "real_key_used": false
+  },
+  "permission_inspection": {
+    "exit_code": 0,
+    "internet": true,
+    "bluetooth_scan_connect_advertise": true,
+    "fine_coarse_location": true
+  },
+  "credential_artifact_check": {
+    "exit_code": 0,
+    "private_key_or_keystore_found": false,
+    "android_key_properties_found": false,
+    "ios_export_options_found": false,
+    "account_owned_map_key_found": false
+  },
+  "diff_check": {
+    "exit_code": 0
+  },
+  "signed_android_release": "NOT RUN",
+  "signed_ios_release": "NOT RUN",
+  "live_production_map": "NOT RUN",
+  "latest_build_physical_matrix": "NOT RUN"
+}

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/database/app_database.dart';
@@ -1234,22 +1235,24 @@ class _SosPageState extends State<SosPage> {
                       subtitle: 'Permission and location services',
                       onTap: _showLocationSettings,
                     ),
-                    const Divider(height: 1, indent: 56),
-                    _buildSettingsTile(
-                      icon: Icons.bluetooth_outlined,
-                      title: 'BLE Test (Debug)',
-                      subtitle: 'Test nearby Bluetooth between phones',
-                      onTap: () async {
-                        await _prepareBleForInteraction();
-                        if (!mounted) return;
-                        await Navigator.of(context).push<void>(
-                          MaterialPageRoute<void>(
-                            builder: (_) =>
-                                BleTestPage(transport: widget.bleTransport),
-                          ),
-                        );
-                      },
-                    ),
+                    if (kDebugMode) ...[
+                      const Divider(height: 1, indent: 56),
+                      _buildSettingsTile(
+                        icon: Icons.bluetooth_outlined,
+                        title: 'BLE Test (Debug)',
+                        subtitle: 'Test nearby Bluetooth between phones',
+                        onTap: () async {
+                          await _prepareBleForInteraction();
+                          if (!mounted) return;
+                          await Navigator.of(context).push<void>(
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  BleTestPage(transport: widget.bleTransport),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 28),

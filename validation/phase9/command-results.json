@@ -1,0 +1,56 @@
+{
+  "date": "2026-10-22",
+  "source_revision": "144f1cf with preserved working-tree changes",
+  "focused_final": {
+    "exit_code": 0,
+    "passed": 102
+  },
+  "full_tests_final": {
+    "exit_code": 0,
+    "passed": 211
+  },
+  "map_define_regression_initial": {
+    "exit_code": 1,
+    "passed": 4,
+    "failed": 1,
+    "classification": "reproduced production configuration defect"
+  },
+  "map_define_regression_final": {
+    "exit_code": 0,
+    "passed": 5,
+    "defines": "synthetic values only; no provider key"
+  },
+  "analyze_final": {
+    "exit_code": 0,
+    "result": "No issues found"
+  },
+  "android_debug_final": {
+    "exit_code": 0,
+    "seconds_gradle": 7.2,
+    "apk_sha256": "79541fdbc977d708c5d425297ce1fdf6593f402a406e8fbc7f3a823e63b5bbe6"
+  },
+  "android_release_signing_guard": {
+    "exit_code": 1,
+    "expected": true,
+    "result": "stopped because account-owned signing properties are absent",
+    "signed_artifact_created": false
+  },
+  "android_apk_permission_inspection": {
+    "exit_code": 0,
+    "internet": true,
+    "bluetooth_scan_connect_advertise": true,
+    "fine_coarse_location": true
+  },
+  "ios_debug_no_codesign_final": {
+    "exit_code": 0,
+    "seconds_xcode": 10.1,
+    "codesigned": false
+  },
+  "signed_android_release": "NOT RUN",
+  "signed_ios_release": "NOT RUN",
+  "live_map_runtime": "NOT RUN",
+  "physical_tests": "NOT RUN",
+  "diff_check": {
+    "exit_code": 0
+  }
+}

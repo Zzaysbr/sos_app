@@ -58,5 +58,21 @@
   "diff_check": {
     "exit_code": 0,
     "log": "git-diff-check-final.log"
+  },
+  "reliability_range_continuation": {
+    "date": "2026-10-22",
+    "focused_tests": {
+      "exit_code": 0,
+      "passed": 117,
+      "scope": "BLE delivery repository, coordinator, identity, Chat, transport and range diagnostic"
+    },
+    "range_focused_tests": {"exit_code": 0, "passed": 19},
+    "full_tests": {"exit_code": 0, "passed": 211, "failed": 0},
+    "analyze": {"exit_code": 0, "result": "No issues found"},
+    "android_debug": {"exit_code": 0, "seconds_gradle": 7.1},
+    "ios_debug_no_codesign": {"exit_code": 0, "seconds_xcode": 13.9},
+    "diff_check": {"exit_code": 0},
+    "physical_range": {"status": "NOT RUN"},
+    "signed_ios_release": {"status": "NOT RUN"}
   }
 }

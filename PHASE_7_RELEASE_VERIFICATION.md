@@ -321,5 +321,56 @@ production map account/configuration and signed release validation.
 Android↔iPhone SOS, Chat and foreground Location are no longer blockers on the
 tested devices.
 
+## Reliability and BLE range continuation — 22 October 2026
+
+The reliability audit found deterministic coverage already present for lost and
+delayed application ACKs, wrong-peer/recipient rejection, duplicate SOS/Chat/
+Location persistence, stable retry IDs, disconnect assembly reset, stale native
+callbacks and file-backed SOS/Chat rows. One missing integration boundary was
+added: a test now closes the first SQLite database/session while an outbox row is
+`sending`, opens a new database and coordinator, recovers the stale row, and
+sends the same message ID with exactly one outbox record.
+
+`BLE Test (Debug)` now includes a two-endpoint range/quality run over the current
+native transport, UUIDs and v1 framing. It reports duration/selected target,
+attempted, application-acknowledged, native-failed, timed-out and pending counts,
+PDR, ACK min/average/p50/p95/max latency, connection state and disconnect/
+reconnect counts. RSSI is labeled as the last scan result because neither native
+bridge exposes a connected-peer RSSI read through `BleTransportClient`.
+Unsupported RSSI displays as unavailable; no distance is inferred. The operator
+records 5/10/20/30/50 m and open/obstructed conditions. The Settings route is
+compiled behind `kDebugMode`, and the page also refuses controls in release.
+
+Physical range runs are **NOT RUN**. The debug tool is automated evidence only;
+it does not change the prior physical matrix or establish a maximum BLE range.
+See `BLE_RANGE_TEST_RUNBOOK.md`.
+
+LoRa feasibility is documented in `LORA_TRANSPORT_FEASIBILITY.md`. Current
+application envelopes, stable IDs, durable queues and ACK/dedup rules can be
+shared, but `BleTransportClient` and the coordinator still expose BLE session
+semantics. The smallest future change is a transport-neutral frame/event port
+after actual adapter selection, with LoRa fragmentation/airtime below it. A
+cross-platform adapter should prefer phone-to-radio BLE GATT. No LoRa code,
+dependency, UUID, schema or protocol placeholder was added.
+
+### Continuation validation
+
+| Command | Exit | Result |
+| --- | ---: | --- |
+| focused BLE reliability/range suite | 0 | 117 passed |
+| focused range UI/statistics suite | 0 | 19 passed |
+| `flutter test` | 0 | 211 passed |
+| `flutter analyze lib test` | 0 | No issues found |
+| `flutter build apk --debug --no-pub` | 0 | Gradle 7.1s |
+| `flutter build ios --debug --no-codesign --no-pub` | 0 | Xcode 13.9s |
+| `git diff --check` | 0 | No whitespace errors |
+
+The release gate remains **BLOCKED**. Controlled real-radio ACK loss, wrong-peer
+injection and close-while-pending remain NOT RUN; Android↔Android still lacks a
+second Android; the iPhone permission matrix is incomplete; physical range runs
+are absent; Geoapify Free still lacks an account-owned production key/live
+configuration; offline tiles are absent; and signed App Store/release validation
+is NOT RUN.
+
 
 Week 5 frozen-source automated result: **203 tests PASS (exit 0), 90 focused PASS (exit 0), analyzer no issues (exit 0), `git diff --check` exit 0, Android debug APK build exit 0 (29.2s Gradle), signed iOS profile build exit 0 (12.6s Xcode), and unsigned iOS debug build exit 0 (289.1s Xcode)**. Added 32 tests; the two original identity failure tests remain enabled and pass. The first Kotlin compile failure is retained and was corrected without dependency changes. The final APK/profile were installed with update-in-place semantics and both processes launched. The user also confirmed Guest advertising → Login A → BLE Start Scan and Logout → Guest Advertising on the updated Android native bridge; final new-input SOS/Chat acceptance is still pending. Signed release and all unexecuted physical scenarios remain NOT RUN.

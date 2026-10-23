@@ -1,0 +1,56 @@
+{
+  "date": "2026-10-22",
+  "release_gate": "BLOCKED",
+  "repository_only": [
+    {
+      "id": "P9-A01",
+      "name": "missing or public OSM release map configuration fails closed",
+      "status": "PASS",
+      "evidence": "map provider and incident map tests"
+    },
+    {
+      "id": "P9-A02",
+      "name": "injected map Dart defines reach runtime provider configuration",
+      "status": "PASS",
+      "evidence": "initial regression failed; const environment fix rerun passed 5"
+    },
+    {
+      "id": "P9-A03",
+      "name": "Android release cannot fall back to debug signing",
+      "status": "PASS",
+      "evidence": "unconfigured bundleRelease intentionally exited 1 before artifact"
+    },
+    {
+      "id": "P9-A04",
+      "name": "Android main networking permission",
+      "status": "PASS",
+      "evidence": "main manifest fixed; final APK inspection contains INTERNET"
+    },
+    {
+      "id": "P9-A05",
+      "name": "Guest/account/session ownership regression",
+      "status": "PASS",
+      "evidence": "focused suite and full suite exit 0"
+    },
+    {
+      "id": "P9-A06",
+      "name": "Kotlin warning classification",
+      "status": "REVIEWED",
+      "evidence": "current debug build passes; future Flutter compatibility risk"
+    }
+  ],
+  "external_or_physical": [
+    {"id": "P9-E01", "name": "account-owned Geoapify release runtime", "status": "NOT RUN", "reason": "key/config absent"},
+    {"id": "P9-E02", "name": "signed Android release", "status": "NOT RUN", "reason": "upload keystore/properties absent"},
+    {"id": "P9-E03", "name": "signed iOS release", "status": "NOT RUN", "reason": "distribution/App Store prerequisites unverified"},
+    {"id": "P9-E04", "name": "live forced auth expiry", "status": "NOT RUN", "reason": "requires controlled live Firebase session"},
+    {"id": "P8-P01", "name": "controlled application ACK loss", "status": "NOT RUN", "reason": "approved isolated harness and devices unavailable"},
+    {"id": "P8-P02", "name": "wrong-peer ACK injection", "status": "NOT RUN", "reason": "third physical peer/injector unavailable"},
+    {"id": "P8-P03", "name": "close while pending", "status": "NOT RUN", "reason": "Android endpoint unavailable"},
+    {"id": "P8-P04", "name": "process restart/reconnect", "status": "NOT RUN", "reason": "Android endpoint unavailable"},
+    {"id": "P8-P05", "name": "Android to Android both directions", "status": "NOT RUN", "reason": "two Android phones unavailable"},
+    {"id": "P8-P06", "name": "iOS Bluetooth permission revoke/regrant", "status": "NOT RUN", "reason": "controlled peer unavailable"},
+    {"id": "P8-P07", "name": "open range 5/10/20/30/50 metres", "status": "NOT RUN", "reason": "field session not executed"},
+    {"id": "P8-P08", "name": "obstructed range 5/10/20/30/50 metres", "status": "NOT RUN", "reason": "field session not executed"}
+  ]
+}
