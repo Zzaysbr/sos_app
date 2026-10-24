@@ -1,4 +1,4 @@
-package com.example.sos_app
+package com.n1cxltine.sosapp
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine

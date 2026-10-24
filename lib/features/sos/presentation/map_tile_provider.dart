@@ -34,7 +34,7 @@ class MapTileProviderConfig {
           ? 'OpenStreetMap contributors'
           : configuredAttribution,
       userAgentPackageName: configuredUserAgent.isEmpty && isFallback
-          ? 'com.example.sos_app'
+          ? 'com.n1cxltine.sosapp'
           : configuredUserAgent,
       isDevelopmentFallback: isFallback,
     );

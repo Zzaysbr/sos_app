@@ -1,4 +1,4 @@
-package com.example.sos_app
+package com.n1cxltine.sosapp
 
 import android.Manifest
 import android.app.Activity

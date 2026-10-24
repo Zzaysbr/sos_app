@@ -322,7 +322,7 @@ void main() {
     const provider = MapTileProviderConfig(
       urlTemplate: 'https://tiles.example.test/{z}/{x}/{y}.png',
       attribution: 'Example Maps / OpenStreetMap contributors',
-      userAgentPackageName: 'com.example.sos_app',
+      userAgentPackageName: 'com.n1cxltine.sosapp',
       isDevelopmentFallback: false,
     );
     await tester.pumpWidget(
@@ -349,7 +349,7 @@ void main() {
       const provider = MapTileProviderConfig(
         urlTemplate: 'https://tiles.example.test/{z}/{x}/{y}.png',
         attribution: 'Example Maps',
-        userAgentPackageName: 'com.example.sos_app',
+        userAgentPackageName: 'com.n1cxltine.sosapp',
         isDevelopmentFallback: false,
       );
       await tester.pumpWidget(

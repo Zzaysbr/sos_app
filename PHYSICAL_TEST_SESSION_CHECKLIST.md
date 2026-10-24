@@ -17,11 +17,11 @@ tests.
 ## Phase 10 release-candidate precondition
 
 Before installing a release candidate, record the owner's permanent identifier
-decision. The current update-in-place identities are Android
-`com.example.sos_app` and iOS `com.n1cxltine.sosapp`; their Firebase platform
-registrations must match. Do not install a build with a changed identifier over
-the evidence devices: it creates a separate app container and invalidates the
-local Guest/history continuity setup.
+decision. Current source identities are Android and iOS
+`com.n1cxltine.sosapp`, and their Firebase platform registrations must match.
+The retained Android `com.example.sos_app` installation is a separate rollback
+sandbox: do not uninstall it, clear it, or describe a target-package install as
+an update of its Guest/history data.
 
 The session build must also record its version/build number, source revision,
 Android signing-certificate SHA-256 or iOS signing identity/profile, artifact
@@ -51,11 +51,13 @@ device identifiers in committed evidence.
   ACK suppression, an approved debug-only one-shot harness matching the design
   gate in `PHASE_8_PHYSICAL_TEST_RUNBOOK.md`.
 
-Expected version is `0.1.0+1`. Current bundle IDs are Android
-`com.example.sos_app` and iOS `com.n1cxltine.sosapp`. Before installation record
-the exact Git revision, dirty-state summary, build mode and SHA-256 of each
-artifact. Stop if identifiers/signatures differ from the already installed app;
-do not solve an update failure by uninstalling.
+Expected version is `0.1.0+1`. Current source bundle IDs are Android and iOS
+`com.n1cxltine.sosapp`. Before installation record the exact Git revision,
+dirty-state summary, build mode and SHA-256 of each artifact. For the first
+target Android install, prove coexistence with the retained
+`com.example.sos_app` package and expect an empty target sandbox. For later
+target-to-target updates, stop if identifier/signature differs; do not solve an
+update failure by uninstalling either package.
 
 ## 2. Host connectivity gate
 

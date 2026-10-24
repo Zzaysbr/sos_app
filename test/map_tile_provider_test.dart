@@ -5,7 +5,7 @@ void main() {
   const valid = MapTileProviderConfig(
     urlTemplate: 'https://tiles.example.test/{z}/{x}/{y}.png',
     attribution: 'Example Maps',
-    userAgentPackageName: 'com.example.sos_app',
+    userAgentPackageName: 'com.n1cxltine.sosapp',
     isDevelopmentFallback: false,
   );
 
@@ -13,7 +13,7 @@ void main() {
     const development = MapTileProviderConfig(
       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       attribution: 'OpenStreetMap contributors',
-      userAgentPackageName: 'com.example.sos_app',
+      userAgentPackageName: 'com.n1cxltine.sosapp',
       isDevelopmentFallback: true,
     );
     expect(development.withValidation(isRelease: false).isUsable, isTrue);
@@ -31,7 +31,7 @@ void main() {
         const MapTileProviderConfig(
           urlTemplate: 'http://tiles.example.test/{z}/{x}/{y}.png',
           attribution: 'Example Maps',
-          userAgentPackageName: 'com.example.sos_app',
+          userAgentPackageName: 'com.n1cxltine.sosapp',
           isDevelopmentFallback: false,
         ).withValidation(isRelease: true).validationError,
         contains('HTTPS'),
@@ -40,7 +40,7 @@ void main() {
         const MapTileProviderConfig(
           urlTemplate: 'https://tiles.example.test/{z}/{x}.png',
           attribution: 'Example Maps',
-          userAgentPackageName: 'com.example.sos_app',
+          userAgentPackageName: 'com.n1cxltine.sosapp',
           isDevelopmentFallback: false,
         ).withValidation(isRelease: true).validationError,
         contains('placeholders'),
@@ -49,7 +49,7 @@ void main() {
         const MapTileProviderConfig(
           urlTemplate: 'https://tiles.example.test/{z}/{x}/{y}.png',
           attribution: '',
-          userAgentPackageName: 'com.example.sos_app',
+          userAgentPackageName: 'com.n1cxltine.sosapp',
           isDevelopmentFallback: false,
         ).withValidation(isRelease: true).validationError,
         contains('attribution'),
@@ -62,7 +62,7 @@ void main() {
       urlTemplate:
           'https://tiles.example.test/{z}/{x}/{y}.png?key=super-secret',
       attribution: '',
-      userAgentPackageName: 'com.example.sos_app',
+      userAgentPackageName: 'com.n1cxltine.sosapp',
       isDevelopmentFallback: false,
     ).withValidation(isRelease: true);
     expect(config.validationError, isNot(contains('super-secret')));
@@ -76,7 +76,7 @@ void main() {
       final config = MapTileProviderConfig(
         urlTemplate: 'https://$host/{z}/{x}/{y}.png',
         attribution: 'OpenStreetMap contributors',
-        userAgentPackageName: 'com.example.sos_app',
+        userAgentPackageName: 'com.n1cxltine.sosapp',
         isDevelopmentFallback: false,
       );
       expect(
@@ -93,7 +93,7 @@ void main() {
       urlTemplate:
           'https://maps.geoapify.com/v1/tile/osm-carto/{z}/{x}/{y}.png',
       attribution: 'Powered by Geoapify | © OpenStreetMap contributors',
-      userAgentPackageName: 'com.example.sos_app',
+      userAgentPackageName: 'com.n1cxltine.sosapp',
       isDevelopmentFallback: false,
     );
 

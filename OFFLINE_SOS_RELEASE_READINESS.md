@@ -21,10 +21,11 @@ NOT RUN. Identity/distribution history requires an owner decision. See
 
 Phase 10 identity/signing evidence is in
 `PHASE_10_RELEASE_IDENTITY_SIGNING_AUDIT.md` and `validation/phase10/`. The
-current Android identity is `com.example.sos_app`; iOS is
-`com.n1cxltine.sosapp`. Neither was changed. The owner must decide the permanent
-identifiers before store registration because an Android identifier change
-creates a separate installation/data sandbox and requires a new Firebase app.
+current source identity is `com.n1cxltine.sosapp` on both Android and iOS. The
+Android migration keeps the prior `com.example.sos_app` Firebase registration
+and installed application available for rollback and coexistence; it does not
+move or merge data from that application's private sandbox. Target-package
+device coexistence and persistence checks remain NOT RUN.
 Android release signing now fails safely when account-owned signing material is
 missing or invalid; signed Android and iOS releases remain NOT RUN. Geoapify
 configuration now also fails closed when its API key is absent. Live production
@@ -114,7 +115,7 @@ For a release build, provide approved values without committing credentials:
 flutter build apk --release \
   --dart-define=MAP_TILE_URL=https://approved.example/{z}/{x}/{y}.png \
   --dart-define=MAP_TILE_ATTRIBUTION='Approved provider attribution' \
-  --dart-define=MAP_TILE_USER_AGENT='com.example.sos_app'
+  --dart-define=MAP_TILE_USER_AGENT='com.n1cxltine.sosapp'
 ```
 
 If the selected provider requires a client-side key, inject it through the
@@ -363,3 +364,21 @@ identity decisions, account-owned Android/Apple distribution signing,
 account-owned Geoapify runtime configuration, live Firebase recovery and the
 physical matrix remain incomplete. See `PHASE_A2_ROLE_UX_PHYSICAL_VALIDATION.md`
 and `PHASE_A2_RELEASE_BLOCKERS.md`. Release Gate remains **BLOCKED**.
+
+## Android identity migration implementation — 24 October 2026
+
+Android source/configuration now targets `com.n1cxltine.sosapp`. The existing
+Firebase project contains separate Android registrations for the old and target
+packages, and the checked-in Android configuration retains both clients. The
+generated Android Firebase options and mappings select the target registration;
+iOS Firebase configuration is unchanged.
+
+Static identity/config checks, 6 map-provider tests, 14 Incident Map tests, 224
+full tests, `flutter analyze lib test`, and the Android debug build pass. The
+generated Google Services resources select the target client, the merged
+manifest resolves the launcher to `com.n1cxltine.sosapp.MainActivity`, and the
+debug APK reports the target application ID. No Android device was connected,
+so installation, coexistence with `com.example.sos_app`, empty target sandbox,
+Firebase runtime/Auth/Firestore, BLE permissions/identity, restart persistence,
+and target-to-target update behavior remain NOT RUN. Signed releases and live
+production-map validation also remain NOT RUN; Release Gate stays **BLOCKED**.
