@@ -44,5 +44,52 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Local credentials and release signing assets
+.env
+.env.*
+!.env.example
+!.env.*.example
+key.properties
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.p8
+*.key
+*.pem
+*.cer
+*.crt
+*.der
+*.mobileprovision
+*.provisionprofile
+!*.example.key
+!*.example.pem
+!*.example.cer
+!*.example.crt
+!*.example.der
+
+# Server credentials. Firebase client configuration remains tracked.
+service-account*.json
+service_account*.json
+firebase-adminsdk*.json
+google-application-credentials*.json
+*.secrets.json
+*.credentials.json
+
+# Private Dart define files for production map configuration
+map.release*.json
+map.production*.json
+dart-defines.release*.json
+dart_defines.release*.json
+!map.release.example.json
+!map.production.example.json
+
+# Packaged release artifacts and local Xcode build output
+*.apk
+*.aab
+*.ipa
+*.xcarchive/
+/ios/build/
+
 # Widget Preview related
 .widget_preview/
