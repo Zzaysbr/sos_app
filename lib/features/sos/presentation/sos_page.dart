@@ -136,60 +136,88 @@ class _SosPageState extends State<SosPage> {
               ]
             : [_buildHome(), _buildHistory(), _buildChat(), _buildSettings()],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
+      bottomNavigationBar: LayoutBuilder(
+        builder: (context, constraints) {
+          final compactNavigation = constraints.maxWidth < 360;
+          return NavigationBar(
+            height: _navigationBarHeight(context, constraints.maxWidth),
+            selectedIndex: _currentIndex,
+            onDestinationSelected: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            destinations: rescue
+                ? const [
+                    NavigationDestination(
+                      icon: Icon(Icons.radar_outlined),
+                      selectedIcon: Icon(Icons.radar),
+                      label: 'เหตุใกล้เคียง',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.assignment_outlined),
+                      selectedIcon: Icon(Icons.assignment_turned_in),
+                      label: 'กำลังช่วย',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.chat_bubble_outline),
+                      selectedIcon: Icon(Icons.chat_bubble),
+                      label: 'แชต',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.settings_outlined),
+                      selectedIcon: Icon(Icons.settings),
+                      label: 'ตั้งค่า',
+                    ),
+                  ]
+                : [
+                    NavigationDestination(
+                      icon: Icon(Icons.sos_outlined),
+                      selectedIcon: Icon(Icons.sos),
+                      label: compactNavigation ? 'SOS' : 'ขอความช่วยเหลือ',
+                      tooltip: 'ขอความช่วยเหลือ',
+                    ),
+                    const NavigationDestination(
+                      icon: Icon(Icons.history_outlined),
+                      selectedIcon: Icon(Icons.history),
+                      label: 'ประวัติ',
+                    ),
+                    const NavigationDestination(
+                      icon: Icon(Icons.chat_bubble_outline),
+                      selectedIcon: Icon(Icons.chat_bubble),
+                      label: 'แชต',
+                    ),
+                    const NavigationDestination(
+                      icon: Icon(Icons.settings_outlined),
+                      selectedIcon: Icon(Icons.settings),
+                      label: 'ตั้งค่า',
+                    ),
+                  ],
+          );
         },
-        destinations: rescue
-            ? const [
-                NavigationDestination(
-                  icon: Icon(Icons.radar_outlined),
-                  selectedIcon: Icon(Icons.radar),
-                  label: 'เหตุใกล้เคียง',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.assignment_outlined),
-                  selectedIcon: Icon(Icons.assignment_turned_in),
-                  label: 'กำลังช่วย',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.chat_bubble_outline),
-                  selectedIcon: Icon(Icons.chat_bubble),
-                  label: 'แชต',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.settings_outlined),
-                  selectedIcon: Icon(Icons.settings),
-                  label: 'ตั้งค่า',
-                ),
-              ]
-            : const [
-                NavigationDestination(
-                  icon: Icon(Icons.sos_outlined),
-                  selectedIcon: Icon(Icons.sos),
-                  label: 'ขอความช่วยเหลือ',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.history_outlined),
-                  selectedIcon: Icon(Icons.history),
-                  label: 'ประวัติ',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.chat_bubble_outline),
-                  selectedIcon: Icon(Icons.chat_bubble),
-                  label: 'แชต',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.settings_outlined),
-                  selectedIcon: Icon(Icons.settings),
-                  label: 'ตั้งค่า',
-                ),
-              ],
       ),
     );
+  }
+
+  double _navigationBarHeight(BuildContext context, double availableWidth) {
+    const baseHeight = 72.0;
+    if (availableWidth >= 600) return baseHeight;
+
+    final theme = Theme.of(context);
+    final labelStyle =
+        NavigationBarTheme.of(context).labelTextStyle
+            ?.resolve({WidgetState.selected}) ??
+        theme.textTheme.labelMedium ??
+        const TextStyle(fontSize: 12);
+    final textScaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+    final linePainter = TextPainter(
+      text: TextSpan(text: 'กข', style: labelStyle),
+      textDirection: direction,
+      textScaler: textScaler,
+      maxLines: 1,
+    )..layout();
+    return baseHeight + (linePainter.preferredLineHeight * 2);
   }
 
   Future<void> _selectRole(AppRole role) async {
@@ -2000,7 +2028,6 @@ class _SosPageState extends State<SosPage> {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
-                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             verified
@@ -2010,17 +2037,21 @@ class _SosPageState extends State<SosPage> {
                             color: verified ? colors.primary : colors.tertiary,
                           ),
                           const SizedBox(width: 5),
-                          Text(
-                            widget.isGuest
-                                ? 'Sign in for new cloud SOS'
-                                : verified
-                                ? 'Email verified'
-                                : 'Email not verified',
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: verified
-                                  ? colors.primary
-                                  : colors.tertiary,
-                              fontWeight: FontWeight.w600,
+                          Expanded(
+                            child: Text(
+                              widget.isGuest
+                                  ? 'Sign in for new cloud SOS'
+                                  : verified
+                                  ? 'Email verified'
+                                  : 'Email not verified',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: verified
+                                    ? colors.primary
+                                    : colors.tertiary,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ],
