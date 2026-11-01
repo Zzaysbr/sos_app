@@ -191,9 +191,14 @@ class BleDeliveryRepository {
   Stream<BleOutboxData?> watchDeliveryForSos(String sosId) {
     return (_database.select(_database.bleOutbox)
           ..where((table) => table.sosId.equals(sosId))
-          ..orderBy([(table) => OrderingTerm.asc(table.createdAt)])
-          ..limit(1))
-        .watchSingleOrNull();
+          ..orderBy([(table) => OrderingTerm.asc(table.createdAt)]))
+        .watch()
+        .map((rows) {
+          for (final row in rows) {
+            if (_isSosDelivery(row.payload)) return row;
+          }
+          return null;
+        });
   }
 
   /// SOS identifiers that were durably received from a BLE peer.
@@ -498,6 +503,93 @@ class BleDeliveryRepository {
     return (await lookupOutbox(messageId))!;
   }
 
+  /// Assigns an explicitly selected peer to legacy outgoing Chat rows that
+  /// were persisted before a BLE destination was known. The owner and
+  /// incident scopes are checked against the durable Chat row; message IDs,
+  /// senders and wire payloads are never rewritten.
+  Future<int> assignUnroutedChatDestination({
+    required String ownerId,
+    required String sosId,
+    required String destinationId,
+    DateTime? now,
+  }) async {
+    final owner = ownerId.trim();
+    final incident = sosId.trim();
+    final destination = destinationId.trim();
+    if (owner.isEmpty || incident.isEmpty || destination.isEmpty) {
+      throw const BleDeliveryStateException(
+        'Owner, incident and BLE destination are required.',
+      );
+    }
+    final timestamp = (now ?? DateTime.now()).toUtc();
+    return _database.transaction(() async {
+      final chats =
+          await (_database.select(_database.chatMessages)..where(
+                (table) =>
+                    table.ownerId.equals(owner) &
+                    table.sosId.equals(incident) &
+                    (table.recipientId.isNull() | table.recipientId.equals('')),
+              ))
+              .get();
+      var assigned = 0;
+      for (final chat in chats) {
+        final outbox = await lookupOutbox(chat.messageId);
+        if (outbox == null ||
+            outbox.sosId != incident ||
+            _decodeEnvelopeKind(outbox.payload) !=
+                SosBleMessageKind.chatMessage) {
+          continue;
+        }
+        final state = BleOutboxState.parse(outbox.state);
+        if ((state != BleOutboxState.queued &&
+                state != BleOutboxState.failed) ||
+            outbox.destinationId?.trim().isNotEmpty == true) {
+          continue;
+        }
+        final outboxChanged =
+            await (_database.update(_database.bleOutbox)..where(
+                  (table) =>
+                      table.messageId.equals(outbox.messageId) &
+                      table.state.equals(outbox.state) &
+                      (table.destinationId.isNull() |
+                          table.destinationId.equals('')),
+                ))
+                .write(
+                  BleOutboxCompanion(
+                    destinationId: Value(destination),
+                    state: Value(BleOutboxState.queued.wireValue),
+                    nextRetryAt: const Value(null),
+                    lastError: const Value(null),
+                    updatedAt: Value(timestamp),
+                  ),
+                );
+        if (outboxChanged != 1) continue;
+        final chatChanged =
+            await (_database.update(_database.chatMessages)..where(
+                  (table) =>
+                      table.messageId.equals(chat.messageId) &
+                      table.ownerId.equals(owner) &
+                      table.sosId.equals(incident) &
+                      (table.recipientId.isNull() |
+                          table.recipientId.equals('')),
+                ))
+                .write(
+                  ChatMessagesCompanion(
+                    recipientId: Value(destination),
+                    deliveryStatus: const Value('pending'),
+                  ),
+                );
+        if (chatChanged != 1) {
+          throw const BleDeliveryStateException(
+            'Chat route changed concurrently.',
+          );
+        }
+        assigned += 1;
+      }
+      return assigned;
+    });
+  }
+
   Expression<bool> _outboxOwnerScope($BleOutboxTable table, String? ownerId) {
     if (ownerId == null) return const Constant(true);
     final incidents = _database.selectOnly(_database.sosMessages)
@@ -644,17 +736,16 @@ class BleDeliveryRepository {
           'Acknowledgement does not match a BLE outbox message.',
         );
       }
-      if (sourceDeviceId != null) {
-        final expectedPeer = current.destinationId?.trim();
-        final actualPeer = sourceDeviceId.trim();
-        if (expectedPeer == null ||
-            expectedPeer.isEmpty ||
-            actualPeer.isEmpty ||
-            expectedPeer != actualPeer) {
-          throw const BleDeliveryStateException(
-            'Acknowledgement came from an unexpected BLE peer.',
-          );
-        }
+      final expectedPeer = current.destinationId?.trim();
+      final actualPeer = sourceDeviceId?.trim();
+      if (expectedPeer == null ||
+          expectedPeer.isEmpty ||
+          actualPeer == null ||
+          actualPeer.isEmpty ||
+          expectedPeer != actualPeer) {
+        throw const BleDeliveryStateException(
+          'Acknowledgement came from an unexpected BLE peer.',
+        );
       }
       final outboundKind = _decodeEnvelopeKind(current.payload);
       final isChatAck =
@@ -802,10 +893,12 @@ class BleDeliveryRepository {
         );
       }
       final expected = current.destinationId?.trim();
-      if (sourceDeviceId != null &&
-          (expected == null ||
-              expected.isEmpty ||
-              expected != sourceDeviceId.trim())) {
+      final actual = sourceDeviceId?.trim();
+      if (expected == null ||
+          expected.isEmpty ||
+          actual == null ||
+          actual.isEmpty ||
+          expected != actual) {
         throw const BleDeliveryStateException(
           'Location ACK came from an unexpected BLE peer.',
         );

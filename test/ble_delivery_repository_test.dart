@@ -1,9 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:flutter_test/flutter_test.dart';
-
-import 'dart:io';
-
 import 'package:sos_app/core/database/app_database.dart';
 import 'package:sos_app/features/nearby_ble/data/ble_delivery_repository.dart';
 import 'package:sos_app/features/nearby_ble/domain/ble_delivery_state.dart';
@@ -23,6 +23,18 @@ SosBleEnvelope _delivery({
   updatedAt: DateTime.utc(2026, 1, 1, 0, 1),
 );
 
+SosBleEnvelope _chat({
+  String messageId = 'chat-legacy',
+  String sosId = 'sos-1',
+}) => SosBleEnvelope.chatMessage(
+  messageId: messageId,
+  sosId: sosId,
+  senderDeviceId: 'sender-installation',
+  chatSenderId: 'owner-1',
+  chatText: 'Still need help',
+  createdAt: DateTime.utc(2026, 1, 1),
+);
+
 void main() {
   late AppDatabase database;
   late BleDeliveryRepository repository;
@@ -34,31 +46,37 @@ void main() {
 
   tearDown(() async => database.close());
 
-  test('schema 5 creates BLE and chat tables and preserves SOS rows', () async {
-    final now = DateTime.utc(2026);
-    await database
-        .into(database.sosMessages)
-        .insert(
-          SosMessagesCompanion.insert(
-            id: 'existing-sos',
-            ownerId: 'owner',
-            type: 'emergency',
-            status: 'active',
-            syncState: 'synced',
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
+  test(
+    'schema 6 creates BLE, relay, and chat tables and preserves SOS rows',
+    () async {
+      final now = DateTime.utc(2026);
+      await database
+          .into(database.sosMessages)
+          .insert(
+            SosMessagesCompanion.insert(
+              id: 'existing-sos',
+              ownerId: 'owner',
+              type: 'emergency',
+              status: 'active',
+              syncState: 'synced',
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
 
-    expect(database.schemaVersion, 5);
-    expect(await database.select(database.bleOutbox).get(), isEmpty);
-    expect(await database.select(database.bleInbox).get(), isEmpty);
-    expect(await database.select(database.chatMessages).get(), isEmpty);
-    expect(
-      (await database.select(database.sosMessages).getSingle()).id,
-      'existing-sos',
-    );
-  });
+      expect(database.schemaVersion, 6);
+      expect(await database.select(database.bleOutbox).get(), isEmpty);
+      expect(await database.select(database.bleInbox).get(), isEmpty);
+      expect(await database.select(database.chatMessages).get(), isEmpty);
+      expect(await database.select(database.bleRelayMessages).get(), isEmpty);
+      expect(await database.select(database.bleRelayAttempts).get(), isEmpty);
+      expect(await database.select(database.bleRelayReceipts).get(), isEmpty);
+      expect(
+        (await database.select(database.sosMessages).getSingle()).id,
+        'existing-sos',
+      );
+    },
+  );
 
   test('migrates a version 2 database and preserves existing tables', () async {
     final oldExecutor = NativeDatabase.memory(
@@ -97,10 +115,11 @@ void main() {
     );
 
     final migrated = AppDatabase.forTesting(oldExecutor);
-    expect(migrated.schemaVersion, 5);
+    expect(migrated.schemaVersion, 6);
     expect(await migrated.select(migrated.bleOutbox).get(), isEmpty);
     expect(await migrated.select(migrated.bleInbox).get(), isEmpty);
     expect(await migrated.select(migrated.chatMessages).get(), isEmpty);
+    expect(await migrated.select(migrated.bleRelayMessages).get(), isEmpty);
     expect(
       (await migrated.select(migrated.sosMessages).getSingle()).id,
       'old-sos',
@@ -135,11 +154,12 @@ void main() {
     );
 
     final migrated = AppDatabase.forTesting(oldExecutor);
-    expect(migrated.schemaVersion, 5);
+    expect(migrated.schemaVersion, 6);
     expect(await migrated.select(migrated.sosSyncQueue).get(), isEmpty);
     expect(await migrated.select(migrated.bleOutbox).get(), isEmpty);
     expect(await migrated.select(migrated.bleInbox).get(), isEmpty);
     expect(await migrated.select(migrated.chatMessages).get(), isEmpty);
+    expect(await migrated.select(migrated.bleRelayMessages).get(), isEmpty);
     expect(
       (await migrated.select(migrated.sosMessages).getSingle()).id,
       'v1-sos',
@@ -479,6 +499,270 @@ void main() {
   });
 
   test(
+    'explicit legacy Chat recovery preserves identity and owner scope',
+    () async {
+      final envelope = _chat();
+      final before = await repository.enqueueOutbox(envelope);
+      await database
+          .into(database.chatMessages)
+          .insert(
+            ChatMessagesCompanion.insert(
+              messageId: envelope.messageId,
+              sosId: envelope.sosId,
+              ownerId: 'owner-1',
+              senderId: 'sender-installation',
+              messageType: 'text',
+              textContent: const Value('Still need help'),
+              createdAt: envelope.createdAt,
+              deliveryStatus: 'failed',
+            ),
+          );
+
+      expect(
+        await repository.assignUnroutedChatDestination(
+          ownerId: 'other-owner',
+          sosId: envelope.sosId,
+          destinationId: 'wrong-peer',
+        ),
+        0,
+      );
+      expect(
+        (await repository.lookupOutbox(envelope.messageId))!.destinationId,
+        isNull,
+      );
+
+      expect(
+        await repository.assignUnroutedChatDestination(
+          ownerId: 'owner-1',
+          sosId: envelope.sosId,
+          destinationId: ' selected-peer ',
+        ),
+        1,
+      );
+
+      final recovered = (await repository.lookupOutbox(envelope.messageId))!;
+      final chat = await database.select(database.chatMessages).getSingle();
+      expect(recovered.messageId, before.messageId);
+      expect(recovered.payload, before.payload);
+      expect(recovered.destinationId, 'selected-peer');
+      expect(recovered.state, BleOutboxState.queued.wireValue);
+      expect(chat.ownerId, 'owner-1');
+      expect(chat.senderId, 'sender-installation');
+      expect(chat.recipientId, 'selected-peer');
+      expect(chat.deliveryStatus, 'pending');
+      expect(
+        await repository.assignUnroutedChatDestination(
+          ownerId: 'owner-1',
+          sosId: envelope.sosId,
+          destinationId: 'another-peer',
+        ),
+        0,
+        reason: 'An explicit recovery must not redirect an assigned message.',
+      );
+    },
+  );
+
+  test(
+    'legacy Chat recovery rejects wrong incident, non-Chat, and in-flight rows',
+    () async {
+      final chat = _chat(messageId: 'legacy-chat-race');
+      await repository.enqueueOutbox(chat);
+      await database
+          .into(database.chatMessages)
+          .insert(
+            ChatMessagesCompanion.insert(
+              messageId: chat.messageId,
+              sosId: chat.sosId,
+              ownerId: 'owner-1',
+              senderId: 'sender-installation',
+              messageType: 'text',
+              textContent: const Value('Still need help'),
+              createdAt: chat.createdAt,
+              deliveryStatus: 'failed',
+            ),
+          );
+      final delivery = _delivery(messageId: 'not-chat');
+      await repository.enqueueOutbox(delivery);
+      await database
+          .into(database.chatMessages)
+          .insert(
+            ChatMessagesCompanion.insert(
+              messageId: delivery.messageId,
+              sosId: delivery.sosId,
+              ownerId: 'owner-1',
+              senderId: 'sender-installation',
+              messageType: 'text',
+              textContent: const Value('Not a Chat envelope'),
+              createdAt: delivery.createdAt,
+              deliveryStatus: 'failed',
+            ),
+          );
+
+      expect(
+        await repository.assignUnroutedChatDestination(
+          ownerId: 'owner-1',
+          sosId: 'other-incident',
+          destinationId: 'peer-1',
+        ),
+        0,
+      );
+      expect(
+        await repository.assignUnroutedChatDestination(
+          ownerId: 'owner-1',
+          sosId: chat.sosId,
+          destinationId: 'peer-1',
+        ),
+        1,
+      );
+      expect(
+        (await repository.lookupOutbox(delivery.messageId))!.destinationId,
+        isNull,
+      );
+
+      final inFlight = _chat(messageId: 'legacy-chat-in-flight');
+      await repository.enqueueOutbox(inFlight);
+      await database
+          .into(database.chatMessages)
+          .insert(
+            ChatMessagesCompanion.insert(
+              messageId: inFlight.messageId,
+              sosId: inFlight.sosId,
+              ownerId: 'owner-1',
+              senderId: 'sender-installation',
+              messageType: 'text',
+              textContent: const Value('Already being sent'),
+              createdAt: inFlight.createdAt,
+              deliveryStatus: 'pending',
+            ),
+          );
+      await repository.transitionOutboxState(
+        inFlight.messageId,
+        BleOutboxState.sending,
+      );
+      expect(
+        await repository.assignUnroutedChatDestination(
+          ownerId: 'owner-1',
+          sosId: inFlight.sosId,
+          destinationId: 'peer-2',
+        ),
+        0,
+      );
+      expect(
+        (await repository.lookupOutbox(inFlight.messageId))!.destinationId,
+        isNull,
+      );
+    },
+  );
+
+  test('concurrent legacy Chat recovery assigns exactly one peer', () async {
+    final chat = _chat(messageId: 'legacy-chat-concurrent');
+    await repository.enqueueOutbox(chat);
+    await database
+        .into(database.chatMessages)
+        .insert(
+          ChatMessagesCompanion.insert(
+            messageId: chat.messageId,
+            sosId: chat.sosId,
+            ownerId: 'owner-1',
+            senderId: 'sender-installation',
+            messageType: 'text',
+            textContent: const Value('Select exactly one peer'),
+            createdAt: chat.createdAt,
+            deliveryStatus: 'failed',
+          ),
+        );
+
+    final results = await Future.wait([
+      repository.assignUnroutedChatDestination(
+        ownerId: 'owner-1',
+        sosId: chat.sosId,
+        destinationId: 'peer-a',
+      ),
+      repository.assignUnroutedChatDestination(
+        ownerId: 'owner-1',
+        sosId: chat.sosId,
+        destinationId: 'peer-b',
+      ),
+    ]);
+
+    expect(results.reduce((left, right) => left + right), 1);
+    final outbox = (await repository.lookupOutbox(chat.messageId))!;
+    final persistedChat = await database
+        .select(database.chatMessages)
+        .getSingle();
+    expect(outbox.destinationId, anyOf('peer-a', 'peer-b'));
+    expect(persistedChat.recipientId, outbox.destinationId);
+    expect(outbox.state, BleOutboxState.queued.wireValue);
+    expect((await repository.dueOutbox()).single.messageId, chat.messageId);
+  });
+
+  test('assigned legacy Chat remains due after database restart', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'sos-chat-route-recovery-',
+    );
+    final file = File('${directory.path}/database.sqlite');
+    final chat = _chat(messageId: 'legacy-chat-after-restart');
+    try {
+      final first = AppDatabase.forTesting(NativeDatabase(file));
+      final firstRepository = BleDeliveryRepository(first);
+      await firstRepository.enqueueOutbox(chat);
+      await first
+          .into(first.chatMessages)
+          .insert(
+            ChatMessagesCompanion.insert(
+              messageId: chat.messageId,
+              sosId: chat.sosId,
+              ownerId: 'owner-1',
+              senderId: 'sender-installation',
+              messageType: 'text',
+              textContent: const Value('Survive coordinator startup failure'),
+              createdAt: chat.createdAt,
+              deliveryStatus: 'failed',
+            ),
+          );
+      expect(
+        await firstRepository.assignUnroutedChatDestination(
+          ownerId: 'owner-1',
+          sosId: chat.sosId,
+          destinationId: 'selected-peer',
+        ),
+        1,
+      );
+      await first.close();
+
+      final second = AppDatabase.forTesting(NativeDatabase(file));
+      final secondRepository = BleDeliveryRepository(second);
+      final due = await secondRepository.dueOutbox(ownerId: 'owner-1');
+      expect(due, hasLength(1));
+      expect(due.single.messageId, chat.messageId);
+      expect(due.single.destinationId, 'selected-peer');
+      expect(due.single.payload, jsonEncode(chat.toJson()));
+      await second.close();
+    } finally {
+      if (await directory.exists()) await directory.delete(recursive: true);
+    }
+  });
+
+  test('SOS delivery watcher ignores older Chat rows', () async {
+    final chat = _chat(messageId: 'chat-before-sos');
+    await repository.enqueueOutbox(
+      chat,
+      destinationId: 'peer-1',
+      now: DateTime.utc(2026, 1, 1),
+    );
+    final delivery = _delivery(messageId: 'sos-delivery-after-chat');
+    await repository.enqueueOutbox(
+      delivery,
+      destinationId: 'peer-1',
+      now: DateTime.utc(2026, 1, 1, 0, 1),
+    );
+
+    final watched = await repository.watchDeliveryForSos('sos-1').first;
+
+    expect(watched?.messageId, delivery.messageId);
+  });
+
+  test(
     'destination assignment cannot redirect an in-flight delivery',
     () async {
       final row = await repository.enqueueOutbox(
@@ -503,7 +787,11 @@ void main() {
     'remote persisted ACK is recorded separately from write acceptance',
     () async {
       final now = DateTime.utc(2026, 1, 1, 12);
-      await repository.enqueueOutbox(_delivery(), now: now);
+      await repository.enqueueOutbox(
+        _delivery(),
+        destinationId: 'selected-peer',
+        now: now,
+      );
       await repository.transitionOutboxState(
         'message-1',
         BleOutboxState.sending,
@@ -533,6 +821,7 @@ void main() {
       );
       final acknowledged = await repository.recordAcknowledgement(
         ack,
+        sourceDeviceId: 'selected-peer',
         now: now,
       );
 
@@ -578,6 +867,72 @@ void main() {
     expect(
       (await repository.lookupOutbox('message-1'))!.state,
       BleOutboxState.awaitingAcknowledgement.wireValue,
+    );
+  });
+
+  test(
+    'SOS ACK without an observed native peer cannot confirm delivery',
+    () async {
+      final now = DateTime.utc(2026, 1, 1, 12);
+      await repository.enqueueOutbox(
+        _delivery(messageId: 'peerless-sos-ack'),
+        destinationId: 'selected-peer',
+        now: now,
+      );
+      await repository.claimOutboxForSending('peerless-sos-ack', now: now);
+      final ack = SosBleEnvelope.acknowledgement(
+        messageId: 'ack-peerless-sos',
+        sosId: 'sos-1',
+        ackFor: 'peerless-sos-ack',
+        ackStatus: SosBleAckStatus.persisted,
+        createdAt: now,
+      );
+
+      await expectLater(
+        repository.recordAcknowledgement(ack, now: now),
+        throwsA(isA<BleDeliveryStateException>()),
+      );
+      expect(
+        (await repository.lookupOutbox('peerless-sos-ack'))!.state,
+        BleOutboxState.sending.wireValue,
+      );
+    },
+  );
+
+  test('SOS ACK confirms only the message named by ackFor', () async {
+    final now = DateTime.utc(2026, 1, 1, 12);
+    await repository.enqueueOutbox(
+      _delivery(messageId: 'sos-target', sosId: 'incident-target'),
+      destinationId: 'selected-peer',
+      now: now,
+    );
+    await repository.enqueueOutbox(
+      _delivery(messageId: 'sos-other', sosId: 'incident-other'),
+      destinationId: 'selected-peer',
+      now: now,
+    );
+    await repository.claimOutboxForSending('sos-target', now: now);
+    await repository.claimOutboxForSending('sos-other', now: now);
+
+    await repository.recordAcknowledgement(
+      SosBleEnvelope.acknowledgement(
+        messageId: 'ack-other-only',
+        sosId: 'incident-other',
+        ackFor: 'sos-other',
+        ackStatus: SosBleAckStatus.persisted,
+        createdAt: now,
+      ),
+      sourceDeviceId: 'selected-peer',
+      now: now,
+    );
+
+    expect(
+      (await repository.lookupOutbox('sos-target'))!.state,
+      BleOutboxState.sending.wireValue,
+    );
+    expect(
+      (await repository.lookupOutbox('sos-other'))!.state,
+      BleOutboxState.acknowledged.wireValue,
     );
   });
 

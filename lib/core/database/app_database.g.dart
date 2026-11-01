@@ -3282,6 +3282,3892 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessage> {
   }
 }
 
+class $BleRelayMessagesTable extends BleRelayMessages
+    with TableInfo<$BleRelayMessagesTable, BleRelayMessage> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BleRelayMessagesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _originMessageIdMeta = const VerificationMeta(
+    'originMessageId',
+  );
+  @override
+  late final GeneratedColumn<String> originMessageId = GeneratedColumn<String>(
+    'origin_message_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _incidentIdMeta = const VerificationMeta(
+    'incidentId',
+  );
+  @override
+  late final GeneratedColumn<String> incidentId = GeneratedColumn<String>(
+    'incident_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _originKeyIdMeta = const VerificationMeta(
+    'originKeyId',
+  );
+  @override
+  late final GeneratedColumn<String> originKeyId = GeneratedColumn<String>(
+    'origin_key_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _originPublicKeyMeta = const VerificationMeta(
+    'originPublicKey',
+  );
+  @override
+  late final GeneratedColumn<String> originPublicKey = GeneratedColumn<String>(
+    'origin_public_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _immutablePayloadMeta = const VerificationMeta(
+    'immutablePayload',
+  );
+  @override
+  late final GeneratedColumn<String> immutablePayload = GeneratedColumn<String>(
+    'immutable_payload',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _wireEnvelopeMeta = const VerificationMeta(
+    'wireEnvelope',
+  );
+  @override
+  late final GeneratedColumn<String> wireEnvelope = GeneratedColumn<String>(
+    'wire_envelope',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _immutableDigestMeta = const VerificationMeta(
+    'immutableDigest',
+  );
+  @override
+  late final GeneratedColumn<String> immutableDigest = GeneratedColumn<String>(
+    'immutable_digest',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _originSignatureMeta = const VerificationMeta(
+    'originSignature',
+  );
+  @override
+  late final GeneratedColumn<String> originSignature = GeneratedColumn<String>(
+    'origin_signature',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _authorizationScopeMeta =
+      const VerificationMeta('authorizationScope');
+  @override
+  late final GeneratedColumn<String> authorizationScope =
+      GeneratedColumn<String>(
+        'authorization_scope',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _emergencyTypeMeta = const VerificationMeta(
+    'emergencyType',
+  );
+  @override
+  late final GeneratedColumn<String> emergencyType = GeneratedColumn<String>(
+    'emergency_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _expiresAtMeta = const VerificationMeta(
+    'expiresAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> expiresAt = GeneratedColumn<DateTime>(
+    'expires_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _retentionDeadlineMeta = const VerificationMeta(
+    'retentionDeadline',
+  );
+  @override
+  late final GeneratedColumn<DateTime> retentionDeadline =
+      GeneratedColumn<DateTime>(
+        'retention_deadline',
+        aliasedName,
+        false,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _maxHopsMeta = const VerificationMeta(
+    'maxHops',
+  );
+  @override
+  late final GeneratedColumn<int> maxHops = GeneratedColumn<int>(
+    'max_hops',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _incomingHopCountMeta = const VerificationMeta(
+    'incomingHopCount',
+  );
+  @override
+  late final GeneratedColumn<int> incomingHopCount = GeneratedColumn<int>(
+    'incoming_hop_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _incomingPathMeta = const VerificationMeta(
+    'incomingPath',
+  );
+  @override
+  late final GeneratedColumn<String> incomingPath = GeneratedColumn<String>(
+    'incoming_path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _incomingPeerIdMeta = const VerificationMeta(
+    'incomingPeerId',
+  );
+  @override
+  late final GeneratedColumn<String> incomingPeerId = GeneratedColumn<String>(
+    'incoming_peer_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _previousHopKeyIdMeta = const VerificationMeta(
+    'previousHopKeyId',
+  );
+  @override
+  late final GeneratedColumn<String> previousHopKeyId = GeneratedColumn<String>(
+    'previous_hop_key_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _processingStateMeta = const VerificationMeta(
+    'processingState',
+  );
+  @override
+  late final GeneratedColumn<String> processingState = GeneratedColumn<String>(
+    'processing_state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadBytesMeta = const VerificationMeta(
+    'payloadBytes',
+  );
+  @override
+  late final GeneratedColumn<int> payloadBytes = GeneratedColumn<int>(
+    'payload_bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _storageBytesMeta = const VerificationMeta(
+    'storageBytes',
+  );
+  @override
+  late final GeneratedColumn<int> storageBytes = GeneratedColumn<int>(
+    'storage_bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _receivedAtMeta = const VerificationMeta(
+    'receivedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> receivedAt = GeneratedColumn<DateTime>(
+    'received_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _persistedAtMeta = const VerificationMeta(
+    'persistedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> persistedAt = GeneratedColumn<DateTime>(
+    'persisted_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _finalReceiptStateMeta = const VerificationMeta(
+    'finalReceiptState',
+  );
+  @override
+  late final GeneratedColumn<String> finalReceiptState =
+      GeneratedColumn<String>(
+        'final_receipt_state',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _finalRecipientKeyIdMeta =
+      const VerificationMeta('finalRecipientKeyId');
+  @override
+  late final GeneratedColumn<String> finalRecipientKeyId =
+      GeneratedColumn<String>(
+        'final_recipient_key_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _finalAuthorizationIdMeta =
+      const VerificationMeta('finalAuthorizationId');
+  @override
+  late final GeneratedColumn<String> finalAuthorizationId =
+      GeneratedColumn<String>(
+        'final_authorization_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _finalReceiptCorrelationIdMeta =
+      const VerificationMeta('finalReceiptCorrelationId');
+  @override
+  late final GeneratedColumn<String> finalReceiptCorrelationId =
+      GeneratedColumn<String>(
+        'final_receipt_correlation_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _finalRoutePeerDeviceIdMeta =
+      const VerificationMeta('finalRoutePeerDeviceId');
+  @override
+  late final GeneratedColumn<String> finalRoutePeerDeviceId =
+      GeneratedColumn<String>(
+        'final_route_peer_device_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _lastErrorMeta = const VerificationMeta(
+    'lastError',
+  );
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+    'last_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    originMessageId,
+    incidentId,
+    originKeyId,
+    originPublicKey,
+    immutablePayload,
+    wireEnvelope,
+    immutableDigest,
+    originSignature,
+    authorizationScope,
+    emergencyType,
+    createdAt,
+    expiresAt,
+    retentionDeadline,
+    maxHops,
+    incomingHopCount,
+    incomingPath,
+    incomingPeerId,
+    previousHopKeyId,
+    processingState,
+    payloadBytes,
+    storageBytes,
+    receivedAt,
+    persistedAt,
+    finalReceiptState,
+    finalRecipientKeyId,
+    finalAuthorizationId,
+    finalReceiptCorrelationId,
+    finalRoutePeerDeviceId,
+    lastError,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'ble_relay_messages';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BleRelayMessage> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('origin_message_id')) {
+      context.handle(
+        _originMessageIdMeta,
+        originMessageId.isAcceptableOrUnknown(
+          data['origin_message_id']!,
+          _originMessageIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_originMessageIdMeta);
+    }
+    if (data.containsKey('incident_id')) {
+      context.handle(
+        _incidentIdMeta,
+        incidentId.isAcceptableOrUnknown(data['incident_id']!, _incidentIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_incidentIdMeta);
+    }
+    if (data.containsKey('origin_key_id')) {
+      context.handle(
+        _originKeyIdMeta,
+        originKeyId.isAcceptableOrUnknown(
+          data['origin_key_id']!,
+          _originKeyIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_originKeyIdMeta);
+    }
+    if (data.containsKey('origin_public_key')) {
+      context.handle(
+        _originPublicKeyMeta,
+        originPublicKey.isAcceptableOrUnknown(
+          data['origin_public_key']!,
+          _originPublicKeyMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_originPublicKeyMeta);
+    }
+    if (data.containsKey('immutable_payload')) {
+      context.handle(
+        _immutablePayloadMeta,
+        immutablePayload.isAcceptableOrUnknown(
+          data['immutable_payload']!,
+          _immutablePayloadMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_immutablePayloadMeta);
+    }
+    if (data.containsKey('wire_envelope')) {
+      context.handle(
+        _wireEnvelopeMeta,
+        wireEnvelope.isAcceptableOrUnknown(
+          data['wire_envelope']!,
+          _wireEnvelopeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_wireEnvelopeMeta);
+    }
+    if (data.containsKey('immutable_digest')) {
+      context.handle(
+        _immutableDigestMeta,
+        immutableDigest.isAcceptableOrUnknown(
+          data['immutable_digest']!,
+          _immutableDigestMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_immutableDigestMeta);
+    }
+    if (data.containsKey('origin_signature')) {
+      context.handle(
+        _originSignatureMeta,
+        originSignature.isAcceptableOrUnknown(
+          data['origin_signature']!,
+          _originSignatureMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_originSignatureMeta);
+    }
+    if (data.containsKey('authorization_scope')) {
+      context.handle(
+        _authorizationScopeMeta,
+        authorizationScope.isAcceptableOrUnknown(
+          data['authorization_scope']!,
+          _authorizationScopeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_authorizationScopeMeta);
+    }
+    if (data.containsKey('emergency_type')) {
+      context.handle(
+        _emergencyTypeMeta,
+        emergencyType.isAcceptableOrUnknown(
+          data['emergency_type']!,
+          _emergencyTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_emergencyTypeMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('expires_at')) {
+      context.handle(
+        _expiresAtMeta,
+        expiresAt.isAcceptableOrUnknown(data['expires_at']!, _expiresAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_expiresAtMeta);
+    }
+    if (data.containsKey('retention_deadline')) {
+      context.handle(
+        _retentionDeadlineMeta,
+        retentionDeadline.isAcceptableOrUnknown(
+          data['retention_deadline']!,
+          _retentionDeadlineMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_retentionDeadlineMeta);
+    }
+    if (data.containsKey('max_hops')) {
+      context.handle(
+        _maxHopsMeta,
+        maxHops.isAcceptableOrUnknown(data['max_hops']!, _maxHopsMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_maxHopsMeta);
+    }
+    if (data.containsKey('incoming_hop_count')) {
+      context.handle(
+        _incomingHopCountMeta,
+        incomingHopCount.isAcceptableOrUnknown(
+          data['incoming_hop_count']!,
+          _incomingHopCountMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_incomingHopCountMeta);
+    }
+    if (data.containsKey('incoming_path')) {
+      context.handle(
+        _incomingPathMeta,
+        incomingPath.isAcceptableOrUnknown(
+          data['incoming_path']!,
+          _incomingPathMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_incomingPathMeta);
+    }
+    if (data.containsKey('incoming_peer_id')) {
+      context.handle(
+        _incomingPeerIdMeta,
+        incomingPeerId.isAcceptableOrUnknown(
+          data['incoming_peer_id']!,
+          _incomingPeerIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_incomingPeerIdMeta);
+    }
+    if (data.containsKey('previous_hop_key_id')) {
+      context.handle(
+        _previousHopKeyIdMeta,
+        previousHopKeyId.isAcceptableOrUnknown(
+          data['previous_hop_key_id']!,
+          _previousHopKeyIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_previousHopKeyIdMeta);
+    }
+    if (data.containsKey('processing_state')) {
+      context.handle(
+        _processingStateMeta,
+        processingState.isAcceptableOrUnknown(
+          data['processing_state']!,
+          _processingStateMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_processingStateMeta);
+    }
+    if (data.containsKey('payload_bytes')) {
+      context.handle(
+        _payloadBytesMeta,
+        payloadBytes.isAcceptableOrUnknown(
+          data['payload_bytes']!,
+          _payloadBytesMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadBytesMeta);
+    }
+    if (data.containsKey('storage_bytes')) {
+      context.handle(
+        _storageBytesMeta,
+        storageBytes.isAcceptableOrUnknown(
+          data['storage_bytes']!,
+          _storageBytesMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_storageBytesMeta);
+    }
+    if (data.containsKey('received_at')) {
+      context.handle(
+        _receivedAtMeta,
+        receivedAt.isAcceptableOrUnknown(data['received_at']!, _receivedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_receivedAtMeta);
+    }
+    if (data.containsKey('persisted_at')) {
+      context.handle(
+        _persistedAtMeta,
+        persistedAt.isAcceptableOrUnknown(
+          data['persisted_at']!,
+          _persistedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_persistedAtMeta);
+    }
+    if (data.containsKey('final_receipt_state')) {
+      context.handle(
+        _finalReceiptStateMeta,
+        finalReceiptState.isAcceptableOrUnknown(
+          data['final_receipt_state']!,
+          _finalReceiptStateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('final_recipient_key_id')) {
+      context.handle(
+        _finalRecipientKeyIdMeta,
+        finalRecipientKeyId.isAcceptableOrUnknown(
+          data['final_recipient_key_id']!,
+          _finalRecipientKeyIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('final_authorization_id')) {
+      context.handle(
+        _finalAuthorizationIdMeta,
+        finalAuthorizationId.isAcceptableOrUnknown(
+          data['final_authorization_id']!,
+          _finalAuthorizationIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('final_receipt_correlation_id')) {
+      context.handle(
+        _finalReceiptCorrelationIdMeta,
+        finalReceiptCorrelationId.isAcceptableOrUnknown(
+          data['final_receipt_correlation_id']!,
+          _finalReceiptCorrelationIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('final_route_peer_device_id')) {
+      context.handle(
+        _finalRoutePeerDeviceIdMeta,
+        finalRoutePeerDeviceId.isAcceptableOrUnknown(
+          data['final_route_peer_device_id']!,
+          _finalRoutePeerDeviceIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(
+        _lastErrorMeta,
+        lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {originMessageId};
+  @override
+  BleRelayMessage map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BleRelayMessage(
+      originMessageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin_message_id'],
+      )!,
+      incidentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}incident_id'],
+      )!,
+      originKeyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin_key_id'],
+      )!,
+      originPublicKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin_public_key'],
+      )!,
+      immutablePayload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}immutable_payload'],
+      )!,
+      wireEnvelope: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}wire_envelope'],
+      )!,
+      immutableDigest: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}immutable_digest'],
+      )!,
+      originSignature: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin_signature'],
+      )!,
+      authorizationScope: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}authorization_scope'],
+      )!,
+      emergencyType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}emergency_type'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      expiresAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}expires_at'],
+      )!,
+      retentionDeadline: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}retention_deadline'],
+      )!,
+      maxHops: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}max_hops'],
+      )!,
+      incomingHopCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}incoming_hop_count'],
+      )!,
+      incomingPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}incoming_path'],
+      )!,
+      incomingPeerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}incoming_peer_id'],
+      )!,
+      previousHopKeyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}previous_hop_key_id'],
+      )!,
+      processingState: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}processing_state'],
+      )!,
+      payloadBytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}payload_bytes'],
+      )!,
+      storageBytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}storage_bytes'],
+      )!,
+      receivedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}received_at'],
+      )!,
+      persistedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}persisted_at'],
+      )!,
+      finalReceiptState: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}final_receipt_state'],
+      ),
+      finalRecipientKeyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}final_recipient_key_id'],
+      ),
+      finalAuthorizationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}final_authorization_id'],
+      ),
+      finalReceiptCorrelationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}final_receipt_correlation_id'],
+      ),
+      finalRoutePeerDeviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}final_route_peer_device_id'],
+      ),
+      lastError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error'],
+      ),
+    );
+  }
+
+  @override
+  $BleRelayMessagesTable createAlias(String alias) {
+    return $BleRelayMessagesTable(attachedDatabase, alias);
+  }
+}
+
+class BleRelayMessage extends DataClass implements Insertable<BleRelayMessage> {
+  final String originMessageId;
+  final String incidentId;
+  final String originKeyId;
+  final String originPublicKey;
+  final String immutablePayload;
+  final String wireEnvelope;
+  final String immutableDigest;
+  final String originSignature;
+  final String authorizationScope;
+  final String emergencyType;
+  final DateTime createdAt;
+  final DateTime expiresAt;
+  final DateTime retentionDeadline;
+  final int maxHops;
+  final int incomingHopCount;
+  final String incomingPath;
+  final String incomingPeerId;
+  final String previousHopKeyId;
+  final String processingState;
+  final int payloadBytes;
+  final int storageBytes;
+  final DateTime receivedAt;
+  final DateTime persistedAt;
+  final String? finalReceiptState;
+  final String? finalRecipientKeyId;
+  final String? finalAuthorizationId;
+  final String? finalReceiptCorrelationId;
+  final String? finalRoutePeerDeviceId;
+  final String? lastError;
+  const BleRelayMessage({
+    required this.originMessageId,
+    required this.incidentId,
+    required this.originKeyId,
+    required this.originPublicKey,
+    required this.immutablePayload,
+    required this.wireEnvelope,
+    required this.immutableDigest,
+    required this.originSignature,
+    required this.authorizationScope,
+    required this.emergencyType,
+    required this.createdAt,
+    required this.expiresAt,
+    required this.retentionDeadline,
+    required this.maxHops,
+    required this.incomingHopCount,
+    required this.incomingPath,
+    required this.incomingPeerId,
+    required this.previousHopKeyId,
+    required this.processingState,
+    required this.payloadBytes,
+    required this.storageBytes,
+    required this.receivedAt,
+    required this.persistedAt,
+    this.finalReceiptState,
+    this.finalRecipientKeyId,
+    this.finalAuthorizationId,
+    this.finalReceiptCorrelationId,
+    this.finalRoutePeerDeviceId,
+    this.lastError,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['origin_message_id'] = Variable<String>(originMessageId);
+    map['incident_id'] = Variable<String>(incidentId);
+    map['origin_key_id'] = Variable<String>(originKeyId);
+    map['origin_public_key'] = Variable<String>(originPublicKey);
+    map['immutable_payload'] = Variable<String>(immutablePayload);
+    map['wire_envelope'] = Variable<String>(wireEnvelope);
+    map['immutable_digest'] = Variable<String>(immutableDigest);
+    map['origin_signature'] = Variable<String>(originSignature);
+    map['authorization_scope'] = Variable<String>(authorizationScope);
+    map['emergency_type'] = Variable<String>(emergencyType);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['expires_at'] = Variable<DateTime>(expiresAt);
+    map['retention_deadline'] = Variable<DateTime>(retentionDeadline);
+    map['max_hops'] = Variable<int>(maxHops);
+    map['incoming_hop_count'] = Variable<int>(incomingHopCount);
+    map['incoming_path'] = Variable<String>(incomingPath);
+    map['incoming_peer_id'] = Variable<String>(incomingPeerId);
+    map['previous_hop_key_id'] = Variable<String>(previousHopKeyId);
+    map['processing_state'] = Variable<String>(processingState);
+    map['payload_bytes'] = Variable<int>(payloadBytes);
+    map['storage_bytes'] = Variable<int>(storageBytes);
+    map['received_at'] = Variable<DateTime>(receivedAt);
+    map['persisted_at'] = Variable<DateTime>(persistedAt);
+    if (!nullToAbsent || finalReceiptState != null) {
+      map['final_receipt_state'] = Variable<String>(finalReceiptState);
+    }
+    if (!nullToAbsent || finalRecipientKeyId != null) {
+      map['final_recipient_key_id'] = Variable<String>(finalRecipientKeyId);
+    }
+    if (!nullToAbsent || finalAuthorizationId != null) {
+      map['final_authorization_id'] = Variable<String>(finalAuthorizationId);
+    }
+    if (!nullToAbsent || finalReceiptCorrelationId != null) {
+      map['final_receipt_correlation_id'] = Variable<String>(
+        finalReceiptCorrelationId,
+      );
+    }
+    if (!nullToAbsent || finalRoutePeerDeviceId != null) {
+      map['final_route_peer_device_id'] = Variable<String>(
+        finalRoutePeerDeviceId,
+      );
+    }
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    return map;
+  }
+
+  BleRelayMessagesCompanion toCompanion(bool nullToAbsent) {
+    return BleRelayMessagesCompanion(
+      originMessageId: Value(originMessageId),
+      incidentId: Value(incidentId),
+      originKeyId: Value(originKeyId),
+      originPublicKey: Value(originPublicKey),
+      immutablePayload: Value(immutablePayload),
+      wireEnvelope: Value(wireEnvelope),
+      immutableDigest: Value(immutableDigest),
+      originSignature: Value(originSignature),
+      authorizationScope: Value(authorizationScope),
+      emergencyType: Value(emergencyType),
+      createdAt: Value(createdAt),
+      expiresAt: Value(expiresAt),
+      retentionDeadline: Value(retentionDeadline),
+      maxHops: Value(maxHops),
+      incomingHopCount: Value(incomingHopCount),
+      incomingPath: Value(incomingPath),
+      incomingPeerId: Value(incomingPeerId),
+      previousHopKeyId: Value(previousHopKeyId),
+      processingState: Value(processingState),
+      payloadBytes: Value(payloadBytes),
+      storageBytes: Value(storageBytes),
+      receivedAt: Value(receivedAt),
+      persistedAt: Value(persistedAt),
+      finalReceiptState: finalReceiptState == null && nullToAbsent
+          ? const Value.absent()
+          : Value(finalReceiptState),
+      finalRecipientKeyId: finalRecipientKeyId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(finalRecipientKeyId),
+      finalAuthorizationId: finalAuthorizationId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(finalAuthorizationId),
+      finalReceiptCorrelationId:
+          finalReceiptCorrelationId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(finalReceiptCorrelationId),
+      finalRoutePeerDeviceId: finalRoutePeerDeviceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(finalRoutePeerDeviceId),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+    );
+  }
+
+  factory BleRelayMessage.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BleRelayMessage(
+      originMessageId: serializer.fromJson<String>(json['originMessageId']),
+      incidentId: serializer.fromJson<String>(json['incidentId']),
+      originKeyId: serializer.fromJson<String>(json['originKeyId']),
+      originPublicKey: serializer.fromJson<String>(json['originPublicKey']),
+      immutablePayload: serializer.fromJson<String>(json['immutablePayload']),
+      wireEnvelope: serializer.fromJson<String>(json['wireEnvelope']),
+      immutableDigest: serializer.fromJson<String>(json['immutableDigest']),
+      originSignature: serializer.fromJson<String>(json['originSignature']),
+      authorizationScope: serializer.fromJson<String>(
+        json['authorizationScope'],
+      ),
+      emergencyType: serializer.fromJson<String>(json['emergencyType']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      expiresAt: serializer.fromJson<DateTime>(json['expiresAt']),
+      retentionDeadline: serializer.fromJson<DateTime>(
+        json['retentionDeadline'],
+      ),
+      maxHops: serializer.fromJson<int>(json['maxHops']),
+      incomingHopCount: serializer.fromJson<int>(json['incomingHopCount']),
+      incomingPath: serializer.fromJson<String>(json['incomingPath']),
+      incomingPeerId: serializer.fromJson<String>(json['incomingPeerId']),
+      previousHopKeyId: serializer.fromJson<String>(json['previousHopKeyId']),
+      processingState: serializer.fromJson<String>(json['processingState']),
+      payloadBytes: serializer.fromJson<int>(json['payloadBytes']),
+      storageBytes: serializer.fromJson<int>(json['storageBytes']),
+      receivedAt: serializer.fromJson<DateTime>(json['receivedAt']),
+      persistedAt: serializer.fromJson<DateTime>(json['persistedAt']),
+      finalReceiptState: serializer.fromJson<String?>(
+        json['finalReceiptState'],
+      ),
+      finalRecipientKeyId: serializer.fromJson<String?>(
+        json['finalRecipientKeyId'],
+      ),
+      finalAuthorizationId: serializer.fromJson<String?>(
+        json['finalAuthorizationId'],
+      ),
+      finalReceiptCorrelationId: serializer.fromJson<String?>(
+        json['finalReceiptCorrelationId'],
+      ),
+      finalRoutePeerDeviceId: serializer.fromJson<String?>(
+        json['finalRoutePeerDeviceId'],
+      ),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'originMessageId': serializer.toJson<String>(originMessageId),
+      'incidentId': serializer.toJson<String>(incidentId),
+      'originKeyId': serializer.toJson<String>(originKeyId),
+      'originPublicKey': serializer.toJson<String>(originPublicKey),
+      'immutablePayload': serializer.toJson<String>(immutablePayload),
+      'wireEnvelope': serializer.toJson<String>(wireEnvelope),
+      'immutableDigest': serializer.toJson<String>(immutableDigest),
+      'originSignature': serializer.toJson<String>(originSignature),
+      'authorizationScope': serializer.toJson<String>(authorizationScope),
+      'emergencyType': serializer.toJson<String>(emergencyType),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'expiresAt': serializer.toJson<DateTime>(expiresAt),
+      'retentionDeadline': serializer.toJson<DateTime>(retentionDeadline),
+      'maxHops': serializer.toJson<int>(maxHops),
+      'incomingHopCount': serializer.toJson<int>(incomingHopCount),
+      'incomingPath': serializer.toJson<String>(incomingPath),
+      'incomingPeerId': serializer.toJson<String>(incomingPeerId),
+      'previousHopKeyId': serializer.toJson<String>(previousHopKeyId),
+      'processingState': serializer.toJson<String>(processingState),
+      'payloadBytes': serializer.toJson<int>(payloadBytes),
+      'storageBytes': serializer.toJson<int>(storageBytes),
+      'receivedAt': serializer.toJson<DateTime>(receivedAt),
+      'persistedAt': serializer.toJson<DateTime>(persistedAt),
+      'finalReceiptState': serializer.toJson<String?>(finalReceiptState),
+      'finalRecipientKeyId': serializer.toJson<String?>(finalRecipientKeyId),
+      'finalAuthorizationId': serializer.toJson<String?>(finalAuthorizationId),
+      'finalReceiptCorrelationId': serializer.toJson<String?>(
+        finalReceiptCorrelationId,
+      ),
+      'finalRoutePeerDeviceId': serializer.toJson<String?>(
+        finalRoutePeerDeviceId,
+      ),
+      'lastError': serializer.toJson<String?>(lastError),
+    };
+  }
+
+  BleRelayMessage copyWith({
+    String? originMessageId,
+    String? incidentId,
+    String? originKeyId,
+    String? originPublicKey,
+    String? immutablePayload,
+    String? wireEnvelope,
+    String? immutableDigest,
+    String? originSignature,
+    String? authorizationScope,
+    String? emergencyType,
+    DateTime? createdAt,
+    DateTime? expiresAt,
+    DateTime? retentionDeadline,
+    int? maxHops,
+    int? incomingHopCount,
+    String? incomingPath,
+    String? incomingPeerId,
+    String? previousHopKeyId,
+    String? processingState,
+    int? payloadBytes,
+    int? storageBytes,
+    DateTime? receivedAt,
+    DateTime? persistedAt,
+    Value<String?> finalReceiptState = const Value.absent(),
+    Value<String?> finalRecipientKeyId = const Value.absent(),
+    Value<String?> finalAuthorizationId = const Value.absent(),
+    Value<String?> finalReceiptCorrelationId = const Value.absent(),
+    Value<String?> finalRoutePeerDeviceId = const Value.absent(),
+    Value<String?> lastError = const Value.absent(),
+  }) => BleRelayMessage(
+    originMessageId: originMessageId ?? this.originMessageId,
+    incidentId: incidentId ?? this.incidentId,
+    originKeyId: originKeyId ?? this.originKeyId,
+    originPublicKey: originPublicKey ?? this.originPublicKey,
+    immutablePayload: immutablePayload ?? this.immutablePayload,
+    wireEnvelope: wireEnvelope ?? this.wireEnvelope,
+    immutableDigest: immutableDigest ?? this.immutableDigest,
+    originSignature: originSignature ?? this.originSignature,
+    authorizationScope: authorizationScope ?? this.authorizationScope,
+    emergencyType: emergencyType ?? this.emergencyType,
+    createdAt: createdAt ?? this.createdAt,
+    expiresAt: expiresAt ?? this.expiresAt,
+    retentionDeadline: retentionDeadline ?? this.retentionDeadline,
+    maxHops: maxHops ?? this.maxHops,
+    incomingHopCount: incomingHopCount ?? this.incomingHopCount,
+    incomingPath: incomingPath ?? this.incomingPath,
+    incomingPeerId: incomingPeerId ?? this.incomingPeerId,
+    previousHopKeyId: previousHopKeyId ?? this.previousHopKeyId,
+    processingState: processingState ?? this.processingState,
+    payloadBytes: payloadBytes ?? this.payloadBytes,
+    storageBytes: storageBytes ?? this.storageBytes,
+    receivedAt: receivedAt ?? this.receivedAt,
+    persistedAt: persistedAt ?? this.persistedAt,
+    finalReceiptState: finalReceiptState.present
+        ? finalReceiptState.value
+        : this.finalReceiptState,
+    finalRecipientKeyId: finalRecipientKeyId.present
+        ? finalRecipientKeyId.value
+        : this.finalRecipientKeyId,
+    finalAuthorizationId: finalAuthorizationId.present
+        ? finalAuthorizationId.value
+        : this.finalAuthorizationId,
+    finalReceiptCorrelationId: finalReceiptCorrelationId.present
+        ? finalReceiptCorrelationId.value
+        : this.finalReceiptCorrelationId,
+    finalRoutePeerDeviceId: finalRoutePeerDeviceId.present
+        ? finalRoutePeerDeviceId.value
+        : this.finalRoutePeerDeviceId,
+    lastError: lastError.present ? lastError.value : this.lastError,
+  );
+  BleRelayMessage copyWithCompanion(BleRelayMessagesCompanion data) {
+    return BleRelayMessage(
+      originMessageId: data.originMessageId.present
+          ? data.originMessageId.value
+          : this.originMessageId,
+      incidentId: data.incidentId.present
+          ? data.incidentId.value
+          : this.incidentId,
+      originKeyId: data.originKeyId.present
+          ? data.originKeyId.value
+          : this.originKeyId,
+      originPublicKey: data.originPublicKey.present
+          ? data.originPublicKey.value
+          : this.originPublicKey,
+      immutablePayload: data.immutablePayload.present
+          ? data.immutablePayload.value
+          : this.immutablePayload,
+      wireEnvelope: data.wireEnvelope.present
+          ? data.wireEnvelope.value
+          : this.wireEnvelope,
+      immutableDigest: data.immutableDigest.present
+          ? data.immutableDigest.value
+          : this.immutableDigest,
+      originSignature: data.originSignature.present
+          ? data.originSignature.value
+          : this.originSignature,
+      authorizationScope: data.authorizationScope.present
+          ? data.authorizationScope.value
+          : this.authorizationScope,
+      emergencyType: data.emergencyType.present
+          ? data.emergencyType.value
+          : this.emergencyType,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      expiresAt: data.expiresAt.present ? data.expiresAt.value : this.expiresAt,
+      retentionDeadline: data.retentionDeadline.present
+          ? data.retentionDeadline.value
+          : this.retentionDeadline,
+      maxHops: data.maxHops.present ? data.maxHops.value : this.maxHops,
+      incomingHopCount: data.incomingHopCount.present
+          ? data.incomingHopCount.value
+          : this.incomingHopCount,
+      incomingPath: data.incomingPath.present
+          ? data.incomingPath.value
+          : this.incomingPath,
+      incomingPeerId: data.incomingPeerId.present
+          ? data.incomingPeerId.value
+          : this.incomingPeerId,
+      previousHopKeyId: data.previousHopKeyId.present
+          ? data.previousHopKeyId.value
+          : this.previousHopKeyId,
+      processingState: data.processingState.present
+          ? data.processingState.value
+          : this.processingState,
+      payloadBytes: data.payloadBytes.present
+          ? data.payloadBytes.value
+          : this.payloadBytes,
+      storageBytes: data.storageBytes.present
+          ? data.storageBytes.value
+          : this.storageBytes,
+      receivedAt: data.receivedAt.present
+          ? data.receivedAt.value
+          : this.receivedAt,
+      persistedAt: data.persistedAt.present
+          ? data.persistedAt.value
+          : this.persistedAt,
+      finalReceiptState: data.finalReceiptState.present
+          ? data.finalReceiptState.value
+          : this.finalReceiptState,
+      finalRecipientKeyId: data.finalRecipientKeyId.present
+          ? data.finalRecipientKeyId.value
+          : this.finalRecipientKeyId,
+      finalAuthorizationId: data.finalAuthorizationId.present
+          ? data.finalAuthorizationId.value
+          : this.finalAuthorizationId,
+      finalReceiptCorrelationId: data.finalReceiptCorrelationId.present
+          ? data.finalReceiptCorrelationId.value
+          : this.finalReceiptCorrelationId,
+      finalRoutePeerDeviceId: data.finalRoutePeerDeviceId.present
+          ? data.finalRoutePeerDeviceId.value
+          : this.finalRoutePeerDeviceId,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BleRelayMessage(')
+          ..write('originMessageId: $originMessageId, ')
+          ..write('incidentId: $incidentId, ')
+          ..write('originKeyId: $originKeyId, ')
+          ..write('originPublicKey: $originPublicKey, ')
+          ..write('immutablePayload: $immutablePayload, ')
+          ..write('wireEnvelope: $wireEnvelope, ')
+          ..write('immutableDigest: $immutableDigest, ')
+          ..write('originSignature: $originSignature, ')
+          ..write('authorizationScope: $authorizationScope, ')
+          ..write('emergencyType: $emergencyType, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('retentionDeadline: $retentionDeadline, ')
+          ..write('maxHops: $maxHops, ')
+          ..write('incomingHopCount: $incomingHopCount, ')
+          ..write('incomingPath: $incomingPath, ')
+          ..write('incomingPeerId: $incomingPeerId, ')
+          ..write('previousHopKeyId: $previousHopKeyId, ')
+          ..write('processingState: $processingState, ')
+          ..write('payloadBytes: $payloadBytes, ')
+          ..write('storageBytes: $storageBytes, ')
+          ..write('receivedAt: $receivedAt, ')
+          ..write('persistedAt: $persistedAt, ')
+          ..write('finalReceiptState: $finalReceiptState, ')
+          ..write('finalRecipientKeyId: $finalRecipientKeyId, ')
+          ..write('finalAuthorizationId: $finalAuthorizationId, ')
+          ..write('finalReceiptCorrelationId: $finalReceiptCorrelationId, ')
+          ..write('finalRoutePeerDeviceId: $finalRoutePeerDeviceId, ')
+          ..write('lastError: $lastError')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    originMessageId,
+    incidentId,
+    originKeyId,
+    originPublicKey,
+    immutablePayload,
+    wireEnvelope,
+    immutableDigest,
+    originSignature,
+    authorizationScope,
+    emergencyType,
+    createdAt,
+    expiresAt,
+    retentionDeadline,
+    maxHops,
+    incomingHopCount,
+    incomingPath,
+    incomingPeerId,
+    previousHopKeyId,
+    processingState,
+    payloadBytes,
+    storageBytes,
+    receivedAt,
+    persistedAt,
+    finalReceiptState,
+    finalRecipientKeyId,
+    finalAuthorizationId,
+    finalReceiptCorrelationId,
+    finalRoutePeerDeviceId,
+    lastError,
+  ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BleRelayMessage &&
+          other.originMessageId == this.originMessageId &&
+          other.incidentId == this.incidentId &&
+          other.originKeyId == this.originKeyId &&
+          other.originPublicKey == this.originPublicKey &&
+          other.immutablePayload == this.immutablePayload &&
+          other.wireEnvelope == this.wireEnvelope &&
+          other.immutableDigest == this.immutableDigest &&
+          other.originSignature == this.originSignature &&
+          other.authorizationScope == this.authorizationScope &&
+          other.emergencyType == this.emergencyType &&
+          other.createdAt == this.createdAt &&
+          other.expiresAt == this.expiresAt &&
+          other.retentionDeadline == this.retentionDeadline &&
+          other.maxHops == this.maxHops &&
+          other.incomingHopCount == this.incomingHopCount &&
+          other.incomingPath == this.incomingPath &&
+          other.incomingPeerId == this.incomingPeerId &&
+          other.previousHopKeyId == this.previousHopKeyId &&
+          other.processingState == this.processingState &&
+          other.payloadBytes == this.payloadBytes &&
+          other.storageBytes == this.storageBytes &&
+          other.receivedAt == this.receivedAt &&
+          other.persistedAt == this.persistedAt &&
+          other.finalReceiptState == this.finalReceiptState &&
+          other.finalRecipientKeyId == this.finalRecipientKeyId &&
+          other.finalAuthorizationId == this.finalAuthorizationId &&
+          other.finalReceiptCorrelationId == this.finalReceiptCorrelationId &&
+          other.finalRoutePeerDeviceId == this.finalRoutePeerDeviceId &&
+          other.lastError == this.lastError);
+}
+
+class BleRelayMessagesCompanion extends UpdateCompanion<BleRelayMessage> {
+  final Value<String> originMessageId;
+  final Value<String> incidentId;
+  final Value<String> originKeyId;
+  final Value<String> originPublicKey;
+  final Value<String> immutablePayload;
+  final Value<String> wireEnvelope;
+  final Value<String> immutableDigest;
+  final Value<String> originSignature;
+  final Value<String> authorizationScope;
+  final Value<String> emergencyType;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> expiresAt;
+  final Value<DateTime> retentionDeadline;
+  final Value<int> maxHops;
+  final Value<int> incomingHopCount;
+  final Value<String> incomingPath;
+  final Value<String> incomingPeerId;
+  final Value<String> previousHopKeyId;
+  final Value<String> processingState;
+  final Value<int> payloadBytes;
+  final Value<int> storageBytes;
+  final Value<DateTime> receivedAt;
+  final Value<DateTime> persistedAt;
+  final Value<String?> finalReceiptState;
+  final Value<String?> finalRecipientKeyId;
+  final Value<String?> finalAuthorizationId;
+  final Value<String?> finalReceiptCorrelationId;
+  final Value<String?> finalRoutePeerDeviceId;
+  final Value<String?> lastError;
+  final Value<int> rowid;
+  const BleRelayMessagesCompanion({
+    this.originMessageId = const Value.absent(),
+    this.incidentId = const Value.absent(),
+    this.originKeyId = const Value.absent(),
+    this.originPublicKey = const Value.absent(),
+    this.immutablePayload = const Value.absent(),
+    this.wireEnvelope = const Value.absent(),
+    this.immutableDigest = const Value.absent(),
+    this.originSignature = const Value.absent(),
+    this.authorizationScope = const Value.absent(),
+    this.emergencyType = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+    this.retentionDeadline = const Value.absent(),
+    this.maxHops = const Value.absent(),
+    this.incomingHopCount = const Value.absent(),
+    this.incomingPath = const Value.absent(),
+    this.incomingPeerId = const Value.absent(),
+    this.previousHopKeyId = const Value.absent(),
+    this.processingState = const Value.absent(),
+    this.payloadBytes = const Value.absent(),
+    this.storageBytes = const Value.absent(),
+    this.receivedAt = const Value.absent(),
+    this.persistedAt = const Value.absent(),
+    this.finalReceiptState = const Value.absent(),
+    this.finalRecipientKeyId = const Value.absent(),
+    this.finalAuthorizationId = const Value.absent(),
+    this.finalReceiptCorrelationId = const Value.absent(),
+    this.finalRoutePeerDeviceId = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BleRelayMessagesCompanion.insert({
+    required String originMessageId,
+    required String incidentId,
+    required String originKeyId,
+    required String originPublicKey,
+    required String immutablePayload,
+    required String wireEnvelope,
+    required String immutableDigest,
+    required String originSignature,
+    required String authorizationScope,
+    required String emergencyType,
+    required DateTime createdAt,
+    required DateTime expiresAt,
+    required DateTime retentionDeadline,
+    required int maxHops,
+    required int incomingHopCount,
+    required String incomingPath,
+    required String incomingPeerId,
+    required String previousHopKeyId,
+    required String processingState,
+    required int payloadBytes,
+    required int storageBytes,
+    required DateTime receivedAt,
+    required DateTime persistedAt,
+    this.finalReceiptState = const Value.absent(),
+    this.finalRecipientKeyId = const Value.absent(),
+    this.finalAuthorizationId = const Value.absent(),
+    this.finalReceiptCorrelationId = const Value.absent(),
+    this.finalRoutePeerDeviceId = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : originMessageId = Value(originMessageId),
+       incidentId = Value(incidentId),
+       originKeyId = Value(originKeyId),
+       originPublicKey = Value(originPublicKey),
+       immutablePayload = Value(immutablePayload),
+       wireEnvelope = Value(wireEnvelope),
+       immutableDigest = Value(immutableDigest),
+       originSignature = Value(originSignature),
+       authorizationScope = Value(authorizationScope),
+       emergencyType = Value(emergencyType),
+       createdAt = Value(createdAt),
+       expiresAt = Value(expiresAt),
+       retentionDeadline = Value(retentionDeadline),
+       maxHops = Value(maxHops),
+       incomingHopCount = Value(incomingHopCount),
+       incomingPath = Value(incomingPath),
+       incomingPeerId = Value(incomingPeerId),
+       previousHopKeyId = Value(previousHopKeyId),
+       processingState = Value(processingState),
+       payloadBytes = Value(payloadBytes),
+       storageBytes = Value(storageBytes),
+       receivedAt = Value(receivedAt),
+       persistedAt = Value(persistedAt);
+  static Insertable<BleRelayMessage> custom({
+    Expression<String>? originMessageId,
+    Expression<String>? incidentId,
+    Expression<String>? originKeyId,
+    Expression<String>? originPublicKey,
+    Expression<String>? immutablePayload,
+    Expression<String>? wireEnvelope,
+    Expression<String>? immutableDigest,
+    Expression<String>? originSignature,
+    Expression<String>? authorizationScope,
+    Expression<String>? emergencyType,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? expiresAt,
+    Expression<DateTime>? retentionDeadline,
+    Expression<int>? maxHops,
+    Expression<int>? incomingHopCount,
+    Expression<String>? incomingPath,
+    Expression<String>? incomingPeerId,
+    Expression<String>? previousHopKeyId,
+    Expression<String>? processingState,
+    Expression<int>? payloadBytes,
+    Expression<int>? storageBytes,
+    Expression<DateTime>? receivedAt,
+    Expression<DateTime>? persistedAt,
+    Expression<String>? finalReceiptState,
+    Expression<String>? finalRecipientKeyId,
+    Expression<String>? finalAuthorizationId,
+    Expression<String>? finalReceiptCorrelationId,
+    Expression<String>? finalRoutePeerDeviceId,
+    Expression<String>? lastError,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (originMessageId != null) 'origin_message_id': originMessageId,
+      if (incidentId != null) 'incident_id': incidentId,
+      if (originKeyId != null) 'origin_key_id': originKeyId,
+      if (originPublicKey != null) 'origin_public_key': originPublicKey,
+      if (immutablePayload != null) 'immutable_payload': immutablePayload,
+      if (wireEnvelope != null) 'wire_envelope': wireEnvelope,
+      if (immutableDigest != null) 'immutable_digest': immutableDigest,
+      if (originSignature != null) 'origin_signature': originSignature,
+      if (authorizationScope != null) 'authorization_scope': authorizationScope,
+      if (emergencyType != null) 'emergency_type': emergencyType,
+      if (createdAt != null) 'created_at': createdAt,
+      if (expiresAt != null) 'expires_at': expiresAt,
+      if (retentionDeadline != null) 'retention_deadline': retentionDeadline,
+      if (maxHops != null) 'max_hops': maxHops,
+      if (incomingHopCount != null) 'incoming_hop_count': incomingHopCount,
+      if (incomingPath != null) 'incoming_path': incomingPath,
+      if (incomingPeerId != null) 'incoming_peer_id': incomingPeerId,
+      if (previousHopKeyId != null) 'previous_hop_key_id': previousHopKeyId,
+      if (processingState != null) 'processing_state': processingState,
+      if (payloadBytes != null) 'payload_bytes': payloadBytes,
+      if (storageBytes != null) 'storage_bytes': storageBytes,
+      if (receivedAt != null) 'received_at': receivedAt,
+      if (persistedAt != null) 'persisted_at': persistedAt,
+      if (finalReceiptState != null) 'final_receipt_state': finalReceiptState,
+      if (finalRecipientKeyId != null)
+        'final_recipient_key_id': finalRecipientKeyId,
+      if (finalAuthorizationId != null)
+        'final_authorization_id': finalAuthorizationId,
+      if (finalReceiptCorrelationId != null)
+        'final_receipt_correlation_id': finalReceiptCorrelationId,
+      if (finalRoutePeerDeviceId != null)
+        'final_route_peer_device_id': finalRoutePeerDeviceId,
+      if (lastError != null) 'last_error': lastError,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BleRelayMessagesCompanion copyWith({
+    Value<String>? originMessageId,
+    Value<String>? incidentId,
+    Value<String>? originKeyId,
+    Value<String>? originPublicKey,
+    Value<String>? immutablePayload,
+    Value<String>? wireEnvelope,
+    Value<String>? immutableDigest,
+    Value<String>? originSignature,
+    Value<String>? authorizationScope,
+    Value<String>? emergencyType,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? expiresAt,
+    Value<DateTime>? retentionDeadline,
+    Value<int>? maxHops,
+    Value<int>? incomingHopCount,
+    Value<String>? incomingPath,
+    Value<String>? incomingPeerId,
+    Value<String>? previousHopKeyId,
+    Value<String>? processingState,
+    Value<int>? payloadBytes,
+    Value<int>? storageBytes,
+    Value<DateTime>? receivedAt,
+    Value<DateTime>? persistedAt,
+    Value<String?>? finalReceiptState,
+    Value<String?>? finalRecipientKeyId,
+    Value<String?>? finalAuthorizationId,
+    Value<String?>? finalReceiptCorrelationId,
+    Value<String?>? finalRoutePeerDeviceId,
+    Value<String?>? lastError,
+    Value<int>? rowid,
+  }) {
+    return BleRelayMessagesCompanion(
+      originMessageId: originMessageId ?? this.originMessageId,
+      incidentId: incidentId ?? this.incidentId,
+      originKeyId: originKeyId ?? this.originKeyId,
+      originPublicKey: originPublicKey ?? this.originPublicKey,
+      immutablePayload: immutablePayload ?? this.immutablePayload,
+      wireEnvelope: wireEnvelope ?? this.wireEnvelope,
+      immutableDigest: immutableDigest ?? this.immutableDigest,
+      originSignature: originSignature ?? this.originSignature,
+      authorizationScope: authorizationScope ?? this.authorizationScope,
+      emergencyType: emergencyType ?? this.emergencyType,
+      createdAt: createdAt ?? this.createdAt,
+      expiresAt: expiresAt ?? this.expiresAt,
+      retentionDeadline: retentionDeadline ?? this.retentionDeadline,
+      maxHops: maxHops ?? this.maxHops,
+      incomingHopCount: incomingHopCount ?? this.incomingHopCount,
+      incomingPath: incomingPath ?? this.incomingPath,
+      incomingPeerId: incomingPeerId ?? this.incomingPeerId,
+      previousHopKeyId: previousHopKeyId ?? this.previousHopKeyId,
+      processingState: processingState ?? this.processingState,
+      payloadBytes: payloadBytes ?? this.payloadBytes,
+      storageBytes: storageBytes ?? this.storageBytes,
+      receivedAt: receivedAt ?? this.receivedAt,
+      persistedAt: persistedAt ?? this.persistedAt,
+      finalReceiptState: finalReceiptState ?? this.finalReceiptState,
+      finalRecipientKeyId: finalRecipientKeyId ?? this.finalRecipientKeyId,
+      finalAuthorizationId: finalAuthorizationId ?? this.finalAuthorizationId,
+      finalReceiptCorrelationId:
+          finalReceiptCorrelationId ?? this.finalReceiptCorrelationId,
+      finalRoutePeerDeviceId:
+          finalRoutePeerDeviceId ?? this.finalRoutePeerDeviceId,
+      lastError: lastError ?? this.lastError,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (originMessageId.present) {
+      map['origin_message_id'] = Variable<String>(originMessageId.value);
+    }
+    if (incidentId.present) {
+      map['incident_id'] = Variable<String>(incidentId.value);
+    }
+    if (originKeyId.present) {
+      map['origin_key_id'] = Variable<String>(originKeyId.value);
+    }
+    if (originPublicKey.present) {
+      map['origin_public_key'] = Variable<String>(originPublicKey.value);
+    }
+    if (immutablePayload.present) {
+      map['immutable_payload'] = Variable<String>(immutablePayload.value);
+    }
+    if (wireEnvelope.present) {
+      map['wire_envelope'] = Variable<String>(wireEnvelope.value);
+    }
+    if (immutableDigest.present) {
+      map['immutable_digest'] = Variable<String>(immutableDigest.value);
+    }
+    if (originSignature.present) {
+      map['origin_signature'] = Variable<String>(originSignature.value);
+    }
+    if (authorizationScope.present) {
+      map['authorization_scope'] = Variable<String>(authorizationScope.value);
+    }
+    if (emergencyType.present) {
+      map['emergency_type'] = Variable<String>(emergencyType.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (expiresAt.present) {
+      map['expires_at'] = Variable<DateTime>(expiresAt.value);
+    }
+    if (retentionDeadline.present) {
+      map['retention_deadline'] = Variable<DateTime>(retentionDeadline.value);
+    }
+    if (maxHops.present) {
+      map['max_hops'] = Variable<int>(maxHops.value);
+    }
+    if (incomingHopCount.present) {
+      map['incoming_hop_count'] = Variable<int>(incomingHopCount.value);
+    }
+    if (incomingPath.present) {
+      map['incoming_path'] = Variable<String>(incomingPath.value);
+    }
+    if (incomingPeerId.present) {
+      map['incoming_peer_id'] = Variable<String>(incomingPeerId.value);
+    }
+    if (previousHopKeyId.present) {
+      map['previous_hop_key_id'] = Variable<String>(previousHopKeyId.value);
+    }
+    if (processingState.present) {
+      map['processing_state'] = Variable<String>(processingState.value);
+    }
+    if (payloadBytes.present) {
+      map['payload_bytes'] = Variable<int>(payloadBytes.value);
+    }
+    if (storageBytes.present) {
+      map['storage_bytes'] = Variable<int>(storageBytes.value);
+    }
+    if (receivedAt.present) {
+      map['received_at'] = Variable<DateTime>(receivedAt.value);
+    }
+    if (persistedAt.present) {
+      map['persisted_at'] = Variable<DateTime>(persistedAt.value);
+    }
+    if (finalReceiptState.present) {
+      map['final_receipt_state'] = Variable<String>(finalReceiptState.value);
+    }
+    if (finalRecipientKeyId.present) {
+      map['final_recipient_key_id'] = Variable<String>(
+        finalRecipientKeyId.value,
+      );
+    }
+    if (finalAuthorizationId.present) {
+      map['final_authorization_id'] = Variable<String>(
+        finalAuthorizationId.value,
+      );
+    }
+    if (finalReceiptCorrelationId.present) {
+      map['final_receipt_correlation_id'] = Variable<String>(
+        finalReceiptCorrelationId.value,
+      );
+    }
+    if (finalRoutePeerDeviceId.present) {
+      map['final_route_peer_device_id'] = Variable<String>(
+        finalRoutePeerDeviceId.value,
+      );
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BleRelayMessagesCompanion(')
+          ..write('originMessageId: $originMessageId, ')
+          ..write('incidentId: $incidentId, ')
+          ..write('originKeyId: $originKeyId, ')
+          ..write('originPublicKey: $originPublicKey, ')
+          ..write('immutablePayload: $immutablePayload, ')
+          ..write('wireEnvelope: $wireEnvelope, ')
+          ..write('immutableDigest: $immutableDigest, ')
+          ..write('originSignature: $originSignature, ')
+          ..write('authorizationScope: $authorizationScope, ')
+          ..write('emergencyType: $emergencyType, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('retentionDeadline: $retentionDeadline, ')
+          ..write('maxHops: $maxHops, ')
+          ..write('incomingHopCount: $incomingHopCount, ')
+          ..write('incomingPath: $incomingPath, ')
+          ..write('incomingPeerId: $incomingPeerId, ')
+          ..write('previousHopKeyId: $previousHopKeyId, ')
+          ..write('processingState: $processingState, ')
+          ..write('payloadBytes: $payloadBytes, ')
+          ..write('storageBytes: $storageBytes, ')
+          ..write('receivedAt: $receivedAt, ')
+          ..write('persistedAt: $persistedAt, ')
+          ..write('finalReceiptState: $finalReceiptState, ')
+          ..write('finalRecipientKeyId: $finalRecipientKeyId, ')
+          ..write('finalAuthorizationId: $finalAuthorizationId, ')
+          ..write('finalReceiptCorrelationId: $finalReceiptCorrelationId, ')
+          ..write('finalRoutePeerDeviceId: $finalRoutePeerDeviceId, ')
+          ..write('lastError: $lastError, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $BleRelayAttemptsTable extends BleRelayAttempts
+    with TableInfo<$BleRelayAttemptsTable, BleRelayAttempt> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BleRelayAttemptsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _originMessageIdMeta = const VerificationMeta(
+    'originMessageId',
+  );
+  @override
+  late final GeneratedColumn<String> originMessageId = GeneratedColumn<String>(
+    'origin_message_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES ble_relay_messages (origin_message_id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _nextHopKeyIdMeta = const VerificationMeta(
+    'nextHopKeyId',
+  );
+  @override
+  late final GeneratedColumn<String> nextHopKeyId = GeneratedColumn<String>(
+    'next_hop_key_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _attemptIdMeta = const VerificationMeta(
+    'attemptId',
+  );
+  @override
+  late final GeneratedColumn<String> attemptId = GeneratedColumn<String>(
+    'attempt_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _correlationIdMeta = const VerificationMeta(
+    'correlationId',
+  );
+  @override
+  late final GeneratedColumn<String> correlationId = GeneratedColumn<String>(
+    'correlation_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nextHopDeviceIdMeta = const VerificationMeta(
+    'nextHopDeviceId',
+  );
+  @override
+  late final GeneratedColumn<String> nextHopDeviceId = GeneratedColumn<String>(
+    'next_hop_device_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _outgoingHopCountMeta = const VerificationMeta(
+    'outgoingHopCount',
+  );
+  @override
+  late final GeneratedColumn<int> outgoingHopCount = GeneratedColumn<int>(
+    'outgoing_hop_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _outgoingPathMeta = const VerificationMeta(
+    'outgoingPath',
+  );
+  @override
+  late final GeneratedColumn<String> outgoingPath = GeneratedColumn<String>(
+    'outgoing_path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _storageBytesMeta = const VerificationMeta(
+    'storageBytes',
+  );
+  @override
+  late final GeneratedColumn<int> storageBytes = GeneratedColumn<int>(
+    'storage_bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _stateMeta = const VerificationMeta('state');
+  @override
+  late final GeneratedColumn<String> state = GeneratedColumn<String>(
+    'state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _retryCountMeta = const VerificationMeta(
+    'retryCount',
+  );
+  @override
+  late final GeneratedColumn<int> retryCount = GeneratedColumn<int>(
+    'retry_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _nextRetryAtMeta = const VerificationMeta(
+    'nextRetryAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> nextRetryAt = GeneratedColumn<DateTime>(
+    'next_retry_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastAttemptAtMeta = const VerificationMeta(
+    'lastAttemptAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastAttemptAt =
+      GeneratedColumn<DateTime>(
+        'last_attempt_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _lastErrorMeta = const VerificationMeta(
+    'lastError',
+  );
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+    'last_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _acceptedAtMeta = const VerificationMeta(
+    'acceptedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> acceptedAt = GeneratedColumn<DateTime>(
+    'accepted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    originMessageId,
+    nextHopKeyId,
+    attemptId,
+    correlationId,
+    nextHopDeviceId,
+    outgoingHopCount,
+    outgoingPath,
+    storageBytes,
+    state,
+    retryCount,
+    nextRetryAt,
+    lastAttemptAt,
+    lastError,
+    createdAt,
+    updatedAt,
+    acceptedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'ble_relay_attempts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BleRelayAttempt> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('origin_message_id')) {
+      context.handle(
+        _originMessageIdMeta,
+        originMessageId.isAcceptableOrUnknown(
+          data['origin_message_id']!,
+          _originMessageIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_originMessageIdMeta);
+    }
+    if (data.containsKey('next_hop_key_id')) {
+      context.handle(
+        _nextHopKeyIdMeta,
+        nextHopKeyId.isAcceptableOrUnknown(
+          data['next_hop_key_id']!,
+          _nextHopKeyIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_nextHopKeyIdMeta);
+    }
+    if (data.containsKey('attempt_id')) {
+      context.handle(
+        _attemptIdMeta,
+        attemptId.isAcceptableOrUnknown(data['attempt_id']!, _attemptIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_attemptIdMeta);
+    }
+    if (data.containsKey('correlation_id')) {
+      context.handle(
+        _correlationIdMeta,
+        correlationId.isAcceptableOrUnknown(
+          data['correlation_id']!,
+          _correlationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_correlationIdMeta);
+    }
+    if (data.containsKey('next_hop_device_id')) {
+      context.handle(
+        _nextHopDeviceIdMeta,
+        nextHopDeviceId.isAcceptableOrUnknown(
+          data['next_hop_device_id']!,
+          _nextHopDeviceIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_nextHopDeviceIdMeta);
+    }
+    if (data.containsKey('outgoing_hop_count')) {
+      context.handle(
+        _outgoingHopCountMeta,
+        outgoingHopCount.isAcceptableOrUnknown(
+          data['outgoing_hop_count']!,
+          _outgoingHopCountMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_outgoingHopCountMeta);
+    }
+    if (data.containsKey('outgoing_path')) {
+      context.handle(
+        _outgoingPathMeta,
+        outgoingPath.isAcceptableOrUnknown(
+          data['outgoing_path']!,
+          _outgoingPathMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_outgoingPathMeta);
+    }
+    if (data.containsKey('storage_bytes')) {
+      context.handle(
+        _storageBytesMeta,
+        storageBytes.isAcceptableOrUnknown(
+          data['storage_bytes']!,
+          _storageBytesMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_storageBytesMeta);
+    }
+    if (data.containsKey('state')) {
+      context.handle(
+        _stateMeta,
+        state.isAcceptableOrUnknown(data['state']!, _stateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_stateMeta);
+    }
+    if (data.containsKey('retry_count')) {
+      context.handle(
+        _retryCountMeta,
+        retryCount.isAcceptableOrUnknown(data['retry_count']!, _retryCountMeta),
+      );
+    }
+    if (data.containsKey('next_retry_at')) {
+      context.handle(
+        _nextRetryAtMeta,
+        nextRetryAt.isAcceptableOrUnknown(
+          data['next_retry_at']!,
+          _nextRetryAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_attempt_at')) {
+      context.handle(
+        _lastAttemptAtMeta,
+        lastAttemptAt.isAcceptableOrUnknown(
+          data['last_attempt_at']!,
+          _lastAttemptAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(
+        _lastErrorMeta,
+        lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('accepted_at')) {
+      context.handle(
+        _acceptedAtMeta,
+        acceptedAt.isAcceptableOrUnknown(data['accepted_at']!, _acceptedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {originMessageId, nextHopKeyId};
+  @override
+  BleRelayAttempt map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BleRelayAttempt(
+      originMessageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin_message_id'],
+      )!,
+      nextHopKeyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}next_hop_key_id'],
+      )!,
+      attemptId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}attempt_id'],
+      )!,
+      correlationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}correlation_id'],
+      )!,
+      nextHopDeviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}next_hop_device_id'],
+      )!,
+      outgoingHopCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}outgoing_hop_count'],
+      )!,
+      outgoingPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}outgoing_path'],
+      )!,
+      storageBytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}storage_bytes'],
+      )!,
+      state: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}state'],
+      )!,
+      retryCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}retry_count'],
+      )!,
+      nextRetryAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}next_retry_at'],
+      ),
+      lastAttemptAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_attempt_at'],
+      ),
+      lastError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      acceptedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}accepted_at'],
+      ),
+    );
+  }
+
+  @override
+  $BleRelayAttemptsTable createAlias(String alias) {
+    return $BleRelayAttemptsTable(attachedDatabase, alias);
+  }
+}
+
+class BleRelayAttempt extends DataClass implements Insertable<BleRelayAttempt> {
+  final String originMessageId;
+  final String nextHopKeyId;
+  final String attemptId;
+  final String correlationId;
+  final String nextHopDeviceId;
+  final int outgoingHopCount;
+  final String outgoingPath;
+  final int storageBytes;
+  final String state;
+  final int retryCount;
+  final DateTime? nextRetryAt;
+  final DateTime? lastAttemptAt;
+  final String? lastError;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? acceptedAt;
+  const BleRelayAttempt({
+    required this.originMessageId,
+    required this.nextHopKeyId,
+    required this.attemptId,
+    required this.correlationId,
+    required this.nextHopDeviceId,
+    required this.outgoingHopCount,
+    required this.outgoingPath,
+    required this.storageBytes,
+    required this.state,
+    required this.retryCount,
+    this.nextRetryAt,
+    this.lastAttemptAt,
+    this.lastError,
+    required this.createdAt,
+    required this.updatedAt,
+    this.acceptedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['origin_message_id'] = Variable<String>(originMessageId);
+    map['next_hop_key_id'] = Variable<String>(nextHopKeyId);
+    map['attempt_id'] = Variable<String>(attemptId);
+    map['correlation_id'] = Variable<String>(correlationId);
+    map['next_hop_device_id'] = Variable<String>(nextHopDeviceId);
+    map['outgoing_hop_count'] = Variable<int>(outgoingHopCount);
+    map['outgoing_path'] = Variable<String>(outgoingPath);
+    map['storage_bytes'] = Variable<int>(storageBytes);
+    map['state'] = Variable<String>(state);
+    map['retry_count'] = Variable<int>(retryCount);
+    if (!nullToAbsent || nextRetryAt != null) {
+      map['next_retry_at'] = Variable<DateTime>(nextRetryAt);
+    }
+    if (!nullToAbsent || lastAttemptAt != null) {
+      map['last_attempt_at'] = Variable<DateTime>(lastAttemptAt);
+    }
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || acceptedAt != null) {
+      map['accepted_at'] = Variable<DateTime>(acceptedAt);
+    }
+    return map;
+  }
+
+  BleRelayAttemptsCompanion toCompanion(bool nullToAbsent) {
+    return BleRelayAttemptsCompanion(
+      originMessageId: Value(originMessageId),
+      nextHopKeyId: Value(nextHopKeyId),
+      attemptId: Value(attemptId),
+      correlationId: Value(correlationId),
+      nextHopDeviceId: Value(nextHopDeviceId),
+      outgoingHopCount: Value(outgoingHopCount),
+      outgoingPath: Value(outgoingPath),
+      storageBytes: Value(storageBytes),
+      state: Value(state),
+      retryCount: Value(retryCount),
+      nextRetryAt: nextRetryAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nextRetryAt),
+      lastAttemptAt: lastAttemptAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastAttemptAt),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      acceptedAt: acceptedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(acceptedAt),
+    );
+  }
+
+  factory BleRelayAttempt.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BleRelayAttempt(
+      originMessageId: serializer.fromJson<String>(json['originMessageId']),
+      nextHopKeyId: serializer.fromJson<String>(json['nextHopKeyId']),
+      attemptId: serializer.fromJson<String>(json['attemptId']),
+      correlationId: serializer.fromJson<String>(json['correlationId']),
+      nextHopDeviceId: serializer.fromJson<String>(json['nextHopDeviceId']),
+      outgoingHopCount: serializer.fromJson<int>(json['outgoingHopCount']),
+      outgoingPath: serializer.fromJson<String>(json['outgoingPath']),
+      storageBytes: serializer.fromJson<int>(json['storageBytes']),
+      state: serializer.fromJson<String>(json['state']),
+      retryCount: serializer.fromJson<int>(json['retryCount']),
+      nextRetryAt: serializer.fromJson<DateTime?>(json['nextRetryAt']),
+      lastAttemptAt: serializer.fromJson<DateTime?>(json['lastAttemptAt']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      acceptedAt: serializer.fromJson<DateTime?>(json['acceptedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'originMessageId': serializer.toJson<String>(originMessageId),
+      'nextHopKeyId': serializer.toJson<String>(nextHopKeyId),
+      'attemptId': serializer.toJson<String>(attemptId),
+      'correlationId': serializer.toJson<String>(correlationId),
+      'nextHopDeviceId': serializer.toJson<String>(nextHopDeviceId),
+      'outgoingHopCount': serializer.toJson<int>(outgoingHopCount),
+      'outgoingPath': serializer.toJson<String>(outgoingPath),
+      'storageBytes': serializer.toJson<int>(storageBytes),
+      'state': serializer.toJson<String>(state),
+      'retryCount': serializer.toJson<int>(retryCount),
+      'nextRetryAt': serializer.toJson<DateTime?>(nextRetryAt),
+      'lastAttemptAt': serializer.toJson<DateTime?>(lastAttemptAt),
+      'lastError': serializer.toJson<String?>(lastError),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'acceptedAt': serializer.toJson<DateTime?>(acceptedAt),
+    };
+  }
+
+  BleRelayAttempt copyWith({
+    String? originMessageId,
+    String? nextHopKeyId,
+    String? attemptId,
+    String? correlationId,
+    String? nextHopDeviceId,
+    int? outgoingHopCount,
+    String? outgoingPath,
+    int? storageBytes,
+    String? state,
+    int? retryCount,
+    Value<DateTime?> nextRetryAt = const Value.absent(),
+    Value<DateTime?> lastAttemptAt = const Value.absent(),
+    Value<String?> lastError = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> acceptedAt = const Value.absent(),
+  }) => BleRelayAttempt(
+    originMessageId: originMessageId ?? this.originMessageId,
+    nextHopKeyId: nextHopKeyId ?? this.nextHopKeyId,
+    attemptId: attemptId ?? this.attemptId,
+    correlationId: correlationId ?? this.correlationId,
+    nextHopDeviceId: nextHopDeviceId ?? this.nextHopDeviceId,
+    outgoingHopCount: outgoingHopCount ?? this.outgoingHopCount,
+    outgoingPath: outgoingPath ?? this.outgoingPath,
+    storageBytes: storageBytes ?? this.storageBytes,
+    state: state ?? this.state,
+    retryCount: retryCount ?? this.retryCount,
+    nextRetryAt: nextRetryAt.present ? nextRetryAt.value : this.nextRetryAt,
+    lastAttemptAt: lastAttemptAt.present
+        ? lastAttemptAt.value
+        : this.lastAttemptAt,
+    lastError: lastError.present ? lastError.value : this.lastError,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    acceptedAt: acceptedAt.present ? acceptedAt.value : this.acceptedAt,
+  );
+  BleRelayAttempt copyWithCompanion(BleRelayAttemptsCompanion data) {
+    return BleRelayAttempt(
+      originMessageId: data.originMessageId.present
+          ? data.originMessageId.value
+          : this.originMessageId,
+      nextHopKeyId: data.nextHopKeyId.present
+          ? data.nextHopKeyId.value
+          : this.nextHopKeyId,
+      attemptId: data.attemptId.present ? data.attemptId.value : this.attemptId,
+      correlationId: data.correlationId.present
+          ? data.correlationId.value
+          : this.correlationId,
+      nextHopDeviceId: data.nextHopDeviceId.present
+          ? data.nextHopDeviceId.value
+          : this.nextHopDeviceId,
+      outgoingHopCount: data.outgoingHopCount.present
+          ? data.outgoingHopCount.value
+          : this.outgoingHopCount,
+      outgoingPath: data.outgoingPath.present
+          ? data.outgoingPath.value
+          : this.outgoingPath,
+      storageBytes: data.storageBytes.present
+          ? data.storageBytes.value
+          : this.storageBytes,
+      state: data.state.present ? data.state.value : this.state,
+      retryCount: data.retryCount.present
+          ? data.retryCount.value
+          : this.retryCount,
+      nextRetryAt: data.nextRetryAt.present
+          ? data.nextRetryAt.value
+          : this.nextRetryAt,
+      lastAttemptAt: data.lastAttemptAt.present
+          ? data.lastAttemptAt.value
+          : this.lastAttemptAt,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      acceptedAt: data.acceptedAt.present
+          ? data.acceptedAt.value
+          : this.acceptedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BleRelayAttempt(')
+          ..write('originMessageId: $originMessageId, ')
+          ..write('nextHopKeyId: $nextHopKeyId, ')
+          ..write('attemptId: $attemptId, ')
+          ..write('correlationId: $correlationId, ')
+          ..write('nextHopDeviceId: $nextHopDeviceId, ')
+          ..write('outgoingHopCount: $outgoingHopCount, ')
+          ..write('outgoingPath: $outgoingPath, ')
+          ..write('storageBytes: $storageBytes, ')
+          ..write('state: $state, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('nextRetryAt: $nextRetryAt, ')
+          ..write('lastAttemptAt: $lastAttemptAt, ')
+          ..write('lastError: $lastError, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('acceptedAt: $acceptedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    originMessageId,
+    nextHopKeyId,
+    attemptId,
+    correlationId,
+    nextHopDeviceId,
+    outgoingHopCount,
+    outgoingPath,
+    storageBytes,
+    state,
+    retryCount,
+    nextRetryAt,
+    lastAttemptAt,
+    lastError,
+    createdAt,
+    updatedAt,
+    acceptedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BleRelayAttempt &&
+          other.originMessageId == this.originMessageId &&
+          other.nextHopKeyId == this.nextHopKeyId &&
+          other.attemptId == this.attemptId &&
+          other.correlationId == this.correlationId &&
+          other.nextHopDeviceId == this.nextHopDeviceId &&
+          other.outgoingHopCount == this.outgoingHopCount &&
+          other.outgoingPath == this.outgoingPath &&
+          other.storageBytes == this.storageBytes &&
+          other.state == this.state &&
+          other.retryCount == this.retryCount &&
+          other.nextRetryAt == this.nextRetryAt &&
+          other.lastAttemptAt == this.lastAttemptAt &&
+          other.lastError == this.lastError &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.acceptedAt == this.acceptedAt);
+}
+
+class BleRelayAttemptsCompanion extends UpdateCompanion<BleRelayAttempt> {
+  final Value<String> originMessageId;
+  final Value<String> nextHopKeyId;
+  final Value<String> attemptId;
+  final Value<String> correlationId;
+  final Value<String> nextHopDeviceId;
+  final Value<int> outgoingHopCount;
+  final Value<String> outgoingPath;
+  final Value<int> storageBytes;
+  final Value<String> state;
+  final Value<int> retryCount;
+  final Value<DateTime?> nextRetryAt;
+  final Value<DateTime?> lastAttemptAt;
+  final Value<String?> lastError;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> acceptedAt;
+  final Value<int> rowid;
+  const BleRelayAttemptsCompanion({
+    this.originMessageId = const Value.absent(),
+    this.nextHopKeyId = const Value.absent(),
+    this.attemptId = const Value.absent(),
+    this.correlationId = const Value.absent(),
+    this.nextHopDeviceId = const Value.absent(),
+    this.outgoingHopCount = const Value.absent(),
+    this.outgoingPath = const Value.absent(),
+    this.storageBytes = const Value.absent(),
+    this.state = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.nextRetryAt = const Value.absent(),
+    this.lastAttemptAt = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.acceptedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BleRelayAttemptsCompanion.insert({
+    required String originMessageId,
+    required String nextHopKeyId,
+    required String attemptId,
+    required String correlationId,
+    required String nextHopDeviceId,
+    required int outgoingHopCount,
+    required String outgoingPath,
+    required int storageBytes,
+    required String state,
+    this.retryCount = const Value.absent(),
+    this.nextRetryAt = const Value.absent(),
+    this.lastAttemptAt = const Value.absent(),
+    this.lastError = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.acceptedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : originMessageId = Value(originMessageId),
+       nextHopKeyId = Value(nextHopKeyId),
+       attemptId = Value(attemptId),
+       correlationId = Value(correlationId),
+       nextHopDeviceId = Value(nextHopDeviceId),
+       outgoingHopCount = Value(outgoingHopCount),
+       outgoingPath = Value(outgoingPath),
+       storageBytes = Value(storageBytes),
+       state = Value(state),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<BleRelayAttempt> custom({
+    Expression<String>? originMessageId,
+    Expression<String>? nextHopKeyId,
+    Expression<String>? attemptId,
+    Expression<String>? correlationId,
+    Expression<String>? nextHopDeviceId,
+    Expression<int>? outgoingHopCount,
+    Expression<String>? outgoingPath,
+    Expression<int>? storageBytes,
+    Expression<String>? state,
+    Expression<int>? retryCount,
+    Expression<DateTime>? nextRetryAt,
+    Expression<DateTime>? lastAttemptAt,
+    Expression<String>? lastError,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? acceptedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (originMessageId != null) 'origin_message_id': originMessageId,
+      if (nextHopKeyId != null) 'next_hop_key_id': nextHopKeyId,
+      if (attemptId != null) 'attempt_id': attemptId,
+      if (correlationId != null) 'correlation_id': correlationId,
+      if (nextHopDeviceId != null) 'next_hop_device_id': nextHopDeviceId,
+      if (outgoingHopCount != null) 'outgoing_hop_count': outgoingHopCount,
+      if (outgoingPath != null) 'outgoing_path': outgoingPath,
+      if (storageBytes != null) 'storage_bytes': storageBytes,
+      if (state != null) 'state': state,
+      if (retryCount != null) 'retry_count': retryCount,
+      if (nextRetryAt != null) 'next_retry_at': nextRetryAt,
+      if (lastAttemptAt != null) 'last_attempt_at': lastAttemptAt,
+      if (lastError != null) 'last_error': lastError,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (acceptedAt != null) 'accepted_at': acceptedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BleRelayAttemptsCompanion copyWith({
+    Value<String>? originMessageId,
+    Value<String>? nextHopKeyId,
+    Value<String>? attemptId,
+    Value<String>? correlationId,
+    Value<String>? nextHopDeviceId,
+    Value<int>? outgoingHopCount,
+    Value<String>? outgoingPath,
+    Value<int>? storageBytes,
+    Value<String>? state,
+    Value<int>? retryCount,
+    Value<DateTime?>? nextRetryAt,
+    Value<DateTime?>? lastAttemptAt,
+    Value<String?>? lastError,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? acceptedAt,
+    Value<int>? rowid,
+  }) {
+    return BleRelayAttemptsCompanion(
+      originMessageId: originMessageId ?? this.originMessageId,
+      nextHopKeyId: nextHopKeyId ?? this.nextHopKeyId,
+      attemptId: attemptId ?? this.attemptId,
+      correlationId: correlationId ?? this.correlationId,
+      nextHopDeviceId: nextHopDeviceId ?? this.nextHopDeviceId,
+      outgoingHopCount: outgoingHopCount ?? this.outgoingHopCount,
+      outgoingPath: outgoingPath ?? this.outgoingPath,
+      storageBytes: storageBytes ?? this.storageBytes,
+      state: state ?? this.state,
+      retryCount: retryCount ?? this.retryCount,
+      nextRetryAt: nextRetryAt ?? this.nextRetryAt,
+      lastAttemptAt: lastAttemptAt ?? this.lastAttemptAt,
+      lastError: lastError ?? this.lastError,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      acceptedAt: acceptedAt ?? this.acceptedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (originMessageId.present) {
+      map['origin_message_id'] = Variable<String>(originMessageId.value);
+    }
+    if (nextHopKeyId.present) {
+      map['next_hop_key_id'] = Variable<String>(nextHopKeyId.value);
+    }
+    if (attemptId.present) {
+      map['attempt_id'] = Variable<String>(attemptId.value);
+    }
+    if (correlationId.present) {
+      map['correlation_id'] = Variable<String>(correlationId.value);
+    }
+    if (nextHopDeviceId.present) {
+      map['next_hop_device_id'] = Variable<String>(nextHopDeviceId.value);
+    }
+    if (outgoingHopCount.present) {
+      map['outgoing_hop_count'] = Variable<int>(outgoingHopCount.value);
+    }
+    if (outgoingPath.present) {
+      map['outgoing_path'] = Variable<String>(outgoingPath.value);
+    }
+    if (storageBytes.present) {
+      map['storage_bytes'] = Variable<int>(storageBytes.value);
+    }
+    if (state.present) {
+      map['state'] = Variable<String>(state.value);
+    }
+    if (retryCount.present) {
+      map['retry_count'] = Variable<int>(retryCount.value);
+    }
+    if (nextRetryAt.present) {
+      map['next_retry_at'] = Variable<DateTime>(nextRetryAt.value);
+    }
+    if (lastAttemptAt.present) {
+      map['last_attempt_at'] = Variable<DateTime>(lastAttemptAt.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (acceptedAt.present) {
+      map['accepted_at'] = Variable<DateTime>(acceptedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BleRelayAttemptsCompanion(')
+          ..write('originMessageId: $originMessageId, ')
+          ..write('nextHopKeyId: $nextHopKeyId, ')
+          ..write('attemptId: $attemptId, ')
+          ..write('correlationId: $correlationId, ')
+          ..write('nextHopDeviceId: $nextHopDeviceId, ')
+          ..write('outgoingHopCount: $outgoingHopCount, ')
+          ..write('outgoingPath: $outgoingPath, ')
+          ..write('storageBytes: $storageBytes, ')
+          ..write('state: $state, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('nextRetryAt: $nextRetryAt, ')
+          ..write('lastAttemptAt: $lastAttemptAt, ')
+          ..write('lastError: $lastError, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('acceptedAt: $acceptedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $BleRelayReceiptsTable extends BleRelayReceipts
+    with TableInfo<$BleRelayReceiptsTable, BleRelayReceipt> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BleRelayReceiptsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _semanticKeyMeta = const VerificationMeta(
+    'semanticKey',
+  );
+  @override
+  late final GeneratedColumn<String> semanticKey = GeneratedColumn<String>(
+    'semantic_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _receiptIdMeta = const VerificationMeta(
+    'receiptId',
+  );
+  @override
+  late final GeneratedColumn<String> receiptId = GeneratedColumn<String>(
+    'receipt_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _receiptTypeMeta = const VerificationMeta(
+    'receiptType',
+  );
+  @override
+  late final GeneratedColumn<String> receiptType = GeneratedColumn<String>(
+    'receipt_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _originMessageIdMeta = const VerificationMeta(
+    'originMessageId',
+  );
+  @override
+  late final GeneratedColumn<String> originMessageId = GeneratedColumn<String>(
+    'origin_message_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES ble_relay_messages (origin_message_id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _incidentIdMeta = const VerificationMeta(
+    'incidentId',
+  );
+  @override
+  late final GeneratedColumn<String> incidentId = GeneratedColumn<String>(
+    'incident_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _immutableDigestMeta = const VerificationMeta(
+    'immutableDigest',
+  );
+  @override
+  late final GeneratedColumn<String> immutableDigest = GeneratedColumn<String>(
+    'immutable_digest',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _signerKeyIdMeta = const VerificationMeta(
+    'signerKeyId',
+  );
+  @override
+  late final GeneratedColumn<String> signerKeyId = GeneratedColumn<String>(
+    'signer_key_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _signerPublicKeyMeta = const VerificationMeta(
+    'signerPublicKey',
+  );
+  @override
+  late final GeneratedColumn<String> signerPublicKey = GeneratedColumn<String>(
+    'signer_public_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _correlationIdMeta = const VerificationMeta(
+    'correlationId',
+  );
+  @override
+  late final GeneratedColumn<String> correlationId = GeneratedColumn<String>(
+    'correlation_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _attemptIdMeta = const VerificationMeta(
+    'attemptId',
+  );
+  @override
+  late final GeneratedColumn<String> attemptId = GeneratedColumn<String>(
+    'attempt_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _finalAuthorizationIdMeta =
+      const VerificationMeta('finalAuthorizationId');
+  @override
+  late final GeneratedColumn<String> finalAuthorizationId =
+      GeneratedColumn<String>(
+        'final_authorization_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _sourcePeerDeviceIdMeta =
+      const VerificationMeta('sourcePeerDeviceId');
+  @override
+  late final GeneratedColumn<String> sourcePeerDeviceId =
+      GeneratedColumn<String>(
+        'source_peer_device_id',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _previousHopKeyIdMeta = const VerificationMeta(
+    'previousHopKeyId',
+  );
+  @override
+  late final GeneratedColumn<String> previousHopKeyId = GeneratedColumn<String>(
+    'previous_hop_key_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _previousHopDeviceIdMeta =
+      const VerificationMeta('previousHopDeviceId');
+  @override
+  late final GeneratedColumn<String> previousHopDeviceId =
+      GeneratedColumn<String>(
+        'previous_hop_device_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _signatureMeta = const VerificationMeta(
+    'signature',
+  );
+  @override
+  late final GeneratedColumn<String> signature = GeneratedColumn<String>(
+    'signature',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _storageBytesMeta = const VerificationMeta(
+    'storageBytes',
+  );
+  @override
+  late final GeneratedColumn<int> storageBytes = GeneratedColumn<int>(
+    'storage_bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _stateMeta = const VerificationMeta('state');
+  @override
+  late final GeneratedColumn<String> state = GeneratedColumn<String>(
+    'state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _expiresAtMeta = const VerificationMeta(
+    'expiresAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> expiresAt = GeneratedColumn<DateTime>(
+    'expires_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    semanticKey,
+    receiptId,
+    receiptType,
+    originMessageId,
+    incidentId,
+    immutableDigest,
+    signerKeyId,
+    signerPublicKey,
+    correlationId,
+    attemptId,
+    finalAuthorizationId,
+    sourcePeerDeviceId,
+    previousHopKeyId,
+    previousHopDeviceId,
+    payload,
+    signature,
+    storageBytes,
+    state,
+    createdAt,
+    expiresAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'ble_relay_receipts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BleRelayReceipt> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('semantic_key')) {
+      context.handle(
+        _semanticKeyMeta,
+        semanticKey.isAcceptableOrUnknown(
+          data['semantic_key']!,
+          _semanticKeyMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_semanticKeyMeta);
+    }
+    if (data.containsKey('receipt_id')) {
+      context.handle(
+        _receiptIdMeta,
+        receiptId.isAcceptableOrUnknown(data['receipt_id']!, _receiptIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_receiptIdMeta);
+    }
+    if (data.containsKey('receipt_type')) {
+      context.handle(
+        _receiptTypeMeta,
+        receiptType.isAcceptableOrUnknown(
+          data['receipt_type']!,
+          _receiptTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_receiptTypeMeta);
+    }
+    if (data.containsKey('origin_message_id')) {
+      context.handle(
+        _originMessageIdMeta,
+        originMessageId.isAcceptableOrUnknown(
+          data['origin_message_id']!,
+          _originMessageIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_originMessageIdMeta);
+    }
+    if (data.containsKey('incident_id')) {
+      context.handle(
+        _incidentIdMeta,
+        incidentId.isAcceptableOrUnknown(data['incident_id']!, _incidentIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_incidentIdMeta);
+    }
+    if (data.containsKey('immutable_digest')) {
+      context.handle(
+        _immutableDigestMeta,
+        immutableDigest.isAcceptableOrUnknown(
+          data['immutable_digest']!,
+          _immutableDigestMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_immutableDigestMeta);
+    }
+    if (data.containsKey('signer_key_id')) {
+      context.handle(
+        _signerKeyIdMeta,
+        signerKeyId.isAcceptableOrUnknown(
+          data['signer_key_id']!,
+          _signerKeyIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_signerKeyIdMeta);
+    }
+    if (data.containsKey('signer_public_key')) {
+      context.handle(
+        _signerPublicKeyMeta,
+        signerPublicKey.isAcceptableOrUnknown(
+          data['signer_public_key']!,
+          _signerPublicKeyMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_signerPublicKeyMeta);
+    }
+    if (data.containsKey('correlation_id')) {
+      context.handle(
+        _correlationIdMeta,
+        correlationId.isAcceptableOrUnknown(
+          data['correlation_id']!,
+          _correlationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_correlationIdMeta);
+    }
+    if (data.containsKey('attempt_id')) {
+      context.handle(
+        _attemptIdMeta,
+        attemptId.isAcceptableOrUnknown(data['attempt_id']!, _attemptIdMeta),
+      );
+    }
+    if (data.containsKey('final_authorization_id')) {
+      context.handle(
+        _finalAuthorizationIdMeta,
+        finalAuthorizationId.isAcceptableOrUnknown(
+          data['final_authorization_id']!,
+          _finalAuthorizationIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('source_peer_device_id')) {
+      context.handle(
+        _sourcePeerDeviceIdMeta,
+        sourcePeerDeviceId.isAcceptableOrUnknown(
+          data['source_peer_device_id']!,
+          _sourcePeerDeviceIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_sourcePeerDeviceIdMeta);
+    }
+    if (data.containsKey('previous_hop_key_id')) {
+      context.handle(
+        _previousHopKeyIdMeta,
+        previousHopKeyId.isAcceptableOrUnknown(
+          data['previous_hop_key_id']!,
+          _previousHopKeyIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('previous_hop_device_id')) {
+      context.handle(
+        _previousHopDeviceIdMeta,
+        previousHopDeviceId.isAcceptableOrUnknown(
+          data['previous_hop_device_id']!,
+          _previousHopDeviceIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    if (data.containsKey('signature')) {
+      context.handle(
+        _signatureMeta,
+        signature.isAcceptableOrUnknown(data['signature']!, _signatureMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_signatureMeta);
+    }
+    if (data.containsKey('storage_bytes')) {
+      context.handle(
+        _storageBytesMeta,
+        storageBytes.isAcceptableOrUnknown(
+          data['storage_bytes']!,
+          _storageBytesMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_storageBytesMeta);
+    }
+    if (data.containsKey('state')) {
+      context.handle(
+        _stateMeta,
+        state.isAcceptableOrUnknown(data['state']!, _stateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_stateMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('expires_at')) {
+      context.handle(
+        _expiresAtMeta,
+        expiresAt.isAcceptableOrUnknown(data['expires_at']!, _expiresAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_expiresAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {semanticKey};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {receiptId},
+  ];
+  @override
+  BleRelayReceipt map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BleRelayReceipt(
+      semanticKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}semantic_key'],
+      )!,
+      receiptId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}receipt_id'],
+      )!,
+      receiptType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}receipt_type'],
+      )!,
+      originMessageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin_message_id'],
+      )!,
+      incidentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}incident_id'],
+      )!,
+      immutableDigest: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}immutable_digest'],
+      )!,
+      signerKeyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}signer_key_id'],
+      )!,
+      signerPublicKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}signer_public_key'],
+      )!,
+      correlationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}correlation_id'],
+      )!,
+      attemptId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}attempt_id'],
+      ),
+      finalAuthorizationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}final_authorization_id'],
+      ),
+      sourcePeerDeviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_peer_device_id'],
+      )!,
+      previousHopKeyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}previous_hop_key_id'],
+      ),
+      previousHopDeviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}previous_hop_device_id'],
+      ),
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      )!,
+      signature: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}signature'],
+      )!,
+      storageBytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}storage_bytes'],
+      )!,
+      state: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}state'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      expiresAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}expires_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $BleRelayReceiptsTable createAlias(String alias) {
+    return $BleRelayReceiptsTable(attachedDatabase, alias);
+  }
+}
+
+class BleRelayReceipt extends DataClass implements Insertable<BleRelayReceipt> {
+  final String semanticKey;
+  final String receiptId;
+  final String receiptType;
+  final String originMessageId;
+  final String incidentId;
+  final String immutableDigest;
+  final String signerKeyId;
+  final String signerPublicKey;
+  final String correlationId;
+  final String? attemptId;
+  final String? finalAuthorizationId;
+  final String sourcePeerDeviceId;
+  final String? previousHopKeyId;
+  final String? previousHopDeviceId;
+  final String payload;
+  final String signature;
+  final int storageBytes;
+  final String state;
+  final DateTime createdAt;
+  final DateTime expiresAt;
+  final DateTime updatedAt;
+  const BleRelayReceipt({
+    required this.semanticKey,
+    required this.receiptId,
+    required this.receiptType,
+    required this.originMessageId,
+    required this.incidentId,
+    required this.immutableDigest,
+    required this.signerKeyId,
+    required this.signerPublicKey,
+    required this.correlationId,
+    this.attemptId,
+    this.finalAuthorizationId,
+    required this.sourcePeerDeviceId,
+    this.previousHopKeyId,
+    this.previousHopDeviceId,
+    required this.payload,
+    required this.signature,
+    required this.storageBytes,
+    required this.state,
+    required this.createdAt,
+    required this.expiresAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['semantic_key'] = Variable<String>(semanticKey);
+    map['receipt_id'] = Variable<String>(receiptId);
+    map['receipt_type'] = Variable<String>(receiptType);
+    map['origin_message_id'] = Variable<String>(originMessageId);
+    map['incident_id'] = Variable<String>(incidentId);
+    map['immutable_digest'] = Variable<String>(immutableDigest);
+    map['signer_key_id'] = Variable<String>(signerKeyId);
+    map['signer_public_key'] = Variable<String>(signerPublicKey);
+    map['correlation_id'] = Variable<String>(correlationId);
+    if (!nullToAbsent || attemptId != null) {
+      map['attempt_id'] = Variable<String>(attemptId);
+    }
+    if (!nullToAbsent || finalAuthorizationId != null) {
+      map['final_authorization_id'] = Variable<String>(finalAuthorizationId);
+    }
+    map['source_peer_device_id'] = Variable<String>(sourcePeerDeviceId);
+    if (!nullToAbsent || previousHopKeyId != null) {
+      map['previous_hop_key_id'] = Variable<String>(previousHopKeyId);
+    }
+    if (!nullToAbsent || previousHopDeviceId != null) {
+      map['previous_hop_device_id'] = Variable<String>(previousHopDeviceId);
+    }
+    map['payload'] = Variable<String>(payload);
+    map['signature'] = Variable<String>(signature);
+    map['storage_bytes'] = Variable<int>(storageBytes);
+    map['state'] = Variable<String>(state);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['expires_at'] = Variable<DateTime>(expiresAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  BleRelayReceiptsCompanion toCompanion(bool nullToAbsent) {
+    return BleRelayReceiptsCompanion(
+      semanticKey: Value(semanticKey),
+      receiptId: Value(receiptId),
+      receiptType: Value(receiptType),
+      originMessageId: Value(originMessageId),
+      incidentId: Value(incidentId),
+      immutableDigest: Value(immutableDigest),
+      signerKeyId: Value(signerKeyId),
+      signerPublicKey: Value(signerPublicKey),
+      correlationId: Value(correlationId),
+      attemptId: attemptId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(attemptId),
+      finalAuthorizationId: finalAuthorizationId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(finalAuthorizationId),
+      sourcePeerDeviceId: Value(sourcePeerDeviceId),
+      previousHopKeyId: previousHopKeyId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(previousHopKeyId),
+      previousHopDeviceId: previousHopDeviceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(previousHopDeviceId),
+      payload: Value(payload),
+      signature: Value(signature),
+      storageBytes: Value(storageBytes),
+      state: Value(state),
+      createdAt: Value(createdAt),
+      expiresAt: Value(expiresAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory BleRelayReceipt.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BleRelayReceipt(
+      semanticKey: serializer.fromJson<String>(json['semanticKey']),
+      receiptId: serializer.fromJson<String>(json['receiptId']),
+      receiptType: serializer.fromJson<String>(json['receiptType']),
+      originMessageId: serializer.fromJson<String>(json['originMessageId']),
+      incidentId: serializer.fromJson<String>(json['incidentId']),
+      immutableDigest: serializer.fromJson<String>(json['immutableDigest']),
+      signerKeyId: serializer.fromJson<String>(json['signerKeyId']),
+      signerPublicKey: serializer.fromJson<String>(json['signerPublicKey']),
+      correlationId: serializer.fromJson<String>(json['correlationId']),
+      attemptId: serializer.fromJson<String?>(json['attemptId']),
+      finalAuthorizationId: serializer.fromJson<String?>(
+        json['finalAuthorizationId'],
+      ),
+      sourcePeerDeviceId: serializer.fromJson<String>(
+        json['sourcePeerDeviceId'],
+      ),
+      previousHopKeyId: serializer.fromJson<String?>(json['previousHopKeyId']),
+      previousHopDeviceId: serializer.fromJson<String?>(
+        json['previousHopDeviceId'],
+      ),
+      payload: serializer.fromJson<String>(json['payload']),
+      signature: serializer.fromJson<String>(json['signature']),
+      storageBytes: serializer.fromJson<int>(json['storageBytes']),
+      state: serializer.fromJson<String>(json['state']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      expiresAt: serializer.fromJson<DateTime>(json['expiresAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'semanticKey': serializer.toJson<String>(semanticKey),
+      'receiptId': serializer.toJson<String>(receiptId),
+      'receiptType': serializer.toJson<String>(receiptType),
+      'originMessageId': serializer.toJson<String>(originMessageId),
+      'incidentId': serializer.toJson<String>(incidentId),
+      'immutableDigest': serializer.toJson<String>(immutableDigest),
+      'signerKeyId': serializer.toJson<String>(signerKeyId),
+      'signerPublicKey': serializer.toJson<String>(signerPublicKey),
+      'correlationId': serializer.toJson<String>(correlationId),
+      'attemptId': serializer.toJson<String?>(attemptId),
+      'finalAuthorizationId': serializer.toJson<String?>(finalAuthorizationId),
+      'sourcePeerDeviceId': serializer.toJson<String>(sourcePeerDeviceId),
+      'previousHopKeyId': serializer.toJson<String?>(previousHopKeyId),
+      'previousHopDeviceId': serializer.toJson<String?>(previousHopDeviceId),
+      'payload': serializer.toJson<String>(payload),
+      'signature': serializer.toJson<String>(signature),
+      'storageBytes': serializer.toJson<int>(storageBytes),
+      'state': serializer.toJson<String>(state),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'expiresAt': serializer.toJson<DateTime>(expiresAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  BleRelayReceipt copyWith({
+    String? semanticKey,
+    String? receiptId,
+    String? receiptType,
+    String? originMessageId,
+    String? incidentId,
+    String? immutableDigest,
+    String? signerKeyId,
+    String? signerPublicKey,
+    String? correlationId,
+    Value<String?> attemptId = const Value.absent(),
+    Value<String?> finalAuthorizationId = const Value.absent(),
+    String? sourcePeerDeviceId,
+    Value<String?> previousHopKeyId = const Value.absent(),
+    Value<String?> previousHopDeviceId = const Value.absent(),
+    String? payload,
+    String? signature,
+    int? storageBytes,
+    String? state,
+    DateTime? createdAt,
+    DateTime? expiresAt,
+    DateTime? updatedAt,
+  }) => BleRelayReceipt(
+    semanticKey: semanticKey ?? this.semanticKey,
+    receiptId: receiptId ?? this.receiptId,
+    receiptType: receiptType ?? this.receiptType,
+    originMessageId: originMessageId ?? this.originMessageId,
+    incidentId: incidentId ?? this.incidentId,
+    immutableDigest: immutableDigest ?? this.immutableDigest,
+    signerKeyId: signerKeyId ?? this.signerKeyId,
+    signerPublicKey: signerPublicKey ?? this.signerPublicKey,
+    correlationId: correlationId ?? this.correlationId,
+    attemptId: attemptId.present ? attemptId.value : this.attemptId,
+    finalAuthorizationId: finalAuthorizationId.present
+        ? finalAuthorizationId.value
+        : this.finalAuthorizationId,
+    sourcePeerDeviceId: sourcePeerDeviceId ?? this.sourcePeerDeviceId,
+    previousHopKeyId: previousHopKeyId.present
+        ? previousHopKeyId.value
+        : this.previousHopKeyId,
+    previousHopDeviceId: previousHopDeviceId.present
+        ? previousHopDeviceId.value
+        : this.previousHopDeviceId,
+    payload: payload ?? this.payload,
+    signature: signature ?? this.signature,
+    storageBytes: storageBytes ?? this.storageBytes,
+    state: state ?? this.state,
+    createdAt: createdAt ?? this.createdAt,
+    expiresAt: expiresAt ?? this.expiresAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  BleRelayReceipt copyWithCompanion(BleRelayReceiptsCompanion data) {
+    return BleRelayReceipt(
+      semanticKey: data.semanticKey.present
+          ? data.semanticKey.value
+          : this.semanticKey,
+      receiptId: data.receiptId.present ? data.receiptId.value : this.receiptId,
+      receiptType: data.receiptType.present
+          ? data.receiptType.value
+          : this.receiptType,
+      originMessageId: data.originMessageId.present
+          ? data.originMessageId.value
+          : this.originMessageId,
+      incidentId: data.incidentId.present
+          ? data.incidentId.value
+          : this.incidentId,
+      immutableDigest: data.immutableDigest.present
+          ? data.immutableDigest.value
+          : this.immutableDigest,
+      signerKeyId: data.signerKeyId.present
+          ? data.signerKeyId.value
+          : this.signerKeyId,
+      signerPublicKey: data.signerPublicKey.present
+          ? data.signerPublicKey.value
+          : this.signerPublicKey,
+      correlationId: data.correlationId.present
+          ? data.correlationId.value
+          : this.correlationId,
+      attemptId: data.attemptId.present ? data.attemptId.value : this.attemptId,
+      finalAuthorizationId: data.finalAuthorizationId.present
+          ? data.finalAuthorizationId.value
+          : this.finalAuthorizationId,
+      sourcePeerDeviceId: data.sourcePeerDeviceId.present
+          ? data.sourcePeerDeviceId.value
+          : this.sourcePeerDeviceId,
+      previousHopKeyId: data.previousHopKeyId.present
+          ? data.previousHopKeyId.value
+          : this.previousHopKeyId,
+      previousHopDeviceId: data.previousHopDeviceId.present
+          ? data.previousHopDeviceId.value
+          : this.previousHopDeviceId,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      signature: data.signature.present ? data.signature.value : this.signature,
+      storageBytes: data.storageBytes.present
+          ? data.storageBytes.value
+          : this.storageBytes,
+      state: data.state.present ? data.state.value : this.state,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      expiresAt: data.expiresAt.present ? data.expiresAt.value : this.expiresAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BleRelayReceipt(')
+          ..write('semanticKey: $semanticKey, ')
+          ..write('receiptId: $receiptId, ')
+          ..write('receiptType: $receiptType, ')
+          ..write('originMessageId: $originMessageId, ')
+          ..write('incidentId: $incidentId, ')
+          ..write('immutableDigest: $immutableDigest, ')
+          ..write('signerKeyId: $signerKeyId, ')
+          ..write('signerPublicKey: $signerPublicKey, ')
+          ..write('correlationId: $correlationId, ')
+          ..write('attemptId: $attemptId, ')
+          ..write('finalAuthorizationId: $finalAuthorizationId, ')
+          ..write('sourcePeerDeviceId: $sourcePeerDeviceId, ')
+          ..write('previousHopKeyId: $previousHopKeyId, ')
+          ..write('previousHopDeviceId: $previousHopDeviceId, ')
+          ..write('payload: $payload, ')
+          ..write('signature: $signature, ')
+          ..write('storageBytes: $storageBytes, ')
+          ..write('state: $state, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    semanticKey,
+    receiptId,
+    receiptType,
+    originMessageId,
+    incidentId,
+    immutableDigest,
+    signerKeyId,
+    signerPublicKey,
+    correlationId,
+    attemptId,
+    finalAuthorizationId,
+    sourcePeerDeviceId,
+    previousHopKeyId,
+    previousHopDeviceId,
+    payload,
+    signature,
+    storageBytes,
+    state,
+    createdAt,
+    expiresAt,
+    updatedAt,
+  ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BleRelayReceipt &&
+          other.semanticKey == this.semanticKey &&
+          other.receiptId == this.receiptId &&
+          other.receiptType == this.receiptType &&
+          other.originMessageId == this.originMessageId &&
+          other.incidentId == this.incidentId &&
+          other.immutableDigest == this.immutableDigest &&
+          other.signerKeyId == this.signerKeyId &&
+          other.signerPublicKey == this.signerPublicKey &&
+          other.correlationId == this.correlationId &&
+          other.attemptId == this.attemptId &&
+          other.finalAuthorizationId == this.finalAuthorizationId &&
+          other.sourcePeerDeviceId == this.sourcePeerDeviceId &&
+          other.previousHopKeyId == this.previousHopKeyId &&
+          other.previousHopDeviceId == this.previousHopDeviceId &&
+          other.payload == this.payload &&
+          other.signature == this.signature &&
+          other.storageBytes == this.storageBytes &&
+          other.state == this.state &&
+          other.createdAt == this.createdAt &&
+          other.expiresAt == this.expiresAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class BleRelayReceiptsCompanion extends UpdateCompanion<BleRelayReceipt> {
+  final Value<String> semanticKey;
+  final Value<String> receiptId;
+  final Value<String> receiptType;
+  final Value<String> originMessageId;
+  final Value<String> incidentId;
+  final Value<String> immutableDigest;
+  final Value<String> signerKeyId;
+  final Value<String> signerPublicKey;
+  final Value<String> correlationId;
+  final Value<String?> attemptId;
+  final Value<String?> finalAuthorizationId;
+  final Value<String> sourcePeerDeviceId;
+  final Value<String?> previousHopKeyId;
+  final Value<String?> previousHopDeviceId;
+  final Value<String> payload;
+  final Value<String> signature;
+  final Value<int> storageBytes;
+  final Value<String> state;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> expiresAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const BleRelayReceiptsCompanion({
+    this.semanticKey = const Value.absent(),
+    this.receiptId = const Value.absent(),
+    this.receiptType = const Value.absent(),
+    this.originMessageId = const Value.absent(),
+    this.incidentId = const Value.absent(),
+    this.immutableDigest = const Value.absent(),
+    this.signerKeyId = const Value.absent(),
+    this.signerPublicKey = const Value.absent(),
+    this.correlationId = const Value.absent(),
+    this.attemptId = const Value.absent(),
+    this.finalAuthorizationId = const Value.absent(),
+    this.sourcePeerDeviceId = const Value.absent(),
+    this.previousHopKeyId = const Value.absent(),
+    this.previousHopDeviceId = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.signature = const Value.absent(),
+    this.storageBytes = const Value.absent(),
+    this.state = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BleRelayReceiptsCompanion.insert({
+    required String semanticKey,
+    required String receiptId,
+    required String receiptType,
+    required String originMessageId,
+    required String incidentId,
+    required String immutableDigest,
+    required String signerKeyId,
+    required String signerPublicKey,
+    required String correlationId,
+    this.attemptId = const Value.absent(),
+    this.finalAuthorizationId = const Value.absent(),
+    required String sourcePeerDeviceId,
+    this.previousHopKeyId = const Value.absent(),
+    this.previousHopDeviceId = const Value.absent(),
+    required String payload,
+    required String signature,
+    required int storageBytes,
+    required String state,
+    required DateTime createdAt,
+    required DateTime expiresAt,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : semanticKey = Value(semanticKey),
+       receiptId = Value(receiptId),
+       receiptType = Value(receiptType),
+       originMessageId = Value(originMessageId),
+       incidentId = Value(incidentId),
+       immutableDigest = Value(immutableDigest),
+       signerKeyId = Value(signerKeyId),
+       signerPublicKey = Value(signerPublicKey),
+       correlationId = Value(correlationId),
+       sourcePeerDeviceId = Value(sourcePeerDeviceId),
+       payload = Value(payload),
+       signature = Value(signature),
+       storageBytes = Value(storageBytes),
+       state = Value(state),
+       createdAt = Value(createdAt),
+       expiresAt = Value(expiresAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<BleRelayReceipt> custom({
+    Expression<String>? semanticKey,
+    Expression<String>? receiptId,
+    Expression<String>? receiptType,
+    Expression<String>? originMessageId,
+    Expression<String>? incidentId,
+    Expression<String>? immutableDigest,
+    Expression<String>? signerKeyId,
+    Expression<String>? signerPublicKey,
+    Expression<String>? correlationId,
+    Expression<String>? attemptId,
+    Expression<String>? finalAuthorizationId,
+    Expression<String>? sourcePeerDeviceId,
+    Expression<String>? previousHopKeyId,
+    Expression<String>? previousHopDeviceId,
+    Expression<String>? payload,
+    Expression<String>? signature,
+    Expression<int>? storageBytes,
+    Expression<String>? state,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? expiresAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (semanticKey != null) 'semantic_key': semanticKey,
+      if (receiptId != null) 'receipt_id': receiptId,
+      if (receiptType != null) 'receipt_type': receiptType,
+      if (originMessageId != null) 'origin_message_id': originMessageId,
+      if (incidentId != null) 'incident_id': incidentId,
+      if (immutableDigest != null) 'immutable_digest': immutableDigest,
+      if (signerKeyId != null) 'signer_key_id': signerKeyId,
+      if (signerPublicKey != null) 'signer_public_key': signerPublicKey,
+      if (correlationId != null) 'correlation_id': correlationId,
+      if (attemptId != null) 'attempt_id': attemptId,
+      if (finalAuthorizationId != null)
+        'final_authorization_id': finalAuthorizationId,
+      if (sourcePeerDeviceId != null)
+        'source_peer_device_id': sourcePeerDeviceId,
+      if (previousHopKeyId != null) 'previous_hop_key_id': previousHopKeyId,
+      if (previousHopDeviceId != null)
+        'previous_hop_device_id': previousHopDeviceId,
+      if (payload != null) 'payload': payload,
+      if (signature != null) 'signature': signature,
+      if (storageBytes != null) 'storage_bytes': storageBytes,
+      if (state != null) 'state': state,
+      if (createdAt != null) 'created_at': createdAt,
+      if (expiresAt != null) 'expires_at': expiresAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BleRelayReceiptsCompanion copyWith({
+    Value<String>? semanticKey,
+    Value<String>? receiptId,
+    Value<String>? receiptType,
+    Value<String>? originMessageId,
+    Value<String>? incidentId,
+    Value<String>? immutableDigest,
+    Value<String>? signerKeyId,
+    Value<String>? signerPublicKey,
+    Value<String>? correlationId,
+    Value<String?>? attemptId,
+    Value<String?>? finalAuthorizationId,
+    Value<String>? sourcePeerDeviceId,
+    Value<String?>? previousHopKeyId,
+    Value<String?>? previousHopDeviceId,
+    Value<String>? payload,
+    Value<String>? signature,
+    Value<int>? storageBytes,
+    Value<String>? state,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? expiresAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return BleRelayReceiptsCompanion(
+      semanticKey: semanticKey ?? this.semanticKey,
+      receiptId: receiptId ?? this.receiptId,
+      receiptType: receiptType ?? this.receiptType,
+      originMessageId: originMessageId ?? this.originMessageId,
+      incidentId: incidentId ?? this.incidentId,
+      immutableDigest: immutableDigest ?? this.immutableDigest,
+      signerKeyId: signerKeyId ?? this.signerKeyId,
+      signerPublicKey: signerPublicKey ?? this.signerPublicKey,
+      correlationId: correlationId ?? this.correlationId,
+      attemptId: attemptId ?? this.attemptId,
+      finalAuthorizationId: finalAuthorizationId ?? this.finalAuthorizationId,
+      sourcePeerDeviceId: sourcePeerDeviceId ?? this.sourcePeerDeviceId,
+      previousHopKeyId: previousHopKeyId ?? this.previousHopKeyId,
+      previousHopDeviceId: previousHopDeviceId ?? this.previousHopDeviceId,
+      payload: payload ?? this.payload,
+      signature: signature ?? this.signature,
+      storageBytes: storageBytes ?? this.storageBytes,
+      state: state ?? this.state,
+      createdAt: createdAt ?? this.createdAt,
+      expiresAt: expiresAt ?? this.expiresAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (semanticKey.present) {
+      map['semantic_key'] = Variable<String>(semanticKey.value);
+    }
+    if (receiptId.present) {
+      map['receipt_id'] = Variable<String>(receiptId.value);
+    }
+    if (receiptType.present) {
+      map['receipt_type'] = Variable<String>(receiptType.value);
+    }
+    if (originMessageId.present) {
+      map['origin_message_id'] = Variable<String>(originMessageId.value);
+    }
+    if (incidentId.present) {
+      map['incident_id'] = Variable<String>(incidentId.value);
+    }
+    if (immutableDigest.present) {
+      map['immutable_digest'] = Variable<String>(immutableDigest.value);
+    }
+    if (signerKeyId.present) {
+      map['signer_key_id'] = Variable<String>(signerKeyId.value);
+    }
+    if (signerPublicKey.present) {
+      map['signer_public_key'] = Variable<String>(signerPublicKey.value);
+    }
+    if (correlationId.present) {
+      map['correlation_id'] = Variable<String>(correlationId.value);
+    }
+    if (attemptId.present) {
+      map['attempt_id'] = Variable<String>(attemptId.value);
+    }
+    if (finalAuthorizationId.present) {
+      map['final_authorization_id'] = Variable<String>(
+        finalAuthorizationId.value,
+      );
+    }
+    if (sourcePeerDeviceId.present) {
+      map['source_peer_device_id'] = Variable<String>(sourcePeerDeviceId.value);
+    }
+    if (previousHopKeyId.present) {
+      map['previous_hop_key_id'] = Variable<String>(previousHopKeyId.value);
+    }
+    if (previousHopDeviceId.present) {
+      map['previous_hop_device_id'] = Variable<String>(
+        previousHopDeviceId.value,
+      );
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (signature.present) {
+      map['signature'] = Variable<String>(signature.value);
+    }
+    if (storageBytes.present) {
+      map['storage_bytes'] = Variable<int>(storageBytes.value);
+    }
+    if (state.present) {
+      map['state'] = Variable<String>(state.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (expiresAt.present) {
+      map['expires_at'] = Variable<DateTime>(expiresAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BleRelayReceiptsCompanion(')
+          ..write('semanticKey: $semanticKey, ')
+          ..write('receiptId: $receiptId, ')
+          ..write('receiptType: $receiptType, ')
+          ..write('originMessageId: $originMessageId, ')
+          ..write('incidentId: $incidentId, ')
+          ..write('immutableDigest: $immutableDigest, ')
+          ..write('signerKeyId: $signerKeyId, ')
+          ..write('signerPublicKey: $signerPublicKey, ')
+          ..write('correlationId: $correlationId, ')
+          ..write('attemptId: $attemptId, ')
+          ..write('finalAuthorizationId: $finalAuthorizationId, ')
+          ..write('sourcePeerDeviceId: $sourcePeerDeviceId, ')
+          ..write('previousHopKeyId: $previousHopKeyId, ')
+          ..write('previousHopDeviceId: $previousHopDeviceId, ')
+          ..write('payload: $payload, ')
+          ..write('signature: $signature, ')
+          ..write('storageBytes: $storageBytes, ')
+          ..write('state: $state, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3290,6 +7176,15 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $BleOutboxTable bleOutbox = $BleOutboxTable(this);
   late final $BleInboxTable bleInbox = $BleInboxTable(this);
   late final $ChatMessagesTable chatMessages = $ChatMessagesTable(this);
+  late final $BleRelayMessagesTable bleRelayMessages = $BleRelayMessagesTable(
+    this,
+  );
+  late final $BleRelayAttemptsTable bleRelayAttempts = $BleRelayAttemptsTable(
+    this,
+  );
+  late final $BleRelayReceiptsTable bleRelayReceipts = $BleRelayReceiptsTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3300,7 +7195,27 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     bleOutbox,
     bleInbox,
     chatMessages,
+    bleRelayMessages,
+    bleRelayAttempts,
+    bleRelayReceipts,
   ];
+  @override
+  StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'ble_relay_messages',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('ble_relay_attempts', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'ble_relay_messages',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('ble_relay_receipts', kind: UpdateKind.delete)],
+    ),
+  ]);
 }
 
 typedef $$SosMessagesTableCreateCompanionBuilder =
@@ -4893,6 +8808,2136 @@ typedef $$ChatMessagesTableProcessedTableManager =
       ChatMessage,
       PrefetchHooks Function()
     >;
+typedef $$BleRelayMessagesTableCreateCompanionBuilder =
+    BleRelayMessagesCompanion Function({
+      required String originMessageId,
+      required String incidentId,
+      required String originKeyId,
+      required String originPublicKey,
+      required String immutablePayload,
+      required String wireEnvelope,
+      required String immutableDigest,
+      required String originSignature,
+      required String authorizationScope,
+      required String emergencyType,
+      required DateTime createdAt,
+      required DateTime expiresAt,
+      required DateTime retentionDeadline,
+      required int maxHops,
+      required int incomingHopCount,
+      required String incomingPath,
+      required String incomingPeerId,
+      required String previousHopKeyId,
+      required String processingState,
+      required int payloadBytes,
+      required int storageBytes,
+      required DateTime receivedAt,
+      required DateTime persistedAt,
+      Value<String?> finalReceiptState,
+      Value<String?> finalRecipientKeyId,
+      Value<String?> finalAuthorizationId,
+      Value<String?> finalReceiptCorrelationId,
+      Value<String?> finalRoutePeerDeviceId,
+      Value<String?> lastError,
+      Value<int> rowid,
+    });
+typedef $$BleRelayMessagesTableUpdateCompanionBuilder =
+    BleRelayMessagesCompanion Function({
+      Value<String> originMessageId,
+      Value<String> incidentId,
+      Value<String> originKeyId,
+      Value<String> originPublicKey,
+      Value<String> immutablePayload,
+      Value<String> wireEnvelope,
+      Value<String> immutableDigest,
+      Value<String> originSignature,
+      Value<String> authorizationScope,
+      Value<String> emergencyType,
+      Value<DateTime> createdAt,
+      Value<DateTime> expiresAt,
+      Value<DateTime> retentionDeadline,
+      Value<int> maxHops,
+      Value<int> incomingHopCount,
+      Value<String> incomingPath,
+      Value<String> incomingPeerId,
+      Value<String> previousHopKeyId,
+      Value<String> processingState,
+      Value<int> payloadBytes,
+      Value<int> storageBytes,
+      Value<DateTime> receivedAt,
+      Value<DateTime> persistedAt,
+      Value<String?> finalReceiptState,
+      Value<String?> finalRecipientKeyId,
+      Value<String?> finalAuthorizationId,
+      Value<String?> finalReceiptCorrelationId,
+      Value<String?> finalRoutePeerDeviceId,
+      Value<String?> lastError,
+      Value<int> rowid,
+    });
+
+final class $$BleRelayMessagesTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $BleRelayMessagesTable, BleRelayMessage> {
+  $$BleRelayMessagesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static MultiTypedResultKey<$BleRelayAttemptsTable, List<BleRelayAttempt>>
+  _bleRelayAttemptsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.bleRelayAttempts,
+    aliasName: 'ble_relay_messages__origin_message_id__ble_relay_attempts__origin_message_id',
+  );
+
+  $$BleRelayAttemptsTableProcessedTableManager get bleRelayAttemptsRefs {
+    final manager =
+        $$BleRelayAttemptsTableTableManager($_db, $_db.bleRelayAttempts).filter(
+          (f) => f.originMessageId.originMessageId.sqlEquals(
+            $_itemColumn<String>('origin_message_id')!,
+          ),
+        );
+
+    final cache = $_typedResult.readTableOrNull(
+      _bleRelayAttemptsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$BleRelayReceiptsTable, List<BleRelayReceipt>>
+  _bleRelayReceiptsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.bleRelayReceipts,
+    aliasName: 'ble_relay_messages__origin_message_id__ble_relay_receipts__origin_message_id',
+  );
+
+  $$BleRelayReceiptsTableProcessedTableManager get bleRelayReceiptsRefs {
+    final manager =
+        $$BleRelayReceiptsTableTableManager($_db, $_db.bleRelayReceipts).filter(
+          (f) => f.originMessageId.originMessageId.sqlEquals(
+            $_itemColumn<String>('origin_message_id')!,
+          ),
+        );
+
+    final cache = $_typedResult.readTableOrNull(
+      _bleRelayReceiptsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$BleRelayMessagesTableFilterComposer
+    extends Composer<_$AppDatabase, $BleRelayMessagesTable> {
+  $$BleRelayMessagesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get originMessageId => $composableBuilder(
+    column: $table.originMessageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get originKeyId => $composableBuilder(
+    column: $table.originKeyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get originPublicKey => $composableBuilder(
+    column: $table.originPublicKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get immutablePayload => $composableBuilder(
+    column: $table.immutablePayload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get wireEnvelope => $composableBuilder(
+    column: $table.wireEnvelope,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get immutableDigest => $composableBuilder(
+    column: $table.immutableDigest,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get originSignature => $composableBuilder(
+    column: $table.originSignature,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get authorizationScope => $composableBuilder(
+    column: $table.authorizationScope,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get emergencyType => $composableBuilder(
+    column: $table.emergencyType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get retentionDeadline => $composableBuilder(
+    column: $table.retentionDeadline,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get maxHops => $composableBuilder(
+    column: $table.maxHops,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get incomingHopCount => $composableBuilder(
+    column: $table.incomingHopCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get incomingPath => $composableBuilder(
+    column: $table.incomingPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get incomingPeerId => $composableBuilder(
+    column: $table.incomingPeerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get previousHopKeyId => $composableBuilder(
+    column: $table.previousHopKeyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get processingState => $composableBuilder(
+    column: $table.processingState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get payloadBytes => $composableBuilder(
+    column: $table.payloadBytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get storageBytes => $composableBuilder(
+    column: $table.storageBytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get persistedAt => $composableBuilder(
+    column: $table.persistedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get finalReceiptState => $composableBuilder(
+    column: $table.finalReceiptState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get finalRecipientKeyId => $composableBuilder(
+    column: $table.finalRecipientKeyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get finalAuthorizationId => $composableBuilder(
+    column: $table.finalAuthorizationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get finalReceiptCorrelationId => $composableBuilder(
+    column: $table.finalReceiptCorrelationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get finalRoutePeerDeviceId => $composableBuilder(
+    column: $table.finalRoutePeerDeviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> bleRelayAttemptsRefs(
+    Expression<bool> Function($$BleRelayAttemptsTableFilterComposer f) f,
+  ) {
+    final $$BleRelayAttemptsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.originMessageId,
+      referencedTable: $db.bleRelayAttempts,
+      getReferencedColumn: (t) => t.originMessageId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BleRelayAttemptsTableFilterComposer(
+            $db: $db,
+            $table: $db.bleRelayAttempts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> bleRelayReceiptsRefs(
+    Expression<bool> Function($$BleRelayReceiptsTableFilterComposer f) f,
+  ) {
+    final $$BleRelayReceiptsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.originMessageId,
+      referencedTable: $db.bleRelayReceipts,
+      getReferencedColumn: (t) => t.originMessageId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BleRelayReceiptsTableFilterComposer(
+            $db: $db,
+            $table: $db.bleRelayReceipts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$BleRelayMessagesTableOrderingComposer
+    extends Composer<_$AppDatabase, $BleRelayMessagesTable> {
+  $$BleRelayMessagesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get originMessageId => $composableBuilder(
+    column: $table.originMessageId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get originKeyId => $composableBuilder(
+    column: $table.originKeyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get originPublicKey => $composableBuilder(
+    column: $table.originPublicKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get immutablePayload => $composableBuilder(
+    column: $table.immutablePayload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get wireEnvelope => $composableBuilder(
+    column: $table.wireEnvelope,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get immutableDigest => $composableBuilder(
+    column: $table.immutableDigest,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get originSignature => $composableBuilder(
+    column: $table.originSignature,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get authorizationScope => $composableBuilder(
+    column: $table.authorizationScope,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get emergencyType => $composableBuilder(
+    column: $table.emergencyType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get retentionDeadline => $composableBuilder(
+    column: $table.retentionDeadline,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get maxHops => $composableBuilder(
+    column: $table.maxHops,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get incomingHopCount => $composableBuilder(
+    column: $table.incomingHopCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get incomingPath => $composableBuilder(
+    column: $table.incomingPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get incomingPeerId => $composableBuilder(
+    column: $table.incomingPeerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get previousHopKeyId => $composableBuilder(
+    column: $table.previousHopKeyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get processingState => $composableBuilder(
+    column: $table.processingState,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get payloadBytes => $composableBuilder(
+    column: $table.payloadBytes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get storageBytes => $composableBuilder(
+    column: $table.storageBytes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get persistedAt => $composableBuilder(
+    column: $table.persistedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get finalReceiptState => $composableBuilder(
+    column: $table.finalReceiptState,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get finalRecipientKeyId => $composableBuilder(
+    column: $table.finalRecipientKeyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get finalAuthorizationId => $composableBuilder(
+    column: $table.finalAuthorizationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get finalReceiptCorrelationId => $composableBuilder(
+    column: $table.finalReceiptCorrelationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get finalRoutePeerDeviceId => $composableBuilder(
+    column: $table.finalRoutePeerDeviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$BleRelayMessagesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BleRelayMessagesTable> {
+  $$BleRelayMessagesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get originMessageId => $composableBuilder(
+    column: $table.originMessageId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get originKeyId => $composableBuilder(
+    column: $table.originKeyId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get originPublicKey => $composableBuilder(
+    column: $table.originPublicKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get immutablePayload => $composableBuilder(
+    column: $table.immutablePayload,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get wireEnvelope => $composableBuilder(
+    column: $table.wireEnvelope,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get immutableDigest => $composableBuilder(
+    column: $table.immutableDigest,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get originSignature => $composableBuilder(
+    column: $table.originSignature,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get authorizationScope => $composableBuilder(
+    column: $table.authorizationScope,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get emergencyType => $composableBuilder(
+    column: $table.emergencyType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get expiresAt =>
+      $composableBuilder(column: $table.expiresAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get retentionDeadline => $composableBuilder(
+    column: $table.retentionDeadline,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get maxHops =>
+      $composableBuilder(column: $table.maxHops, builder: (column) => column);
+
+  GeneratedColumn<int> get incomingHopCount => $composableBuilder(
+    column: $table.incomingHopCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get incomingPath => $composableBuilder(
+    column: $table.incomingPath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get incomingPeerId => $composableBuilder(
+    column: $table.incomingPeerId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get previousHopKeyId => $composableBuilder(
+    column: $table.previousHopKeyId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get processingState => $composableBuilder(
+    column: $table.processingState,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get payloadBytes => $composableBuilder(
+    column: $table.payloadBytes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get storageBytes => $composableBuilder(
+    column: $table.storageBytes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get persistedAt => $composableBuilder(
+    column: $table.persistedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get finalReceiptState => $composableBuilder(
+    column: $table.finalReceiptState,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get finalRecipientKeyId => $composableBuilder(
+    column: $table.finalRecipientKeyId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get finalAuthorizationId => $composableBuilder(
+    column: $table.finalAuthorizationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get finalReceiptCorrelationId => $composableBuilder(
+    column: $table.finalReceiptCorrelationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get finalRoutePeerDeviceId => $composableBuilder(
+    column: $table.finalRoutePeerDeviceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+
+  Expression<T> bleRelayAttemptsRefs<T extends Object>(
+    Expression<T> Function($$BleRelayAttemptsTableAnnotationComposer a) f,
+  ) {
+    final $$BleRelayAttemptsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.originMessageId,
+      referencedTable: $db.bleRelayAttempts,
+      getReferencedColumn: (t) => t.originMessageId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BleRelayAttemptsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.bleRelayAttempts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> bleRelayReceiptsRefs<T extends Object>(
+    Expression<T> Function($$BleRelayReceiptsTableAnnotationComposer a) f,
+  ) {
+    final $$BleRelayReceiptsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.originMessageId,
+      referencedTable: $db.bleRelayReceipts,
+      getReferencedColumn: (t) => t.originMessageId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BleRelayReceiptsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.bleRelayReceipts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$BleRelayMessagesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BleRelayMessagesTable,
+          BleRelayMessage,
+          $$BleRelayMessagesTableFilterComposer,
+          $$BleRelayMessagesTableOrderingComposer,
+          $$BleRelayMessagesTableAnnotationComposer,
+          $$BleRelayMessagesTableCreateCompanionBuilder,
+          $$BleRelayMessagesTableUpdateCompanionBuilder,
+          (BleRelayMessage, $$BleRelayMessagesTableReferences),
+          BleRelayMessage,
+          PrefetchHooks Function({
+            bool bleRelayAttemptsRefs,
+            bool bleRelayReceiptsRefs,
+          })
+        > {
+  $$BleRelayMessagesTableTableManager(
+    _$AppDatabase db,
+    $BleRelayMessagesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BleRelayMessagesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BleRelayMessagesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BleRelayMessagesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> originMessageId = const Value.absent(),
+                Value<String> incidentId = const Value.absent(),
+                Value<String> originKeyId = const Value.absent(),
+                Value<String> originPublicKey = const Value.absent(),
+                Value<String> immutablePayload = const Value.absent(),
+                Value<String> wireEnvelope = const Value.absent(),
+                Value<String> immutableDigest = const Value.absent(),
+                Value<String> originSignature = const Value.absent(),
+                Value<String> authorizationScope = const Value.absent(),
+                Value<String> emergencyType = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> expiresAt = const Value.absent(),
+                Value<DateTime> retentionDeadline = const Value.absent(),
+                Value<int> maxHops = const Value.absent(),
+                Value<int> incomingHopCount = const Value.absent(),
+                Value<String> incomingPath = const Value.absent(),
+                Value<String> incomingPeerId = const Value.absent(),
+                Value<String> previousHopKeyId = const Value.absent(),
+                Value<String> processingState = const Value.absent(),
+                Value<int> payloadBytes = const Value.absent(),
+                Value<int> storageBytes = const Value.absent(),
+                Value<DateTime> receivedAt = const Value.absent(),
+                Value<DateTime> persistedAt = const Value.absent(),
+                Value<String?> finalReceiptState = const Value.absent(),
+                Value<String?> finalRecipientKeyId = const Value.absent(),
+                Value<String?> finalAuthorizationId = const Value.absent(),
+                Value<String?> finalReceiptCorrelationId = const Value.absent(),
+                Value<String?> finalRoutePeerDeviceId = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BleRelayMessagesCompanion(
+                originMessageId: originMessageId,
+                incidentId: incidentId,
+                originKeyId: originKeyId,
+                originPublicKey: originPublicKey,
+                immutablePayload: immutablePayload,
+                wireEnvelope: wireEnvelope,
+                immutableDigest: immutableDigest,
+                originSignature: originSignature,
+                authorizationScope: authorizationScope,
+                emergencyType: emergencyType,
+                createdAt: createdAt,
+                expiresAt: expiresAt,
+                retentionDeadline: retentionDeadline,
+                maxHops: maxHops,
+                incomingHopCount: incomingHopCount,
+                incomingPath: incomingPath,
+                incomingPeerId: incomingPeerId,
+                previousHopKeyId: previousHopKeyId,
+                processingState: processingState,
+                payloadBytes: payloadBytes,
+                storageBytes: storageBytes,
+                receivedAt: receivedAt,
+                persistedAt: persistedAt,
+                finalReceiptState: finalReceiptState,
+                finalRecipientKeyId: finalRecipientKeyId,
+                finalAuthorizationId: finalAuthorizationId,
+                finalReceiptCorrelationId: finalReceiptCorrelationId,
+                finalRoutePeerDeviceId: finalRoutePeerDeviceId,
+                lastError: lastError,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String originMessageId,
+                required String incidentId,
+                required String originKeyId,
+                required String originPublicKey,
+                required String immutablePayload,
+                required String wireEnvelope,
+                required String immutableDigest,
+                required String originSignature,
+                required String authorizationScope,
+                required String emergencyType,
+                required DateTime createdAt,
+                required DateTime expiresAt,
+                required DateTime retentionDeadline,
+                required int maxHops,
+                required int incomingHopCount,
+                required String incomingPath,
+                required String incomingPeerId,
+                required String previousHopKeyId,
+                required String processingState,
+                required int payloadBytes,
+                required int storageBytes,
+                required DateTime receivedAt,
+                required DateTime persistedAt,
+                Value<String?> finalReceiptState = const Value.absent(),
+                Value<String?> finalRecipientKeyId = const Value.absent(),
+                Value<String?> finalAuthorizationId = const Value.absent(),
+                Value<String?> finalReceiptCorrelationId = const Value.absent(),
+                Value<String?> finalRoutePeerDeviceId = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BleRelayMessagesCompanion.insert(
+                originMessageId: originMessageId,
+                incidentId: incidentId,
+                originKeyId: originKeyId,
+                originPublicKey: originPublicKey,
+                immutablePayload: immutablePayload,
+                wireEnvelope: wireEnvelope,
+                immutableDigest: immutableDigest,
+                originSignature: originSignature,
+                authorizationScope: authorizationScope,
+                emergencyType: emergencyType,
+                createdAt: createdAt,
+                expiresAt: expiresAt,
+                retentionDeadline: retentionDeadline,
+                maxHops: maxHops,
+                incomingHopCount: incomingHopCount,
+                incomingPath: incomingPath,
+                incomingPeerId: incomingPeerId,
+                previousHopKeyId: previousHopKeyId,
+                processingState: processingState,
+                payloadBytes: payloadBytes,
+                storageBytes: storageBytes,
+                receivedAt: receivedAt,
+                persistedAt: persistedAt,
+                finalReceiptState: finalReceiptState,
+                finalRecipientKeyId: finalRecipientKeyId,
+                finalAuthorizationId: finalAuthorizationId,
+                finalReceiptCorrelationId: finalReceiptCorrelationId,
+                finalRoutePeerDeviceId: finalRoutePeerDeviceId,
+                lastError: lastError,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$BleRelayMessagesTable, BleRelayMessage>(table),
+                  $$BleRelayMessagesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({bleRelayAttemptsRefs = false, bleRelayReceiptsRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (bleRelayAttemptsRefs) db.bleRelayAttempts,
+                    if (bleRelayReceiptsRefs) db.bleRelayReceipts,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (bleRelayAttemptsRefs)
+                        await $_getPrefetchedData<
+                          BleRelayMessage,
+                          $BleRelayMessagesTable,
+                          BleRelayAttempt
+                        >(
+                          currentTable: table,
+                          referencedTable: $$BleRelayMessagesTableReferences
+                              ._bleRelayAttemptsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BleRelayMessagesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).bleRelayAttemptsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) =>
+                                    e.originMessageId == item.originMessageId,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (bleRelayReceiptsRefs)
+                        await $_getPrefetchedData<
+                          BleRelayMessage,
+                          $BleRelayMessagesTable,
+                          BleRelayReceipt
+                        >(
+                          currentTable: table,
+                          referencedTable: $$BleRelayMessagesTableReferences
+                              ._bleRelayReceiptsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BleRelayMessagesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).bleRelayReceiptsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) =>
+                                    e.originMessageId == item.originMessageId,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$BleRelayMessagesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BleRelayMessagesTable,
+      BleRelayMessage,
+      $$BleRelayMessagesTableFilterComposer,
+      $$BleRelayMessagesTableOrderingComposer,
+      $$BleRelayMessagesTableAnnotationComposer,
+      $$BleRelayMessagesTableCreateCompanionBuilder,
+      $$BleRelayMessagesTableUpdateCompanionBuilder,
+      (BleRelayMessage, $$BleRelayMessagesTableReferences),
+      BleRelayMessage,
+      PrefetchHooks Function({
+        bool bleRelayAttemptsRefs,
+        bool bleRelayReceiptsRefs,
+      })
+    >;
+typedef $$BleRelayAttemptsTableCreateCompanionBuilder =
+    BleRelayAttemptsCompanion Function({
+      required String originMessageId,
+      required String nextHopKeyId,
+      required String attemptId,
+      required String correlationId,
+      required String nextHopDeviceId,
+      required int outgoingHopCount,
+      required String outgoingPath,
+      required int storageBytes,
+      required String state,
+      Value<int> retryCount,
+      Value<DateTime?> nextRetryAt,
+      Value<DateTime?> lastAttemptAt,
+      Value<String?> lastError,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<DateTime?> acceptedAt,
+      Value<int> rowid,
+    });
+typedef $$BleRelayAttemptsTableUpdateCompanionBuilder =
+    BleRelayAttemptsCompanion Function({
+      Value<String> originMessageId,
+      Value<String> nextHopKeyId,
+      Value<String> attemptId,
+      Value<String> correlationId,
+      Value<String> nextHopDeviceId,
+      Value<int> outgoingHopCount,
+      Value<String> outgoingPath,
+      Value<int> storageBytes,
+      Value<String> state,
+      Value<int> retryCount,
+      Value<DateTime?> nextRetryAt,
+      Value<DateTime?> lastAttemptAt,
+      Value<String?> lastError,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> acceptedAt,
+      Value<int> rowid,
+    });
+
+final class $$BleRelayAttemptsTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $BleRelayAttemptsTable, BleRelayAttempt> {
+  $$BleRelayAttemptsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $BleRelayMessagesTable _originMessageIdTable(_$AppDatabase db) =>
+      db.bleRelayMessages.createAlias(
+        'ble_relay_attempts__origin_message_id__ble_relay_messages__origin_message_id',
+      );
+
+  $$BleRelayMessagesTableProcessedTableManager get originMessageId {
+    final $_column = $_itemColumn<String>('origin_message_id')!;
+
+    final manager = $$BleRelayMessagesTableTableManager(
+      $_db,
+      $_db.bleRelayMessages,
+    ).filter((f) => f.originMessageId.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_originMessageIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$BleRelayAttemptsTableFilterComposer
+    extends Composer<_$AppDatabase, $BleRelayAttemptsTable> {
+  $$BleRelayAttemptsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get nextHopKeyId => $composableBuilder(
+    column: $table.nextHopKeyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get attemptId => $composableBuilder(
+    column: $table.attemptId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get correlationId => $composableBuilder(
+    column: $table.correlationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nextHopDeviceId => $composableBuilder(
+    column: $table.nextHopDeviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get outgoingHopCount => $composableBuilder(
+    column: $table.outgoingHopCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get outgoingPath => $composableBuilder(
+    column: $table.outgoingPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get storageBytes => $composableBuilder(
+    column: $table.storageBytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get nextRetryAt => $composableBuilder(
+    column: $table.nextRetryAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastAttemptAt => $composableBuilder(
+    column: $table.lastAttemptAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get acceptedAt => $composableBuilder(
+    column: $table.acceptedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$BleRelayMessagesTableFilterComposer get originMessageId {
+    final $$BleRelayMessagesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.originMessageId,
+      referencedTable: $db.bleRelayMessages,
+      getReferencedColumn: (t) => t.originMessageId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BleRelayMessagesTableFilterComposer(
+            $db: $db,
+            $table: $db.bleRelayMessages,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BleRelayAttemptsTableOrderingComposer
+    extends Composer<_$AppDatabase, $BleRelayAttemptsTable> {
+  $$BleRelayAttemptsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get nextHopKeyId => $composableBuilder(
+    column: $table.nextHopKeyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get attemptId => $composableBuilder(
+    column: $table.attemptId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get correlationId => $composableBuilder(
+    column: $table.correlationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get nextHopDeviceId => $composableBuilder(
+    column: $table.nextHopDeviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get outgoingHopCount => $composableBuilder(
+    column: $table.outgoingHopCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get outgoingPath => $composableBuilder(
+    column: $table.outgoingPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get storageBytes => $composableBuilder(
+    column: $table.storageBytes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get nextRetryAt => $composableBuilder(
+    column: $table.nextRetryAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastAttemptAt => $composableBuilder(
+    column: $table.lastAttemptAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get acceptedAt => $composableBuilder(
+    column: $table.acceptedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$BleRelayMessagesTableOrderingComposer get originMessageId {
+    final $$BleRelayMessagesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.originMessageId,
+      referencedTable: $db.bleRelayMessages,
+      getReferencedColumn: (t) => t.originMessageId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BleRelayMessagesTableOrderingComposer(
+            $db: $db,
+            $table: $db.bleRelayMessages,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BleRelayAttemptsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BleRelayAttemptsTable> {
+  $$BleRelayAttemptsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get nextHopKeyId => $composableBuilder(
+    column: $table.nextHopKeyId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get attemptId =>
+      $composableBuilder(column: $table.attemptId, builder: (column) => column);
+
+  GeneratedColumn<String> get correlationId => $composableBuilder(
+    column: $table.correlationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get nextHopDeviceId => $composableBuilder(
+    column: $table.nextHopDeviceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get outgoingHopCount => $composableBuilder(
+    column: $table.outgoingHopCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get outgoingPath => $composableBuilder(
+    column: $table.outgoingPath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get storageBytes => $composableBuilder(
+    column: $table.storageBytes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get state =>
+      $composableBuilder(column: $table.state, builder: (column) => column);
+
+  GeneratedColumn<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get nextRetryAt => $composableBuilder(
+    column: $table.nextRetryAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastAttemptAt => $composableBuilder(
+    column: $table.lastAttemptAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get acceptedAt => $composableBuilder(
+    column: $table.acceptedAt,
+    builder: (column) => column,
+  );
+
+  $$BleRelayMessagesTableAnnotationComposer get originMessageId {
+    final $$BleRelayMessagesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.originMessageId,
+      referencedTable: $db.bleRelayMessages,
+      getReferencedColumn: (t) => t.originMessageId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BleRelayMessagesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.bleRelayMessages,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BleRelayAttemptsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BleRelayAttemptsTable,
+          BleRelayAttempt,
+          $$BleRelayAttemptsTableFilterComposer,
+          $$BleRelayAttemptsTableOrderingComposer,
+          $$BleRelayAttemptsTableAnnotationComposer,
+          $$BleRelayAttemptsTableCreateCompanionBuilder,
+          $$BleRelayAttemptsTableUpdateCompanionBuilder,
+          (BleRelayAttempt, $$BleRelayAttemptsTableReferences),
+          BleRelayAttempt,
+          PrefetchHooks Function({bool originMessageId})
+        > {
+  $$BleRelayAttemptsTableTableManager(
+    _$AppDatabase db,
+    $BleRelayAttemptsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BleRelayAttemptsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BleRelayAttemptsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BleRelayAttemptsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> originMessageId = const Value.absent(),
+                Value<String> nextHopKeyId = const Value.absent(),
+                Value<String> attemptId = const Value.absent(),
+                Value<String> correlationId = const Value.absent(),
+                Value<String> nextHopDeviceId = const Value.absent(),
+                Value<int> outgoingHopCount = const Value.absent(),
+                Value<String> outgoingPath = const Value.absent(),
+                Value<int> storageBytes = const Value.absent(),
+                Value<String> state = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<DateTime?> nextRetryAt = const Value.absent(),
+                Value<DateTime?> lastAttemptAt = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> acceptedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BleRelayAttemptsCompanion(
+                originMessageId: originMessageId,
+                nextHopKeyId: nextHopKeyId,
+                attemptId: attemptId,
+                correlationId: correlationId,
+                nextHopDeviceId: nextHopDeviceId,
+                outgoingHopCount: outgoingHopCount,
+                outgoingPath: outgoingPath,
+                storageBytes: storageBytes,
+                state: state,
+                retryCount: retryCount,
+                nextRetryAt: nextRetryAt,
+                lastAttemptAt: lastAttemptAt,
+                lastError: lastError,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                acceptedAt: acceptedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String originMessageId,
+                required String nextHopKeyId,
+                required String attemptId,
+                required String correlationId,
+                required String nextHopDeviceId,
+                required int outgoingHopCount,
+                required String outgoingPath,
+                required int storageBytes,
+                required String state,
+                Value<int> retryCount = const Value.absent(),
+                Value<DateTime?> nextRetryAt = const Value.absent(),
+                Value<DateTime?> lastAttemptAt = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<DateTime?> acceptedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BleRelayAttemptsCompanion.insert(
+                originMessageId: originMessageId,
+                nextHopKeyId: nextHopKeyId,
+                attemptId: attemptId,
+                correlationId: correlationId,
+                nextHopDeviceId: nextHopDeviceId,
+                outgoingHopCount: outgoingHopCount,
+                outgoingPath: outgoingPath,
+                storageBytes: storageBytes,
+                state: state,
+                retryCount: retryCount,
+                nextRetryAt: nextRetryAt,
+                lastAttemptAt: lastAttemptAt,
+                lastError: lastError,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                acceptedAt: acceptedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$BleRelayAttemptsTable, BleRelayAttempt>(table),
+                  $$BleRelayAttemptsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({originMessageId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (originMessageId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.originMessageId,
+                        referencedTable: $$BleRelayAttemptsTableReferences
+                            ._originMessageIdTable(db),
+                        referencedColumn: $$BleRelayAttemptsTableReferences
+                            ._originMessageIdTable(db)
+                            .originMessageId,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$BleRelayAttemptsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BleRelayAttemptsTable,
+      BleRelayAttempt,
+      $$BleRelayAttemptsTableFilterComposer,
+      $$BleRelayAttemptsTableOrderingComposer,
+      $$BleRelayAttemptsTableAnnotationComposer,
+      $$BleRelayAttemptsTableCreateCompanionBuilder,
+      $$BleRelayAttemptsTableUpdateCompanionBuilder,
+      (BleRelayAttempt, $$BleRelayAttemptsTableReferences),
+      BleRelayAttempt,
+      PrefetchHooks Function({bool originMessageId})
+    >;
+typedef $$BleRelayReceiptsTableCreateCompanionBuilder =
+    BleRelayReceiptsCompanion Function({
+      required String semanticKey,
+      required String receiptId,
+      required String receiptType,
+      required String originMessageId,
+      required String incidentId,
+      required String immutableDigest,
+      required String signerKeyId,
+      required String signerPublicKey,
+      required String correlationId,
+      Value<String?> attemptId,
+      Value<String?> finalAuthorizationId,
+      required String sourcePeerDeviceId,
+      Value<String?> previousHopKeyId,
+      Value<String?> previousHopDeviceId,
+      required String payload,
+      required String signature,
+      required int storageBytes,
+      required String state,
+      required DateTime createdAt,
+      required DateTime expiresAt,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$BleRelayReceiptsTableUpdateCompanionBuilder =
+    BleRelayReceiptsCompanion Function({
+      Value<String> semanticKey,
+      Value<String> receiptId,
+      Value<String> receiptType,
+      Value<String> originMessageId,
+      Value<String> incidentId,
+      Value<String> immutableDigest,
+      Value<String> signerKeyId,
+      Value<String> signerPublicKey,
+      Value<String> correlationId,
+      Value<String?> attemptId,
+      Value<String?> finalAuthorizationId,
+      Value<String> sourcePeerDeviceId,
+      Value<String?> previousHopKeyId,
+      Value<String?> previousHopDeviceId,
+      Value<String> payload,
+      Value<String> signature,
+      Value<int> storageBytes,
+      Value<String> state,
+      Value<DateTime> createdAt,
+      Value<DateTime> expiresAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+final class $$BleRelayReceiptsTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $BleRelayReceiptsTable, BleRelayReceipt> {
+  $$BleRelayReceiptsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $BleRelayMessagesTable _originMessageIdTable(_$AppDatabase db) =>
+      db.bleRelayMessages.createAlias(
+        'ble_relay_receipts__origin_message_id__ble_relay_messages__origin_message_id',
+      );
+
+  $$BleRelayMessagesTableProcessedTableManager get originMessageId {
+    final $_column = $_itemColumn<String>('origin_message_id')!;
+
+    final manager = $$BleRelayMessagesTableTableManager(
+      $_db,
+      $_db.bleRelayMessages,
+    ).filter((f) => f.originMessageId.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_originMessageIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$BleRelayReceiptsTableFilterComposer
+    extends Composer<_$AppDatabase, $BleRelayReceiptsTable> {
+  $$BleRelayReceiptsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get semanticKey => $composableBuilder(
+    column: $table.semanticKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get receiptId => $composableBuilder(
+    column: $table.receiptId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get receiptType => $composableBuilder(
+    column: $table.receiptType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get immutableDigest => $composableBuilder(
+    column: $table.immutableDigest,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get signerKeyId => $composableBuilder(
+    column: $table.signerKeyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get signerPublicKey => $composableBuilder(
+    column: $table.signerPublicKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get correlationId => $composableBuilder(
+    column: $table.correlationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get attemptId => $composableBuilder(
+    column: $table.attemptId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get finalAuthorizationId => $composableBuilder(
+    column: $table.finalAuthorizationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourcePeerDeviceId => $composableBuilder(
+    column: $table.sourcePeerDeviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get previousHopKeyId => $composableBuilder(
+    column: $table.previousHopKeyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get previousHopDeviceId => $composableBuilder(
+    column: $table.previousHopDeviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get signature => $composableBuilder(
+    column: $table.signature,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get storageBytes => $composableBuilder(
+    column: $table.storageBytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$BleRelayMessagesTableFilterComposer get originMessageId {
+    final $$BleRelayMessagesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.originMessageId,
+      referencedTable: $db.bleRelayMessages,
+      getReferencedColumn: (t) => t.originMessageId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BleRelayMessagesTableFilterComposer(
+            $db: $db,
+            $table: $db.bleRelayMessages,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BleRelayReceiptsTableOrderingComposer
+    extends Composer<_$AppDatabase, $BleRelayReceiptsTable> {
+  $$BleRelayReceiptsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get semanticKey => $composableBuilder(
+    column: $table.semanticKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get receiptId => $composableBuilder(
+    column: $table.receiptId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get receiptType => $composableBuilder(
+    column: $table.receiptType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get immutableDigest => $composableBuilder(
+    column: $table.immutableDigest,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get signerKeyId => $composableBuilder(
+    column: $table.signerKeyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get signerPublicKey => $composableBuilder(
+    column: $table.signerPublicKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get correlationId => $composableBuilder(
+    column: $table.correlationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get attemptId => $composableBuilder(
+    column: $table.attemptId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get finalAuthorizationId => $composableBuilder(
+    column: $table.finalAuthorizationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourcePeerDeviceId => $composableBuilder(
+    column: $table.sourcePeerDeviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get previousHopKeyId => $composableBuilder(
+    column: $table.previousHopKeyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get previousHopDeviceId => $composableBuilder(
+    column: $table.previousHopDeviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get signature => $composableBuilder(
+    column: $table.signature,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get storageBytes => $composableBuilder(
+    column: $table.storageBytes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$BleRelayMessagesTableOrderingComposer get originMessageId {
+    final $$BleRelayMessagesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.originMessageId,
+      referencedTable: $db.bleRelayMessages,
+      getReferencedColumn: (t) => t.originMessageId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BleRelayMessagesTableOrderingComposer(
+            $db: $db,
+            $table: $db.bleRelayMessages,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BleRelayReceiptsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BleRelayReceiptsTable> {
+  $$BleRelayReceiptsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get semanticKey => $composableBuilder(
+    column: $table.semanticKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get receiptId =>
+      $composableBuilder(column: $table.receiptId, builder: (column) => column);
+
+  GeneratedColumn<String> get receiptType => $composableBuilder(
+    column: $table.receiptType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get immutableDigest => $composableBuilder(
+    column: $table.immutableDigest,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get signerKeyId => $composableBuilder(
+    column: $table.signerKeyId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get signerPublicKey => $composableBuilder(
+    column: $table.signerPublicKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get correlationId => $composableBuilder(
+    column: $table.correlationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get attemptId =>
+      $composableBuilder(column: $table.attemptId, builder: (column) => column);
+
+  GeneratedColumn<String> get finalAuthorizationId => $composableBuilder(
+    column: $table.finalAuthorizationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourcePeerDeviceId => $composableBuilder(
+    column: $table.sourcePeerDeviceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get previousHopKeyId => $composableBuilder(
+    column: $table.previousHopKeyId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get previousHopDeviceId => $composableBuilder(
+    column: $table.previousHopDeviceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  GeneratedColumn<String> get signature =>
+      $composableBuilder(column: $table.signature, builder: (column) => column);
+
+  GeneratedColumn<int> get storageBytes => $composableBuilder(
+    column: $table.storageBytes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get state =>
+      $composableBuilder(column: $table.state, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get expiresAt =>
+      $composableBuilder(column: $table.expiresAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$BleRelayMessagesTableAnnotationComposer get originMessageId {
+    final $$BleRelayMessagesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.originMessageId,
+      referencedTable: $db.bleRelayMessages,
+      getReferencedColumn: (t) => t.originMessageId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BleRelayMessagesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.bleRelayMessages,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BleRelayReceiptsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BleRelayReceiptsTable,
+          BleRelayReceipt,
+          $$BleRelayReceiptsTableFilterComposer,
+          $$BleRelayReceiptsTableOrderingComposer,
+          $$BleRelayReceiptsTableAnnotationComposer,
+          $$BleRelayReceiptsTableCreateCompanionBuilder,
+          $$BleRelayReceiptsTableUpdateCompanionBuilder,
+          (BleRelayReceipt, $$BleRelayReceiptsTableReferences),
+          BleRelayReceipt,
+          PrefetchHooks Function({bool originMessageId})
+        > {
+  $$BleRelayReceiptsTableTableManager(
+    _$AppDatabase db,
+    $BleRelayReceiptsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BleRelayReceiptsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BleRelayReceiptsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BleRelayReceiptsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> semanticKey = const Value.absent(),
+                Value<String> receiptId = const Value.absent(),
+                Value<String> receiptType = const Value.absent(),
+                Value<String> originMessageId = const Value.absent(),
+                Value<String> incidentId = const Value.absent(),
+                Value<String> immutableDigest = const Value.absent(),
+                Value<String> signerKeyId = const Value.absent(),
+                Value<String> signerPublicKey = const Value.absent(),
+                Value<String> correlationId = const Value.absent(),
+                Value<String?> attemptId = const Value.absent(),
+                Value<String?> finalAuthorizationId = const Value.absent(),
+                Value<String> sourcePeerDeviceId = const Value.absent(),
+                Value<String?> previousHopKeyId = const Value.absent(),
+                Value<String?> previousHopDeviceId = const Value.absent(),
+                Value<String> payload = const Value.absent(),
+                Value<String> signature = const Value.absent(),
+                Value<int> storageBytes = const Value.absent(),
+                Value<String> state = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> expiresAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BleRelayReceiptsCompanion(
+                semanticKey: semanticKey,
+                receiptId: receiptId,
+                receiptType: receiptType,
+                originMessageId: originMessageId,
+                incidentId: incidentId,
+                immutableDigest: immutableDigest,
+                signerKeyId: signerKeyId,
+                signerPublicKey: signerPublicKey,
+                correlationId: correlationId,
+                attemptId: attemptId,
+                finalAuthorizationId: finalAuthorizationId,
+                sourcePeerDeviceId: sourcePeerDeviceId,
+                previousHopKeyId: previousHopKeyId,
+                previousHopDeviceId: previousHopDeviceId,
+                payload: payload,
+                signature: signature,
+                storageBytes: storageBytes,
+                state: state,
+                createdAt: createdAt,
+                expiresAt: expiresAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String semanticKey,
+                required String receiptId,
+                required String receiptType,
+                required String originMessageId,
+                required String incidentId,
+                required String immutableDigest,
+                required String signerKeyId,
+                required String signerPublicKey,
+                required String correlationId,
+                Value<String?> attemptId = const Value.absent(),
+                Value<String?> finalAuthorizationId = const Value.absent(),
+                required String sourcePeerDeviceId,
+                Value<String?> previousHopKeyId = const Value.absent(),
+                Value<String?> previousHopDeviceId = const Value.absent(),
+                required String payload,
+                required String signature,
+                required int storageBytes,
+                required String state,
+                required DateTime createdAt,
+                required DateTime expiresAt,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => BleRelayReceiptsCompanion.insert(
+                semanticKey: semanticKey,
+                receiptId: receiptId,
+                receiptType: receiptType,
+                originMessageId: originMessageId,
+                incidentId: incidentId,
+                immutableDigest: immutableDigest,
+                signerKeyId: signerKeyId,
+                signerPublicKey: signerPublicKey,
+                correlationId: correlationId,
+                attemptId: attemptId,
+                finalAuthorizationId: finalAuthorizationId,
+                sourcePeerDeviceId: sourcePeerDeviceId,
+                previousHopKeyId: previousHopKeyId,
+                previousHopDeviceId: previousHopDeviceId,
+                payload: payload,
+                signature: signature,
+                storageBytes: storageBytes,
+                state: state,
+                createdAt: createdAt,
+                expiresAt: expiresAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$BleRelayReceiptsTable, BleRelayReceipt>(table),
+                  $$BleRelayReceiptsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({originMessageId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (originMessageId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.originMessageId,
+                        referencedTable: $$BleRelayReceiptsTableReferences
+                            ._originMessageIdTable(db),
+                        referencedColumn: $$BleRelayReceiptsTableReferences
+                            ._originMessageIdTable(db)
+                            .originMessageId,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$BleRelayReceiptsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BleRelayReceiptsTable,
+      BleRelayReceipt,
+      $$BleRelayReceiptsTableFilterComposer,
+      $$BleRelayReceiptsTableOrderingComposer,
+      $$BleRelayReceiptsTableAnnotationComposer,
+      $$BleRelayReceiptsTableCreateCompanionBuilder,
+      $$BleRelayReceiptsTableUpdateCompanionBuilder,
+      (BleRelayReceipt, $$BleRelayReceiptsTableReferences),
+      BleRelayReceipt,
+      PrefetchHooks Function({bool originMessageId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4907,4 +10952,10 @@ class $AppDatabaseManager {
       $$BleInboxTableTableManager(_db, _db.bleInbox);
   $$ChatMessagesTableTableManager get chatMessages =>
       $$ChatMessagesTableTableManager(_db, _db.chatMessages);
+  $$BleRelayMessagesTableTableManager get bleRelayMessages =>
+      $$BleRelayMessagesTableTableManager(_db, _db.bleRelayMessages);
+  $$BleRelayAttemptsTableTableManager get bleRelayAttempts =>
+      $$BleRelayAttemptsTableTableManager(_db, _db.bleRelayAttempts);
+  $$BleRelayReceiptsTableTableManager get bleRelayReceipts =>
+      $$BleRelayReceiptsTableTableManager(_db, _db.bleRelayReceipts);
 }

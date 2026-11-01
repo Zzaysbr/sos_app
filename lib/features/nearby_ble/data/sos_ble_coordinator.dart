@@ -14,6 +14,7 @@ import '../domain/location_ble_envelope.dart';
 import 'ble_delivery_repository.dart';
 import 'ble_protocol.dart';
 import 'ble_transport.dart';
+import 'hop_relay_coordinator.dart';
 
 typedef SosBleNow = DateTime Function();
 typedef SosBleRandom = double Function();
@@ -32,6 +33,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
     String? localDeviceId,
     BleTransportClient? transport,
     BleDeliveryRepository? deliveryRepository,
+    HopRelayCoordinator? hopRelayCoordinator,
     this.chatRepository,
     this.onLog,
     SosBleNow? now,
@@ -49,7 +51,18 @@ class SosBleCoordinator with WidgetsBindingObserver {
            deliveryRepository ?? BleDeliveryRepository(database),
        _now = now ?? DateTime.now,
        _random = random ?? math.Random().nextDouble,
-       assert(maxRetryAttempts > 0);
+       assert(maxRetryAttempts > 0) {
+    _presence = BlePresenceManager.sharedFor(_transport);
+    _writes = BleMessageWriteQueue.sharedFor(_transport);
+    _hopRelay =
+        hopRelayCoordinator ??
+        HopRelayCoordinator(
+          database: database,
+          transport: _transport,
+          now: _now,
+          onLog: (message) => _log('relay=$message'),
+        );
+  }
 
   final String ownerId;
   final bool requirePeerBinding;
@@ -58,12 +71,15 @@ class SosBleCoordinator with WidgetsBindingObserver {
   final AppDatabase _database;
   final String _localDeviceId;
   final BleTransportClient _transport;
+  late final BlePresenceManager _presence;
+  late final BleMessageWriteQueue _writes;
   final bool _ownsTransport;
   final BleDeliveryRepository _deliveryRepository;
   final ChatRepository? chatRepository;
   final void Function(String message)? onLog;
   final SosBleNow _now;
   final SosBleRandom _random;
+  late final HopRelayCoordinator _hopRelay;
   final Duration retryBase;
   final Duration retryMax;
 
@@ -148,6 +164,31 @@ class SosBleCoordinator with WidgetsBindingObserver {
   /// dispose it while the coordinator is active.
   BleTransportClient get transport => _transport;
 
+  bool get relayParticipationEnabled => _hopRelay.participationEnabled;
+
+  Future<bool> hasPendingPublicRelay() => _hopRelay.hasPendingLocalOrigin();
+
+  Future<void> setRelayParticipationEnabled(bool enabled) =>
+      _hopRelay.setParticipationEnabled(enabled);
+
+  Future<void> enqueuePublicRelay(
+    SosMessage sos, {
+    required bool includeLocation,
+  }) async {
+    _ensureUsable();
+    await _hopRelay.queuePublicEmergency(sos, includeLocation: includeLocation);
+    if (_started) unawaited(processDue());
+  }
+
+  Future<void> cancelPublicRelay(String sosId) async {
+    _ensureUsable();
+    await _hopRelay.cancelPublicEmergency(sosId);
+    if (_started) unawaited(processDue());
+  }
+
+  Stream<RelayStatusSnapshot> watchRelayStatus(String incidentId) =>
+      _hopRelay.watchStatus(incidentId);
+
   Future<void> start() {
     if (_disposed) throw StateError('A disposed BLE coordinator cannot start.');
     return _startFuture ??= _start().whenComplete(() => _startFuture = null);
@@ -171,6 +212,19 @@ class SosBleCoordinator with WidgetsBindingObserver {
       await _transport.initialize();
       if (_disposed || !_sessionActive) return;
       _log('BLE transport initialized');
+      try {
+        await _hopRelay.start();
+      } catch (error) {
+        // A persisted relay job may be unreadable when secure key storage is
+        // temporarily unavailable after restart. Disable relay processing for
+        // this coordinator run, but keep Direct SOS v1 available.
+        _log('relayStartupDisabled reason=$error');
+        try {
+          await _hopRelay.stop();
+        } on Object {
+          _log('relayStartupCleanupFailed');
+        }
+      }
       final now = _now().toUtc();
       await _deliveryRepository.recoverStaleOutbox(
         ownerId: isSessionCurrent == null ? null : ownerId,
@@ -193,6 +247,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
     _pollTimer = null;
+    await _hopRelay.stop();
     await _eventsSubscription?.cancel();
     _eventsSubscription = null;
     _connected.clear();
@@ -233,7 +288,23 @@ class SosBleCoordinator with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && _started) {
+      unawaited(_setPresenceForeground(true));
+      unawaited(_hopRelay.setForeground(true));
       unawaited(processDue());
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      unawaited(_setPresenceForeground(false));
+      unawaited(_hopRelay.setForeground(false));
+    }
+  }
+
+  Future<void> _setPresenceForeground(bool foreground) async {
+    try {
+      await _presence.setForeground(foreground);
+    } on Object {
+      _log('blePresenceLifecycleReconcileFailed');
     }
   }
 
@@ -322,6 +393,25 @@ class SosBleCoordinator with WidgetsBindingObserver {
     );
     if (_started) unawaited(processDue());
     return row;
+  }
+
+  Future<int> assignPendingChatDestination(
+    String sosId,
+    String destinationId,
+  ) async {
+    _ensureUsable();
+    final assigned = await _deliveryRepository.assignUnroutedChatDestination(
+      ownerId: ownerId,
+      sosId: sosId,
+      destinationId: destinationId,
+      now: _now(),
+    );
+    if (assigned > 0 && _started) unawaited(processDue());
+    _log(
+      'assigned pending Chat destination sosId=$sosId '
+      'peer=${destinationId.trim()} count=$assigned',
+    );
+    return assigned;
   }
 
   /// Enables explicit-recipient sharing for one active SOS. This phase only
@@ -451,6 +541,13 @@ class SosBleCoordinator with WidgetsBindingObserver {
         for (final row in rows) {
           if (!_started || _disposed || !_sessionActive) break;
           await _trySend(row);
+        }
+        try {
+          await _hopRelay.processDue();
+        } on Object {
+          // Relay v2 is additive. Corrupt relay-only persistence or a relay
+          // transport failure must not escape through the Direct v1 drain.
+          _log('relayDrainFailed');
         }
       }
     } finally {
@@ -585,10 +682,13 @@ class SosBleCoordinator with WidgetsBindingObserver {
         'send sosId=${sending.sosId} messageId=${sending.messageId} '
         'peer=$deviceId role=${role.wireValue} frames=${frames.length}',
       );
-      for (final frame in frames) {
-        if (!_sessionActive || _disposed) return;
-        await _transport.send(deviceId, frame, role: role);
-      }
+      final writeCompleted = await _writes.sendFrames(
+        deviceId,
+        frames,
+        role: role,
+        canSend: () => _sessionActive && !_disposed,
+      );
+      if (!writeCompleted) return;
       if (!_sessionActive || _disposed) return;
       final completed = await _deliveryRepository.finishWriting(
         activeRow.messageId,
@@ -626,7 +726,26 @@ class SosBleCoordinator with WidgetsBindingObserver {
       'role=${event.role?.wireValue ?? 'unknown'} '
       'state=${event.state ?? 'n/a'}${event.error == null ? '' : ' error=${event.error}'}',
     );
+    try {
+      await _hopRelay.onEvent(event);
+    } catch (error) {
+      // Relay v2 is additive. A key-store, capability, or relay-frame failure
+      // must fail closed for relay without interrupting Direct SOS v1.
+      _log('relayEventRejected type=${event.type} reason=$error');
+    }
     switch (event.type) {
+      case 'state':
+      case 'centralState':
+      case 'peripheralState':
+        if (event.state == 'poweredOn') {
+          unawaited(_retryPresence());
+        } else if (event.state == 'poweredOff' ||
+            event.state == 'unauthorized' ||
+            event.state == 'unsupported' ||
+            event.state == 'resetting') {
+          unawaited(_markPresenceLost());
+        }
+        return;
       case 'connected':
         if (deviceId != null) {
           final role = event.role ?? BleSessionRole.central;
@@ -684,6 +803,22 @@ class SosBleCoordinator with WidgetsBindingObserver {
         }
         _log('BLE native error: ${event.error ?? 'unknown'}');
         return;
+    }
+  }
+
+  Future<void> _retryPresence() async {
+    try {
+      await _presence.retry();
+    } on Object {
+      _log('blePresencePowerRestoreFailed');
+    }
+  }
+
+  Future<void> _markPresenceLost() async {
+    try {
+      await _presence.notifyNativePresenceLost();
+    } on Object {
+      _log('blePresencePowerLossReconcileFailed');
     }
   }
 
@@ -745,17 +880,18 @@ class SosBleCoordinator with WidgetsBindingObserver {
         'responseTo': ?responseTo,
       },
     );
-    for (final frame in BleMessageCodec.encode(
-      message,
-      maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
-    )) {
-      if (!_sessionActive ||
-          _disposed ||
-          !(_connected[peer]?.contains(role) ?? false)) {
-        return;
-      }
-      await _transport.send(peer, frame, role: role);
-    }
+    await _writes.sendFrames(
+      peer,
+      BleMessageCodec.encode(
+        message,
+        maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
+      ),
+      role: role,
+      canSend: () =>
+          _sessionActive &&
+          !_disposed &&
+          (_connected[peer]?.contains(role) ?? false),
+    );
   }
 
   Future<void> _handlePeerBinding(
@@ -852,6 +988,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
         await _handlePeerBinding(deviceId, role, message);
         return;
       }
+      if (await _hopRelay.handleMessage(deviceId, role, message)) return;
       if (message.type == 'location.update' || message.type == 'location.ack') {
         final location = LocationBleEnvelope.fromBleMessage(message);
         if (requirePeerBinding &&
@@ -1042,13 +1179,16 @@ class SosBleCoordinator with WidgetsBindingObserver {
       createdAt: _now().toUtc(),
     );
     try {
-      for (final frame in BleMessageCodec.encode(
-        acknowledgement.toBleMessage(),
-        maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
-      )) {
-        if (!_sessionActive || _disposed) return;
-        await _transport.send(deviceId, frame, role: role);
-      }
+      final writeCompleted = await _writes.sendFrames(
+        deviceId,
+        BleMessageCodec.encode(
+          acknowledgement.toBleMessage(),
+          maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
+        ),
+        role: role,
+        canSend: () => _sessionActive && !_disposed,
+      );
+      if (!writeCompleted) return;
       _log(
         'locationAckSent sosId=${update.sosId} messageId=${update.messageId} '
         'status=$status peer=$deviceId',
@@ -1249,13 +1389,16 @@ class SosBleCoordinator with WidgetsBindingObserver {
       createdAt: _now(),
     );
     try {
-      for (final frame in BleMessageCodec.encode(
-        acknowledgement.toBleMessage(),
-        maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
-      )) {
-        if (!_sessionActive || _disposed) return;
-        await _transport.send(deviceId, frame, role: role);
-      }
+      final writeCompleted = await _writes.sendFrames(
+        deviceId,
+        BleMessageCodec.encode(
+          acknowledgement.toBleMessage(),
+          maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
+        ),
+        role: role,
+        canSend: () => _sessionActive && !_disposed,
+      );
+      if (!writeCompleted) return;
       if (!_sessionActive || _disposed) return;
       await _deliveryRepository.markInboxAcknowledgement(
         delivery.messageId,
@@ -1294,13 +1437,16 @@ class SosBleCoordinator with WidgetsBindingObserver {
       createdAt: _now(),
     );
     try {
-      for (final frame in BleMessageCodec.encode(
-        acknowledgement.toBleMessage(),
-        maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
-      )) {
-        if (!_sessionActive || _disposed) return;
-        await _transport.send(deviceId, frame, role: role);
-      }
+      final writeCompleted = await _writes.sendFrames(
+        deviceId,
+        BleMessageCodec.encode(
+          acknowledgement.toBleMessage(),
+          maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
+        ),
+        role: role,
+        canSend: () => _sessionActive && !_disposed,
+      );
+      if (!writeCompleted) return;
       _log(
         'chatAckSent sosId=${delivery.sosId} messageId=${delivery.messageId} status=${status.wireValue} peer=$deviceId',
       );

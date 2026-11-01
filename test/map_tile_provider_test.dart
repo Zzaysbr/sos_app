@@ -103,6 +103,33 @@ void main() {
     expect(validated.validationError, isNot(contains('maps.geoapify.com')));
   });
 
+  test('offline downloads are allowed only for valid Geoapify map tiles', () {
+    const geoapify = MapTileProviderConfig(
+      urlTemplate: 'https://maps.geoapify.com/v1/tile/osm-carto/{z}/{x}/{y}.png?apiKey=test-key',
+      attribution: 'Powered by Geoapify | OpenStreetMap contributors',
+      userAgentPackageName: 'com.n1cxltine.sosapp',
+      isDevelopmentFallback: false,
+    );
+    const publicOsm = MapTileProviderConfig(
+      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      attribution: 'OpenStreetMap contributors',
+      userAgentPackageName: 'com.n1cxltine.sosapp',
+      isDevelopmentFallback: true,
+    );
+    const unrelated = MapTileProviderConfig(
+      urlTemplate: 'https://tiles.example.test/{z}/{x}/{y}.png',
+      attribution: 'Example',
+      userAgentPackageName: 'com.n1cxltine.sosapp',
+      isDevelopmentFallback: false,
+    );
+
+    expect(geoapify.supportsOfflineRegionDownloads, isTrue);
+    expect(publicOsm.supportsOfflineRegionDownloads, isFalse);
+    expect(unrelated.supportsOfflineRegionDownloads, isFalse);
+    expect(geoapify.offlineStorageKey, startsWith('tiles-'));
+    expect(geoapify.offlineStorageKey, isNot(contains('test-key')));
+  });
+
   test('actual release environment enforces public-provider safety', () {
     const configured = String.fromEnvironment('MAP_TILE_URL');
     final config = MapTileProviderConfig.fromEnvironment(isRelease: true);

@@ -349,6 +349,83 @@ void main() {
   );
 
   test(
+    'location ACK without an observed native peer cannot confirm delivery',
+    () async {
+      final now = DateTime.utc(2026, 1, 1, 12);
+      await repository.enqueueLocationOutbox(
+        _update(messageId: 'location-peerless-ack'),
+        destinationId: 'peer-1',
+        now: now,
+      );
+      await repository.claimOutboxForSending('location-peerless-ack', now: now);
+      final ack = LocationBleEnvelope.ack(
+        messageId: 'ack-location-peerless',
+        sosId: 'sos-1',
+        ackFor: 'location-peerless-ack',
+        ackStatus: 'persisted',
+        createdAt: now,
+      );
+
+      await expectLater(
+        repository.recordLocationAcknowledgement(ack, now: now),
+        throwsA(isA<BleDeliveryStateException>()),
+      );
+      expect(
+        (await repository.lookupOutbox('location-peerless-ack'))!.state,
+        BleOutboxState.sending.wireValue,
+      );
+    },
+  );
+
+  test(
+    'location ACK rejects the wrong peer and correlates by ackFor',
+    () async {
+      final now = DateTime.utc(2026, 1, 1, 12);
+      await repository.enqueueLocationOutbox(
+        _update(messageId: 'location-target'),
+        destinationId: 'peer-1',
+        now: now,
+      );
+      await repository.claimOutboxForSending('location-target', now: now);
+      final wrongPeerAck = LocationBleEnvelope.ack(
+        messageId: 'ack-location-wrong-peer',
+        sosId: 'sos-1',
+        ackFor: 'location-target',
+        ackStatus: 'persisted',
+        createdAt: now,
+      );
+
+      await expectLater(
+        repository.recordLocationAcknowledgement(
+          wrongPeerAck,
+          sourceDeviceId: 'peer-2',
+          now: now,
+        ),
+        throwsA(isA<BleDeliveryStateException>()),
+      );
+      final wrongMessageAck = LocationBleEnvelope.ack(
+        messageId: 'ack-location-wrong-message',
+        sosId: 'sos-1',
+        ackFor: 'another-location-message',
+        ackStatus: 'persisted',
+        createdAt: now,
+      );
+      await expectLater(
+        repository.recordLocationAcknowledgement(
+          wrongMessageAck,
+          sourceDeviceId: 'peer-1',
+          now: now,
+        ),
+        throwsA(isA<BleDeliveryStateException>()),
+      );
+      expect(
+        (await repository.lookupOutbox('location-target'))!.state,
+        BleOutboxState.sending.wireValue,
+      );
+    },
+  );
+
+  test(
     'stopping location sharing expires only pending location rows',
     () async {
       await repository.enqueueLocationOutbox(

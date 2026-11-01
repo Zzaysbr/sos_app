@@ -21,6 +21,9 @@ class BleTestPage extends StatefulWidget {
 }
 
 class _BleTestPageState extends State<BleTestPage> {
+  final Object _discoveryLease = Object();
+  final Object _advertisingLease = Object();
+  late final BlePresenceManager _presence;
   final _messageController = TextEditingController();
   final _devices = <String, BleDevice>{};
   final _lastSeen = <String, DateTime>{};
@@ -59,6 +62,7 @@ class _BleTestPageState extends State<BleTestPage> {
   @override
   void initState() {
     super.initState();
+    _presence = BlePresenceManager.sharedFor(widget.transport);
     _eventsSubscription = widget.transport.events.listen(
       _handleEvent,
       onError: (Object error, StackTrace stack) {
@@ -302,7 +306,7 @@ class _BleTestPageState extends State<BleTestPage> {
     _selectedDeviceId = null;
     _log('Starting BLE scan session $_scanSession');
     try {
-      await widget.transport.startDiscovery();
+      await _presence.acquireDiscovery(_discoveryLease);
     } catch (_) {
       _scanActive = false;
       rethrow;
@@ -317,21 +321,24 @@ class _BleTestPageState extends State<BleTestPage> {
     await _readyFuture;
     _assertActive();
     _scanActive = false;
-    await widget.transport.stopDiscovery();
+    await _presence.releaseDiscovery(_discoveryLease);
     _log('Scan stopped');
   });
 
   Future<void> _startAdvertising() => _run('advertising', () async {
     await _readyFuture;
     _assertActive();
-    await widget.transport.startAdvertising(name: 'Off Grid SOS Test');
+    await _presence.acquireAdvertising(
+      _advertisingLease,
+      name: 'Off Grid SOS Test',
+    );
     _log('Advertising start accepted by native transport');
   });
 
   Future<void> _stopAdvertising() => _run('stop advertising', () async {
     await _readyFuture;
     _assertActive();
-    await widget.transport.stopAdvertising();
+    await _presence.releaseAdvertising(_advertisingLease);
     _log('Advertising stopped');
   });
 
@@ -545,9 +552,11 @@ class _BleTestPageState extends State<BleTestPage> {
     }
     _connectionWaiters.clear();
     _messageController.dispose();
-    if (widget.ownsTransport) {
-      unawaited(widget.transport.dispose());
-    }
+    unawaited(() async {
+      await _presence.releaseDiscovery(_discoveryLease).catchError((_) {});
+      await _presence.releaseAdvertising(_advertisingLease).catchError((_) {});
+      if (widget.ownsTransport) await widget.transport.dispose();
+    }());
     super.dispose();
   }
 

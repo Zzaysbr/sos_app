@@ -14,7 +14,7 @@ void main() {
     await tester.tap(find.byTooltip('Send'));
     await tester.pump();
     expect(
-      find.text('No messages yet.\nSend a status update to the helper.'),
+      find.text('ยังไม่มีข้อความ\nส่งข้อมูลสั้น ๆ ที่ผู้ช่วยเหลือต้องรู้'),
       findsOneWidget,
     );
 

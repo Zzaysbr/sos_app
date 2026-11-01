@@ -31,7 +31,12 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   }
   private var subscribedCentrals = [UUID: CBCentral]()
   private var pendingPeripheralSends = [UUID: [PendingPeripheralSend]]()
+  private var pacedPeripheralSends = Set<UUID>()
   private let maxPendingPeripheralSends = 32
+  // updateValue returning true only means CoreBluetooth accepted the local
+  // notification. A short per-peer gap prevents multi-frame envelopes from
+  // overrunning Android's receive path before it can emit frames to Dart.
+  private let peripheralInterFrameDelay: TimeInterval = 0.012
   private var disconnectReasons = [UUID: String]()
   private var setupTimeouts = [UUID: DispatchWorkItem]()
   private var connectionAttempts = [UUID: Int]()
@@ -258,6 +263,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   }
 
   private func flushPeripheral(_ uuid: UUID) {
+    guard !pacedPeripheralSends.contains(uuid) else { return }
     guard let central = subscribedCentrals[uuid],
           let characteristic = advertisedTx,
           var queue = pendingPeripheralSends[uuid],
@@ -283,6 +289,19 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
       }
       queue.removeFirst()
       pending.result(nil)
+      if queue.isEmpty {
+        pendingPeripheralSends.removeValue(forKey: uuid)
+      } else {
+        pendingPeripheralSends[uuid] = queue
+      }
+      pacedPeripheralSends.insert(uuid)
+      DispatchQueue.main.asyncAfter(deadline: .now() + peripheralInterFrameDelay) { [weak self] in
+        guard let self else { return }
+        self.pacedPeripheralSends.remove(uuid)
+        guard !self.disposed else { return }
+        self.flushPeripheral(uuid)
+      }
+      return
     }
     pendingPeripheralSends.removeValue(forKey: uuid)
   }
@@ -312,6 +331,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
       pending.result(FlutterError(code: "disposed", message: "BLE transport was disposed", details: nil))
     }
     pendingPeripheralSends.removeAll()
+    pacedPeripheralSends.removeAll()
     subscribedCentrals.removeAll()
     for results in writeResults.values { results.forEach { $0(FlutterError(code: "disposed", message: "BLE transport was disposed", details: nil)) } }
     writeResults.removeAll()
@@ -552,6 +572,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     guard characteristic.uuid == Self.tx else { return }
     let id = central.identifier
     subscribedCentrals.removeValue(forKey: id)
+    pacedPeripheralSends.remove(id)
     pendingPeripheralSends.removeValue(forKey: id)?.forEach {
       $0.result(FlutterError(code: "disconnected", message: "Peripheral notification subscription ended", details: nil))
     }

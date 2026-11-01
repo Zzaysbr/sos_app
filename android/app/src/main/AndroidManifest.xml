@@ -11,6 +11,8 @@
     <application
         android:label="sos_app"
         android:name="${applicationName}"
+        android:fullBackupContent="@xml/relay_backup_rules"
+        android:dataExtractionRules="@xml/relay_data_extraction_rules"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"

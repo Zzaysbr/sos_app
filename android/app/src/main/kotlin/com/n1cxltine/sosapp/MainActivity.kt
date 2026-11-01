@@ -42,6 +42,43 @@ class MainActivity : FlutterActivity() {
                             result.error("storage_failed", "Unable to persist role preference", null)
                         }
                     }
+                    "getRelayParticipationEnabled" ->
+                        result.success(preferences.getBoolean("relay_participation_enabled", false))
+                    "setRelayParticipationEnabled" -> {
+                        val enabled = call.arguments as? Boolean
+                        if (enabled == null) {
+                            result.error("invalid_relay_preference", "Relay preference must be boolean", null)
+                        } else if (preferences.edit()
+                                .putBoolean("relay_participation_enabled", enabled)
+                                .commit()) {
+                            result.success(null)
+                        } else {
+                            result.error("storage_failed", "Unable to persist relay preference", null)
+                        }
+                    }
+                    "getEmergencyConsent" -> result.success(mapOf(
+                        "configured" to preferences.getBoolean("emergency_consent_configured", false),
+                        "allowPublicRelay" to preferences.getBoolean("emergency_public_relay", false),
+                        "shareLocation" to preferences.getBoolean("emergency_relay_location", false),
+                    ))
+                    "setEmergencyConsent" -> {
+                        val value = call.arguments as? Map<*, *>
+                        val configured = value?.get("configured") as? Boolean
+                        val allowPublicRelay = value?.get("allowPublicRelay") as? Boolean
+                        val shareLocation = value?.get("shareLocation") as? Boolean
+                        if (configured == null || allowPublicRelay == null || shareLocation == null ||
+                            (shareLocation && !allowPublicRelay)) {
+                            result.error("invalid_emergency_consent", "Emergency consent is invalid", null)
+                        } else if (preferences.edit()
+                                .putBoolean("emergency_consent_configured", configured)
+                                .putBoolean("emergency_public_relay", allowPublicRelay)
+                                .putBoolean("emergency_relay_location", shareLocation)
+                                .commit()) {
+                            result.success(null)
+                        } else {
+                            result.error("storage_failed", "Unable to persist emergency consent", null)
+                        }
+                    }
                     else -> result.notImplemented()
                 }
             }

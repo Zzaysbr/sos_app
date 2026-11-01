@@ -58,6 +58,8 @@ void main() {
       expect(find.text('Open incident chat'), findsNothing);
       expect(find.text('Pending sync'), findsNothing);
       expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
     },
   );
   testWidgets('active SOS detail has an immediately accessible close action', (
@@ -95,7 +97,9 @@ void main() {
     await tester.tap(find.text('ประวัติ'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Synthetic active SOS'));
-    await tester.tap(find.text('Synthetic active SOS'));
+    await tester.tap(
+      find.byKey(const ValueKey('sos-details-button-synthetic-active-guest')),
+    );
     await tester.pumpAndSettle();
     expect(find.text('SOS Details'), findsOneWidget);
     final close = find.byTooltip('Close SOS details').hitTestable();
@@ -104,5 +108,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('SOS Details'), findsNothing);
     expect(find.text('ขอความช่วยเหลือ'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
   });
 }

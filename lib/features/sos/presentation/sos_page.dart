@@ -11,6 +11,9 @@ import '../../role/domain/role_workflow_controller.dart';
 import '../../role/presentation/role_selection_page.dart';
 import '../../nearby_ble/data/ble_delivery_repository.dart';
 import '../../nearby_ble/data/ble_transport.dart';
+import '../../nearby_ble/data/emergency_consent_store.dart';
+import '../../nearby_ble/data/hop_relay_coordinator.dart';
+import '../../nearby_ble/data/relay_preference_store.dart';
 import '../../nearby_ble/data/sos_ble_coordinator.dart';
 import '../../nearby_ble/presentation/ble_recipient_picker_page.dart';
 import '../../nearby_ble/presentation/ble_test_page.dart';
@@ -26,6 +29,25 @@ import 'location_sharing_panel.dart';
 
 import 'package:geolocator/geolocator.dart';
 
+@visibleForTesting
+String sosBleDeliveryStatusText(BleOutboxData? row) {
+  final state = row == null ? null : BleOutboxState.parse(row.state);
+  return switch (state) {
+    null => 'Waiting for recipient',
+    BleOutboxState.queued =>
+      row!.destinationId == null ? 'Waiting for recipient' : 'Queued',
+    BleOutboxState.sending => 'Sending',
+    BleOutboxState.writeAccepted ||
+    BleOutboxState.awaitingAcknowledgement => 'Awaiting receiver confirmation',
+    BleOutboxState.acknowledged => 'บันทึกบนเครื่องผู้รับแล้ว',
+    BleOutboxState.failed =>
+      row!.nextRetryAt == null
+          ? 'Delivery failed; retry not scheduled'
+          : 'Failed; retry scheduled',
+    BleOutboxState.expired => 'Expired; retry unavailable',
+  };
+}
+
 class SosPage extends StatefulWidget {
   const SosPage({
     super.key,
@@ -38,6 +60,9 @@ class SosPage extends StatefulWidget {
     this.isGuest = false,
     this.onLoginRequested,
     this.rolePreferenceStore,
+    this.relayPreferenceStore,
+    this.emergencyConsentStore,
+    this.locationProvider,
   });
 
   final SosRepository repository;
@@ -50,6 +75,9 @@ class SosPage extends StatefulWidget {
   final bool isGuest;
   final VoidCallback? onLoginRequested;
   final RolePreferenceStore? rolePreferenceStore;
+  final RelayPreferenceStore? relayPreferenceStore;
+  final EmergencyConsentStore? emergencyConsentStore;
+  final Future<Position?> Function()? locationProvider;
 
   @override
   State<SosPage> createState() => _SosPageState();
@@ -63,17 +91,41 @@ class _SosPageState extends State<SosPage> {
   String? _roleError;
   bool _rescueListening = false;
   bool _rescueStarting = false;
+  final Object _rescueAdvertisingLease = Object();
+  BlePresenceManager? _blePresence;
   bool _syncing = false;
   bool _sendingSos = false;
+  bool _openingIncidentChat = false;
   bool _sosHoldActive = false;
   double _sosHoldProgress = 0;
   Timer? _sosHoldTimer;
   String _historyFilter = 'all';
   String _historySearch = '';
   bool _historyNewestFirst = true;
+  bool _historySearchVisible = false;
   final _historySearchController = TextEditingController();
   late final RolePreferenceStore _roleStore;
-  late final BleDeliveryRepository _deliveryRepository;
+  late final RelayPreferenceStore _relayPreferenceStore;
+  late final EmergencyConsentStore _emergencyConsentStore;
+  late final Future<void> _emergencyConsentReady;
+  EmergencyConsent _emergencyConsent = const EmergencyConsent.safeDefault();
+  bool _emergencyConsentLoading = true;
+  bool _emergencyConsentSaving = false;
+  String? _emergencyConsentError;
+  bool _relayParticipationEnabled = false;
+  bool _relayPreferenceLoading = true;
+  bool _relayPreferenceSaving = false;
+  String? _relayPreferenceError;
+  late BleDeliveryRepository _deliveryRepository;
+  late Stream<List<SosMessage>> _rescueSosStream;
+  late Stream<List<SosMessage>> _acceptedSosStream;
+  late Stream<List<SosMessage>> _activeSosStream;
+  late Stream<List<SosMessage>> _historySosStream;
+  late Stream<List<SosMessage>> _chatSosStream;
+  late Stream<Set<String>> _rescueInboundSosIdsStream;
+  late Stream<Set<String>> _acceptedInboundSosIdsStream;
+  late Stream<Set<String>> _activeInboundSosIdsStream;
+  late Stream<Set<String>> _chatInboundSosIdsStream;
   final RoleWorkflowController _roleWorkflow = RoleWorkflowController();
 
   static const _sosHoldDuration = Duration(milliseconds: 1400);
@@ -83,8 +135,167 @@ class _SosPageState extends State<SosPage> {
     super.initState();
     _roleStore =
         widget.rolePreferenceStore ?? const PlatformRolePreferenceStore();
+    _relayPreferenceStore =
+        widget.relayPreferenceStore ?? const PlatformRelayPreferenceStore();
+    _emergencyConsentStore =
+        widget.emergencyConsentStore ?? const PlatformEmergencyConsentStore();
+    final transport = widget.bleTransport;
+    if (transport != null) {
+      _blePresence = BlePresenceManager.sharedFor(transport);
+    }
     _deliveryRepository = BleDeliveryRepository(widget.repository.database);
+    _bindSosStreams();
     unawaited(_loadRole());
+    unawaited(_loadRelayPreference());
+    _emergencyConsentReady = _loadEmergencyConsent();
+  }
+
+  Future<void> _loadEmergencyConsent() async {
+    try {
+      final consent = await _emergencyConsentStore.load();
+      if (!mounted) return;
+      setState(() {
+        _emergencyConsent = consent;
+        _emergencyConsentLoading = false;
+        _emergencyConsentError = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _emergencyConsent = const EmergencyConsent.safeDefault();
+        _emergencyConsentLoading = false;
+        _emergencyConsentError = 'Saved emergency consent could not be read. Safe defaults remain active.';
+      });
+    }
+  }
+
+  Future<void> _saveEmergencyConsent(EmergencyConsent consent) async {
+    if (_emergencyConsentLoading || _emergencyConsentSaving) return;
+    final previous = _emergencyConsent;
+    setState(() {
+      _emergencyConsent = consent.copyWith(configured: true);
+      _emergencyConsentSaving = true;
+      _emergencyConsentError = null;
+    });
+    try {
+      await _emergencyConsentStore.save(_emergencyConsent);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _emergencyConsent = previous;
+        _emergencyConsentError = 'Emergency consent could not be saved. The previous setting remains active.';
+      });
+    } finally {
+      if (mounted) setState(() => _emergencyConsentSaving = false);
+    }
+  }
+
+  Future<void> _loadRelayPreference() async {
+    try {
+      final enabled = await _relayPreferenceStore.loadParticipationEnabled();
+      if (enabled) {
+        await widget.onBleStartRequested?.call();
+        await widget.bleCoordinator?.setRelayParticipationEnabled(true);
+      } else {
+        // Relay participation and per-incident origin consent are separate.
+        // Resume a durable Public Relay SOS after restart without opting this
+        // device into receiving or forwarding other people's incidents.
+        if (await widget.bleCoordinator?.hasPendingPublicRelay() ?? false) {
+          await widget.onBleStartRequested?.call();
+        }
+        await widget.bleCoordinator?.setRelayParticipationEnabled(false);
+      }
+      if (!mounted) return;
+      setState(() {
+        _relayParticipationEnabled = enabled;
+        _relayPreferenceLoading = false;
+        _relayPreferenceError = null;
+      });
+    } catch (_) {
+      await _forceRelayOff();
+      if (!mounted) return;
+      setState(() {
+        _relayParticipationEnabled = false;
+        _relayPreferenceLoading = false;
+        _relayPreferenceError =
+            'Relay remains off because its saved setting could not be applied.';
+      });
+    }
+  }
+
+  Future<void> _setRelayParticipation(bool enabled) async {
+    if (_relayPreferenceSaving || _relayPreferenceLoading) return;
+    setState(() {
+      _relayPreferenceSaving = true;
+      _relayPreferenceError = null;
+    });
+    var enableStage = 'preference';
+    try {
+      if (enabled) {
+        await _relayPreferenceStore.saveParticipationEnabled(true);
+        enableStage = 'bluetooth';
+        await widget.onBleStartRequested?.call();
+        enableStage = 'relay';
+        await widget.bleCoordinator?.setRelayParticipationEnabled(true);
+      } else {
+        await widget.bleCoordinator?.setRelayParticipationEnabled(false);
+        await _relayPreferenceStore.saveParticipationEnabled(false);
+      }
+      if (!mounted) return;
+      setState(() => _relayParticipationEnabled = enabled);
+    } catch (error) {
+      debugPrint(
+        '[SOS relay] enable failed stage=$enableStage '
+        'type=${error.runtimeType}',
+      );
+      await _forceRelayOff();
+      if (!mounted) return;
+      setState(() {
+        _relayParticipationEnabled = false;
+        _relayPreferenceError = switch (enableStage) {
+          'bluetooth' => 'Relay could not start Bluetooth. Check Nearby devices permission and Bluetooth, then try again.',
+          'relay' => 'Relay could not initialize its secure queue. Expired data was kept from forwarding; restart the app and try again.',
+          _ => 'Relay setting could not be saved on this device. Relay remains off.',
+        };
+      });
+    } finally {
+      if (mounted) setState(() => _relayPreferenceSaving = false);
+    }
+  }
+
+  Future<void> _forceRelayOff() async {
+    try {
+      await widget.bleCoordinator?.setRelayParticipationEnabled(false);
+    } on Object {
+      // Runtime implementations are required to set the hard-disabled flag
+      // before performing fallible native cleanup.
+    }
+    try {
+      await _relayPreferenceStore.saveParticipationEnabled(false);
+    } on Object {
+      // Persistence failure cannot re-enable the runtime relay state.
+    }
+  }
+
+  void _bindSosStreams() {
+    _rescueSosStream = widget.repository.watchAll();
+    _acceptedSosStream = widget.repository.watchAll();
+    _activeSosStream = widget.repository.watchAll();
+    _historySosStream = widget.repository.watchAll();
+    _chatSosStream = widget.repository.watchAll();
+    _rescueInboundSosIdsStream = _deliveryRepository.watchInboundSosIds();
+    _acceptedInboundSosIdsStream = _deliveryRepository.watchInboundSosIds();
+    _activeInboundSosIdsStream = _deliveryRepository.watchInboundSosIds();
+    _chatInboundSosIdsStream = _deliveryRepository.watchInboundSosIds();
+  }
+
+  @override
+  void didUpdateWidget(covariant SosPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.repository, widget.repository)) {
+      _deliveryRepository = BleDeliveryRepository(widget.repository.database);
+      _bindSosStreams();
+    }
   }
 
   Future<void> _loadRole() async {
@@ -107,6 +318,12 @@ class _SosPageState extends State<SosPage> {
   @override
   void dispose() {
     _sosHoldTimer?.cancel();
+    unawaited(
+      _blePresence
+              ?.releaseAdvertising(_rescueAdvertisingLease)
+              .catchError((_) {}) ??
+          Future<void>.value(),
+    );
     _historySearchController.dispose();
     super.dispose();
   }
@@ -228,6 +445,14 @@ class _SosPageState extends State<SosPage> {
     });
     try {
       await _roleStore.save(role);
+      if (role != AppRole.rescue && _rescueListening) {
+        try {
+          await _blePresence?.releaseAdvertising(_rescueAdvertisingLease);
+        } on Object {
+          // Aggregate presence reconciliation retries on a later BLE action.
+        }
+        _rescueListening = false;
+      }
       if (!mounted) return;
       setState(() {
         _role = role;
@@ -306,13 +531,13 @@ class _SosPageState extends State<SosPage> {
       child: ColoredBox(
         color: background,
         child: StreamBuilder<List<SosMessage>>(
-          stream: widget.repository.watchAll(),
+          stream: _rescueSosStream,
           builder: (context, sosSnapshot) {
             if (sosSnapshot.hasError) {
               return _buildPageError('โหลดเหตุที่ได้รับไม่สำเร็จ');
             }
             return StreamBuilder<Set<String>>(
-              stream: _deliveryRepository.watchInboundSosIds(),
+              stream: _rescueInboundSosIdsStream,
               builder: (context, inboundSnapshot) {
                 if (inboundSnapshot.hasError) {
                   return _buildPageError('ตรวจสอบแหล่งที่มาของเหตุไม่สำเร็จ');
@@ -492,9 +717,9 @@ class _SosPageState extends State<SosPage> {
     final theme = Theme.of(context);
     return SafeArea(
       child: StreamBuilder<List<SosMessage>>(
-        stream: widget.repository.watchAll(),
+        stream: _acceptedSosStream,
         builder: (context, snapshot) => StreamBuilder<Set<String>>(
-          stream: _deliveryRepository.watchInboundSosIds(),
+          stream: _acceptedInboundSosIdsStream,
           builder: (context, inboundSnapshot) {
             final inboundIds = inboundSnapshot.data ?? const <String>{};
             final accepted = (snapshot.data ?? const <SosMessage>[])
@@ -573,40 +798,7 @@ class _SosPageState extends State<SosPage> {
   );
 
   Widget _activeIncidentReturnBanner(SosMessage sos) {
-    return Material(
-      color: Theme.of(context).colorScheme.errorContainer,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: () async {
-          await _selectRole(AppRole.needHelp);
-          if (!mounted) return;
-          await _showSosDetail(sos);
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Icon(
-                Icons.sos_rounded,
-                color: Theme.of(context).colorScheme.onErrorContainer,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'SOS ของคุณยังทำงานอยู่ · แตะเพื่อกลับไปดู',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onErrorContainer,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              const Icon(Icons.chevron_right_rounded),
-            ],
-          ),
-        ),
-      ),
-    );
+    return _buildActiveSosChatBanner(sos, returnToNeedHelp: true);
   }
 
   Widget _buildRescueIncidentCard(SosMessage sos) {
@@ -731,7 +923,11 @@ class _SosPageState extends State<SosPage> {
       if (transport == null) {
         throw StateError('Bluetooth transport is unavailable.');
       }
-      await transport.startAdvertising(name: 'Off Grid SOS Rescue');
+      final presence = _blePresence ?? BlePresenceManager.sharedFor(transport);
+      await presence.acquireAdvertising(
+        _rescueAdvertisingLease,
+        name: 'Off Grid SOS Rescue',
+      );
       if (!mounted) return;
       setState(() => _rescueListening = true);
     } catch (error) {
@@ -772,16 +968,12 @@ class _SosPageState extends State<SosPage> {
           slivers: [
             SliverToBoxAdapter(child: _buildHomeHeader()),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  _buildWelcomeCard(),
-                  const SizedBox(height: 24),
-                  _buildSendSosButton(),
-                  const SizedBox(height: 14),
-                  _buildSafetyCard(),
-                  const SizedBox(height: 28),
                   _buildActiveSosSection(),
+                  const SizedBox(height: 16),
+                  _buildSendSosButton(),
                 ]),
               ),
             ),
@@ -829,21 +1021,12 @@ class _SosPageState extends State<SosPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 5),
                 const Text(
                   'ขอความช่วยเหลือ',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  'ส่ง SOS และติดตามเหตุของคุณจากที่เดียว',
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontSize: 16,
                   ),
                 ),
               ],
@@ -882,38 +1065,6 @@ class _SosPageState extends State<SosPage> {
     );
   }
 
-  Widget _buildWelcomeCard() {
-    return _surfaceCard(
-      onTap: _showEmergencyAssistanceInfo,
-      child: Row(
-        children: [
-          _softIcon(Icons.shield_outlined, size: 52),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'พร้อมเมื่อคุณต้องการความช่วยเหลือ',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'กดค้างเพื่อป้องกันการส่งโดยไม่ตั้งใจ ข้อมูลจะบันทึกในเครื่องก่อนเสมอ',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Icon(Icons.chevron_right_rounded),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSendSosButton() {
     final progress = _sosHoldProgress.clamp(0.0, 1.0);
     return Semantics(
@@ -924,9 +1075,10 @@ class _SosPageState extends State<SosPage> {
         onTapUp: _sendingSos ? null : (_) => _cancelSosHold(),
         onTapCancel: _sendingSos ? null : _cancelSosHold,
         child: AnimatedContainer(
+          key: const ValueKey('primary-sos-hold-action'),
           duration: const Duration(milliseconds: 120),
           width: double.infinity,
-          height: 230,
+          constraints: const BoxConstraints(minHeight: 280),
           decoration: BoxDecoration(
             color: const Color(0xFFD92323),
             borderRadius: BorderRadius.circular(26),
@@ -941,7 +1093,7 @@ class _SosPageState extends State<SosPage> {
           child: Stack(
             alignment: Alignment.center,
             children: [
-              for (final size in [190.0, 145.0, 100.0])
+              for (final size in [224.0, 170.0, 116.0])
                 Container(
                   width: size,
                   height: size,
@@ -957,19 +1109,19 @@ class _SosPageState extends State<SosPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   SizedBox(
-                    width: 108,
-                    height: 108,
+                    width: 124,
+                    height: 124,
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
                         const CircleAvatar(
-                          radius: 54,
+                          radius: 62,
                           backgroundColor: Colors.white,
                         ),
                         if (_sosHoldActive)
                           SizedBox(
-                            width: 82,
-                            height: 82,
+                            width: 94,
+                            height: 94,
                             child: CircularProgressIndicator(
                               value: progress,
                               strokeWidth: 6,
@@ -979,7 +1131,7 @@ class _SosPageState extends State<SosPage> {
                           ),
                         Icon(
                           Icons.warning_rounded,
-                          size: 58,
+                          size: 66,
                           color: const Color(0xFFD92323),
                         ),
                       ],
@@ -1017,141 +1169,92 @@ class _SosPageState extends State<SosPage> {
     );
   }
 
-  Widget _buildSafetyCard() {
-    return _surfaceCard(
-      child: Row(
-        children: [
-          _softIcon(Icons.shield_outlined, size: 42),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'ใช้ SOS เมื่อมีเหตุฉุกเฉิน\nตำแหน่งขึ้นอยู่กับสิทธิ์และการตั้งค่าอุปกรณ์',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                height: 1.35,
-              ),
-            ),
-          ),
-          FutureBuilder<bool>(
-            future: _isLocationPermissionReady(),
-            builder: (context, snapshot) => Icon(
-              Icons.location_on_outlined,
-              color: snapshot.data == true
-                  ? const Color(0xFFD92323)
-                  : const Color(0xFF777777),
-              size: 28,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _surfaceCard({required Widget child, VoidCallback? onTap}) {
-    final colors = Theme.of(context).colorScheme;
-    final card = Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colors.outlineVariant),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.035),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: child,
-    );
-    return onTap == null
-        ? card
-        : Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: onTap,
-              child: card,
-            ),
-          );
-  }
-
-  Widget _softIcon(IconData icon, {required double size}) {
-    final colors = Theme.of(context).colorScheme;
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: colors.errorContainer,
-        shape: BoxShape.circle,
-      ),
-      child: Icon(icon, color: colors.onErrorContainer, size: 27),
-    );
-  }
-
   Widget _buildActiveSosSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Text(
-              'My SOS',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-            ),
-            const Spacer(),
-            TextButton.icon(
-              onPressed: () => setState(() => _currentIndex = 1),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFD92323),
-                padding: EdgeInsets.zero,
-              ),
-              icon: const Icon(Icons.chevron_right_rounded, size: 20),
-              label: const Text('View all'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        StreamBuilder<List<SosMessage>>(
-          stream: widget.repository.watchAll(),
-          builder: (context, snapshot) {
-            if (snapshot.hasError) {
-              return _buildErrorCard('Unable to load SOS records.');
-            }
+    return StreamBuilder<List<SosMessage>>(
+      stream: _activeSosStream,
+      builder: (context, sosSnapshot) => StreamBuilder<Set<String>>(
+        stream: _activeInboundSosIdsStream,
+        builder: (context, inboundSnapshot) {
+          if (sosSnapshot.hasError || inboundSnapshot.hasError) {
+            return _buildErrorCard('Unable to load the active SOS.');
+          }
+          if (sosSnapshot.connectionState == ConnectionState.waiting ||
+              inboundSnapshot.connectionState == ConnectionState.waiting) {
+            return const SizedBox.shrink();
+          }
+          final inboundIds = inboundSnapshot.data ?? const <String>{};
+          final active =
+              (sosSnapshot.data ?? const <SosMessage>[])
+                  .where(
+                    (sos) =>
+                        sos.status == 'active' && !inboundIds.contains(sos.id),
+                  )
+                  .toList()
+                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          if (active.isEmpty) return const SizedBox.shrink();
+          return _buildActiveSosChatBanner(active.first);
+        },
+      ),
+    );
+  }
 
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: CircularProgressIndicator(),
-                ),
-              );
-            }
-
-            final messages = snapshot.data ?? [];
-
-            if (messages.isEmpty) {
-              return _buildEmptyCard(
-                icon: Icons.inbox_outlined,
-                title: 'No SOS yet',
-                message: 'Your emergency alerts will appear here.',
-              );
-            }
-
-            final recent = messages.take(2).toList();
-
-            return Column(
-              children: [
-                for (final sos in recent) ...[
-                  _buildSosCard(sos, historyStyle: true),
-                  const SizedBox(height: 12),
+  Widget _buildActiveSosChatBanner(
+    SosMessage sos, {
+    bool returnToNeedHelp = false,
+  }) {
+    final colors = Theme.of(context).colorScheme;
+    return Semantics(
+      button: true,
+      label: 'เปิดแชต SOS ที่กำลังดำเนินอยู่',
+      hint: 'เปิดห้องสนทนาของเหตุ ${sos.id}',
+      excludeSemantics: true,
+      child: Material(
+        key: ValueKey('active-sos-chat-banner-${sos.id}'),
+        color: colors.errorContainer,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () =>
+              _openIncidentChat(sos, returnToNeedHelp: returnToNeedHelp),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 72),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  Icon(Icons.chat_bubble, color: colors.onErrorContainer),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'SOS กำลังดำเนินอยู่',
+                          style: TextStyle(
+                            color: colors.onErrorContainer,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'แตะเพื่อเปิดแชต · Incident ${sos.id}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: colors.onErrorContainer),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_rounded,
+                    color: colors.onErrorContainer,
+                  ),
                 ],
-              ],
-            );
-          },
+              ),
+            ),
+          ),
         ),
-      ],
+      ),
     );
   }
 
@@ -1162,11 +1265,10 @@ class _SosPageState extends State<SosPage> {
       _sosHoldActive = true;
       _sosHoldProgress = 0;
     });
-    final started = DateTime.now();
     _sosHoldTimer = Timer.periodic(const Duration(milliseconds: 40), (timer) {
       if (!mounted) return timer.cancel();
       final progress =
-          DateTime.now().difference(started).inMilliseconds /
+          (timer.tick * const Duration(milliseconds: 40).inMilliseconds) /
           _sosHoldDuration.inMilliseconds;
       if (progress >= 1) {
         timer.cancel();
@@ -1192,39 +1294,6 @@ class _SosPageState extends State<SosPage> {
     });
   }
 
-  Future<bool> _isLocationPermissionReady() async {
-    if (!await Geolocator.isLocationServiceEnabled()) return false;
-    final permission = await Geolocator.checkPermission();
-    return permission == LocationPermission.always ||
-        permission == LocationPermission.whileInUse;
-  }
-
-  Future<void> _showEmergencyAssistanceInfo() async {
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => const SafeArea(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(24, 4, 24, 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Emergency assistance',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-              ),
-              SizedBox(height: 10),
-              Text(
-                'Press and hold the red SOS button to create an alert. Guest SOS stays on this device, including after sign-in. SOS created while signed in is saved locally first and synchronized only with that account.',
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   // ---------------------------------------------------------------------------
   // HISTORY
   // ---------------------------------------------------------------------------
@@ -1239,61 +1308,60 @@ class _SosPageState extends State<SosPage> {
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 22, 16, 4),
+                padding: const EdgeInsets.fromLTRB(20, 20, 12, 4),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'ประวัติ SOS',
-                            style: TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.6,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'ตรวจเหตุ สถานะการส่ง และข้อมูลที่เก็บในเครื่อง',
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurfaceVariant,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
+                    const Expanded(
+                      child: Text(
+                        'ประวัติ SOS',
+                        style: TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.6,
+                        ),
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Filter history',
-                      onPressed: _showHistoryFilterSheet,
-                      style: IconButton.styleFrom(
-                        backgroundColor:
-                            theme.colorScheme.surfaceContainerHighest,
-                        side: BorderSide(
-                          color: theme.colorScheme.outlineVariant,
-                        ),
-                        minimumSize: const Size(52, 52),
+                      tooltip: _historySearchVisible
+                          ? 'ปิดการค้นหา'
+                          : 'ค้นหาประวัติ',
+                      onPressed: () => setState(
+                        () => _historySearchVisible = !_historySearchVisible,
                       ),
-                      icon: const Icon(Icons.tune_rounded, size: 22),
+                      icon: Icon(
+                        _historySearchVisible ? Icons.close : Icons.search,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: _historyNewestFirst
+                          ? 'ใหม่ก่อน แตะเพื่อเรียงเก่าก่อน'
+                          : 'เก่าก่อน แตะเพื่อเรียงใหม่ก่อน',
+                      onPressed: () => setState(
+                        () => _historyNewestFirst = !_historyNewestFirst,
+                      ),
+                      icon: Icon(
+                        _historyNewestFirst
+                            ? Icons.arrow_downward_rounded
+                            : Icons.arrow_upward_rounded,
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
             SliverToBoxAdapter(
-              child: Material(
-                color: background,
-                child: ListTile(
-                  leading: const Icon(Icons.phone_android),
-                  title: const Text('ข้อมูลในเครื่อง'),
-                  subtitle: const Text(
-                    'Guest SOS บนอุปกรณ์นี้ • ไม่ส่งขึ้น Cloud • ผู้ใช้เครื่องนี้เปิดดูได้',
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.phone_android, size: 20),
+                    label: const Text('ข้อมูลในเครื่อง'),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                    ),
+                    onPressed: _openDeviceHistory,
                   ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _openDeviceHistory,
                 ),
               ),
             ),
@@ -1305,9 +1373,9 @@ class _SosPageState extends State<SosPage> {
                 ),
               ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 22, 20, 32),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
               sliver: StreamBuilder<List<SosMessage>>(
-                stream: widget.repository.watchAll(),
+                stream: _historySosStream,
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     return SliverToBoxAdapter(
@@ -1350,30 +1418,32 @@ class _SosPageState extends State<SosPage> {
                         resolved: resolvedCount,
                         cancelled: cancelledCount,
                       ),
-                      const SizedBox(height: 20),
-                      _buildHistoryFilter(),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _historySearchController,
-                        onChanged: (value) => setState(
-                          () => _historySearch = value.trim().toLowerCase(),
+                      if (_historySearchVisible) ...[
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _historySearchController,
+                          autofocus: true,
+                          onChanged: (value) => setState(
+                            () => _historySearch = value.trim().toLowerCase(),
+                          ),
+                          decoration: InputDecoration(
+                            prefixIcon: const Icon(Icons.search),
+                            hintText: 'ค้นหา SOS หรือข้อความ',
+                            suffixIcon: _historySearch.isEmpty
+                                ? null
+                                : IconButton(
+                                    tooltip: 'ล้างคำค้นหา',
+                                    onPressed: () {
+                                      _historySearchController.clear();
+                                      setState(() => _historySearch = '');
+                                    },
+                                    icon: const Icon(Icons.clear),
+                                  ),
+                            border: const OutlineInputBorder(),
+                          ),
                         ),
-                        decoration: InputDecoration(
-                          prefixIcon: const Icon(Icons.search),
-                          hintText: 'Search SOS ID or message',
-                          suffixIcon: _historySearch.isEmpty
-                              ? null
-                              : IconButton(
-                                  onPressed: () {
-                                    _historySearchController.clear();
-                                    setState(() => _historySearch = '');
-                                  },
-                                  icon: const Icon(Icons.clear),
-                                ),
-                          border: const OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
+                      ],
+                      const SizedBox(height: 16),
                       if (filteredMessages.isEmpty)
                         _buildEmptyCard(
                           icon: _historyFilterIcon,
@@ -1384,11 +1454,7 @@ class _SosPageState extends State<SosPage> {
                         )
                       else
                         for (final sos in filteredMessages) ...[
-                          _buildSosCard(
-                            sos,
-                            showActions: true,
-                            historyStyle: true,
-                          ),
+                          _buildSosCard(sos, historyStyle: true),
                           const SizedBox(height: 12),
                         ],
                     ]),
@@ -1400,73 +1466,6 @@ class _SosPageState extends State<SosPage> {
         ),
       ),
     );
-  }
-
-  Future<void> _showHistoryFilterSheet() async {
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const ListTile(
-              title: Text(
-                'Filter history',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ),
-            for (final filter in const [
-              ('all', 'All', Icons.history_rounded),
-              ('active', 'Active', Icons.warning_amber_rounded),
-              ('resolved', 'Resolved', Icons.check_circle_outline),
-              ('cancelled', 'Cancelled', Icons.cancel_outlined),
-            ])
-              ListTile(
-                onTap: () => Navigator.pop(context, filter.$1),
-                title: Text(filter.$2),
-                leading: Icon(filter.$3),
-                trailing: Icon(
-                  _historyFilter == filter.$1
-                      ? Icons.radio_button_checked
-                      : Icons.radio_button_off,
-                  color: _historyFilter == filter.$1
-                      ? const Color(0xFFD92323)
-                      : const Color(0xFFAAA4A2),
-                ),
-              ),
-            ListTile(
-              leading: const Icon(Icons.sort),
-              title: Text(
-                _historyNewestFirst ? 'Newest first' : 'Oldest first',
-              ),
-              trailing: const Icon(Icons.swap_vert),
-              onTap: () {
-                Navigator.pop(context);
-                setState(() => _historyNewestFirst = !_historyNewestFirst);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.restart_alt),
-              title: const Text('Reset filters'),
-              onTap: () {
-                Navigator.pop(context);
-                _historySearchController.clear();
-                setState(() {
-                  _historyFilter = 'all';
-                  _historySearch = '';
-                  _historyNewestFirst = true;
-                });
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-    if (selected != null && mounted) {
-      setState(() => _historyFilter = selected);
-    }
   }
 
   List<SosMessage> _filterHistory(List<SosMessage> messages) {
@@ -1494,205 +1493,106 @@ class _SosPageState extends State<SosPage> {
     required int cancelled,
   }) {
     final colors = Theme.of(context).colorScheme;
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      color: colors.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: colors.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            const spacing = 12.0;
-            final itemWidth = (constraints.maxWidth - spacing) / 2;
-
-            return Wrap(
-              spacing: spacing,
-              runSpacing: spacing,
-              children: [
-                SizedBox(
-                  width: itemWidth,
-                  child: _buildHistoryCount(
-                    label: 'Total',
-                    description: 'All time',
-                    count: total,
-                    icon: Icons.history,
-                    background: const Color(0xFFF4F3F8),
-                  ),
-                ),
-                SizedBox(
-                  width: itemWidth,
-                  child: _buildHistoryCount(
-                    label: 'Active',
-                    description: 'Currently open',
-                    count: active,
-                    icon: Icons.warning_amber_rounded,
-                    color: Theme.of(context).colorScheme.error,
-                    background: const Color(0xFFFFF1F0),
-                  ),
-                ),
-                SizedBox(
-                  width: itemWidth,
-                  child: _buildHistoryCount(
-                    label: 'Resolved',
-                    description: 'Completed',
-                    count: resolved,
-                    icon: Icons.check_circle_outline,
-                    color: Theme.of(context).colorScheme.primary,
-                    background: const Color(0xFFF0F8F5),
-                  ),
-                ),
-                SizedBox(
-                  width: itemWidth,
-                  child: _buildHistoryCount(
-                    label: 'Cancelled',
-                    description: 'Cancelled by you',
-                    count: cancelled,
-                    icon: Icons.cancel_outlined,
-                    color: Theme.of(context).colorScheme.tertiary,
-                    background: const Color(0xFFFFF8EC),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHistoryCount({
-    required String label,
-    required int count,
-    required IconData icon,
-    required String description,
-    required Color background,
-    Color? color,
-  }) {
-    final theme = Theme.of(context);
-    final itemColor = color ?? theme.colorScheme.onSurfaceVariant;
-
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 10, 12),
+      key: const ValueKey('history-status-summary'),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(18),
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: itemColor.withValues(alpha: 0.09),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: itemColor, size: 22),
+          _buildHistoryCount(
+            label: 'ทั้งหมด',
+            semanticLabel: 'ประวัติทั้งหมด',
+            count: total,
+            filter: 'all',
+            color: colors.onSurfaceVariant,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  count.toString(),
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  description,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: const Color(0xFF777777),
-                  ),
-                ),
-              ],
-            ),
+          _buildHistoryCount(
+            label: 'กำลัง',
+            semanticLabel: 'SOS ที่กำลังดำเนินอยู่',
+            count: active,
+            filter: 'active',
+            color: colors.error,
+          ),
+          _buildHistoryCount(
+            label: 'สำเร็จ',
+            semanticLabel: 'SOS ที่สิ้นสุดแล้ว',
+            count: resolved,
+            filter: 'resolved',
+            color: const Color(0xFF397A62),
+          ),
+          _buildHistoryCount(
+            label: 'ยกเลิก',
+            semanticLabel: 'SOS ที่ยกเลิกแล้ว',
+            count: cancelled,
+            filter: 'cancelled',
+            color: colors.tertiary,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildHistoryFilter() {
-    return Row(
-      children: [
-        for (final filter in const [
-          ('all', 'All'),
-          ('active', 'Active'),
-          ('resolved', 'Resolved'),
-          ('cancelled', 'Cancelled'),
-        ])
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(right: filter.$1 == 'cancelled' ? 0 : 8),
-              child: _buildHistoryFilterChip(
-                value: filter.$1,
-                label: filter.$2,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildHistoryFilterChip({
-    required String value,
+  Widget _buildHistoryCount({
     required String label,
+    required String semanticLabel,
+    required int count,
+    required String filter,
+    required Color color,
   }) {
-    final selected = _historyFilter == value;
-    final colors = Theme.of(context).colorScheme;
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: '$label history filter',
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () => setState(() => _historyFilter = value),
-        child: Container(
-          height: 48,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected
-                ? colors.errorContainer
-                : colors.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: selected ? colors.error : colors.outlineVariant,
-            ),
-          ),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (selected) ...[
-                  Icon(Icons.check_rounded, size: 18, color: colors.error),
-                  const SizedBox(width: 4),
-                ],
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: selected ? colors.error : colors.onSurfaceVariant,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+    final theme = Theme.of(context);
+    final selected = _historyFilter == filter;
+    return Expanded(
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: '$semanticLabel $count รายการ',
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => setState(() => _historyFilter = filter),
+            child: Container(
+              key: ValueKey('history-filter-$filter'),
+              constraints: const BoxConstraints(minHeight: 64),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              decoration: BoxDecoration(
+                color: selected
+                    ? color.withValues(alpha: 0.12)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    count.toString(),
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: selected ? color : theme.colorScheme.onSurface,
+                      fontWeight: FontWeight.w800,
+                      height: 1,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: selected
+                            ? color
+                            : theme.colorScheme.onSurfaceVariant,
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1831,11 +1731,167 @@ class _SosPageState extends State<SosPage> {
   // ---------------------------------------------------------------------------
 
   Widget _buildChat() {
-    return EmergencyChatPage(
-      repository: widget.chatRepository,
-      onMessageCreatedWithDestination: _enqueueChat,
-      bleTransport: widget.bleTransport,
+    if (_currentIndex != 2) return const SizedBox.shrink();
+    return SafeArea(
+      child: StreamBuilder<List<SosMessage>>(
+        stream: _chatSosStream,
+        builder: (context, sosSnapshot) => StreamBuilder<Set<String>>(
+          stream: _chatInboundSosIdsStream,
+          builder: (context, inboundSnapshot) {
+            if (sosSnapshot.hasError || inboundSnapshot.hasError) {
+              return _buildPageError('โหลดรายการแชตไม่สำเร็จ');
+            }
+            if (sosSnapshot.connectionState == ConnectionState.waiting ||
+                inboundSnapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final inboundIds = inboundSnapshot.data ?? const <String>{};
+            final rescue = _role == AppRole.rescue;
+            final incidents =
+                (sosSnapshot.data ?? const <SosMessage>[])
+                    .where(
+                      (sos) => rescue
+                          ? inboundIds.contains(sos.id)
+                          : !inboundIds.contains(sos.id),
+                    )
+                    .toList()
+                  ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+            return CustomScrollView(
+              slivers: [
+                const SliverAppBar(
+                  pinned: true,
+                  title: Text('แชตตามเหตุการณ์'),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      Text(
+                        rescue
+                            ? 'เลือกเหตุที่ได้รับเพื่อเปิดแชตให้ถูกเหตุการณ์'
+                            : 'เลือก SOS ของคุณเพื่อเปิดแชตให้ถูกเหตุการณ์',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      if (incidents.isEmpty)
+                        _buildEmptyCard(
+                          icon: Icons.chat_bubble_outline,
+                          title: 'ยังไม่มีเหตุสำหรับแชต',
+                          message: rescue
+                              ? 'เหตุที่รับผ่าน BLE จะปรากฏที่นี่หลังบันทึกบนอุปกรณ์สำเร็จ'
+                              : 'สร้าง SOS ก่อน แล้วกลับมาเลือกเหตุการณ์ที่ต้องการสนทนา',
+                          actionLabel: rescue
+                              ? 'ดูเหตุที่ได้รับ'
+                              : 'ดูประวัติ SOS',
+                          onAction: () =>
+                              setState(() => _currentIndex = rescue ? 0 : 1),
+                        )
+                      else
+                        for (final sos in incidents) ...[
+                          _buildChatIncidentCard(sos),
+                          const SizedBox(height: 12),
+                        ],
+                    ]),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
     );
+  }
+
+  Widget _buildChatIncidentCard(SosMessage sos) {
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: Semantics(
+        button: true,
+        label: 'เปิดแชตเหตุ ${sos.type} ${sos.id}',
+        child: InkWell(
+          onTap: () => _openIncidentChat(sos),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const CircleAvatar(child: Icon(Icons.chat_bubble_outline)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        sos.type.toUpperCase(),
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Incident ${sos.id}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _formatDateTime(sos.createdAt),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    _buildStatusChip(sos.status),
+                    const SizedBox(height: 8),
+                    const Icon(Icons.chevron_right_rounded),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openIncidentChat(
+    SosMessage sos, {
+    bool returnToNeedHelp = false,
+  }) async {
+    if (_openingIncidentChat) return;
+    _openingIncidentChat = true;
+    try {
+      if (returnToNeedHelp && _role != AppRole.needHelp) {
+        await _selectRole(AppRole.needHelp);
+        if (!mounted) return;
+      }
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => EmergencyChatPage(
+            sosId: sos.id,
+            contactName: 'Incident ${sos.id}',
+            repository: widget.chatRepository,
+            onMessageCreatedWithDestination: _enqueueChat,
+            sosDeliveryStream: widget.bleCoordinator?.watchDeliveryForSos(
+              sos.id,
+            ),
+            relayStatusStream: widget.bleCoordinator?.watchRelayStatus(sos.id),
+          ),
+        ),
+      );
+    } finally {
+      _openingIncidentChat = false;
+    }
   }
 
   Future<void> _enqueueChat(
@@ -1893,7 +1949,10 @@ class _SosPageState extends State<SosPage> {
                                     repository: widget.chatRepository,
                                     onMessageCreatedWithDestination:
                                         _enqueueChat,
-                                    bleTransport: widget.bleTransport,
+                                    sosDeliveryStream: widget.bleCoordinator
+                                        ?.watchDeliveryForSos(sosId),
+                                    relayStatusStream: widget.bleCoordinator
+                                        ?.watchRelayStatus(sosId),
                                   ),
                                 ),
                               );
@@ -1908,6 +1967,89 @@ class _SosPageState extends State<SosPage> {
                       title: 'Location',
                       subtitle: 'Permission and location services',
                       onTap: _showLocationSettings,
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    SwitchListTile(
+                      key: const ValueKey('emergency-public-relay-consent'),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 6,
+                      ),
+                      secondary: const Icon(Icons.sos_outlined),
+                      title: const Text(
+                        'Automatic public relay for my SOS',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: Text(
+                        _emergencyConsentError ??
+                            (_emergencyConsent.allowPublicRelay
+                                ? 'On. During an emergency, signed SOS data may be stored and forwarded by opted-in nearby devices for up to 30 minutes.'
+                                : 'Off. Configure this before an emergency. Bluetooth permission alone never enables public relay.'),
+                      ),
+                      value: _emergencyConsent.allowPublicRelay,
+                      onChanged:
+                          _emergencyConsentLoading || _emergencyConsentSaving
+                          ? null
+                          : (value) => _saveEmergencyConsent(
+                              _emergencyConsent.copyWith(
+                                allowPublicRelay: value,
+                                shareLocation: value
+                                    ? _emergencyConsent.shareLocation
+                                    : false,
+                              ),
+                            ),
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    SwitchListTile(
+                      key: const ValueKey('emergency-location-consent'),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 6,
+                      ),
+                      secondary: const Icon(Icons.location_on_outlined),
+                      title: const Text(
+                        'Include location in public relay',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: const Text(
+                        'Separate consent. When off, relay messages contain no coordinates.',
+                      ),
+                      value:
+                          _emergencyConsent.allowPublicRelay &&
+                          _emergencyConsent.shareLocation,
+                      onChanged:
+                          _emergencyConsentLoading ||
+                              _emergencyConsentSaving ||
+                              !_emergencyConsent.allowPublicRelay
+                          ? null
+                          : (value) => _saveEmergencyConsent(
+                              _emergencyConsent.copyWith(shareLocation: value),
+                            ),
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    SwitchListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 6,
+                      ),
+                      secondary: const Icon(Icons.hub_outlined),
+                      title: const Text(
+                        'Nearby SOS relay',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: Text(
+                        _relayPreferenceError ??
+                            (_relayParticipationEnabled
+                                ? 'On while the app is open. This device may store and forward public emergency SOS messages; it does not become a responder.'
+                                : 'Off by default. Turn this on only to store and forward other people\'s public emergency SOS messages. Your own Public Relay SOS uses the consent selected for that incident.'),
+                      ),
+                      value: _relayParticipationEnabled,
+                      onChanged:
+                          _relayPreferenceLoading ||
+                              _relayPreferenceSaving ||
+                              widget.bleCoordinator == null
+                          ? null
+                          : _setRelayParticipation,
                     ),
                     if (kDebugMode) ...[
                       const Divider(height: 1, indent: 56),
@@ -2250,6 +2392,37 @@ class _SosPageState extends State<SosPage> {
     }
   }
 
+  Future<void> _beginAutomaticEmergencyRouting(
+    SosMessage sos,
+    EmergencyConsent consent,
+  ) async {
+    try {
+      if (consent.allowPublicRelay) {
+        final coordinator = widget.bleCoordinator;
+        if (coordinator == null) {
+          throw StateError('Public relay is unavailable on this device.');
+        }
+        // Persist the signed relay job before starting native discovery. A
+        // permission or Bluetooth failure cannot erase the local SOS or job.
+        await coordinator.enqueuePublicRelay(
+          sos,
+          includeLocation: consent.shareLocation,
+        );
+      }
+      await widget.onBleStartRequested?.call();
+    } catch (error) {
+      debugPrint('[SOS auto-route] startup failed type=${error.runtimeType}');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'SOS is saved locally. Nearby delivery is waiting for Bluetooth permission or a compatible device.',
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _sendSos() async {
     if (_sendingSos) {
       return;
@@ -2261,6 +2434,7 @@ class _SosPageState extends State<SosPage> {
     try {
       final messages = await widget.repository.listActiveIncidents();
       final inboundIds = await _deliveryRepository.listInboundSosIds();
+      if (!mounted) return;
       final activeOwn = messages.where(
         (sos) => sos.status == 'active' && !inboundIds.contains(sos.id),
       );
@@ -2273,24 +2447,17 @@ class _SosPageState extends State<SosPage> {
             ),
           ),
         );
-        await _showSosDetail(activeOwn.first);
+        await _openIncidentChat(activeOwn.first);
         return;
       }
 
+      await _emergencyConsentReady;
+      if (!mounted) return;
+      final consent = _emergencyConsent;
       final id = DateTime.now().microsecondsSinceEpoch.toString();
-      String? destinationId;
-      if (widget.bleTransport != null) {
-        await _prepareBleForInteraction();
-        if (!mounted) return;
-        destinationId = await Navigator.of(context).push<String>(
-          MaterialPageRoute<String>(
-            builder: (_) =>
-                BleRecipientPickerPage(transport: widget.bleTransport!),
-          ),
-        );
-        if (!mounted) return;
-      }
-      final position = await _getCurrentLocation();
+      final position = consent.shareLocation
+          ? await (widget.locationProvider?.call() ?? _getCurrentLocation())
+          : null;
 
       if (!mounted) {
         return;
@@ -2302,12 +2469,21 @@ class _SosPageState extends State<SosPage> {
         message: 'Emergency SOS',
         latitude: position?.latitude,
         longitude: position?.longitude,
-        destinationId: destinationId,
+        // Direct v1 deliberately stays unrouted until a trustworthy incident
+        // route exists. Public Relay v2 performs its own authenticated,
+        // capability-gated discovery below.
+        destinationId: null,
       );
 
-      // Local persistence is independent from BLE permission/initialization.
-      // A denied permission must not lose the saved SOS.
-      unawaited(widget.onBleStartRequested?.call());
+      final created = await widget.repository.findById(id);
+      if (created == null) {
+        throw StateError('The saved SOS could not be reopened.');
+      }
+
+      // Navigation does not wait for scanning, session proof, connection or
+      // acknowledgement. The same persisted incident/message identities are
+      // used if a route becomes available later.
+      unawaited(_beginAutomaticEmergencyRouting(created, consent));
 
       if (!mounted) {
         return;
@@ -2321,12 +2497,15 @@ class _SosPageState extends State<SosPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            hasLocation
-                ? 'SOS sent with your location.'
-                : 'SOS sent without location.',
+            consent.allowPublicRelay
+                ? 'SOS saved. Searching for opted-in relay devices; final delivery is unconfirmed.'
+                : hasLocation
+                ? 'SOS saved with location. Waiting for a trusted nearby route.'
+                : 'SOS saved locally. Waiting for a trusted nearby route.',
           ),
         ),
       );
+      await _openIncidentChat(created);
     } catch (error) {
       if (!mounted) {
         return;
@@ -2404,6 +2583,28 @@ class _SosPageState extends State<SosPage> {
                         ),
                       ),
                       _buildStatusChip(sos.status),
+                      if (!readOnly && !rescueView)
+                        PopupMenuButton<String>(
+                          tooltip: 'จัดการ SOS',
+                          onSelected: (value) {
+                            Navigator.of(sheetContext).pop();
+                            if (value == 'edit') {
+                              unawaited(_editSos(sos));
+                            } else if (value == 'delete') {
+                              unawaited(_deleteSos(sos));
+                            }
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(
+                              value: 'edit',
+                              child: Text('แก้ไขข้อความ'),
+                            ),
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: Text('ลบ SOS'),
+                            ),
+                          ],
+                        ),
                       IconButton(
                         tooltip: 'Close SOS details',
                         onPressed: () => Navigator.of(sheetContext).pop(),
@@ -2419,6 +2620,8 @@ class _SosPageState extends State<SosPage> {
                   ),
                   if (!readOnly && !rescueView && widget.bleCoordinator != null)
                     _buildBleDeliveryDetail(sos, sheetContext),
+                  if (!readOnly && !rescueView && widget.bleCoordinator != null)
+                    _buildRelayDeliveryDetail(sos),
                   if (!readOnly && !rescueView)
                     _buildDetailRow(
                       icon: Icons.volunteer_activism_outlined,
@@ -2539,7 +2742,10 @@ class _SosPageState extends State<SosPage> {
                                 sosId: sos.id,
                                 repository: widget.chatRepository,
                                 onMessageCreatedWithDestination: _enqueueChat,
-                                bleTransport: widget.bleTransport,
+                                sosDeliveryStream: widget.bleCoordinator
+                                    ?.watchDeliveryForSos(sos.id),
+                                relayStatusStream: widget.bleCoordinator
+                                    ?.watchRelayStatus(sos.id),
                               ),
                             ),
                           );
@@ -2623,18 +2829,7 @@ class _SosPageState extends State<SosPage> {
       builder: (context, snapshot) {
         final row = snapshot.data;
         final state = row == null ? null : BleOutboxState.parse(row.state);
-        final label = switch (state) {
-          null => 'Waiting for recipient',
-          BleOutboxState.queued =>
-            row!.destinationId == null ? 'Waiting for recipient' : 'Queued',
-          BleOutboxState.sending => 'Sending',
-          BleOutboxState.writeAccepted ||
-          BleOutboxState.awaitingAcknowledgement =>
-            'Awaiting receiver confirmation',
-          BleOutboxState.acknowledged => 'บันทึกบนเครื่องผู้รับแล้ว',
-          BleOutboxState.failed => 'Failed; will retry',
-          BleOutboxState.expired => 'Expired; retry unavailable',
-        };
+        final label = sosBleDeliveryStatusText(row);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -2692,6 +2887,33 @@ class _SosPageState extends State<SosPage> {
     );
   }
 
+  Widget _buildRelayDeliveryDetail(SosMessage sos) {
+    return StreamBuilder<RelayStatusSnapshot>(
+      stream: widget.bleCoordinator!.watchRelayStatus(sos.id),
+      builder: (context, snapshot) {
+        final relay = snapshot.data;
+        if (relay == null || !relay.hasRelayJob) return const SizedBox.shrink();
+        final expired =
+            relay.expiresAt != null &&
+            !relay.expiresAt!.isAfter(DateTime.now().toUtc());
+        final label = expired
+            ? 'Relay expired before final delivery could be confirmed'
+            : relay.acceptedRelayCount > 0
+            ? 'Stored on ${relay.acceptedRelayCount} relay device${relay.acceptedRelayCount == 1 ? '' : 's'}; final delivery unconfirmed'
+            : relay.pendingAttemptCount > 0
+            ? 'Forwarding through nearby devices; final delivery unconfirmed'
+            : relay.failedAttemptCount > 0
+            ? 'Waiting to retry relay forwarding; final delivery unconfirmed'
+            : 'Waiting to forward; final delivery unconfirmed';
+        return _buildDetailRow(
+          icon: relay.acceptedRelayCount > 0 ? Icons.hub : Icons.hub_outlined,
+          label: 'Public SOS relay',
+          value: label,
+        );
+      },
+    );
+  }
+
   Future<void> _changeSosStatus(SosMessage sos, String status) async {
     final isResolved = status == 'resolved';
 
@@ -2744,6 +2966,7 @@ class _SosPageState extends State<SosPage> {
         longitude: sos.longitude,
         status: status,
       );
+      await widget.bleCoordinator?.cancelPublicRelay(sos.id);
 
       if (!mounted) {
         return;
@@ -2842,6 +3065,7 @@ class _SosPageState extends State<SosPage> {
 
     try {
       await widget.repository.delete(sos.id);
+      await widget.bleCoordinator?.cancelPublicRelay(sos.id);
 
       if (!mounted) {
         return;
@@ -2909,12 +3133,10 @@ class _SosPageState extends State<SosPage> {
 
   Widget _buildSosCard(
     SosMessage sos, {
-    bool showActions = false,
     bool historyStyle = false,
     bool readOnly = false,
   }) {
     final isActive = sos.status == 'active';
-    final isSynced = sos.syncState == 'synced';
 
     final statusColor = isActive
         ? const Color(0xFFD92323)
@@ -2923,6 +3145,9 @@ class _SosPageState extends State<SosPage> {
         : const Color(0xFF397A62);
 
     return Card(
+      key: historyStyle && !readOnly
+          ? ValueKey('history-sos-chat-card-${sos.id}')
+          : null,
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       elevation: historyStyle ? 1 : null,
@@ -2935,7 +3160,11 @@ class _SosPageState extends State<SosPage> {
       ),
       child: InkWell(
         onTap: () {
-          _showSosDetail(sos, readOnly: readOnly);
+          if (historyStyle && !readOnly) {
+            unawaited(_openIncidentChat(sos));
+          } else {
+            _showSosDetail(sos, readOnly: readOnly);
+          }
         },
         child: Padding(
           padding: EdgeInsets.fromLTRB(
@@ -2950,8 +3179,8 @@ class _SosPageState extends State<SosPage> {
               Row(
                 children: [
                   Container(
-                    width: historyStyle ? 56 : 42,
-                    height: historyStyle ? 56 : 42,
+                    width: historyStyle ? 48 : 42,
+                    height: historyStyle ? 48 : 42,
                     decoration: BoxDecoration(
                       color: statusColor.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
@@ -2963,7 +3192,7 @@ class _SosPageState extends State<SosPage> {
                           ? Icons.cancel_outlined
                           : Icons.check_circle_outline,
                       color: statusColor,
-                      size: historyStyle ? 30 : null,
+                      size: historyStyle ? 26 : null,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -2985,25 +3214,6 @@ class _SosPageState extends State<SosPage> {
                     ),
                   ),
                   _buildStatusChip(sos.status),
-                  if (showActions)
-                    PopupMenuButton<String>(
-                      tooltip: 'SOS actions',
-                      padding: EdgeInsets.zero,
-                      onSelected: (value) {
-                        switch (value) {
-                          case 'edit':
-                            _editSos(sos);
-                            break;
-                          case 'delete':
-                            _deleteSos(sos);
-                            break;
-                        }
-                      },
-                      itemBuilder: (context) => const [
-                        PopupMenuItem(value: 'edit', child: Text('Edit')),
-                        PopupMenuItem(value: 'delete', child: Text('Delete')),
-                      ],
-                    ),
                 ],
               ),
               if (sos.message != null && sos.message!.isNotEmpty) ...[
@@ -3016,30 +3226,30 @@ class _SosPageState extends State<SosPage> {
                 ),
               ],
               const SizedBox(height: 12),
-              if (historyStyle)
-                const Divider(height: 1, color: Color(0xFFEDE9E8)),
-              if (historyStyle) const SizedBox(height: 12),
               Row(
                 children: [
                   Icon(
-                    sos.ownerId == guestDeviceOwnerId
-                        ? Icons.phone_android
-                        : isSynced
-                        ? Icons.cloud_done
-                        : Icons.cloud_upload_outlined,
+                    readOnly ? Icons.phone_android : Icons.chat_bubble_outline,
                     size: 16,
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    sos.ownerId == guestDeviceOwnerId
+                    readOnly
                         ? 'ข้อมูลในเครื่องเท่านั้น'
-                        : isSynced
-                        ? 'Synced'
-                        : 'Pending sync',
+                        : historyStyle
+                        ? 'แตะเพื่อเปิดแชต'
+                        : 'แตะเพื่อดูรายละเอียด',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const Spacer(),
-                  if (historyStyle)
+                  if (historyStyle && !readOnly)
+                    TextButton.icon(
+                      key: ValueKey('sos-details-button-${sos.id}'),
+                      onPressed: () => _showSosDetail(sos),
+                      icon: const Icon(Icons.info_outline, size: 18),
+                      label: const Text('รายละเอียด'),
+                    )
+                  else if (historyStyle)
                     const Icon(
                       Icons.chevron_right_rounded,
                       color: Color(0xFF4B4746),

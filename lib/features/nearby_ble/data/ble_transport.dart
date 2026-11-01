@@ -18,6 +18,175 @@ abstract interface class BleTransportClient {
   Future<void> dispose();
 }
 
+/// Owns the process-wide native scan and advertising state for one transport.
+///
+/// BLE scanning and advertising are global native operations. Feature code must
+/// therefore acquire a lease instead of calling start/stop directly; releasing
+/// one lease cannot stop an operation still required by another feature.
+class BlePresenceManager {
+  BlePresenceManager._(this._transport);
+
+  static final Expando<BlePresenceManager> _shared =
+      Expando<BlePresenceManager>('ble-presence-manager');
+
+  static BlePresenceManager sharedFor(BleTransportClient transport) =>
+      _shared[transport] ??= BlePresenceManager._(transport);
+
+  final BleTransportClient _transport;
+  final Set<Object> _discoveryLeases = <Object>{};
+  final Map<Object, String> _advertisingLeases = <Object, String>{};
+  Future<void> _tail = Future<void>.value();
+  bool _foreground = true;
+  bool _nativeDiscovering = false;
+  bool _nativeAdvertising = false;
+
+  bool get wantsDiscovery => _discoveryLeases.isNotEmpty;
+  bool get wantsAdvertising => _advertisingLeases.isNotEmpty;
+  bool get isDiscovering => _nativeDiscovering;
+  bool get isAdvertising => _nativeAdvertising;
+
+  Future<void> acquireDiscovery(Object owner) async {
+    if (!_discoveryLeases.add(owner)) return _enqueueReconcile();
+    try {
+      await _enqueueReconcile();
+    } on Object {
+      _discoveryLeases.remove(owner);
+      await _enqueueReconcile().catchError((_) {});
+      rethrow;
+    }
+  }
+
+  Future<void> releaseDiscovery(Object owner) async {
+    _discoveryLeases.remove(owner);
+    await _enqueueReconcile();
+  }
+
+  Future<void> acquireAdvertising(Object owner, {required String name}) async {
+    final previous = _advertisingLeases[owner];
+    _advertisingLeases[owner] = name;
+    try {
+      await _enqueueReconcile();
+    } on Object {
+      if (previous == null) {
+        _advertisingLeases.remove(owner);
+      } else {
+        _advertisingLeases[owner] = previous;
+      }
+      await _enqueueReconcile().catchError((_) {});
+      rethrow;
+    }
+  }
+
+  Future<void> releaseAdvertising(Object owner) async {
+    _advertisingLeases.remove(owner);
+    await _enqueueReconcile();
+  }
+
+  /// Suspends native presence while preserving feature intent for a later
+  /// foreground resume. Serialized reconciliation prevents stale completions
+  /// from leaving the native state inconsistent with aggregate intent.
+  Future<void> setForeground(bool foreground) async {
+    _foreground = foreground;
+    await _enqueueReconcile();
+  }
+
+  Future<void> retry() => _enqueueReconcile();
+
+  /// Native adapters drop scan/advertising state when Bluetooth becomes
+  /// unavailable. Forget only the observed native state while retaining all
+  /// consumer leases so a later powered-on event can reconcile them.
+  Future<void> notifyNativePresenceLost() {
+    final operation = _tail.then((_) {
+      _nativeDiscovering = false;
+      _nativeAdvertising = false;
+    });
+    _tail = operation.catchError((_) {});
+    return operation;
+  }
+
+  Future<void> shutdown() async {
+    _foreground = false;
+    _discoveryLeases.clear();
+    _advertisingLeases.clear();
+    await _enqueueReconcile();
+  }
+
+  Future<void> _enqueueReconcile() {
+    final operation = _tail.then((_) => _reconcile());
+    _tail = operation.catchError((_) {});
+    return operation;
+  }
+
+  Future<void> _reconcile() async {
+    final shouldDiscover = _foreground && wantsDiscovery;
+    final shouldAdvertise = _foreground && wantsAdvertising;
+
+    if (shouldDiscover && !_nativeDiscovering) {
+      await _transport.startDiscovery();
+      _nativeDiscovering = true;
+    } else if (!shouldDiscover && _nativeDiscovering) {
+      await _transport.stopDiscovery();
+      _nativeDiscovering = false;
+    }
+
+    if (shouldAdvertise && !_nativeAdvertising) {
+      await _transport.startAdvertising(name: _advertisingLeases.values.first);
+      _nativeAdvertising = true;
+    } else if (!shouldAdvertise && _nativeAdvertising) {
+      await _transport.stopAdvertising();
+      _nativeAdvertising = false;
+    }
+  }
+}
+
+/// Serializes complete BLE messages across every feature sharing a transport.
+///
+/// Native GATT writes are frame-oriented, but the receiver can only validate a
+/// message after every frame arrives. Direct SOS and Relay use the same native
+/// connection, so independently paced frame loops can otherwise interleave
+/// and starve a large Relay proof or offer. The queue is shared per transport
+/// and peer; callers retain ownership of message encoding and protocol rules.
+class BleMessageWriteQueue {
+  BleMessageWriteQueue._(this._transport);
+
+  static final Expando<BleMessageWriteQueue> _shared =
+      Expando<BleMessageWriteQueue>('ble-message-write-queue');
+
+  static BleMessageWriteQueue sharedFor(BleTransportClient transport) =>
+      _shared[transport] ??= BleMessageWriteQueue._(transport);
+
+  final BleTransportClient _transport;
+  final Map<String, Future<void>> _tails = <String, Future<void>>{};
+
+  /// Returns false when [canSend] cancels the message before all frames are
+  /// written. Native write completion is deliberately not an application ACK.
+  Future<bool> sendFrames(
+    String deviceId,
+    Iterable<List<int>> frames, {
+    required BleSessionRole role,
+    bool Function()? canSend,
+  }) async {
+    final immutableFrames = frames
+        .map((frame) => List<int>.unmodifiable(frame))
+        .toList(growable: false);
+    final previous = _tails[deviceId] ?? Future<void>.value();
+    final current = previous.then((_) async {
+      for (final frame in immutableFrames) {
+        if (canSend != null && !canSend()) return false;
+        await _transport.send(deviceId, frame, role: role);
+      }
+      return true;
+    });
+    final tail = current.then<void>((_) {}, onError: (_) {});
+    _tails[deviceId] = tail;
+    try {
+      return await current;
+    } finally {
+      if (identical(_tails[deviceId], tail)) _tails.remove(deviceId);
+    }
+  }
+}
+
 class BleTransport implements BleTransportClient {
   BleTransport({MethodChannel? methods, EventChannel? events})
     : _methods = methods ?? const MethodChannel('sos_ble_transport/methods'),
@@ -124,7 +293,10 @@ class BleTransport implements BleTransportClient {
   Future<void> send(String deviceId, List<int> frame, {BleSessionRole? role}) =>
       _call('send', {
         'deviceId': deviceId,
-        'data': frame,
+        // StandardMessageCodec sends a plain List<int> to Android as an
+        // ArrayList, while both native bridges require typed binary data
+        // (ByteArray on Android and FlutterStandardTypedData on iOS).
+        'data': Uint8List.fromList(frame),
         if (role != null) 'role': role.wireValue,
       });
   @override

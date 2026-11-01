@@ -17,6 +17,8 @@ class BleRecipientPickerPage extends StatefulWidget {
 }
 
 class _BleRecipientPickerPageState extends State<BleRecipientPickerPage> {
+  final Object _discoveryLease = Object();
+  late final BlePresenceManager _presence;
   final _devices = <String, BleDevice>{};
   final _states = <String, String>{};
   StreamSubscription<BleEvent>? _subscription;
@@ -31,6 +33,7 @@ class _BleRecipientPickerPageState extends State<BleRecipientPickerPage> {
   @override
   void initState() {
     super.initState();
+    _presence = BlePresenceManager.sharedFor(widget.transport);
     _subscription = widget.transport.events.listen(_onEvent);
     _ready = _prepare();
     unawaited(_ready!.catchError((_) {}));
@@ -42,7 +45,7 @@ class _BleRecipientPickerPageState extends State<BleRecipientPickerPage> {
       await widget.transport.initialize();
       if (_disposed) return;
       _scanning = true;
-      await widget.transport.startDiscovery();
+      await _presence.acquireDiscovery(_discoveryLease);
       if (mounted) setState(() {});
     } catch (error) {
       _scanning = false;
@@ -119,7 +122,7 @@ class _BleRecipientPickerPageState extends State<BleRecipientPickerPage> {
   void dispose() {
     _disposed = true;
     _scanning = false;
-    unawaited(widget.transport.stopDiscovery().catchError((_) {}));
+    unawaited(_presence.releaseDiscovery(_discoveryLease).catchError((_) {}));
     unawaited(_subscription?.cancel() ?? Future<void>.value());
     super.dispose();
   }

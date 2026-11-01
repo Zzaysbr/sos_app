@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sos_app/core/database/app_database.dart';
+import 'package:sos_app/features/nearby_ble/data/emergency_consent_store.dart';
 import 'package:sos_app/features/sos/data/sos_repository.dart';
 import 'package:sos_app/features/sos/presentation/sos_page.dart';
 import 'package:sos_app/features/role/data/role_preference_store.dart';
@@ -29,6 +30,29 @@ void main() {
     when(() => repository.watchAll())
         .thenAnswer((_) => Stream.value(<SosMessage>[]));
     when(() => repository.listActiveIncidents()).thenAnswer((_) async => []);
+    when(
+      () => repository.create(
+        id: any(named: 'id'),
+        type: any(named: 'type'),
+        message: any(named: 'message'),
+        latitude: any(named: 'latitude'),
+        longitude: any(named: 'longitude'),
+        destinationId: any(named: 'destinationId'),
+      ),
+    ).thenAnswer((_) async {});
+    when(() => repository.findById(any())).thenAnswer((invocation) async {
+      final id = invocation.positionalArguments.single as String;
+      return SosMessage(
+        id: id,
+        ownerId: guestDeviceOwnerId,
+        type: 'emergency',
+        message: 'Emergency SOS',
+        status: 'active',
+        syncState: 'pending',
+        createdAt: DateTime(2026),
+        updatedAt: DateTime(2026),
+      );
+    });
     await tester.pumpWidget(
       MaterialApp(
         home: SosPage(
@@ -36,6 +60,7 @@ void main() {
           rolePreferenceStore: MemoryRolePreferenceStore(AppRole.needHelp),
           bleTransport: transport,
           isGuest: true,
+          emergencyConsentStore: MemoryEmergencyConsentStore(),
           onBleStartRequested: start,
         ),
       ),
@@ -64,12 +89,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(transport.lifecycleCalls, contains('initialize'));
       await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 1));
       await transport.controller.close();
     },
   );
 
   testWidgets(
-    'SOS recipient picker waits for coordinator before a peer can connect',
+    'one-tap SOS opens Chat without relay options or recipient picker',
     (tester) async {
       final transport = FakeBleTransport();
       final ready = Completer<void>();
@@ -83,14 +109,17 @@ void main() {
       await tester.ensureVisible(find.text('Send SOS'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Send SOS'));
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(started, isTrue);
       expect(transport.lifecycleCalls, isEmpty);
+      expect(find.text('SOS relay options'), findsNothing);
+      expect(find.text('Choose BLE recipient'), findsNothing);
+      expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
       ready.complete();
       await tester.pumpAndSettle();
-      expect(find.text('Choose BLE recipient'), findsOneWidget);
-      expect(transport.lifecycleCalls, contains('initialize'));
+      expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 1));
       await transport.controller.close();
     },
   );

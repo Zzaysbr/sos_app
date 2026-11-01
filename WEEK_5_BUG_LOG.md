@@ -58,9 +58,9 @@ Continuation date: 20–22 October 2026 (Asia/Bangkok). Existing working-tree ch
 
 ## W5-07 — P1: legacy unbound messages and production map configuration
 
-- Legacy SOS inbox rows without an observed native source and already-queued old-identity Chat are preserved. No peer is inferred from a replay, account login or whichever device happens to connect. No automatic resend or payload/owner rewrite is implemented. Safe explicit legacy recovery UI/compatibility remains OPEN.
+- Legacy SOS inbox rows without an observed native source and already-queued old-identity Chat are preserved. No peer is inferred from a replay, account login or whichever device happens to connect. No automatic resend or payload/owner rewrite is implemented. Explicit recovery for queued/failed outgoing Chat is now implemented in W5-13; legacy SOS rows remain unchanged.
 - Map decision remains conditional Geoapify Free only; no account/key, paid plan or production configuration was introduced. Public OSM release fallback guard remains enabled. Native attribution links are now implemented; provider acceptance/terms/quota decision and runtime release configuration still require verification. No offline map tiles.
-- Status: **OPEN / RELEASE BLOCKER**. Review existing provider documentation/terms before configuring a free account. Do not treat debug/profile development tiles as production approval.
+- Status: **PARTIALLY CLOSED / RELEASE BLOCKER**. Legacy Chat recovery is automated-pass; production map configuration remains OPEN. Review existing provider documentation/terms before configuring a free account. Do not treat debug/profile development tiles as production approval.
 
 ## Validation
 
@@ -183,3 +183,151 @@ Unsigned iOS debug validation before W5-08: **exit 0, 464.3s**, `ios-debug-build
   ID once after a new coordinator/database session starts.
 - Physical range runs: **NOT RUN**. Use `BLE_RANGE_TEST_RUNBOOK.md`; no maximum
   range claim is made.
+
+## W5-13 — P1: legacy queued Chat had no explicit recipient recovery
+
+- Reproduce: an outgoing Chat persisted before a BLE destination was known has
+  a durable queued/failed outbox row with `destinationId = null`. Opening the
+  incident allowed selecting a recipient only for a new message; the existing
+  row could never become due and remained stranded across restarts.
+- Root cause: `assignDestinationIfMissing` existed at the persistence layer,
+  but no owner-scoped Chat recovery operation or UI action connected it to an
+  explicit user selection.
+- Fix: incident Chat displays a separate warning for unrouted outgoing pending
+  messages and requires the user to select a discovered/GATT-ready peer. One
+  transaction scopes candidates by owner and incident, verifies the stored wire
+  kind is Chat and the state is queued/failed, then records the route and resets
+  retry state. Message ID, wire payload, sender and owner remain unchanged. An
+  already-routed or other-owner row cannot be redirected. No peer is inferred
+  from login, replay, proximity or an unrelated connection.
+- Tests: repository coverage proves owner isolation, stable message/payload,
+  idempotence and no redirection; widget coverage proves the warning, explicit
+  picker/connect flow and durable route callback. Focused tests pass 29, full
+  tests pass 331 and analyzer reports no issues.
+- Status: **FIXED IN SOURCE / AUTOMATED PASS / PHYSICAL NOT RUN**. A device
+  revalidation must start with a deliberately retained legacy unrouted Chat and
+  confirm one same-ID delivery and one receiver row after explicit selection.
+
+## W5-14 — P1: SOS delivery UI could display an older Chat outbox state
+
+- Reproduce: persist an outgoing Chat for an incident before its missing SOS
+  delivery row is reconciled. `watchDeliveryForSos` selected the oldest outbox
+  row without checking its envelope kind, so SOS Details could label the Chat
+  queue/ACK state as the SOS BLE delivery state.
+- Root cause: an incident ID is shared by SOS, Chat and Location outbox rows;
+  row age is not a message-kind boundary.
+- Fix: keep the existing durable stream but select only a validated
+  `sos.delivery` envelope before exposing the row to SOS status UI. No row,
+  state, message ID, ACK correlation, schema or wire payload is changed.
+- Recovery race audit: deterministic tests confirm owner/incident/Chat-kind,
+  eligible-state and null-destination constraints; concurrent explicit choices
+  assign exactly one peer; in-flight rows cannot be redirected; and the same
+  routed message/payload remains due after a database restart. Coordinator
+  startup failure therefore does not erase the committed route. A real-radio
+  recovery run remains required.
+- Tests: the reproducer failed before the watcher fix (`chat-before-sos` was
+  returned) and passes after it. Current focused repository/widget tests pass
+  33, the full suite passes 335, and analyzer reports no issues.
+- Status: **FIXED IN SOURCE / AUTOMATED PASS / PHYSICAL NOT RUN**.
+
+## W5-15 — P0: repository ACK acceptance did not require observed peer evidence
+
+- Reproduce: enqueue a selected-destination SOS or Location row, then call the
+  ACK persistence API with the correct `ackFor` but without an observed native
+  source peer. Before this fix the row became `acknowledged`, because peer
+  comparison was conditional on the optional source argument being present.
+- Expected: a selected peer and matching message/kind are all required. Missing
+  peer evidence, another peer or another message must not confirm delivery.
+- Root cause: coordinator callers supplied the observed peer, but the repository
+  invariant was fail-open for callers that omitted it. In addition, failed rows
+  with no `nextRetryAt` were labelled as retryable/scheduled by SOS and Location
+  UI, overstating the evidence after a rejected ACK.
+- Fix: SOS and Location ACK persistence now require a non-empty stored
+  destination and a non-empty, exact observed native source before accepting
+  the ACK. Existing message, kind, incident, expiry and terminal-state checks
+  remain in force. Failed UI states now distinguish a scheduled retry from
+  `retry not scheduled`. No UUID, frame, schema, retry policy or message identity
+  changed.
+- Tests: the two peerless-ACK reproducers failed before the fix and pass after
+  it. Additional deterministic coverage proves ACK correlation to exactly one
+  SOS message, Location wrong-peer/wrong-message rejection, and accurate failed
+  retry labels. Existing missing/delayed/duplicate ACK, terminal-state,
+  receiver-deduplication and Location identity tests remain enabled. Focused
+  tests pass 126 and the full suite passes 341; analyzer and diff check pass.
+- Status: **FIXED IN SOURCE / AUTOMATED PASS / PHYSICAL NOT RUN**. Real-radio
+  wrong-peer, ACK-loss/retry and duplicate-delivery tests are still required.
+
+## W5-16 — Release/Relay physical gate is blocked by owner signing assets
+
+- Current source evidence: the Relay v2 security/migration/lifecycle suite
+  passes 165 tests, the full suite passes 341 and `flutter analyze lib test`
+  reports no issues. No new reproducible Relay or Direct-v1 source defect was
+  found in this continuation.
+- Android: the Release task exits 1 as designed because the owner keystore and
+  `android/key.properties` are absent; no Release APK/AAB was produced. A fresh
+  debug APK has the same package and debug signer as the installed application,
+  and was installed update-in-place on the SM-A536E without uninstalling or
+  clearing data. Build, install and launcher invocation exit 0. This is not a
+  signed Release result.
+- iOS/iPadOS: iPhone 15 Plus and iPad Air 11-inch (M2) are paired, available and
+  have Developer Mode enabled. The existing Team `78GZXS97G6` profile matches
+  `com.n1cxltine.sosapp`, includes both UDIDs and expires 3 November 2026, but
+  this Mac has only Team `ZZ6WC9ADGQ` development identities. The unsigned iOS
+  Release compile exits 0; it is not installable and was not installed.
+- Physical matrix: current-build Android↔iPhone, Android↔iPad, iPhone↔iPad and
+  A→B→C Relay remain **NOT RUN / BLOCKED**. Installation or simulated three-node
+  tests are not treated as physical transport evidence.
+- Status: **AUTOMATED PASS / ANDROID DEBUG INSTALLED / RELEASE AND PHYSICAL
+  BLOCKED**. Required next action is owner signing material, not weaker identity
+  or protocol checks.
+
+## W5-17 — P0 UX: Emergency creation required Relay and BLE choices
+
+- Reproduce: hold the primary SOS action. The critical path displayed
+  per-incident Relay Options and then a BLE recipient picker before opening the
+  incident Chat. A person in distress had to understand transport concepts and
+  wait for radio interaction even though local persistence had succeeded.
+- Root cause: privacy consent, route assignment and emergency creation were
+  coupled in one synchronous UI flow. The app had no durable, preconfigured
+  origin-relay/location consent distinct from the existing switch that
+  volunteers this device to carry other people's messages.
+- Fix: Settings now stores two fail-closed choices: automatic Public Relay for
+  this device's future SOS incidents, and separate inclusion of incident
+  location. Android private preferences and iOS UserDefaults implement the same
+  native contract. SOS is persisted first with its original incident identity,
+  Chat opens immediately, and eligible Public Relay v2 enqueue plus discovery
+  continues asynchronously. The critical path no longer opens either modal or
+  picker. Relay participation for carrying other people's SOS remains a
+  separate, default-OFF choice.
+- Evidence semantics: a hop receipt is displayed as stored by a relay with
+  final delivery unconfirmed. Native write is not delivery. Persistence failure
+  does not open Chat; repeated submission and active-incident guards remain.
+- Security limit: Direct v1 cannot safely choose an arbitrary discovered peer.
+  Its current binding proves an installation session, not that the person or
+  device is an authorized responder for this incident. Consequently an
+  unrouted Direct v1 row remains durable and waiting rather than selecting the
+  first radio or weakening recipient/ACK checks. Automatic direct selection is
+  **NOT IMPLEMENTED** pending an approved responder-capability/trust design;
+  Public Relay v2 is the automatic, capability-gated route available now.
+- Tests: current widget coverage proves no critical modal/picker, persistence
+  before Chat, Chat navigation without waiting for relay enqueue, safe consent,
+  explicit location consent, persistence failure, status wording and native
+  preference contract validation. Existing wrong-peer, wrong-recipient, ACK,
+  retry and deduplication tests remain enabled. The follow-up active-incident
+  regression retains inbound-ID streams for the page lifecycle so hold-progress
+  rebuilds cannot reset the banner to a waiting state. `flutter test` passes
+  373 tests, `flutter analyze lib test` reports no issues and
+  `git diff --check` passes (1 November 2026).
+- Physical evidence: an iPhone 15 Plus Profile build was signed with the
+  existing Team and Bundle ID, installed update-in-place and opened from its
+  Home Screen with existing data retained. One hold created exactly one SOS,
+  opened its Chat immediately and displayed neither Relay Options nor a
+  recipient picker. History card-to-Chat, its separate Details action, compact
+  filters and search were also accepted. With an SOS already active, holding
+  again kept the banner stable, created no additional incident and opened the
+  existing incident Chat.
+- Status: **PARTIAL / AUTOMATED PASS / IPHONE UX PASS**. One-tap local
+  persistence and the active-incident duplicate guard are device-verified on
+  this iPhone build. This is not BLE delivery evidence. Direct responder
+  selection and current-build iPhone→Android→iPad validation remain open
+  release blockers.

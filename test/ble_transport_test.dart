@@ -61,6 +61,43 @@ void main() {
         .setMockMethodCallHandler(methods, null);
   });
 
+  test(
+    'send encodes every frame as typed binary data for native BLE',
+    () async {
+      const methods = MethodChannel('ble_transport_binary_send/methods');
+      const events = EventChannel('ble_transport_binary_send/events');
+      Object? sentData;
+      String? sentRole;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(methods, (call) async {
+            if (call.method == 'send') {
+              final arguments = Map<Object?, Object?>.from(
+                call.arguments as Map,
+              );
+              sentData = arguments['data'];
+              sentRole = arguments['role'] as String?;
+            }
+            return null;
+          });
+
+      final transport = BleTransport(methods: methods, events: events);
+      await transport.send('peer', <int>[
+        0,
+        1,
+        127,
+        128,
+        255,
+      ], role: BleSessionRole.peripheral);
+
+      expect(sentData, isA<Uint8List>());
+      expect(sentData, orderedEquals(<int>[0, 1, 127, 128, 255]));
+      expect(sentRole, 'peripheral');
+      await transport.dispose();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(methods, null);
+    },
+  );
+
   test('initialize can retry after a permission failure', () async {
     const methods = MethodChannel('ble_transport_retry/methods');
     const events = EventChannel('ble_transport_retry/events');

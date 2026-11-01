@@ -49,6 +49,31 @@ class MapTileProviderConfig {
 
   bool get isUsable => validationError == null;
 
+  /// Bulk/offline downloads are deliberately restricted to the provider whose
+  /// published terms explicitly permit stored tiles. In particular, the
+  /// public OpenStreetMap tile service must never be prefetched.
+  bool get supportsOfflineRegionDownloads {
+    if (!isUsable || isDevelopmentFallback) return false;
+    final uri = Uri.tryParse(urlTemplate);
+    return uri != null && uri.host.toLowerCase() == 'maps.geoapify.com';
+  }
+
+  /// A stable, non-secret namespace for persisted tiles. Query values are
+  /// excluded so API keys are never written to disk.
+  String get offlineStorageKey {
+    final uri = Uri.tryParse(urlTemplate);
+    if (uri == null) return 'invalid';
+    final source =
+        '${uri.scheme.toLowerCase()}://${uri.host.toLowerCase()}'
+        '${uri.path}?${uri.queryParameters.keys.toList()..sort()}';
+    var hash = 0x811c9dc5;
+    for (final value in source.codeUnits) {
+      hash ^= value;
+      hash = (hash * 0x01000193) & 0xffffffff;
+    }
+    return 'tiles-${hash.toRadixString(16).padLeft(8, '0')}';
+  }
+
   MapTileProviderConfig withValidation({required bool isRelease}) {
     final error = validate(isRelease: isRelease);
     return MapTileProviderConfig(

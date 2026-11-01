@@ -382,3 +382,125 @@ so installation, coexistence with `com.example.sos_app`, empty target sandbox,
 Firebase runtime/Auth/Firestore, BLE permissions/identity, restart persistence,
 and target-to-target update behavior remain NOT RUN. Signed releases and live
 production-map validation also remain NOT RUN; Release Gate stays **BLOCKED**.
+
+## Signing-independent Phase 7 continuation — 27–28 October 2026
+
+W5-07 legacy queued-Chat recovery is now implemented without changing Apple or
+Firebase identity, BLE framing/UUIDs, ownership or schema. An outgoing
+queued/failed Chat with no durable destination presents an explicit recipient
+action in the incident Chat. The selected route is applied transactionally only
+to Chat rows in the current owner/incident scope; message ID, payload, sender
+and owner are preserved, and routed or other-owner rows cannot be redirected.
+The app never selects a peer from login, replay or whichever device connects.
+
+Focused repository/widget tests pass 29, the full suite passes 331,
+`flutter analyze lib test` reports no issues and `git diff --check` exits 0.
+Physical recovery from a real retained legacy row is NOT RUN. Production map
+configuration, remaining physical reliability/range cases and signed release
+validation remain blockers. iOS signing/identity migration remains external and
+was not changed by this continuation.
+
+The follow-up recovery race audit confirms that owner, incident, Chat kind,
+queued/failed state and missing destination are enforced transactionally.
+Concurrent selections cannot redirect the winner, in-flight delivery is
+excluded, and an assigned same-ID payload remains due after database restart.
+It also found and fixed W5-14: SOS Details previously watched the oldest outbox
+row for an incident without filtering message kind, so an older Chat row could
+be presented as SOS delivery status after reconciliation. The watcher now emits
+only a validated `sos.delivery` row. Current focused tests pass 33, the full
+suite passes 335, analyzer reports no issues and `git diff --check` passes.
+These are automated results; physical Chat recovery and status revalidation
+remain **NOT RUN**, and the Release Gate remains **BLOCKED**.
+
+## SOS ACK and Location correlation continuation — 28 October 2026
+
+The ACK repository boundary is now fail-closed when the observed native source
+peer is absent: both SOS and Location require the persisted destination to match
+the non-empty source peer as well as the existing message/kind/incident checks.
+An ACK for another message or peer cannot confirm the selected row, native write
+completion still does not imply receipt, and terminal acknowledged state remains
+monotonic. Receiver deduplication and stable retry message identity are unchanged.
+
+SOS and Location status text also separates a scheduled retry from a terminal
+failed attempt with no `nextRetryAt`; the latter is no longer presented as
+automatically retryable. The pre-fix peerless-ACK regression command exited 1
+with two intended failures. After the fix, focused SOS/Location/BLE/UI tests pass
+126, the full suite passes 341, `flutter analyze lib test` reports no issues and
+`git diff --check` passes. Physical wrong-peer ACK, controlled ACK loss/retry,
+duplicate delivery and current-build Android/iOS interoperability remain
+**NOT RUN**. Signing and production map validation also remain incomplete, so
+the Release Gate remains **BLOCKED**.
+
+## Release and physical Relay execution gate — 28 October 2026
+
+Current automated validation passes 165 focused Relay/ACK/migration/lifecycle
+tests and 341 full tests; `flutter analyze lib test` and `git diff --check` exit
+0. These results include simulated A→B→C forwarding but are not device evidence.
+No new source defect was reproduced after the W5-15 ACK hardening.
+
+Android Release signing fails closed with exit 1 because no owner-controlled
+keystore or `android/key.properties` is configured, and no Release APK/AAB was
+created. The current debug APK (`com.n1cxltine.sosapp` 0.1.0+1) matches the
+installed debug certificate and was installed update-in-place on the connected
+SM-A536E; installation and launch exit 0. Existing app data was not uninstalled
+or cleared. This debug deployment is not a Release candidate.
+
+The iPhone 15 Plus and iPad Air 11-inch (M2), both on iOS/iPadOS 27.0.1, are
+paired and available with Developer Mode enabled. The Team `78GZXS97G6`
+development profile matches the Bundle ID and both device UDIDs, but no matching
+Apple Development identity/private key exists on this Mac. The available
+identities belong to Team `ZZ6WC9ADGQ`. An unsigned iOS Release compile succeeds,
+but the resulting Runner.app is explicitly unsigned, was not installed and is
+not a signed artifact. CoreDevice reported both intended devices paired and
+available with Developer Mode enabled, while their tunnel state was unavailable;
+installation connectivity must be rechecked after signing is restored.
+
+Consequently Android↔iPhone, Android↔iPad, iPhone↔iPad and the controlled
+A→B→C physical Relay route are **NOT RUN / BLOCKED** for the current build. A
+three-device PASS still requires proof that A cannot contact C directly, B
+durably persists before its hop receipt, B actually forwards, C stores exactly
+one logical message and the protocol evidence shown at A is accurate. Production
+map configuration is also absent. The Release Gate remains **BLOCKED**.
+
+## One-tap emergency orchestration — 31 October 2026
+
+The critical SOS path now persists one incident, opens that incident's Chat
+immediately, and starts eligible nearby work without showing Relay Options or a
+BLE recipient picker. Emergency-origin Public Relay and optional incident
+location are configured beforehand in Settings, stored through a common
+Android/iOS native preference contract, default to OFF, and remain distinct
+from the switch that volunteers a device to forward other people's messages.
+Location is not requested or included without the separate saved choice.
+
+Public Relay v2 enqueue is durable before discovery is started. Chat navigation
+does not wait for scan, proof, connection, hop receipt or application ACK.
+Status text distinguishes local persistence, searching, application ACK,
+relay storage and final delivery; a relay hop receipt is never labelled final
+delivery. Existing incident/message identity, retry, deduplication and ACK
+correlation behavior is preserved.
+
+There is no safe automatic Direct v1 responder selection in the current
+protocol. The authenticated peer binding identifies an installation session,
+but it does not prove responder authorization or acceptance for an incident.
+The implementation therefore does not guess the first BLE device and does not
+redirect legacy unrouted rows. Such work remains persisted and waiting unless
+a trustworthy route exists. A future direct-auto route requires an explicitly
+approved responder capability/trust design and compatibility review.
+
+Current validation: `flutter test --reporter compact` passes 373 tests (exit
+0), `flutter analyze lib test` reports no issues (exit 0), and
+`git diff --check` passes. On 1 November 2026 the signed Profile build was
+installed update-in-place on an iPhone 15 Plus with the existing Team, Bundle
+ID and application data preserved. Physical one-tap UX passed: one incident was
+persisted, Chat opened immediately, no Relay Options or recipient picker was
+shown, and no duplicate was created. History card-to-Chat, the separate Details
+action, compact filters and search passed. A follow-up active-incident hold also
+kept its banner stable without flicker or overlap, created no additional SOS
+and opened the existing Chat.
+
+This device evidence validates the iPhone interaction and persistence path; it
+does not prove BLE delivery, a final receipt or Relay forwarding. Automatic
+A→B storage, controlled B→C forwarding and direct responder routing for this
+build remain **NOT RUN / NOT VERIFIED**. Production map, signed Android Release
+and three-device Relay evidence remain blockers; the Release Gate is
+**BLOCKED**.

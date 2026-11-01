@@ -12,6 +12,26 @@ import '../data/sos_repository.dart';
 
 typedef ForegroundLocationLoader = Future<Position?> Function();
 
+enum _LocationPublishPhase { idle, preparing, enqueued, failed }
+
+@visibleForTesting
+String locationDeliveryStatusText(BleOutboxData? row) {
+  final state = row == null ? null : BleOutboxState.parse(row.state);
+  return switch (state) {
+    null => 'Queued',
+    BleOutboxState.queued => 'Queued',
+    BleOutboxState.sending => 'Sending',
+    BleOutboxState.writeAccepted ||
+    BleOutboxState.awaitingAcknowledgement => 'Awaiting acknowledgement',
+    BleOutboxState.acknowledged => 'Delivered',
+    BleOutboxState.failed =>
+      row!.nextRetryAt == null
+          ? 'Failed; retry not scheduled'
+          : 'Failed; retry scheduled',
+    BleOutboxState.expired => 'Expired',
+  };
+}
+
 /// Foreground-only location sharing controls for one active SOS.
 class LocationSharingPanel extends StatefulWidget {
   const LocationSharingPanel({
@@ -42,6 +62,9 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
   String? _error;
   DateTime? _lastPublishedAt;
   Future<void>? _pendingOperation;
+  int _publishOperation = 0;
+  _LocationPublishPhase _publishPhase = _LocationPublishPhase.idle;
+  String? _currentPublishMessageId;
 
   late Stream<BleOutboxData?> _delivery;
 
@@ -56,6 +79,9 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.coordinator != widget.coordinator ||
         oldWidget.sos.id != widget.sos.id) {
+      _publishOperation++;
+      _publishPhase = _LocationPublishPhase.idle;
+      _currentPublishMessageId = null;
       _delivery = widget.coordinator.watchLocationDeliveryForSos(widget.sos.id);
     }
   }
@@ -64,6 +90,7 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
 
   @override
   void dispose() {
+    _publishOperation++;
     if (_sharing) {
       unawaited(widget.coordinator.disableLocationSharing(widget.sos.id));
     }
@@ -125,13 +152,16 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
     if (_busy) return;
     final recipient = _recipientId;
     if (!_sharing || recipient == null || _busy) return;
+    final operation = ++_publishOperation;
     setState(() {
       _busy = true;
       _error = null;
+      _publishPhase = _LocationPublishPhase.preparing;
+      _currentPublishMessageId = null;
     });
     try {
       final position = await (widget.locationLoader ?? _readLocation)();
-      if (!mounted || !_sharing) return;
+      if (!mounted || !_sharing || operation != _publishOperation) return;
       if (position == null ||
           !isValidSosCoordinatePair(position.latitude, position.longitude)) {
         throw const _LocationUiException(
@@ -139,9 +169,14 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
         );
       }
       final created = _now;
+      final messageId = 'location:${widget.sos.id}:$created';
+      setState(() {
+        _publishPhase = _LocationPublishPhase.enqueued;
+        _currentPublishMessageId = messageId;
+      });
       await widget.coordinator.publishLocationUpdate(
         sosId: widget.sos.id,
-        messageId: 'location:${widget.sos.id}:$created',
+        messageId: messageId,
         destinationId: recipient,
         latitude: position.latitude,
         longitude: position.longitude,
@@ -151,11 +186,21 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
         createdAt: created,
         expiresAt: created.add(const Duration(minutes: 2)),
       );
-      if (mounted) setState(() => _lastPublishedAt = created);
+      if (mounted && operation == _publishOperation) {
+        setState(() => _lastPublishedAt = created);
+      }
     } catch (error) {
-      if (mounted) setState(() => _error = _friendlyError(error));
+      if (mounted && operation == _publishOperation) {
+        setState(() {
+          _error = _friendlyError(error);
+          _publishPhase = _LocationPublishPhase.failed;
+          _currentPublishMessageId = null;
+        });
+      }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted && operation == _publishOperation) {
+        setState(() => _busy = false);
+      }
     }
   }
 
@@ -188,10 +233,14 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
   }
 
   Future<void> _stop() async {
+    _publishOperation++;
     setState(() {
       _sharing = false;
       _recipientId = null;
       _error = null;
+      _busy = false;
+      _publishPhase = _LocationPublishPhase.idle;
+      _currentPublishMessageId = null;
     });
     await widget.coordinator.disableLocationSharing(widget.sos.id);
   }
@@ -206,19 +255,24 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
     return StreamBuilder<BleOutboxData?>(
       stream: _delivery,
       builder: (context, snapshot) {
-        final state = snapshot.data == null
-            ? null
-            : BleOutboxState.parse(snapshot.data!.state);
-        final stateText = switch (state) {
-          null => _sharing ? 'Ready to send' : 'Off',
-          BleOutboxState.queued => 'Queued',
-          BleOutboxState.sending => 'Sending',
-          BleOutboxState.writeAccepted ||
-          BleOutboxState.awaitingAcknowledgement => 'Awaiting acknowledgement',
-          BleOutboxState.acknowledged => 'Delivered',
-          BleOutboxState.failed => 'Failed; retryable',
-          BleOutboxState.expired => 'Expired',
+        final deliveryMatchesCurrent =
+            _currentPublishMessageId != null &&
+            snapshot.data?.messageId == _currentPublishMessageId;
+        final currentDeliveryState = deliveryMatchesCurrent
+            ? snapshot.data
+            : null;
+        final stateText = switch (_publishPhase) {
+          _LocationPublishPhase.idle => _sharing ? 'Ready to send' : 'Off',
+          _LocationPublishPhase.preparing => 'Getting location…',
+          _LocationPublishPhase.enqueued => locationDeliveryStatusText(
+            currentDeliveryState,
+          ),
+          _LocationPublishPhase.failed => 'Failed',
         };
+        final previousStateText =
+            snapshot.data != null && !deliveryMatchesCurrent
+            ? locationDeliveryStatusText(snapshot.data)
+            : null;
         return Card(
           child: Padding(
             padding: const EdgeInsets.all(12),
@@ -254,6 +308,8 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
                 ),
                 if (_lastPublishedAt != null)
                   Text('Last update: ${_lastPublishedAt!.toLocal()}'),
+                if (previousStateText != null)
+                  Text('Previous delivery: $previousStateText'),
                 if (_error != null)
                   Text(
                     _error!,

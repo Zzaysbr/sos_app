@@ -75,6 +75,15 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(find.byTooltip('Zoom in'), findsOneWidget);
+    expect(find.byTooltip('Zoom out'), findsOneWidget);
+    expect(find.byTooltip('Center map on current location'), findsOneWidget);
+    expect(
+      find.byTooltip(
+        'Offline downloads require the production Geoapify provider',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('renders current location status when permission is available', (

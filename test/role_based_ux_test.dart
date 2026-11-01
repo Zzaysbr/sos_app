@@ -8,6 +8,9 @@ import 'package:mocktail/mocktail.dart';
 import 'package:sos_app/core/database/app_database.dart';
 import 'package:sos_app/core/theme/app_theme.dart';
 import 'package:sos_app/features/nearby_ble/data/ble_delivery_repository.dart';
+import 'package:sos_app/features/nearby_ble/data/emergency_consent_store.dart';
+import 'package:sos_app/features/nearby_ble/data/relay_preference_store.dart';
+import 'package:sos_app/features/nearby_ble/data/sos_ble_coordinator.dart';
 import 'package:sos_app/features/nearby_ble/domain/location_ble_envelope.dart';
 import 'package:sos_app/features/nearby_ble/domain/sos_ble_envelope.dart';
 import 'package:sos_app/features/role/data/role_preference_store.dart';
@@ -23,6 +26,28 @@ class _Auth extends Mock implements FirebaseAuth {}
 class _Cloud extends Mock implements SosCloudService {}
 
 class _Repository extends Mock implements SosRepository {}
+
+class _BleCoordinator extends Mock implements SosBleCoordinator {}
+
+class _FailingRelayPreferenceStore implements RelayPreferenceStore {
+  _FailingRelayPreferenceStore({this.failRead = false, this.failWrite = false});
+
+  bool enabled = false;
+  bool failRead;
+  bool failWrite;
+
+  @override
+  Future<bool> loadParticipationEnabled() async {
+    if (failRead) throw StateError('preference read failed');
+    return enabled;
+  }
+
+  @override
+  Future<void> saveParticipationEnabled(bool enabled) async {
+    if (failWrite) throw StateError('preference write failed');
+    this.enabled = enabled;
+  }
+}
 
 void main() {
   late AppDatabase database;
@@ -45,6 +70,34 @@ void main() {
   });
 
   tearDown(() async => database.close());
+
+  test('SOS failed status only promises a retry when one is scheduled', () {
+    final now = DateTime.utc(2026, 1, 1);
+    BleOutboxData failed({DateTime? nextRetryAt}) => BleOutboxData(
+      messageId: 'sos-status',
+      sosId: 'sos-status-incident',
+      destinationId: 'peer-a',
+      schemaVersion: 1,
+      payload: '{}',
+      state: 'failed',
+      retryCount: 1,
+      nextRetryAt: nextRetryAt,
+      lastError: 'receiver rejected persistence',
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    expect(
+      sosBleDeliveryStatusText(failed()),
+      'Delivery failed; retry not scheduled',
+    );
+    expect(
+      sosBleDeliveryStatusText(
+        failed(nextRetryAt: now.add(const Duration(seconds: 2))),
+      ),
+      'Failed; retry scheduled',
+    );
+  });
 
   Widget app(RolePreferenceStore store, {ThemeMode mode = ThemeMode.light}) =>
       MaterialApp(
@@ -136,14 +189,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(store.value, AppRole.rescue);
     expect(
-      find.text('SOS ของคุณยังทำงานอยู่ · แตะเพื่อกลับไปดู'),
+      find.byKey(const ValueKey('active-sos-chat-banner-active-own')),
       findsOneWidget,
     );
 
-    await tester.tap(find.text('SOS ของคุณยังทำงานอยู่ · แตะเพื่อกลับไปดู'));
+    await tester.tap(
+      find.byKey(const ValueKey('active-sos-chat-banner-active-own')),
+    );
     await tester.pumpAndSettle();
     expect(store.value, AppRole.needHelp);
-    expect(find.text('SOS Details'), findsOneWidget);
+    expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
+    expect(find.text('Incident active-own'), findsOneWidget);
     expect(await database.select(database.sosMessages).getSingle(), before);
     expect(
       (await database.select(database.chatMessages).get()).map(
@@ -233,6 +289,318 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
+  testWidgets(
+    'emergency relay and location consent are configured in Settings',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final consentStore = MemoryEmergencyConsentStore();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: SosPage(
+            repository: repository,
+            isGuest: true,
+            rolePreferenceStore: MemoryRolePreferenceStore(AppRole.needHelp),
+            relayPreferenceStore: MemoryRelayPreferenceStore(),
+            emergencyConsentStore: consentStore,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ตั้งค่า'));
+      await tester.pumpAndSettle();
+
+      final relayConsent = tester.widget<SwitchListTile>(
+        find.byKey(const ValueKey('emergency-public-relay-consent')),
+      );
+      final locationConsent = tester.widget<SwitchListTile>(
+        find.byKey(const ValueKey('emergency-location-consent')),
+      );
+      expect(relayConsent.value, isFalse);
+      expect(locationConsent.value, isFalse);
+      expect(locationConsent.onChanged, isNull);
+
+      relayConsent.onChanged!(true);
+      await tester.pumpAndSettle();
+      expect(consentStore.consent.allowPublicRelay, isTrue);
+      expect(consentStore.consent.shareLocation, isFalse);
+      final enabledLocation = tester.widget<SwitchListTile>(
+        find.byKey(const ValueKey('emergency-location-consent')),
+      );
+      expect(enabledLocation.onChanged, isNotNull);
+      enabledLocation.onChanged!(true);
+      await tester.pumpAndSettle();
+      expect(consentStore.consent.configured, isTrue);
+      expect(consentStore.consent.shareLocation, isTrue);
+      expect(consentStore.saveCount, 2);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    },
+  );
+
+  testWidgets('relay participation defaults off and changes explicitly', (
+    tester,
+  ) async {
+    final store = MemoryRelayPreferenceStore();
+    final coordinator = _BleCoordinator();
+    when(() => coordinator.hasPendingPublicRelay())
+        .thenAnswer((_) async => false);
+    when(() => coordinator.setRelayParticipationEnabled(any()))
+        .thenAnswer((_) async {});
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SosPage(
+          repository: repository,
+          isGuest: true,
+          rolePreferenceStore: MemoryRolePreferenceStore(AppRole.needHelp),
+          relayPreferenceStore: store,
+          bleCoordinator: coordinator,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    verify(() => coordinator.setRelayParticipationEnabled(false)).called(1);
+
+    await tester.tap(find.text('ตั้งค่า'));
+    await tester.pumpAndSettle();
+    final toggleFinder = find.widgetWithText(
+      SwitchListTile,
+      'Nearby SOS relay',
+    );
+    expect(tester.widget<SwitchListTile>(toggleFinder).value, isFalse);
+    tester.widget<SwitchListTile>(toggleFinder).onChanged!(true);
+    await tester.pumpAndSettle();
+
+    expect(store.enabled, isTrue);
+    expect(store.saveCount, 1);
+    verify(() => coordinator.setRelayParticipationEnabled(true)).called(1);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets(
+    'pending local Public Relay resumes BLE while participation remains off',
+    (tester) async {
+      final store = MemoryRelayPreferenceStore();
+      final coordinator = _BleCoordinator();
+      var starts = 0;
+      when(() => coordinator.hasPendingPublicRelay())
+          .thenAnswer((_) async => true);
+      when(() => coordinator.setRelayParticipationEnabled(false))
+          .thenAnswer((_) async {});
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SosPage(
+            repository: repository,
+            isGuest: true,
+            rolePreferenceStore: MemoryRolePreferenceStore(AppRole.needHelp),
+            relayPreferenceStore: store,
+            bleCoordinator: coordinator,
+            onBleStartRequested: () async => starts++,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(starts, 1);
+      expect(store.enabled, isFalse);
+      verify(() => coordinator.setRelayParticipationEnabled(false)).called(1);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    },
+  );
+
+  testWidgets('saved relay ON fails closed when BLE startup fails', (
+    tester,
+  ) async {
+    final store = MemoryRelayPreferenceStore(enabled: true);
+    final coordinator = _BleCoordinator();
+    when(() => coordinator.setRelayParticipationEnabled(false))
+        .thenAnswer((_) async {});
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SosPage(
+          repository: repository,
+          isGuest: true,
+          rolePreferenceStore: MemoryRolePreferenceStore(AppRole.needHelp),
+          relayPreferenceStore: store,
+          bleCoordinator: coordinator,
+          onBleStartRequested: () async => throw StateError('BLE unavailable'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(store.enabled, isFalse);
+    verify(() => coordinator.setRelayParticipationEnabled(false)).called(1);
+    await tester.tap(find.text('ตั้งค่า'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<SwitchListTile>(
+            find.widgetWithText(SwitchListTile, 'Nearby SOS relay'),
+          )
+          .value,
+      isFalse,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('preference read failure hard-disables a reused coordinator', (
+    tester,
+  ) async {
+    final store = _FailingRelayPreferenceStore(failRead: true);
+    final coordinator = _BleCoordinator();
+    when(() => coordinator.setRelayParticipationEnabled(false))
+        .thenAnswer((_) async {});
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SosPage(
+          repository: repository,
+          isGuest: true,
+          rolePreferenceStore: MemoryRolePreferenceStore(AppRole.needHelp),
+          relayPreferenceStore: store,
+          bleCoordinator: coordinator,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    verify(() => coordinator.setRelayParticipationEnabled(false)).called(1);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('preference write failure keeps runtime and UI disabled', (
+    tester,
+  ) async {
+    final store = _FailingRelayPreferenceStore(failWrite: true);
+    final coordinator = _BleCoordinator();
+    when(() => coordinator.setRelayParticipationEnabled(any()))
+        .thenAnswer((_) async {});
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SosPage(
+          repository: repository,
+          isGuest: true,
+          rolePreferenceStore: MemoryRolePreferenceStore(AppRole.needHelp),
+          relayPreferenceStore: store,
+          bleCoordinator: coordinator,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ตั้งค่า'));
+    await tester.pumpAndSettle();
+    final toggle = find.widgetWithText(SwitchListTile, 'Nearby SOS relay');
+    tester.widget<SwitchListTile>(toggle).onChanged!(true);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<SwitchListTile>(toggle).value, isFalse);
+    verify(() => coordinator.setRelayParticipationEnabled(false)).called(2);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('relay queue failure is not mislabeled as Bluetooth permission', (
+    tester,
+  ) async {
+    final store = MemoryRelayPreferenceStore();
+    final coordinator = _BleCoordinator();
+    when(() => coordinator.setRelayParticipationEnabled(false))
+        .thenAnswer((_) async {});
+    when(() => coordinator.setRelayParticipationEnabled(true))
+        .thenThrow(StateError('relay queue unavailable'));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SosPage(
+          repository: repository,
+          isGuest: true,
+          rolePreferenceStore: MemoryRolePreferenceStore(AppRole.needHelp),
+          relayPreferenceStore: store,
+          bleCoordinator: coordinator,
+          onBleStartRequested: () async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ตั้งค่า'));
+    await tester.pumpAndSettle();
+    final toggle = find.widgetWithText(SwitchListTile, 'Nearby SOS relay');
+    tester.widget<SwitchListTile>(toggle).onChanged!(true);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<SwitchListTile>(toggle).value, isFalse);
+    expect(find.textContaining('secure queue'), findsOneWidget);
+    expect(
+      find.textContaining('Check Nearby devices permission'),
+      findsNothing,
+    );
+    expect(store.enabled, isFalse);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets(
+    'SOS hold keeps repository streams stable and starts one submission',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final delayedRepository = _Repository();
+      final activeGate = Completer<List<SosMessage>>();
+      var watchAllCalls = 0;
+      var submissionCalls = 0;
+      when(() => delayedRepository.database).thenReturn(database);
+      when(() => delayedRepository.watchAll()).thenAnswer((_) {
+        watchAllCalls++;
+        return Stream.value(<SosMessage>[]);
+      });
+      when(() => delayedRepository.listActiveIncidents()).thenAnswer((_) {
+        submissionCalls++;
+        return activeGate.future;
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: SosPage(
+            repository: delayedRepository,
+            isGuest: true,
+            rolePreferenceStore: MemoryRolePreferenceStore(AppRole.needHelp),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(watchAllCalls, 5);
+      expect(find.text('พร้อมเมื่อคุณต้องการความช่วยเหลือ'), findsNothing);
+      expect(find.textContaining('ใช้ SOS เมื่อมีเหตุฉุกเฉิน'), findsNothing);
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.text('ส่ง SOS')),
+      );
+      for (var i = 0; i < 7; i++) {
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(watchAllCalls, 5);
+      }
+      await tester.pump(const Duration(milliseconds: 100));
+      await gesture.up();
+      await tester.pump();
+
+      expect(submissionCalls, 1);
+      expect(watchAllCalls, 5);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      activeGate.complete([]);
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(tester.takeException(), isNull);
+      expect(submissionCalls, 1);
+    },
+  );
+
   testWidgets('rescue list excludes received SOS owned by another scope', (
     tester,
   ) async {
@@ -271,6 +639,82 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('FIRE'), findsOneWidget);
     expect(find.text('MEDICAL'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('Need Help Chat tab selects an exact owned incident', (
+    tester,
+  ) async {
+    await repository.create(id: 'own-chat-incident', type: 'medical');
+    final now = DateTime.now().toUtc();
+    await BleDeliveryRepository(database).persistIncomingDelivery(
+      SosBleEnvelope.delivery(
+        messageId: 'inbound-chat-message',
+        sosId: 'inbound-chat-incident',
+        senderDeviceId: 'peer-a',
+        sosType: 'fire',
+        status: 'active',
+        createdAt: now,
+        updatedAt: now,
+      ),
+      ownerId: guestDeviceOwnerId,
+      sourceDeviceId: 'peer-a',
+      now: now,
+    );
+
+    await tester.pumpWidget(app(MemoryRolePreferenceStore(AppRole.needHelp)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('แชต'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('แชตตามเหตุการณ์'), findsOneWidget);
+    expect(find.text('MEDICAL'), findsOneWidget);
+    expect(find.text('FIRE'), findsNothing);
+    expect(find.text('Incident own-chat-incident'), findsOneWidget);
+
+    await tester.tap(find.text('Incident own-chat-incident'));
+    await tester.pumpAndSettle();
+    expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
+    expect(find.text('Incident own-chat-incident'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('Rescue Chat tab lists only received incidents in scope', (
+    tester,
+  ) async {
+    await repository.create(id: 'own-chat-incident', type: 'medical');
+    final now = DateTime.now().toUtc();
+    await BleDeliveryRepository(database).persistIncomingDelivery(
+      SosBleEnvelope.delivery(
+        messageId: 'inbound-chat-message',
+        sosId: 'inbound-chat-incident',
+        senderDeviceId: 'peer-a',
+        sosType: 'fire',
+        status: 'active',
+        createdAt: now,
+        updatedAt: now,
+      ),
+      ownerId: guestDeviceOwnerId,
+      sourceDeviceId: 'peer-a',
+      now: now,
+    );
+
+    await tester.pumpWidget(app(MemoryRolePreferenceStore(AppRole.rescue)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('แชต'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('แชตตามเหตุการณ์'), findsOneWidget);
+    expect(find.text('FIRE'), findsOneWidget);
+    expect(find.text('MEDICAL'), findsNothing);
+    expect(find.text('Incident inbound-chat-incident'), findsOneWidget);
+
+    await tester.tap(find.text('Incident inbound-chat-incident'));
+    await tester.pumpAndSettle();
+    expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
+    expect(find.text('Incident inbound-chat-incident'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
   });

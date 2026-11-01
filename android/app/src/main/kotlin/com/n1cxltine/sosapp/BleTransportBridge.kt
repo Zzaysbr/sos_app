@@ -29,6 +29,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.ParcelUuid
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.ContextCompat
 import io.flutter.plugin.common.BinaryMessenger
@@ -83,10 +84,17 @@ class BleTransportBridge(
     private val notificationQueues = mutableMapOf<String, ArrayDeque<PendingNotification>>()
     private val notificationInFlight = mutableSetOf<String>()
     private val maxPendingNotifications = 32
+    // onNotificationSent only confirms that Android's local stack accepted a
+    // notification. Sending the next frame immediately can overrun an iOS
+    // CoreBluetooth receiver during a multi-frame relay envelope even though
+    // every local callback reports GATT_SUCCESS.
+    private val notificationInterFrameDelayMs = 12L
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var disposed = false
     private var generation = 0
     private var scanSession = 0L
+    private val lastScanEmitMs = mutableMapOf<String, Long>()
+    private val scanEmitIntervalMs = 500L
 
     fun register() {
         // A Flutter hot restart can replace the Dart channel while the
@@ -424,6 +432,7 @@ class BleTransportBridge(
         scanner?.stopScan(scanCallback)
         scanner = current
         val session = ++scanSession
+        lastScanEmitMs.clear()
         scanCallback = createScanCallback(session)
         logDebug("scan start session=$session")
         try {
@@ -445,6 +454,7 @@ class BleTransportBridge(
         scanner = null
         scanCallback = null
         scanSession += 1
+        lastScanEmitMs.clear()
         emit(mapOf("type" to "state", "state" to adapterState()))
     }
 
@@ -737,6 +747,11 @@ class BleTransportBridge(
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             onMain {
                 if (disposed || session != scanSession) return@onMain
+                val id = result.device.address
+                val now = SystemClock.elapsedRealtime()
+                val last = lastScanEmitMs[id]
+                if (last != null && now - last < scanEmitIntervalMs) return@onMain
+                lastScanEmitMs[id] = now
                 logDebug("onScanResult session=$session callbackType=$callbackType id=${result.device.address} rssi=${result.rssi}")
                 emit(mapOf("type" to "deviceFound", "device" to device(result.device, result.rssi), "scanSession" to session))
             }
@@ -1065,14 +1080,24 @@ class BleTransportBridge(
                 val id = device.address
                 val queue = notificationQueues[id]
                 val pending = if (queue != null && !queue.isEmpty()) queue.removeFirst() else null
-                notificationInFlight.remove(id)
                 if (pending != null) {
                     if (status == BluetoothGatt.GATT_SUCCESS) {
                         pending.result.success(null)
+                        // Keep the peer in-flight during the cooldown. Dart may
+                        // enqueue the next frame as soon as this result is
+                        // completed, but flushPeripheralNotifications must not
+                        // send it until CoreBluetooth has breathing room.
+                        mainHandler.postDelayed({
+                            if (disposed || session != generation) return@postDelayed
+                            notificationInFlight.remove(id)
+                            flushPeripheralNotifications(id)
+                        }, notificationInterFrameDelayMs)
+                        return@onMain
                     } else {
                         pending.result.error("notification_failed", "TX notification failed for $id (status $status)", null)
                     }
                 }
+                notificationInFlight.remove(id)
                 flushPeripheralNotifications(id)
             }
         }
