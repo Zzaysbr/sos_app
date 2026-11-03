@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:drift/native.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -141,6 +142,24 @@ void main() {
     await disposeTree(tester);
   });
 
+  testWidgets('primary SOS action exposes an actionable semantic hint', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(app(repository));
+    await tester.pumpAndSettle();
+
+    final action = find.byKey(const ValueKey('primary-sos-hold-action'));
+    final node = tester.getSemantics(action);
+    expect(node.label, contains('กดค้างเพื่อส่ง SOS'));
+    expect(node.hint, contains('กดค้างเพื่อเริ่ม'));
+    expect(node.flagsCollection.isButton, isTrue);
+    expect(node.flagsCollection.isEnabled, ui.Tristate.isTrue);
+
+    semantics.dispose();
+    await disposeTree(tester);
+  });
+
   testWidgets('the complete active SOS banner opens the exact incident chat', (
     tester,
   ) async {
@@ -268,6 +287,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('SOS Details'), findsOneWidget);
     expect(find.text('History card route'), findsWidgets);
+    expect(
+      find.text('Incident coordinates are not available.'),
+      findsOneWidget,
+    );
     await disposeTree(tester);
   });
 
@@ -406,6 +429,172 @@ void main() {
       find.descendant(of: deliveryStatus, matching: find.byType(Text)),
     );
     expect(statusText.data, contains('Final delivery is unconfirmed'));
+    await disposeTree(tester);
+  });
+
+  testWidgets(
+    'persists SOS and opens Chat before automatic location resolves',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final coordinator = _BleCoordinator();
+      final location = Completer<Position?>();
+      when(
+        () => coordinator.enqueuePublicRelay(
+          any(),
+          includeLocation: any(named: 'includeLocation'),
+        ),
+      ).thenAnswer((_) async {});
+      when(() => coordinator.watchDeliveryForSos(any()))
+          .thenAnswer((_) => Stream.value(null));
+      when(() => coordinator.watchRelayStatus(any()))
+          .thenAnswer((_) => const Stream<RelayStatusSnapshot>.empty());
+
+      await tester.pumpWidget(
+        app(
+          repository,
+          emergencyConsentStore: MemoryEmergencyConsentStore(
+            consent: const EmergencyConsent(
+              configured: true,
+              allowPublicRelay: true,
+              shareLocation: true,
+            ),
+          ),
+          bleCoordinator: coordinator,
+          bleTransport: _Transport(),
+          locationProvider: () => location.future,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await completeSosHold(tester);
+
+      expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
+      final persisted = await repository.listActiveIncidents();
+      expect(persisted, hasLength(1));
+      expect(persisted.single.latitude, isNull);
+      expect(persisted.single.longitude, isNull);
+
+      location.complete(
+        Position(
+          longitude: 100.5001,
+          latitude: 13.7001,
+          timestamp: DateTime.utc(2026),
+          accuracy: 8,
+          altitude: 0,
+          altitudeAccuracy: 1,
+          heading: 0,
+          headingAccuracy: 1,
+          speed: 0,
+          speedAccuracy: 1,
+          floor: null,
+          isMocked: true,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final updated = await repository.listActiveIncidents();
+      expect(updated.single.latitude, 13.7001);
+      expect(updated.single.longitude, 100.5001);
+      verify(() => coordinator.enqueuePublicRelay(any(), includeLocation: true))
+          .called(1);
+      await disposeTree(tester);
+    },
+  );
+
+  testWidgets('location failure keeps SOS and relay routing alive', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final coordinator = _BleCoordinator();
+    when(
+      () => coordinator.enqueuePublicRelay(
+        any(),
+        includeLocation: any(named: 'includeLocation'),
+      ),
+    ).thenAnswer((_) async {});
+    when(() => coordinator.watchDeliveryForSos(any()))
+        .thenAnswer((_) => Stream.value(null));
+    when(() => coordinator.watchRelayStatus(any()))
+        .thenAnswer((_) => const Stream<RelayStatusSnapshot>.empty());
+
+    await tester.pumpWidget(
+      app(
+        repository,
+        emergencyConsentStore: MemoryEmergencyConsentStore(
+          consent: const EmergencyConsent(
+            configured: true,
+            allowPublicRelay: true,
+            shareLocation: true,
+          ),
+        ),
+        bleCoordinator: coordinator,
+        bleTransport: _Transport(),
+        locationProvider: () async => throw StateError('synthetic GPS failure'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await completeSosHold(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
+    expect(
+      find.textContaining('Location unavailable — SOS was saved without coordinates'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Current location is unavailable or invalid.'),
+      findsOneWidget,
+    );
+    expect(await repository.listActiveIncidents(), hasLength(1));
+    verify(() => coordinator.enqueuePublicRelay(any(), includeLocation: false))
+        .called(1);
+    await disposeTree(tester);
+  });
+
+  testWidgets('late location failure after Chat is closed is ignored safely', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final coordinator = _BleCoordinator();
+    final location = Completer<Position?>();
+    when(
+      () => coordinator.enqueuePublicRelay(
+        any(),
+        includeLocation: any(named: 'includeLocation'),
+      ),
+    ).thenAnswer((_) async {});
+    when(() => coordinator.watchDeliveryForSos(any()))
+        .thenAnswer((_) => Stream.value(null));
+    when(() => coordinator.watchRelayStatus(any()))
+        .thenAnswer((_) => const Stream<RelayStatusSnapshot>.empty());
+
+    await tester.pumpWidget(
+      app(
+        repository,
+        emergencyConsentStore: MemoryEmergencyConsentStore(
+          consent: const EmergencyConsent(
+            configured: true,
+            allowPublicRelay: true,
+            shareLocation: true,
+          ),
+        ),
+        bleCoordinator: coordinator,
+        bleTransport: _Transport(),
+        locationProvider: () => location.future,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await completeSosHold(tester);
+    expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
+
+    await tester.pageBack();
+    location.completeError(StateError('late GPS failure'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(await repository.listActiveIncidents(), hasLength(1));
     await disposeTree(tester);
   });
 

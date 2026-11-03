@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:sos_app/core/localization/localization.dart';
 import 'package:sos_app/features/auth/data/auth_service.dart';
 import 'package:sos_app/features/auth/presentation/auth_page.dart';
 
@@ -14,7 +16,7 @@ void main() {
   setUp(() => auth = MockAuthService());
 
   Future<void> openReset(WidgetTester tester) async {
-    await tester.pumpWidget(MaterialApp(home: AuthPage(authService: auth)));
+    await tester.pumpWidget(_app(auth));
     await tester.tap(find.text('Forgot password?'));
     await tester.pump();
     await tester.enterText(find.byType(TextField), 'person@example.com');
@@ -30,10 +32,10 @@ void main() {
 
     await tester.tap(find.text('Send Reset Link'));
     await tester.pump();
-    expect(find.text('Sending reset link...'), findsOneWidget);
+    expect(find.text('Sending reset link…'), findsOneWidget);
     verify(() => auth.resetPassword(email: 'person@example.com')).called(1);
 
-    await tester.tap(find.text('Sending reset link...'));
+    await tester.tap(find.text('Sending reset link…'));
     verifyNever(() => auth.resetPassword(email: 'person@example.com'));
     request.complete();
     await tester.pumpAndSettle();
@@ -66,14 +68,14 @@ void main() {
     await tester.tap(find.text('Send Reset Link'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Network error'), findsOneWidget);
-    await tester.tap(find.text('Retry'));
+    await tester.tap(find.text('Try again'));
     await tester.pumpAndSettle();
     expect(find.text('Check your email'), findsOneWidget);
     expect(attempts, 2);
   });
 
   testWidgets('validates email before calling Firebase', (tester) async {
-    await tester.pumpWidget(MaterialApp(home: AuthPage(authService: auth)));
+    await tester.pumpWidget(_app(auth));
     await tester.tap(find.text('Forgot password?'));
     await tester.pump();
     await tester.enterText(find.byType(TextField), 'not-an-email');
@@ -83,3 +85,15 @@ void main() {
     verifyNever(() => auth.resetPassword(email: any(named: 'email')));
   });
 }
+
+Widget _app(AuthService auth) => MaterialApp(
+  locale: const Locale('en'),
+  supportedLocales: AppLocalizations.supportedLocales,
+  localizationsDelegates: const [
+    AppLocalizations.delegate,
+    GlobalMaterialLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+  ],
+  home: AuthPage(authService: auth),
+);

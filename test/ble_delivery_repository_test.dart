@@ -46,37 +46,34 @@ void main() {
 
   tearDown(() async => database.close());
 
-  test(
-    'schema 6 creates BLE, relay, and chat tables and preserves SOS rows',
-    () async {
-      final now = DateTime.utc(2026);
-      await database
-          .into(database.sosMessages)
-          .insert(
-            SosMessagesCompanion.insert(
-              id: 'existing-sos',
-              ownerId: 'owner',
-              type: 'emergency',
-              status: 'active',
-              syncState: 'synced',
-              createdAt: now,
-              updatedAt: now,
-            ),
-          );
+  test('schema 9 creates BLE, relay, rescue, response, and chat tables and preserves SOS rows', () async {
+    final now = DateTime.utc(2026);
+    await database
+        .into(database.sosMessages)
+        .insert(
+          SosMessagesCompanion.insert(
+            id: 'existing-sos',
+            ownerId: 'owner',
+            type: 'emergency',
+            status: 'active',
+            syncState: 'synced',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
 
-      expect(database.schemaVersion, 6);
-      expect(await database.select(database.bleOutbox).get(), isEmpty);
-      expect(await database.select(database.bleInbox).get(), isEmpty);
-      expect(await database.select(database.chatMessages).get(), isEmpty);
-      expect(await database.select(database.bleRelayMessages).get(), isEmpty);
-      expect(await database.select(database.bleRelayAttempts).get(), isEmpty);
-      expect(await database.select(database.bleRelayReceipts).get(), isEmpty);
-      expect(
-        (await database.select(database.sosMessages).getSingle()).id,
-        'existing-sos',
-      );
-    },
-  );
+    expect(database.schemaVersion, 9);
+    expect(await database.select(database.bleOutbox).get(), isEmpty);
+    expect(await database.select(database.bleInbox).get(), isEmpty);
+    expect(await database.select(database.chatMessages).get(), isEmpty);
+    expect(await database.select(database.bleRelayMessages).get(), isEmpty);
+    expect(await database.select(database.bleRelayAttempts).get(), isEmpty);
+    expect(await database.select(database.bleRelayReceipts).get(), isEmpty);
+    expect(
+      (await database.select(database.sosMessages).getSingle()).id,
+      'existing-sos',
+    );
+  });
 
   test('migrates a version 2 database and preserves existing tables', () async {
     final oldExecutor = NativeDatabase.memory(
@@ -115,7 +112,7 @@ void main() {
     );
 
     final migrated = AppDatabase.forTesting(oldExecutor);
-    expect(migrated.schemaVersion, 6);
+    expect(migrated.schemaVersion, 9);
     expect(await migrated.select(migrated.bleOutbox).get(), isEmpty);
     expect(await migrated.select(migrated.bleInbox).get(), isEmpty);
     expect(await migrated.select(migrated.chatMessages).get(), isEmpty);
@@ -154,7 +151,7 @@ void main() {
     );
 
     final migrated = AppDatabase.forTesting(oldExecutor);
-    expect(migrated.schemaVersion, 6);
+    expect(migrated.schemaVersion, 9);
     expect(await migrated.select(migrated.sosSyncQueue).get(), isEmpty);
     expect(await migrated.select(migrated.bleOutbox).get(), isEmpty);
     expect(await migrated.select(migrated.bleInbox).get(), isEmpty);

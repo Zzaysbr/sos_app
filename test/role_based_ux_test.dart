@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:drift/native.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sos_app/core/database/app_database.dart';
+import 'package:sos_app/core/localization/localization.dart';
 import 'package:sos_app/core/theme/app_theme.dart';
 import 'package:sos_app/features/nearby_ble/data/ble_delivery_repository.dart';
 import 'package:sos_app/features/nearby_ble/data/emergency_consent_store.dart';
@@ -101,6 +103,14 @@ void main() {
 
   Widget app(RolePreferenceStore store, {ThemeMode mode = ThemeMode.light}) =>
       MaterialApp(
+        locale: const Locale('th'),
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         theme: AppTheme.light,
         darkTheme: AppTheme.dark,
         themeMode: mode,
@@ -111,15 +121,19 @@ void main() {
         ),
       );
 
-  testWidgets('role selection persists when the app shell is recreated', (
+  testWidgets('first run defaults to victim mode and rescue opt-in persists', (
     tester,
   ) async {
     final store = MemoryRolePreferenceStore();
     await tester.pumpWidget(app(store));
     await tester.pumpAndSettle();
-    expect(find.text('วันนี้คุณต้องการทำอะไร?'), findsOneWidget);
+    expect(find.text('วันนี้คุณต้องการทำอะไร?'), findsNothing);
+    expect(find.text('ส่ง SOS'), findsOneWidget);
+    expect(store.value, AppRole.needHelp);
 
-    await tester.tap(find.text('ฉันต้องการช่วยเหลือ'));
+    await tester.tap(find.text('ตั้งค่า'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('โหมดการใช้งาน'));
     await tester.pumpAndSettle();
     expect(find.text('ศูนย์ช่วยเหลือใกล้ตัว'), findsOneWidget);
     expect(store.value, AppRole.rescue);

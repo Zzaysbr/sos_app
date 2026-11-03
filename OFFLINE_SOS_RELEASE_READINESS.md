@@ -504,3 +504,317 @@ A→B storage, controlled B→C forwarding and direct responder routing for this
 build remain **NOT RUN / NOT VERIFIED**. Production map, signed Android Release
 and three-device Relay evidence remain blockers; the Release Gate is
 **BLOCKED**.
+
+## Physical hop-only Relay and developer diagnostics — 1–2 November 2026
+
+A controlled foreground iPhone A → Android B → iPad C run verified hop-only
+store-and-forward on physical devices. The iPad retained exactly one Relay v2
+envelope at incoming hop 1 while its normal SOS History correctly received no
+row. The Android retained one verified signed hop receipt and marked the bound
+attempt `acceptedByRelay`; the origin message ID and immutable digest matched
+between B and C. A Bluetooth was disabled before the B → C phase. Evidence is
+stored outside the repository under
+`/tmp/off_grid_sos_device_validation/relay_abc_2026-11-01/`.
+
+This result proves relay storage and a hop receipt only. It does not prove final
+responder delivery, human acceptance, background operation or release readiness.
+The Release Gate remains **BLOCKED**.
+
+### Phase 9.5 iPhone GPS feedback — Case A
+
+With Location Services manually disabled, the iPhone 15 Plus test SOS was
+persisted and Chat opened immediately. The Chat banner reported `Location
+unavailable` with `Current location is unavailable or invalid.`. The SOS stayed
+**active** and no duplicate incident was created. GPS-unavailable feedback is
+**PHYSICAL PASS**; GPS recovery and lifecycle cases remain **NOT RUN**.
+### Android physical map follow-up — 3 November 2026
+
+On Samsung SM-A536E, Internet was enabled once outside the app and disabled
+before opening it. The real position appeared; marker/coordinates, pan and
+recenter worked. Tiles disappeared at zoom extremes while offline and
+returned after Internet recovery. GPS after warm-up is **PASS**, Offline Map
+tile coverage is **PARTIAL**, online recovery is **PASS**, attribution is
+**NOT VERIFIED**, and Offline Region download is **NOT RUN**. This does not
+prove cold-start GPS or nationwide offline coverage.
+
+## Phase 9.3–9.4 GPS and automatic location sharing — 3 November 2026
+
+The iPhone 15 Plus Profile build was installed update-in-place and opened from
+the Home Screen icon. Current location remained unavailable in the offline
+attempt. The follow-up Profile patch correctly displayed
+`Incident coordinates are not available.` in Details without creating a fake
+marker. iPhone no-coordinate UX is **PHYSICAL PASS**, GPS is
+**FAIL/UNAVAILABLE** for this run, and all iPhone Map tile, attribution,
+online-recovery and automatic-sharing checks are **NOT RUN**.
+
+The SOS flow previously waited for Location acquisition before local
+persistence. It now persists the SOS and opens Chat first, then performs
+consented Location acquisition asynchronously. Valid coordinates update the
+same incident and enter the existing Relay path; permission denial, GPS
+timeout, service-offline state or other acquisition failure cannot prevent SOS
+creation or Chat navigation. Automatic sharing remains explicitly consented
+and OFF by default; OS permission alone is not consent.
+
+Focused Phase 9.3–9.4 tests pass 12, the full suite passes 417, analyzer and
+`git diff --check` pass, and Android Debug/iOS Debug no-codesign builds with
+the ignored production config pass. Physical GPS and Map UI verification,
+including online tile recovery and offline cached-region behavior, remain
+**NOT RUN**. Offline Download was not tested. The Release Gate remains
+**BLOCKED**.
+
+### iPad Air 11-inch (M2) physical follow-up — 3 November 2026
+
+The Profile build was installed update-in-place and opened from the Home Screen
+icon. With Internet disabled, SOS creation and immediate Chat navigation passed.
+Current location was unavailable, and Details displayed
+`Incident coordinates are not available.` without a synthetic marker. iPad
+installation, icon launch, offline SOS, Chat navigation and no-coordinate UX
+are **PHYSICAL PASS**; GPS is **FAIL/UNAVAILABLE**. Map tiles, marker/coordinates
+with a valid position, offline tile coverage, zoom/pan/recenter, attribution,
+online recovery and automatic location sharing remain **NOT RUN** for this
+device because the run produced no incident coordinates. Offline Region
+download remains **NOT RUN** and the Release Gate remains **BLOCKED**.
+
+### Phase 9.5 iPad GPS feedback — Case A
+
+With Location Services disabled, the iPad Air 11-inch (M2) created a new SOS
+while the prior resolved incident remained in History. Chat opened immediately
+and displayed `Location unavailable`, `SOS was saved without coordinates`, and
+`Current location is unavailable or invalid.`. The new incident remained
+**active** and duplicate count was **0**. The iPad GPS-unavailable feedback
+path is **PHYSICAL PASS**.
+
+### Phase 9.5 Android GPS feedback — Cases A and B
+
+On the Samsung Galaxy A53 (Android 14) Debug build, Case A with Location
+Services disabled persisted one SOS, opened Chat immediately, showed
+`Location unavailable` with `Current location is unavailable or invalid.`,
+kept the incident **active**, and created no duplicate. Case A is **PHYSICAL
+PASS**.
+
+For Case B, Location Services was enabled with **While using** permission. A
+new SOS was persisted, Chat opened immediately, Details contained coordinates,
+and a map marker was visible. The incident stayed **active**, duplicate count
+was **0**, and no error was observed. Case B is **PHYSICAL PASS**.
+
+### Phase 9.5 Android GPS feedback — Case C
+
+The user left Chat before the asynchronous location callback completed on the
+Samsung Galaxy A53. The app did not crash and no lifecycle error was observed.
+The prior incident remained available after resolution, the subsequent
+incident contained the correct data, and no prior location feedback appeared
+in the new Chat. Duplicate count was **0**. Android callback lifecycle safety
+and incident isolation are **PHYSICAL PASS**.
+
+### Phase 9.5 iPad GPS feedback — Case B
+
+With Location Services enabled and **While Using** permission, the iPad Air
+11-inch (M2) persisted a new SOS and opened Chat immediately. Details contained
+a coordinate and a map marker was visible. The SOS stayed **active**, duplicate
+count was **0**, and no error was observed. iPad GPS recovery is **PHYSICAL
+PASS**.
+
+### Phase 9.5 iPad GPS feedback — Case C
+
+The user left Chat before the asynchronous location callback completed. The
+iPad app did not crash and no lifecycle error was observed. The prior incident
+remained available after resolution, the subsequent incident contained the
+correct data, and no prior location feedback appeared in the new Chat.
+Duplicate count remained **0**. iPad lifecycle safety and incident isolation
+are **PHYSICAL PASS**.
+
+## Phase 9.2 physical map verification — 3 November 2026
+
+The config-backed Debug build was installed update-in-place and launched on
+the detected Android phone, iPhone 15 Plus and iPad Air 11-inch (M2), with no
+uninstall or data clear. Screen-level map checks are **NOT RUN**: Android was
+locked during inspection, and no captured device evidence yet proves live
+Geoapify tiles, attribution, marker/coordinate placement, zoom/pan/recenter,
+or offline error/recovery on iOS. The Release Gate remains **BLOCKED**.
+
+To make relay-only evidence inspectable without copying the database, developer
+builds now include a read-only Relay Diagnostics screen. It projects the
+existing relay message/attempt/receipt tables and deliberately excludes message
+content, coordinates, peer identity, keys, signatures, raw envelopes and raw
+errors. It distinguishes hop evidence from final responder evidence and never
+moves relay-only rows into History. Release builds cannot construct the route
+or render the diagnostic data.
+
+Current automated validation on 2 November 2026: 8 diagnostics tests pass, the
+focused Relay/diagnostics set passes 105, the latest focused coordinator set
+passes 25, the full Flutter suite passes 391 and `flutter analyze lib test`
+reports no issues. Android Debug and iOS Release no-codesign compilation pass;
+the release executable does not contain the two diagnostics labels checked.
+The unsigned iOS result is not release-signing evidence.
+
+The latest signed Profile/Debug patch was installed update-in-place on the
+iPhone origin, Android relay and iPad relay, with existing application data
+retained. A new controlled run physically passed both hops. A showed
+`Stored on 1 relay device`; B Diagnostics showed one relay-only hop-0 envelope,
+then one attempt with `Stored by next relay` and `Received from next relay`;
+C Diagnostics showed exactly one relay-only hop-1 envelope. B and C History
+both remained empty for that envelope. Both diagnostic screens were read-only,
+retained the same counts after navigation and exposed no SOS body, coordinates,
+peer identity, keys, signatures or raw errors. Android runtime evidence records
+`relayPersisted`, `relayOfferWrittenAwaitingHopReceipt` and
+`relayStoredOnNextHop`.
+
+Two physical defects were corrected during this run without changing the wire
+format, UUIDs or schema: hop receipts now use the proof binding issued by the
+offer receiver, and a foreground resume explicitly re-proves retained GATT
+sessions after an interrupted multi-frame control write. The diagnostics and
+hop-only A→B→C evidence are therefore **PHYSICAL PASS** for this patch. Final
+responder delivery remains `Not confirmed` and is not implemented by Model C.
+Production map configuration, signed Android/iOS release artifacts and the
+remaining physical reliability/range matrix remain blockers.
+
+## Owner-approved Trusted Responder direction — 2 November 2026
+
+The owner approved **Option A — Safe Minimal MVP**. Direct BLE v1 and hop-only
+Relay v2 remain the current product scope. Final Delivery v3 is deferred and is
+not implemented. Production Trust Authority, real responder enrollment and
+eligibility, and external operational ownership remain blocked.
+
+Source and test review confirms the current boundary: native BLE write
+completion remains awaiting an application ACK; Direct v1 confirmation requires
+the matching selected-peer persisted ACK; self-signed final Relay receipts fail
+closed; Relay v2 produces hop-only evidence; and relay-only envelopes do not
+create normal SOS History rows. Firebase UID, Rescue mode, nearby BLE peer and
+Relay public-key possession are not responder authorization.
+
+User-facing Relay status remains `Stored on relay; final delivery unconfirmed`.
+This does not mean an authorized responder or human received or accepted the
+incident, and it does not mean assistance was dispatched or is on the way.
+Production release remains **BLOCKED** by the unresolved production trust, map
+configuration, distribution signing and required physical-device verification
+gates. No new physical test is claimed by this decision record.
+
+Current automated verification for this decision: the focused Relay, Direct
+SOS/ACK, Chat, identity and Guest-isolation set passes 215 tests; the full suite
+passes 391 tests; `flutter analyze lib test` reports no issues; and
+`git diff --check` passes. No source or test change was needed for Option A.
+
+## Phase 8 Thai/English localization — 2 November 2026
+
+Flutter `gen-l10n` now provides English and Thai resources across the
+emergency-critical and main application flows. Settings exposes a persistent
+language selector, unsupported or invalid locales fail safely to English, and
+runtime switching retains the existing app state and service instances. Relay
+wording in both languages preserves Option A semantics: relay storage and hop
+receipts do not claim final responder delivery, human acceptance or dispatch.
+
+Current evidence: `flutter gen-l10n` passes; the broad focused localization and
+critical-flow set passes 79 tests and the final affected subset passes 41; the
+localization/BLE diagnostic subset passes 43; the full Flutter suite passes 410 tests;
+`flutter analyze lib test` reports no issues; and `git diff --check` passes.
+Thai/English physical layout and restart-persistence checks on Android, iPhone
+and iPad remain **NOT RUN** for this patch. See
+`LOCALIZATION_IMPLEMENTATION_REPORT.md` for scope and limitations.
+
+The Release Gate remains **BLOCKED**. Localization does not resolve production
+map configuration/live validation, distribution signing, the remaining
+physical reliability/range matrix, production trust/operations, or deferred
+Final Delivery v3.
+
+## Phase 9 production map and Offline Region readiness — 2 November 2026
+
+The map provider remains intentionally fail-closed in Release until an
+account-owned configuration is supplied. Current source validates a typed,
+credential-safe configuration issue and renders it in the selected English or
+Thai locale; it rejects missing/invalid HTTPS templates, public OSM in Release,
+missing Geoapify keys, incomplete provider/OSM attribution, missing
+placeholders and missing user-agent identity. Tile failures keep the incident
+and verified shared-location coordinates available without a public fallback.
+
+Offline Regions are now a concrete, bounded implementation rather than a
+general cache claim: only a validated Geoapify tile endpoint can be used,
+including an API key and nonempty user-agent; public OSM cannot be prefetched.
+Staged partial downloads are cleaned up, completed regions persist across
+restart and tile/region/total-storage limits are enforced. This is
+**CONDITIONALLY IMPLEMENTED**, because Geoapify's currently published tile
+terms permit storage with required attribution but no owner key, accepted plan
+controls or physical device evidence exists yet.
+
+Current Phase 9 map/offline focused tests pass 34 tests (exit 0), and the
+relevant Map/Offline/SOS/Location suite passes 48 tests. The current full suite
+passes 414 tests; `flutter analyze lib test` and `git diff --check` pass.
+Android Debug and iOS Debug no-codesign builds pass, but neither is signed
+release or live-provider evidence. Coverage includes release configuration,
+attribution, localized failure state, network/retry, partial cleanup, restart
+persistence and pre-request user-agent rejection.
+See `PHASE_9_MAP_READINESS_REPORT.md` for current provider references, limits
+and the exact owner/device steps. Production map runtime and physical Offline
+Region validation remain **NOT RUN**. The Release Gate remains **BLOCKED**.
+
+## Phase 9.1 Geoapify local configuration verification — 3 November 2026
+
+The ignored local production configuration was structurally verified to carry
+a nonempty `GEOAPIFY_API_KEY` without exposing its value. Source now consumes
+that one-key configuration by constructing the fixed Geoapify `osm-carto`
+HTTPS template, mandatory attribution and app user-agent only when explicit
+`MAP_TILE_*` values are absent. Explicit configuration remains supported;
+missing configuration remains fail-closed and cannot use public OSM in Release.
+
+The key-configured provider test passes 9 tests, Android Debug build passes,
+and iOS Debug no-codesign build passes. These are build-time evidence only;
+signed Release, live provider response, physical device map/offline storage,
+quota monitoring and provider-account verification remain **NOT RUN**. The
+Release Gate remains **BLOCKED**.
+
+### Phase 9.5 iPhone GPS feedback — Case B
+
+With Location Services enabled and **While Using** permission, the iPhone 15
+Plus created and persisted a new SOS while Internet was enabled. Chat opened
+immediately; Details contained a real coordinate and the map marker was
+visible. The SOS stayed **active**, duplicate count was **0**, and no error was
+observed. GPS recovery is **PHYSICAL PASS**. Acquisition time was not measured,
+so cold-start timing remains unquantified.
+
+### Phase 9.5 iPhone GPS feedback — Case C
+
+The user left Chat before the asynchronous location callback completed. The
+app did not crash and no lifecycle error was observed. The prior incident
+remained available in resolved state, the subsequent incident contained the
+correct data, and no prior location feedback appeared in the new Chat.
+Duplicate count was **0**. Lifecycle safety and incident isolation are
+**PHYSICAL PASS**; callback/timeout duration was not measured.
+
+### Phase 9 production map and Offline Region verification — 3 November 2026
+
+**Source/configuration — PASS (static):** Release map configuration is
+fail-closed: missing/invalid HTTPS templates, public OSM, missing Geoapify key,
+missing placeholders, attribution or user-agent are rejected. The ignored
+`config/production.json` contains the expected key name and was not printed or
+tracked. Offline Regions are bounded and transactional: Geoapify-only HTTPS
+requests, user-agent validation, per-tile/region/total-storage limits, partial
+cleanup and restart persistence are covered by source and tests.
+
+**Automated — PASS:** Map/Offline/incident focused tests 34/34 (exit 0), full
+Flutter suite 418/418 (exit 0), `flutter analyze lib test` (exit 0), and
+`git diff --check` (exit 0). No source defect was found and no source/test
+change was made for this verification.
+
+**Release configuration — BLOCKED/NOT VERIFIED:** Android release build with
+`config/production.json` failed closed because the owner keystore and
+`android/key.properties` are missing. iOS Release no-codesign started and left
+an app bundle, but the invocation was stopped after prolonged silence before a
+reliable completion result; it is not signed-build evidence.
+
+**Physical/provider — NOT RELEASE-READY:** Android has prior physical
+coordinate/marker/pan/recenter/online-recovery evidence, but incomplete cached
+zoom coverage and attribution remain unresolved. iPhone/iPad map attribution
+and Offline Region download/restart were not run. Geoapify documentation
+supports storing/reusing tiles subject to RPS and attribution; Terms require
+OSM attribution and Geoapify attribution on Free plans. Account plan, quota,
+accepted terms and key ownership remain owner verification items. Release Gate
+remains **BLOCKED**.
+
+### Physical Offline Region acceptance — Samsung Galaxy A53, 3 November 2026
+
+The downloaded region rendered real cached tiles while offline (**PHYSICAL
+PASS** within the downloaded area). Outside that region, tiles were absent and
+retry required Internet (**PARTIAL/EXPECTED** bounded-cache behavior). Exact
+zoom coverage, attribution/link interaction, progress completion,
+force-close/restart persistence, storage-pressure handling and interrupted
+download retry remain **NOT VERIFIED**. iPhone and iPad Offline Region tests
+remain **NOT RUN**.

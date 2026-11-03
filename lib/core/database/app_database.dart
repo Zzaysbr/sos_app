@@ -9,6 +9,13 @@ import 'tables/ble_relay_attempts.dart';
 import 'tables/ble_relay_messages.dart';
 import 'tables/ble_relay_receipts.dart';
 import 'tables/chat_messages.dart';
+import 'tables/rescue_inbox.dart';
+import 'tables/rescue_response_inbox.dart';
+import 'tables/rescue_response_jobs.dart';
+import 'tables/rescue_response_outbox.dart';
+import 'tables/rescue_response_replay.dart';
+import 'tables/chat_relay_outbox.dart';
+import 'tables/chat_relay_inbox.dart';
 
 part 'app_database.g.dart';
 
@@ -22,6 +29,13 @@ part 'app_database.g.dart';
     BleRelayMessages,
     BleRelayAttempts,
     BleRelayReceipts,
+    RescueInbox,
+    RescueResponseOutbox,
+    RescueResponseInbox,
+    RescueResponseJobs,
+    RescueResponseReplay,
+    ChatRelayOutbox,
+    ChatRelayInbox,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -30,7 +44,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -55,6 +69,19 @@ class AppDatabase extends _$AppDatabase {
           await migrator.createTable(bleRelayMessages);
           await migrator.createTable(bleRelayAttempts);
           await migrator.createTable(bleRelayReceipts);
+        }
+        if (from < 7) {
+          await migrator.createTable(rescueInbox);
+        }
+        if (from < 8) {
+          await migrator.createTable(rescueResponseOutbox);
+          await migrator.createTable(rescueResponseInbox);
+          await migrator.createTable(rescueResponseJobs);
+          await migrator.createTable(rescueResponseReplay);
+        }
+        if (from < 9) {
+          await migrator.createTable(chatRelayOutbox);
+          await migrator.createTable(chatRelayInbox);
         }
       });
     },

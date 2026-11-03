@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/localization/localization.dart';
 import '../../../core/database/app_database.dart';
 import '../../nearby_ble/data/hop_relay_coordinator.dart';
 import '../../nearby_ble/data/ble_transport.dart';
@@ -89,6 +91,8 @@ class EmergencyChatPage extends StatefulWidget {
     this.bleTransport,
     this.sosDeliveryStream,
     this.relayStatusStream,
+    this.verifiedHelpOfferStream,
+    this.locationFeedback,
   });
 
   final String? sosId;
@@ -105,6 +109,8 @@ class EmergencyChatPage extends StatefulWidget {
   final BleTransportClient? bleTransport;
   final Stream<BleOutboxData?>? sosDeliveryStream;
   final Stream<RelayStatusSnapshot>? relayStatusStream;
+  final Stream<List<RescueResponseInboxData>>? verifiedHelpOfferStream;
+  final ValueListenable<String?>? locationFeedback;
 
   @override
   State<EmergencyChatPage> createState() => _EmergencyChatPageState();
@@ -243,19 +249,14 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Saved locally; BLE delivery is pending.'),
-            ),
+            SnackBar(content: Text(context.l10n.chatSavedPending)),
           );
         }
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Message could not be sent. Try again.'),
-          ),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(context.l10n.chatSendFailed)));
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -284,9 +285,7 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
       if (!mounted) return;
       if (assigned == 0) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No queued messages needed a recipient.'),
-          ),
+          SnackBar(content: Text(context.l10n.noQueuedMessagesNeedRecipient)),
         );
         return;
       }
@@ -294,19 +293,15 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
       await _loadMessages(sosId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              assigned == 1
-                  ? 'Recipient assigned to 1 queued message.'
-                  : 'Recipient assigned to $assigned queued messages.',
-            ),
-          ),
+          SnackBar(content: Text(context.l10n.recipientAssigned(assigned))),
         );
       }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to assign recipient: $error')),
+          SnackBar(
+            content: Text(context.l10n.assignRecipientFailed(error.toString())),
+          ),
         );
       }
     } finally {
@@ -314,18 +309,20 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
     }
   }
 
-  String _time(DateTime value) =>
-      '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+  String _time(BuildContext context, DateTime value) =>
+      MaterialLocalizations.of(context)
+          .formatTimeOfDay(TimeOfDay.fromDateTime(value.toLocal()));
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: const Text('แชตฉุกเฉิน')),
+      appBar: AppBar(title: Text(l10n.emergencyChat)),
       body: Column(
         children: [
           if (widget.sosId != null)
             Semantics(
-              label: 'กำลังสนทนาในเหตุ ${widget.sosId}',
+              label: l10n.chatIncidentSemantics(widget.sosId!),
               child: Container(
                 width: double.infinity,
                 constraints: const BoxConstraints(minHeight: 48),
@@ -348,8 +345,8 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
-                          const Text(
-                            'บันทึกในเครื่องก่อน',
+                          Text(
+                            l10n.savedLocallyFirst,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -361,14 +358,63 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
               ),
             ),
           if (widget.sosId != null) _buildEmergencyDeliveryStatus(),
+          if (widget.verifiedHelpOfferStream != null)
+            StreamBuilder<List<RescueResponseInboxData>>(
+              stream: widget.verifiedHelpOfferStream,
+              builder: (context, snapshot) {
+                final offers = snapshot.data ?? const [];
+                if (offers.isEmpty) return const SizedBox.shrink();
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.volunteer_activism_outlined),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Verified help offer received (${offers.length}). '
+                          'The responder has been authenticated; assistance is not guaranteed.',
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          if (widget.locationFeedback != null)
+            ValueListenableBuilder<String?>(
+              valueListenable: widget.locationFeedback!,
+              builder: (context, message, _) => message == null
+                  ? const SizedBox.shrink()
+                  : Semantics(
+                      liveRegion: true,
+                      label: message,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerLow,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.location_off_outlined, size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(child: Text(message)),
+                          ],
+                        ),
+                      ),
+                    ),
+            ),
           if (_hasUnroutedPendingMessages &&
               widget.onAssignPendingDestination != null &&
               widget.bleTransport != null)
             MaterialBanner(
               leading: const Icon(Icons.link_off_rounded),
-              content: const Text(
-                'Queued messages need a BLE recipient. Choose the intended peer; the app will not guess one.',
-              ),
+              content: Text(l10n.chatNeedsRecipient),
               actions: [
                 TextButton(
                   onPressed: _assigningPendingDestination
@@ -376,8 +422,8 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
                       : _assignPendingDestination,
                   child: Text(
                     _assigningPendingDestination
-                        ? 'Assigning…'
-                        : 'Choose recipient',
+                        ? l10n.assigning
+                        : l10n.chooseRecipient,
                   ),
                 ),
               ],
@@ -407,7 +453,7 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
                                     unawaited(_loadMessages(widget.sosId!));
                                   },
                             icon: const Icon(Icons.refresh),
-                            label: const Text('ลองอีกครั้ง'),
+                            label: Text(l10n.tryAgain),
                           ),
                         ],
                       ),
@@ -418,7 +464,9 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
                     child: Padding(
                       padding: const EdgeInsets.all(24),
                       child: Text(
-                        widget.sosId == null ? 'เลือกเหตุการณ์ก่อนเริ่มแชต' : 'ยังไม่มีข้อความ\nส่งข้อมูลสั้น ๆ ที่ผู้ช่วยเหลือต้องรู้',
+                        widget.sosId == null
+                            ? l10n.chooseIncidentBeforeChat
+                            : l10n.noChatMessages,
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -458,12 +506,15 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
                                   Icon(
                                     _statusIcon(message.status),
                                     size: 13,
-                                    semanticLabel: _statusLabel(message.status),
+                                    semanticLabel: _statusLabel(
+                                      context,
+                                      message.status,
+                                    ),
                                   ),
                                   const SizedBox(width: 4),
                                   Flexible(
                                     child: Text(
-                                      '${_time(message.createdAt)} · ${_statusLabel(message.status)}',
+                                      '${_time(context, message.createdAt)} · ${_statusLabel(context, message.status)}',
                                       style: Theme.of(context)
                                           .textTheme
                                           .labelSmall,
@@ -486,22 +537,22 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
                   Expanded(
                     child: Semantics(
                       textField: true,
-                      label: 'ข้อความฉุกเฉิน',
+                      label: l10n.emergencyMessage,
                       child: TextField(
                         controller: _controller,
                         minLines: 1,
                         maxLines: 4,
                         textInputAction: TextInputAction.newline,
-                        decoration: const InputDecoration(
-                          hintText: 'พิมพ์ข้อความ…',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          hintText: l10n.typeMessage,
+                          border: const OutlineInputBorder(),
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   IconButton.filled(
-                    tooltip: 'Send',
+                    tooltip: l10n.send,
                     constraints: const BoxConstraints(
                       minWidth: 48,
                       minHeight: 48,
@@ -574,30 +625,30 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
     required bool error,
   }) {
     if (error) {
-      return const _EmergencyProgress(
+      return _EmergencyProgress(
         Icons.error_outline,
-        'Delivery status is temporarily unavailable. The SOS remains saved locally.',
+        context.l10n.deliveryStatusUnavailable,
       );
     }
     if (unavailable) {
-      return const _EmergencyProgress(
+      return _EmergencyProgress(
         Icons.save_outlined,
-        'Saved locally. Nearby delivery is unavailable in this session.',
+        context.l10n.savedNearbyUnavailable,
       );
     }
     if (direct != null) {
       final state = BleOutboxState.parse(direct.state);
       if (state == BleOutboxState.acknowledged) {
-        return const _EmergencyProgress(
+        return _EmergencyProgress(
           Icons.done_all,
-          'Confirmed stored on the selected nearby device.',
+          context.l10n.directStoredConfirmed,
         );
       }
       if (state == BleOutboxState.awaitingAcknowledgement ||
           state == BleOutboxState.writeAccepted) {
-        return const _EmergencyProgress(
+        return _EmergencyProgress(
           Icons.outbox_outlined,
-          'Sent to a nearby device; awaiting application confirmation.',
+          context.l10n.sentAwaitingConfirmation,
         );
       }
     }
@@ -605,13 +656,13 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
       final count = relay!.acceptedRelayCount;
       return _EmergencyProgress(
         Icons.hub_outlined,
-        'Stored on $count relay device${count == 1 ? '' : 's'}; final delivery is unconfirmed.',
+        context.l10n.storedOnRelay(count),
       );
     }
     if ((relay?.pendingAttemptCount ?? 0) > 0) {
-      return const _EmergencyProgress(
+      return _EmergencyProgress(
         Icons.bluetooth_searching,
-        'Forwarding to an authenticated nearby relay.',
+        context.l10n.forwardingAuthenticatedRelay,
       );
     }
     if (direct != null) {
@@ -620,42 +671,40 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
         return _EmergencyProgress(
           Icons.error_outline,
           direct.nextRetryAt == null
-              ? 'Nearby delivery failed; no retry is currently scheduled.'
-              : 'Nearby delivery failed; retry is scheduled.',
+              ? context.l10n.nearbyFailedNoRetry
+              : context.l10n.nearbyFailedRetry,
         );
       }
       if (state == BleOutboxState.expired) {
-        return const _EmergencyProgress(
+        return _EmergencyProgress(
           Icons.timer_off_outlined,
-          'Nearby delivery expired without confirmation.',
+          context.l10n.nearbyExpired,
         );
       }
       if (state == BleOutboxState.sending ||
           direct.destinationId?.trim().isNotEmpty == true) {
-        return const _EmergencyProgress(
+        return _EmergencyProgress(
           Icons.send_outlined,
-          'Preparing the trusted nearby route.',
+          context.l10n.preparingNearbyRoute,
         );
       }
     }
     if ((relay?.failedAttemptCount ?? 0) > 0) {
-      return const _EmergencyProgress(
-        Icons.refresh,
-        'No relay accepted yet. The saved SOS will retry while eligible.',
-      );
+      return _EmergencyProgress(Icons.refresh, context.l10n.noRelayAccepted);
     }
-    return const _EmergencyProgress(
+    return _EmergencyProgress(
       Icons.bluetooth_searching,
-      'Searching for an eligible nearby device. Final delivery is unconfirmed.',
+      context.l10n.searchingEligibleDevice,
     );
   }
 
-  String _statusLabel(ChatDeliveryStatus status) => switch (status) {
-    ChatDeliveryStatus.pending => 'Queued',
-    ChatDeliveryStatus.sent => 'Awaiting confirmation (sent)',
-    ChatDeliveryStatus.delivered => 'Confirmed received',
-    ChatDeliveryStatus.failed => 'Failed; retryable',
-  };
+  String _statusLabel(BuildContext context, ChatDeliveryStatus status) =>
+      switch (status) {
+        ChatDeliveryStatus.pending => context.l10n.statusQueued,
+        ChatDeliveryStatus.sent => context.l10n.statusAwaitingConfirmation,
+        ChatDeliveryStatus.delivered => context.l10n.statusConfirmedStored,
+        ChatDeliveryStatus.failed => context.l10n.statusFailedRetryable,
+      };
 
   IconData _statusIcon(ChatDeliveryStatus status) => switch (status) {
     ChatDeliveryStatus.pending => Icons.schedule,

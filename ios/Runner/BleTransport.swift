@@ -132,6 +132,39 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     results.forEach { $0(nil) }
   }
 
+  private func invalidateCentralSessions(reason: String) {
+    let ids = Set(connected.keys)
+      .union(connecting)
+      .union(ready)
+      .union(writeResults.keys)
+    guard !ids.isEmpty else { return }
+    central.stopScan()
+    for id in ids {
+      if let peripheral = connected[id], peripheral.state != .disconnected {
+        central.cancelPeripheralConnection(peripheral)
+      }
+      cancelSetupTimeout(for: id)
+      if let results = writeResults.removeValue(forKey: id) {
+        results.forEach {
+          $0(FlutterError(code: "disconnected", message: reason, details: nil))
+        }
+      }
+      connecting.remove(id)
+      connected.removeValue(forKey: id)
+      ready.remove(id)
+      services.removeValue(forKey: id)
+      notificationPending.remove(id)
+      rxCharacteristics.removeValue(forKey: id)
+      txCharacteristics.removeValue(forKey: id)
+      disconnectReasons.removeValue(forKey: id)
+      connectionAttempts.removeValue(forKey: id)
+      if let peripheral = discovered[id] {
+        emit(["type": "disconnected", "device": device(peripheral), "error": reason, "role": "central"])
+      }
+    }
+    discovered.removeAll()
+  }
+
   private func startDiscovery(_ result: @escaping FlutterResult) {
     guard central.state == .poweredOn else {
       let message = "iOS central Bluetooth is not powered on (state: \(centralState()))"
@@ -344,8 +377,13 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   func centralManagerDidUpdateState(_ central: CBCentralManager) {
     guard !disposed, central === self.central else { return }
     completeInitializationIfReady()
-    trace("centralManagerDidUpdateState state=\(centralState())")
-    emit(["type": "centralState", "state": centralState()])
+    let state = centralState()
+    trace("centralManagerDidUpdateState state=\(state)")
+    if state == "poweredOff" || state == "unauthorized" ||
+        state == "unsupported" || state == "resetting" {
+      invalidateCentralSessions(reason: "Bluetooth adapter state is \(state)")
+    }
+    emit(["type": "centralState", "state": state])
   }
 
   func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {

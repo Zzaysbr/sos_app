@@ -87,6 +87,7 @@ void main() {
 
       expect(loaded.allowPublicRelay, isTrue);
       expect(loaded.shareLocation, isFalse);
+      expect(loaded.allowVoluntaryRescue, isFalse);
       expect(calls.map((call) => call.method), <String>[
         'getEmergencyConsent',
         'setEmergencyConsent',
@@ -95,6 +96,7 @@ void main() {
         'configured': true,
         'allowPublicRelay': true,
         'shareLocation': true,
+        'allowVoluntaryRescue': false,
       });
     },
   );

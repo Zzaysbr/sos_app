@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../core/localization/localization.dart';
 import '../../../core/database/app_database.dart';
 import '../../nearby_ble/domain/location_ble_envelope.dart';
 import '../data/offline_map_repository.dart';
@@ -23,6 +24,7 @@ class IncidentMapPage extends StatefulWidget {
     this.locationLoader,
     this.incomingLocation,
     this.incomingSenderDeviceId,
+    this.rescueCandidate,
     this.tileProvider,
     this.offlineMapRepository,
   });
@@ -31,6 +33,7 @@ class IncidentMapPage extends StatefulWidget {
   final LocationLoader? locationLoader;
   final LocationBleEnvelope? incomingLocation;
   final String? incomingSenderDeviceId;
+  final RescueInboxData? rescueCandidate;
   final MapTileProviderConfig? tileProvider;
   final OfflineMapRepository? offlineMapRepository;
 
@@ -49,7 +52,7 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
   OfflineFirstTileProvider? _offlineTileProvider;
   bool _offlineInitializationComplete = false;
   List<OfflineMapRegion> _offlineRegions = const [];
-  String? _offlineStorageError;
+  bool _offlineStorageUnavailable = false;
   OfflineMapProgress? _downloadProgress;
   OfflineMapCancellation? _downloadCancellation;
 
@@ -62,8 +65,10 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
   static const _maxLongitude = 180.0;
 
   LatLng? get _incidentPoint {
-    final latitude = widget.incident.latitude;
-    final longitude = widget.incident.longitude;
+    final latitude =
+        widget.rescueCandidate?.latitude ?? widget.incident.latitude;
+    final longitude =
+        widget.rescueCandidate?.longitude ?? widget.incident.longitude;
     if (!_validCoordinate(latitude, longitude)) return null;
     return LatLng(latitude!, longitude!);
   }
@@ -98,14 +103,19 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
   }
 
   bool get _incidentCoordinatesProvided =>
-      widget.incident.latitude != null || widget.incident.longitude != null;
+      (widget.rescueCandidate?.latitude != null ||
+          widget.rescueCandidate?.longitude != null) ||
+      widget.incident.latitude != null ||
+      widget.incident.longitude != null;
 
   String? get _incidentCoordinateError {
     if (!_incidentCoordinatesProvided) return null;
-    final latitude = widget.incident.latitude;
-    final longitude = widget.incident.longitude;
+    final latitude =
+        widget.rescueCandidate?.latitude ?? widget.incident.latitude;
+    final longitude =
+        widget.rescueCandidate?.longitude ?? widget.incident.longitude;
     if (!_validCoordinate(latitude, longitude)) {
-      return 'Incident coordinates are unavailable or invalid.';
+      return context.l10n.incidentCoordinatesInvalid;
     }
     return null;
   }
@@ -142,14 +152,13 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
         _offlineRepository = repository;
         _offlineRegions = repository.regions;
         _offlineInitializationComplete = true;
-        _offlineStorageError = null;
+        _offlineStorageUnavailable = false;
       });
     } on Object {
       if (!mounted) return;
       setState(() {
         _offlineInitializationComplete = true;
-        _offlineStorageError =
-            'Offline map storage is unavailable on this device.';
+        _offlineStorageUnavailable = true;
       });
     }
   }
@@ -167,7 +176,7 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
       if (!mounted) return;
       if (position != null &&
           !_validCoordinate(position.latitude, position.longitude)) {
-        throw const _LocationUnavailable('Current location is invalid.');
+        throw const _LocationUnavailable(_LocationFailure.invalid);
       }
       setState(() => _currentPosition = position);
     } catch (error) {
@@ -180,7 +189,7 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
 
   Future<Position?> _readCurrentLocation() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
-      throw const _LocationUnavailable('Location Services are disabled.');
+      throw const _LocationUnavailable(_LocationFailure.servicesDisabled);
     }
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
@@ -190,8 +199,8 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
         permission == LocationPermission.deniedForever) {
       throw _LocationUnavailable(
         permission == LocationPermission.deniedForever
-            ? 'Location permission is permanently denied. Open Settings.'
-            : 'Location permission was denied.',
+            ? _LocationFailure.permissionDeniedForever
+            : _LocationFailure.permissionDenied,
       );
     }
     try {
@@ -202,14 +211,25 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
         ),
       );
     } on TimeoutException {
-      throw const _LocationUnavailable('Location request timed out.');
+      throw const _LocationUnavailable(_LocationFailure.timedOut);
     }
   }
 
   String _locationErrorText(Object error) {
-    if (error is _LocationUnavailable) return error.message;
-    if (error is TimeoutException) return 'Location request timed out.';
-    return 'Unable to get the current location.';
+    if (error is _LocationUnavailable) {
+      return switch (error.reason) {
+        _LocationFailure.invalid => context.l10n.currentLocationUnavailable,
+        _LocationFailure.servicesDisabled =>
+          context.l10n.locationServicesDisabled,
+        _LocationFailure.permissionDenied =>
+          context.l10n.locationPermissionDenied,
+        _LocationFailure.permissionDeniedForever =>
+          context.l10n.locationPermissionDeniedForever,
+        _LocationFailure.timedOut => context.l10n.locationTimedOut,
+      };
+    }
+    if (error is TimeoutException) return context.l10n.locationTimedOut;
+    return context.l10n.currentLocationUnavailable;
   }
 
   Widget _attributionLink(String label, String url) => TextButton(
@@ -221,7 +241,7 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
       } on Object {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Unable to open attribution link.')),
+          SnackBar(content: Text(context.l10n.unableOpenAttribution)),
         );
       }
     },
@@ -230,6 +250,7 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final incidentPoint = _incidentPoint;
     final incomingPoint = _incomingPoint;
     final currentPoint = _currentPosition == null
@@ -272,7 +293,7 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Incident Map'),
+        title: Text(l10n.incidentMap),
         actions: [
           IconButton(
             onPressed:
@@ -282,13 +303,13 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
                 ? null
                 : _showDownloadDialog,
             tooltip: _tileProvider.supportsOfflineRegionDownloads
-                ? 'Download visible area'
-                : 'Offline downloads require the production Geoapify provider',
+                ? l10n.downloadVisibleArea
+                : l10n.offlineDownloadRequiresProvider,
             icon: const Icon(Icons.download_for_offline_outlined),
           ),
           IconButton(
             onPressed: _offlineRepository == null ? null : _showManageRegions,
-            tooltip: 'Manage offline maps',
+            tooltip: l10n.manageOfflineMaps,
             icon: const Icon(Icons.offline_pin_outlined),
           ),
         ],
@@ -338,12 +359,12 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
                                 children: [
                                   IconButton(
                                     onPressed: () => _changeZoom(1),
-                                    tooltip: 'Zoom in',
+                                    tooltip: l10n.zoomIn,
                                     icon: const Icon(Icons.add),
                                   ),
                                   IconButton(
                                     onPressed: () => _changeZoom(-1),
-                                    tooltip: 'Zoom out',
+                                    tooltip: l10n.zoomOut,
                                     icon: const Icon(Icons.remove),
                                   ),
                                   IconButton(
@@ -353,7 +374,7 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
                                             currentPoint,
                                             _mapController.camera.zoom,
                                           ),
-                                    tooltip: 'Center map on current location',
+                                    tooltip: l10n.centerCurrentLocation,
                                     icon: const Icon(Icons.gps_fixed),
                                   ),
                                 ],
@@ -407,7 +428,7 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _loadingLocation ? null : _loadCurrentLocation,
-        tooltip: 'Refresh current location',
+        tooltip: l10n.refreshCurrentLocation,
         child: _loadingLocation
             ? const SizedBox(
                 width: 20,
@@ -426,27 +447,35 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
     required LatLng? currentPoint,
   }) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final incomingStatus = widget.incomingLocation == null
         ? null
         : incomingPoint != null
-        ? 'Shared location available from the matched peer.'
+        ? l10n.sharedLocationAvailable
         : _incomingExpired
-        ? 'Shared location is expired and is not shown as current.'
-        : 'Shared location is unavailable.';
+        ? l10n.sharedLocationExpired
+        : l10n.sharedLocationUnavailable;
     final status =
         _incidentCoordinateError ??
         (_locationError != null
             ? _locationError!
             : currentPoint == null
-            ? 'Current location unavailable. Incident location remains available.'
+            ? l10n.currentLocationIncidentAvailable
             : _isStale
-            ? 'Current location is stale. Refresh before relying on it.'
-            : 'Current location available.');
+            ? l10n.currentLocationStale
+            : l10n.currentLocationAvailable);
     final coordinateText =
-        _validCoordinate(widget.incident.latitude, widget.incident.longitude)
-        ? 'Incident: ${widget.incident.latitude!.toStringAsFixed(6)}, '
-              '${widget.incident.longitude!.toStringAsFixed(6)}'
-        : 'Incident coordinates are not available.';
+        _validCoordinate(
+          widget.rescueCandidate?.latitude ?? widget.incident.latitude,
+          widget.rescueCandidate?.longitude ?? widget.incident.longitude,
+        )
+        ? l10n.incidentCoordinates(
+            (widget.rescueCandidate?.latitude ?? widget.incident.latitude)!
+                .toStringAsFixed(6),
+            (widget.rescueCandidate?.longitude ?? widget.incident.longitude)!
+                .toStringAsFixed(6),
+          )
+        : l10n.incidentCoordinatesUnavailable;
     return Material(
       color: theme.colorScheme.surfaceContainerHighest,
       child: Padding(
@@ -470,9 +499,15 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
                     Text(incomingStatus, style: const TextStyle(fontSize: 12)),
                     if (incomingPoint != null)
                       Text(
-                        'Shared: ${widget.incomingLocation!.latitude!.toStringAsFixed(6)}, '
-                        '${widget.incomingLocation!.longitude!.toStringAsFixed(6)} · '
-                        '${_formatLocationTime(widget.incomingLocation!.createdAt)}',
+                        l10n.sharedCoordinates(
+                          widget.incomingLocation!.latitude!.toStringAsFixed(6),
+                          widget.incomingLocation!.longitude!.toStringAsFixed(
+                            6,
+                          ),
+                          _formatLocationTime(
+                            widget.incomingLocation!.createdAt,
+                          ),
+                        ),
                         style: const TextStyle(fontSize: 12),
                       ),
                   ],
@@ -483,14 +518,14 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
                               region.providerKey ==
                               _tileProvider.offlineStorageKey,
                         )
-                        ? 'Downloaded map tiles are available offline. Missing tiles still require internet.'
-                        : 'Map tiles require internet; coordinates remain available offline.',
+                        ? l10n.downloadedTilesAvailable
+                        : l10n.mapTilesRequireInternet,
                     style: TextStyle(fontSize: 12),
                   ),
-                  if (_offlineStorageError != null) ...[
+                  if (_offlineStorageUnavailable) ...[
                     const SizedBox(height: 2),
                     Text(
-                      _offlineStorageError!,
+                      l10n.offlineMapStorageUnavailable,
                       style: TextStyle(
                         fontSize: 12,
                         color: theme.colorScheme.error,
@@ -498,9 +533,9 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
                     ),
                   ],
                   if (!_offlineInitializationComplete)
-                    const Text(
-                      'Preparing map storage…',
-                      style: TextStyle(fontSize: 12),
+                    Text(
+                      l10n.preparingMapStorage,
+                      style: const TextStyle(fontSize: 12),
                     ),
                   if (_downloadProgress case final progress?) ...[
                     const SizedBox(height: 6),
@@ -509,13 +544,16 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
                       children: [
                         Expanded(
                           child: Text(
-                            'Downloading ${progress.completed}/${progress.total} tiles',
+                            l10n.downloadingTiles(
+                              progress.completed,
+                              progress.total,
+                            ),
                             style: const TextStyle(fontSize: 12),
                           ),
                         ),
                         TextButton(
                           onPressed: _downloadCancellation?.cancel,
-                          child: const Text('Cancel'),
+                          child: Text(l10n.cancel),
                         ),
                       ],
                     ),
@@ -526,13 +564,12 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
                     const SizedBox(height: 4),
                     TextButton(
                       onPressed: _retryTiles,
-                      child: const Text('Retry map tiles'),
+                      child: Text(l10n.retryMapTiles),
                     ),
                   ],
                   if (!_tileProvider.isUsable)
                     Text(
-                      _tileProvider.validationError ??
-                          'Map provider is unavailable for this build.',
+                      _localizedProviderError(_tileProvider.validationIssue),
                       style: TextStyle(
                         fontSize: 12,
                         color: theme.colorScheme.error,
@@ -540,17 +577,16 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
                     ),
                   if (_tileProvider.isDevelopmentFallback &&
                       _tileProvider.isUsable)
-                    const Text(
-                      'Development tile provider; configure MAP_TILE_URL for production.',
-                      style: TextStyle(fontSize: 12),
+                    Text(
+                      l10n.developmentTileProvider,
+                      style: const TextStyle(fontSize: 12),
                     ),
                 ],
               ),
             ),
             if (incidentPoint != null)
-              const Tooltip(
-                message:
-                    'Red: incident · Purple: shared · Blue: current device',
+              Tooltip(
+                message: l10n.mapLegend,
                 child: Icon(Icons.legend_toggle_outlined),
               ),
           ],
@@ -559,9 +595,35 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
     );
   }
 
+  String _localizedProviderError(MapTileProviderValidationIssue? issue) {
+    final l10n = context.l10n;
+    return switch (issue) {
+      MapTileProviderValidationIssue.productionProviderMissing =>
+        l10n.mapConfigProductionProviderMissing,
+      MapTileProviderValidationIssue.urlMissing => l10n.mapConfigUrlMissing,
+      MapTileProviderValidationIssue.urlInvalid => l10n.mapConfigUrlInvalid,
+      MapTileProviderValidationIssue.publicOsmInRelease =>
+        l10n.mapConfigPublicOsmBlocked,
+      MapTileProviderValidationIssue.geoapifyKeyMissing =>
+        l10n.mapConfigGeoapifyKeyMissing,
+      MapTileProviderValidationIssue.geoapifyKeyMalformed =>
+        l10n.mapConfigTemplateInvalid,
+      MapTileProviderValidationIssue.templatePlaceholdersMissing =>
+        l10n.mapConfigTemplateInvalid,
+      MapTileProviderValidationIssue.attributionMissing =>
+        l10n.mapConfigAttributionMissing,
+      MapTileProviderValidationIssue.geoapifyAttributionIncomplete =>
+        l10n.mapConfigGeoapifyAttributionIncomplete,
+      MapTileProviderValidationIssue.userAgentMissing =>
+        l10n.mapConfigUserAgentMissing,
+      null => l10n.mapProviderUnavailable,
+    };
+  }
+
   String _formatLocationTime(DateTime value) {
     final local = value.toLocal();
-    return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+    return MaterialLocalizations.of(context)
+        .formatTimeOfDay(TimeOfDay.fromDateTime(local));
   }
 
   bool get _isStale {
@@ -580,15 +642,14 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
             const Icon(Icons.map_outlined, size: 56),
             const SizedBox(height: 12),
             Text(
-              _incidentCoordinateError ??
-                  'No location is available for this incident.',
+              _incidentCoordinateError ?? context.l10n.noIncidentLocation,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: _loadCurrentLocation,
               icon: const Icon(Icons.refresh),
-              label: const Text('Try again'),
+              label: Text(context.l10n.tryAgain),
             ),
           ],
         ),
@@ -636,7 +697,9 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
     var minZoom = camera.zoom.floor().clamp(1, OfflineMapRepository.maxZoom);
     var maxZoom = (minZoom + 1).clamp(1, OfflineMapRepository.maxZoom);
     final nameController = TextEditingController(
-      text: 'Incident area ${DateTime.now().month}/${DateTime.now().day}',
+      text: context.l10n.offlineMapDefaultName(
+        MaterialLocalizations.of(context).formatCompactDate(DateTime.now()),
+      ),
     );
     final confirmed = await showDialog<bool>(
       context: context,
@@ -654,7 +717,7 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
               (1024 * 1024);
           final tooLarge = tileCount > OfflineMapRepository.maxTilesPerRegion;
           return AlertDialog(
-            title: const Text('Download visible area'),
+            title: Text(context.l10n.downloadVisibleArea),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -664,9 +727,11 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
                     controller: nameController,
                     maxLength: 60,
                     onChanged: (_) => setDialogState(() {}),
-                    decoration: const InputDecoration(labelText: 'Map name'),
+                    decoration: InputDecoration(
+                      labelText: context.l10n.mapName,
+                    ),
                   ),
-                  Text('Minimum zoom: $minZoom'),
+                  Text(context.l10n.minimumZoom(minZoom)),
                   Slider(
                     value: minZoom.toDouble(),
                     min: 1,
@@ -677,7 +742,7 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
                       if (maxZoom < minZoom) maxZoom = minZoom;
                     }),
                   ),
-                  Text('Maximum zoom: $maxZoom'),
+                  Text(context.l10n.maximumZoom(maxZoom)),
                   Slider(
                     value: maxZoom.toDouble(),
                     min: 1,
@@ -689,32 +754,35 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
                     }),
                   ),
                   Text(
-                    '$tileCount tiles · about ${estimatedMb.toStringAsFixed(1)} MB',
+                    context.l10n.offlineTileEstimate(
+                      tileCount,
+                      estimatedMb.toStringAsFixed(1),
+                    ),
                   ),
                   if (tooLarge)
                     Text(
-                      'Reduce the visible area or zoom range. The safety limit is ${OfflineMapRepository.maxTilesPerRegion} tiles.',
+                      context.l10n.offlineMapTooLarge(
+                        OfflineMapRepository.maxTilesPerRegion,
+                      ),
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.error,
                       ),
                     ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Keep this app open during download. Only the visible bounded area is stored.',
-                  ),
+                  Text(context.l10n.offlineMapDownloadInfo),
                 ],
               ),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+                child: Text(context.l10n.cancel),
               ),
               FilledButton(
                 onPressed: tooLarge || nameController.text.trim().isEmpty
                     ? null
                     : () => Navigator.pop(context, true),
-                child: const Text('Download'),
+                child: Text(context.l10n.download),
               ),
             ],
           );
@@ -760,18 +828,21 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
         _tileError = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${region.name} is available offline.')),
+        SnackBar(
+          content: Text(context.l10n.offlineRegionAvailable(region.name)),
+        ),
       );
     } on OfflineMapCancelled {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Offline map download cancelled.')),
+          SnackBar(content: Text(context.l10n.offlineDownloadCancelled)),
         );
       }
-    } on OfflineMapException catch (error) {
+    } on OfflineMapException {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.message)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.offlineMapDownloadFailed)),
+        );
       }
     } finally {
       if (mounted) {
@@ -792,11 +863,11 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
         builder: (context, setDialogState) {
           final regions = repository.regions;
           return AlertDialog(
-            title: const Text('Offline maps'),
+            title: Text(context.l10n.offlineMaps),
             content: SizedBox(
               width: 420,
               child: regions.isEmpty
-                  ? const Text('No downloaded map regions.')
+                  ? Text(context.l10n.noDownloadedRegions)
                   : ListView.builder(
                       shrinkWrap: true,
                       itemCount: regions.length,
@@ -805,10 +876,15 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
                         return ListTile(
                           title: Text(region.name),
                           subtitle: Text(
-                            '${region.tileCount} tiles · ${_formatBytes(region.sizeBytes)} · zoom ${region.minZoom}–${region.maxZoom}',
+                            context.l10n.offlineRegionSummary(
+                              region.tileCount,
+                              _formatBytes(region.sizeBytes),
+                              region.minZoom,
+                              region.maxZoom,
+                            ),
                           ),
                           trailing: IconButton(
-                            tooltip: 'Delete ${region.name}',
+                            tooltip: context.l10n.deleteNamedItem(region.name),
                             icon: const Icon(Icons.delete_outline),
                             onPressed: () async {
                               try {
@@ -819,10 +895,17 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
                                   _replaceTileProvider();
                                 });
                                 setDialogState(() {});
-                              } on OfflineMapException catch (error) {
+                              } on OfflineMapException {
                                 if (!mounted) return;
                                 ScaffoldMessenger.of(this.context).showSnackBar(
-                                  SnackBar(content: Text(error.message)),
+                                  SnackBar(
+                                    content: Text(
+                                      this
+                                          .context
+                                          .l10n
+                                          .offlineMapDownloadFailed,
+                                    ),
+                                  ),
                                 );
                               }
                             },
@@ -833,12 +916,14 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
             ),
             actions: [
               Text(
-                'Stored: ${_formatBytes(repository.storageBytes)}',
+                context.l10n.offlineMapStorageSummary(
+                  _formatBytes(repository.storageBytes),
+                ),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Close'),
+                child: Text(context.l10n.close),
               ),
             ],
           );
@@ -865,10 +950,18 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
 }
 
 class _LocationUnavailable implements Exception {
-  const _LocationUnavailable(this.message);
+  const _LocationUnavailable(this.reason);
 
-  final String message;
+  final _LocationFailure reason;
 
   @override
-  String toString() => message;
+  String toString() => reason.name;
+}
+
+enum _LocationFailure {
+  invalid,
+  servicesDisabled,
+  permissionDenied,
+  permissionDeniedForever,
+  timedOut,
 }

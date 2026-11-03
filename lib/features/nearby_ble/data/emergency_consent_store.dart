@@ -4,27 +4,34 @@ class EmergencyConsent {
   const EmergencyConsent({
     required this.configured,
     required this.allowPublicRelay,
+    this.allowVoluntaryRescue = false,
     required this.shareLocation,
   });
 
   const EmergencyConsent.safeDefault()
     : configured = false,
       allowPublicRelay = false,
+      allowVoluntaryRescue = false,
       shareLocation = false;
 
   final bool configured;
   final bool allowPublicRelay;
+  final bool allowVoluntaryRescue;
   final bool shareLocation;
 
   EmergencyConsent copyWith({
     bool? configured,
     bool? allowPublicRelay,
+    bool? allowVoluntaryRescue,
     bool? shareLocation,
   }) {
     final relay = allowPublicRelay ?? this.allowPublicRelay;
     return EmergencyConsent(
       configured: configured ?? this.configured,
       allowPublicRelay: relay,
+      allowVoluntaryRescue: relay
+          ? (allowVoluntaryRescue ?? this.allowVoluntaryRescue)
+          : false,
       shareLocation: relay ? (shareLocation ?? this.shareLocation) : false,
     );
   }
@@ -52,16 +59,19 @@ class PlatformEmergencyConsentStore implements EmergencyConsentStore {
     if (value == null) return const EmergencyConsent.safeDefault();
     final configured = value['configured'];
     final allowPublicRelay = value['allowPublicRelay'];
+    final allowVoluntaryRescue = value['allowVoluntaryRescue'];
     final shareLocation = value['shareLocation'];
     if (configured is! bool ||
         allowPublicRelay is! bool ||
         shareLocation is! bool ||
+        (allowVoluntaryRescue != null && allowVoluntaryRescue is! bool) ||
         (shareLocation && !allowPublicRelay)) {
       throw const FormatException('Invalid saved emergency consent.');
     }
     return EmergencyConsent(
       configured: configured,
       allowPublicRelay: allowPublicRelay,
+      allowVoluntaryRescue: allowVoluntaryRescue as bool? ?? false,
       shareLocation: shareLocation,
     );
   }
@@ -71,6 +81,8 @@ class PlatformEmergencyConsentStore implements EmergencyConsentStore {
     return _channel.invokeMethod<void>('setEmergencyConsent', {
       'configured': consent.configured,
       'allowPublicRelay': consent.allowPublicRelay,
+      'allowVoluntaryRescue':
+          consent.allowPublicRelay && consent.allowVoluntaryRescue,
       'shareLocation': consent.allowPublicRelay && consent.shareLocation,
     });
   }

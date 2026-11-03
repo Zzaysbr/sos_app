@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../../core/localization/localization.dart';
 import '../../nearby_ble/data/sos_ble_coordinator.dart';
 import '../../nearby_ble/domain/ble_delivery_state.dart';
 import '../../nearby_ble/presentation/ble_recipient_picker_page.dart';
@@ -125,9 +126,7 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
       if (!mounted) return;
       final recipient = selected?.trim();
       if (recipient == null || recipient.isEmpty) {
-        setState(
-          () => _error = 'Select a connected recipient to start sharing.',
-        );
+        setState(() => _error = context.l10n.selectRecipientToShare);
         return;
       }
       await widget.coordinator.enableLocationSharing(
@@ -164,9 +163,7 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
       if (!mounted || !_sharing || operation != _publishOperation) return;
       if (position == null ||
           !isValidSosCoordinatePair(position.latitude, position.longitude)) {
-        throw const _LocationUiException(
-          'Current location is unavailable or invalid.',
-        );
+        throw _LocationUiException(context.l10n.currentLocationUnavailable);
       }
       final created = _now;
       final messageId = 'location:${widget.sos.id}:$created';
@@ -205,20 +202,19 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
   }
 
   Future<Position?> _readLocation() async {
+    final l10n = context.l10n;
     if (!await Geolocator.isLocationServiceEnabled()) {
-      throw const _LocationUiException('Location Services are disabled.');
+      throw _LocationUiException(l10n.locationServicesDisabled);
     }
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
     if (permission == LocationPermission.denied) {
-      throw const _LocationUiException('Location permission was denied.');
+      throw _LocationUiException(l10n.locationPermissionDenied);
     }
     if (permission == LocationPermission.deniedForever) {
-      throw const _LocationUiException(
-        'Location permission is permanently denied. Open Settings.',
-      );
+      throw _LocationUiException(l10n.locationPermissionDeniedForever);
     }
     try {
       return await Geolocator.getCurrentPosition(
@@ -228,7 +224,7 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
         ),
       );
     } on TimeoutException {
-      throw const _LocationUiException('Location request timed out.');
+      throw _LocationUiException(l10n.locationTimedOut);
     }
   }
 
@@ -248,10 +244,34 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
   String _friendlyError(Object error) =>
       error is _LocationUiException || error is BleDeliveryStateException
       ? error.toString().replaceFirst('BleDeliveryStateException: ', '')
-      : 'Unable to share the current location. Try again.';
+      : context.l10n.locationShareFailed;
+
+  String _localizedDeliveryStatus(BleOutboxData? row) {
+    final l10n = context.l10n;
+    final state = row == null ? null : BleOutboxState.parse(row.state);
+    return switch (state) {
+      null || BleOutboxState.queued => l10n.statusQueued,
+      BleOutboxState.sending => l10n.statusSending,
+      BleOutboxState.writeAccepted ||
+      BleOutboxState.awaitingAcknowledgement => l10n.statusAwaitingConfirmation,
+      BleOutboxState.acknowledged => l10n.statusDelivered,
+      BleOutboxState.failed =>
+        row!.nextRetryAt == null
+            ? l10n.statusFailedNoRetry
+            : l10n.statusFailedRetryScheduled,
+      BleOutboxState.expired => l10n.statusExpired,
+    };
+  }
+
+  String _localizedTime(DateTime value) {
+    final local = value.toLocal();
+    final material = MaterialLocalizations.of(context);
+    return '${material.formatMediumDate(local)} ${material.formatTimeOfDay(TimeOfDay.fromDateTime(local))}';
+  }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return StreamBuilder<BleOutboxData?>(
       stream: _delivery,
       builder: (context, snapshot) {
@@ -262,16 +282,17 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
             ? snapshot.data
             : null;
         final stateText = switch (_publishPhase) {
-          _LocationPublishPhase.idle => _sharing ? 'Ready to send' : 'Off',
-          _LocationPublishPhase.preparing => 'Getting location…',
-          _LocationPublishPhase.enqueued => locationDeliveryStatusText(
+          _LocationPublishPhase.idle =>
+            _sharing ? l10n.readyToSend : l10n.locationOff,
+          _LocationPublishPhase.preparing => l10n.gettingLocation,
+          _LocationPublishPhase.enqueued => _localizedDeliveryStatus(
             currentDeliveryState,
           ),
-          _LocationPublishPhase.failed => 'Failed',
+          _LocationPublishPhase.failed => l10n.statusFailed,
         };
         final previousStateText =
             snapshot.data != null && !deliveryMatchesCurrent
-            ? locationDeliveryStatusText(snapshot.data)
+            ? _localizedDeliveryStatus(snapshot.data)
             : null;
         return Card(
           child: Padding(
@@ -283,10 +304,10 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
                   children: [
                     const Icon(Icons.share_location_outlined),
                     const SizedBox(width: 8),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Foreground location sharing',
-                        style: TextStyle(fontWeight: FontWeight.w700),
+                        l10n.foregroundLocationSharing,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                     ),
                     Flexible(
@@ -294,7 +315,7 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
                         container: true,
                         liveRegion: true,
                         excludeSemantics: true,
-                        label: 'Location delivery: $stateText',
+                        label: l10n.locationDeliverySemantics(stateText),
                         child: Text(stateText),
                       ),
                     ),
@@ -303,13 +324,15 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
                 const SizedBox(height: 8),
                 Text(
                   _sharing
-                      ? 'Recipient: ${_recipientId ?? 'not selected'}'
-                      : 'Off. Choose a recipient before sharing.',
+                      ? l10n.recipientLabel(
+                          _recipientId ?? l10n.recipientNotSelected,
+                        )
+                      : l10n.locationOffDescription,
                 ),
                 if (_lastPublishedAt != null)
-                  Text('Last update: ${_lastPublishedAt!.toLocal()}'),
+                  Text(l10n.lastUpdate(_localizedTime(_lastPublishedAt!))),
                 if (previousStateText != null)
-                  Text('Previous delivery: $previousStateText'),
+                  Text(l10n.previousDelivery(previousStateText)),
                 if (_error != null)
                   Text(
                     _error!,
@@ -327,7 +350,7 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
                           minimumSize: const Size(48, 48),
                         ),
                         onPressed: _busy ? null : _start,
-                        child: Text(_busy ? 'Starting…' : 'Start sharing'),
+                        child: Text(_busy ? l10n.starting : l10n.startSharing),
                       )
                     else ...[
                       OutlinedButton(
@@ -336,7 +359,7 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
                         ),
                         onPressed: _busy ? null : _publish,
                         child: Text(
-                          _busy ? 'Getting location…' : 'Send location',
+                          _busy ? l10n.gettingLocation : l10n.sendLocation,
                         ),
                       ),
                       TextButton(
@@ -344,7 +367,7 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
                           minimumSize: const Size(48, 48),
                         ),
                         onPressed: _stop,
-                        child: const Text('Stop sharing'),
+                        child: Text(l10n.stopSharing),
                       ),
                     ],
                   ],

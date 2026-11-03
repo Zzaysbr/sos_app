@@ -5,9 +5,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 
 import 'core/database/app_database.dart';
+import 'core/localization/locale_controller.dart';
+import 'core/localization/locale_preference_store.dart';
+import 'core/localization/localization.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/data/auth_service.dart';
 import 'features/auth/presentation/auth_page.dart';
@@ -33,30 +37,89 @@ Future<void> main() async {
   if (identity == null || identity.isEmpty) {
     throw StateError('Local device identity is unavailable.');
   }
-  runApp(SosApp(database: database, localDeviceId: identity));
+  const localeStore = PlatformLocalePreferenceStore();
+  Locale? initialLocale;
+  try {
+    initialLocale = await localeStore.load();
+  } on Object {
+    // A missing, invalid, or unreadable preference must never block SOS use.
+  }
+  runApp(
+    SosApp(
+      database: database,
+      localDeviceId: identity,
+      localePreferenceStore: localeStore,
+      initialLocale: initialLocale,
+    ),
+  );
 }
 
-class SosApp extends StatelessWidget {
-  const SosApp({super.key, required this.database, this.localDeviceId});
+class SosApp extends StatefulWidget {
+  const SosApp({
+    super.key,
+    required this.database,
+    this.localDeviceId,
+    this.localePreferenceStore = const PlatformLocalePreferenceStore(),
+    this.initialLocale,
+  });
 
   final AppDatabase database;
   final String? localDeviceId;
+  final LocalePreferenceStore localePreferenceStore;
+  final Locale? initialLocale;
+
+  @override
+  State<SosApp> createState() => _SosAppState();
+}
+
+class _SosAppState extends State<SosApp> {
+  late final LocaleController _localeController;
+  late final AuthService _authService;
+
+  @override
+  void initState() {
+    super.initState();
+    _authService = AuthService();
+    _localeController = LocaleController(
+      store: widget.localePreferenceStore,
+      initialLocale: widget.initialLocale,
+    )..addListener(_handleLocaleChanged);
+  }
+
+  void _handleLocaleChanged() => setState(() {});
+
+  @override
+  void dispose() {
+    _localeController
+      ..removeListener(_handleLocaleChanged)
+      ..dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final authService = AuthService();
-
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'SOS App',
+      onGenerateTitle: (context) => context.l10n.appTitle,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: ThemeMode.system,
+      locale: _localeController.locale,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      localeResolutionCallback: (locale, supportedLocales) =>
+          resolveSupportedLocale(locale, supportedLocales),
       home: StartupPage(
         onReady: (_) => AuthGate(
-          authService: authService,
-          database: database,
-          localDeviceId: localDeviceId,
+          authService: _authService,
+          database: widget.database,
+          localDeviceId: widget.localDeviceId,
+          localeController: _localeController,
         ),
       ),
     );
@@ -68,11 +131,13 @@ class AuthGate extends StatefulWidget {
     super.key,
     required this.authService,
     required this.database,
+    required this.localeController,
     this.localDeviceId,
   });
 
   final AuthService authService;
   final AppDatabase database;
+  final LocaleController localeController;
   final String? localDeviceId;
 
   @override
@@ -194,8 +259,8 @@ class _AuthGateState extends State<AuthGate> {
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           _disposeSyncResources();
-          return const Scaffold(
-            body: Center(child: Text('Unable to check authentication status.')),
+          return Scaffold(
+            body: Center(child: Text(context.l10n.authStatusUnavailable)),
           );
         }
         final user = widget.authService.currentUser;
@@ -215,6 +280,7 @@ class _AuthGateState extends State<AuthGate> {
             chatRepository: _chatRepository,
             onChatMessageCreated: _bleCoordinator?.enqueueChat,
             onBleStartRequested: _startBleOnDemand,
+            localeController: widget.localeController,
             isGuest: !authenticated,
             onLoginRequested: () => Navigator.of(sessionContext).push<void>(
               MaterialPageRoute<void>(

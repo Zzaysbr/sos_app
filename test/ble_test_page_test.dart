@@ -51,6 +51,20 @@ class FakeBleTransport implements BleTransportClient {
   }
 }
 
+class SnapshotBleTransport extends FakeBleTransport {
+  SnapshotBleTransport(this.snapshot);
+
+  final List<BleEvent> snapshot;
+
+  @override
+  Stream<BleEvent> get events async* {
+    for (final event in snapshot) {
+      yield event;
+    }
+    yield* controller.stream;
+  }
+}
+
 void main() {
   testWidgets('recipient picker cleans up shared scan resources on dispose', (
     tester,
@@ -207,6 +221,128 @@ void main() {
     );
     expect(find.textContaining('AA:BB'), findsOneWidget);
     expect(find.textContaining('State: connecting'), findsOneWidget);
+  });
+
+  testWidgets('peripheral disconnect does not overwrite central connected', (
+    tester,
+  ) async {
+    final fake = FakeBleTransport();
+    await tester.pumpWidget(MaterialApp(home: BleTestPage(transport: fake)));
+    await tester.pump();
+    const peer = BleDevice(id: 'peer-role');
+    fake.controller
+      ..add(const BleEvent(type: 'connected', device: peer))
+      ..add(const BleEvent(
+        type: 'disconnected',
+        device: peer,
+        role: BleSessionRole.peripheral,
+      ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('State: connected'), findsOneWidget);
+  });
+
+  testWidgets('central disconnect does not overwrite peripheral connected', (
+    tester,
+  ) async {
+    final fake = FakeBleTransport();
+    await tester.pumpWidget(MaterialApp(home: BleTestPage(transport: fake)));
+    await tester.pump();
+    const peer = BleDevice(id: 'peer-role');
+    fake.controller
+      ..add(const BleEvent(
+        type: 'connected',
+        device: peer,
+        role: BleSessionRole.peripheral,
+      ))
+      ..add(const BleEvent(
+        type: 'disconnected',
+        device: peer,
+        role: BleSessionRole.central,
+      ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('State: connected'), findsOneWidget);
+  });
+
+  testWidgets('both active roles are shown without an ambiguous state', (
+    tester,
+  ) async {
+    final fake = FakeBleTransport();
+    await tester.pumpWidget(MaterialApp(home: BleTestPage(transport: fake)));
+    await tester.pump();
+    const peer = BleDevice(id: 'peer-role');
+    fake.controller
+      ..add(const BleEvent(
+        type: 'connected',
+        device: peer,
+        role: BleSessionRole.central,
+      ))
+      ..add(const BleEvent(
+        type: 'connected',
+        device: peer,
+        role: BleSessionRole.peripheral,
+      ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('State: connected (central + peripheral)'),
+        findsOneWidget);
+
+    fake.controller.add(const BleEvent(
+      type: 'disconnected',
+      device: peer,
+      role: BleSessionRole.central,
+    ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('State: connected'), findsOneWidget);
+    expect(find.textContaining('central + peripheral'), findsNothing);
+  });
+
+  testWidgets('both role disconnects produce disconnected state', (tester) async {
+    final fake = FakeBleTransport();
+    await tester.pumpWidget(MaterialApp(home: BleTestPage(transport: fake)));
+    await tester.pump();
+    const peer = BleDevice(id: 'peer-role');
+    fake.controller
+      ..add(const BleEvent(
+        type: 'connected',
+        device: peer,
+        role: BleSessionRole.central,
+      ))
+      ..add(const BleEvent(
+        type: 'connected',
+        device: peer,
+        role: BleSessionRole.peripheral,
+      ))
+      ..add(const BleEvent(
+        type: 'disconnected',
+        device: peer,
+        role: BleSessionRole.central,
+      ))
+      ..add(const BleEvent(
+        type: 'disconnected',
+        device: peer,
+        role: BleSessionRole.peripheral,
+      ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('State: disconnected'), findsOneWidget);
+  });
+
+  testWidgets('connected role snapshot restores after navigation', (tester) async {
+    const peer = BleDevice(id: 'peer-snapshot');
+    final transport = SnapshotBleTransport([
+      const BleEvent(
+        type: 'connected',
+        device: peer,
+        role: BleSessionRole.peripheral,
+      ),
+    ]);
+    await tester.pumpWidget(MaterialApp(home: BleTestPage(transport: transport)));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('State: connected'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+    await tester.pumpWidget(MaterialApp(home: BleTestPage(transport: transport)));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('State: connected'), findsOneWidget);
   });
 
   testWidgets('does not start duplicate scan operations in one session', (

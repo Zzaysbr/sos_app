@@ -753,4 +753,21 @@ void main() {
       expect(store.seed, hasLength(32));
     },
   );
+
+  test('voluntary rescue scope is explicit and round-trips', () {
+    final body = RelayOriginBody(
+      originMessageId: 'relay:voluntary-1',
+      incidentId: 'voluntary-1',
+      originKeyId: 'origin-key',
+      originPublicKey: base64UrlEncode(List<int>.filled(32, 1)),
+      emergencyType: 'emergency',
+      emergencyMessage: 'test',
+      includeLocation: false,
+      createdAt: DateTime.utc(2026, 1, 1),
+      expiresAt: DateTime.utc(2026, 1, 1, 0, 10),
+      scope: RelayAuthorizationScope.voluntaryRescue,
+    );
+    final roundTrip = RelayOriginBody.fromJson(body.toCanonicalMap());
+    expect(roundTrip.scope, RelayAuthorizationScope.voluntaryRescue);
+  });
 }

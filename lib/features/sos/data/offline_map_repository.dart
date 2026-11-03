@@ -337,6 +337,7 @@ class OfflineMapRepository {
     }
     final uri = Uri.tryParse(request.urlTemplate);
     if (request.providerKey.trim().isEmpty ||
+        request.userAgent.trim().isEmpty ||
         uri == null ||
         uri.scheme != 'https' ||
         uri.host.toLowerCase() != 'maps.geoapify.com' ||

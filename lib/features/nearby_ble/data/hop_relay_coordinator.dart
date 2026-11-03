@@ -6,10 +6,15 @@ import '../../../core/database/app_database.dart';
 import '../../sos/data/sos_repository.dart';
 import '../domain/ble_models.dart';
 import '../domain/relay_envelope.dart';
+import '../domain/rescue_response_envelope.dart';
+import '../domain/chat_relay_envelope.dart';
 import 'ble_protocol.dart';
 import 'ble_transport.dart';
 import 'relay_key_store.dart';
 import 'relay_repository.dart';
+import 'rescue_inbox_repository.dart';
+import 'rescue_response_repository.dart';
+import 'chat_relay_repository.dart';
 
 typedef RelayNow = DateTime Function();
 typedef RelayNonceSource = List<int> Function();
@@ -114,6 +119,12 @@ class HopRelayCoordinator {
     RelayNow? now,
     RelayNonceSource? nonceSource,
     this.onLog,
+    this.rescueModeEnabled,
+    this.rescueInbox,
+    String? responseOwnerId,
+    RescueResponseRepository? rescueResponseRepository,
+    this.chatRelayRepository,
+    this.onChatRelayReceived,
     this.ackTimeout = const Duration(seconds: 30),
     this.retryBase = const Duration(seconds: 5),
     // A signed response embeds the signed challenge and can span hundreds of
@@ -129,6 +140,13 @@ class HopRelayCoordinator {
        _repository = repository ?? RelayRepository(database: database),
        _cryptography = cryptography ?? RelayCryptography(),
        _writes = BleMessageWriteQueue.sharedFor(transport),
+       _rescueResponseRepository =
+           rescueResponseRepository ??
+           RescueResponseRepository(
+             database,
+             ownerId: responseOwnerId ?? RelayRepository.localOriginPeerId,
+             onLog: onLog,
+           ),
        _identityService =
            identityService ??
            RelayIdentityService(keyStore: PlatformRelayPrivateKeyStore()),
@@ -145,6 +163,11 @@ class HopRelayCoordinator {
   final RelayNow _now;
   final RelayNonceSource _nonceSource;
   final void Function(String message)? onLog;
+  final bool Function()? rescueModeEnabled;
+  final RescueInboxRepository? rescueInbox;
+  final RescueResponseRepository _rescueResponseRepository;
+  final ChatRelayRepository? chatRelayRepository;
+  final Future<void> Function(ChatRelayEnvelope envelope)? onChatRelayReceived;
   final Duration ackTimeout;
   final Duration retryBase;
   final Duration proofTimeout;
@@ -155,6 +178,7 @@ class HopRelayCoordinator {
   final _connectionAttempts = <String, int>{};
   final _cancelledOriginMessageIds = <String>{};
   final _sendTails = <String, Future<void>>{};
+  final _timers = <String, Stopwatch>{};
   Future<void>? _processing;
   RelaySigningIdentity? _identity;
   bool _started = false;
@@ -206,10 +230,21 @@ class HopRelayCoordinator {
     _foreground = foreground;
     if (!_started) return;
     if (!foreground) {
+      // A foreground loss can interrupt a multi-frame capability, challenge,
+      // response, offer or receipt while the native GATT connection itself
+      // remains alive. Never retain proof established around that partial
+      // write as an active session proof.
+      _invalidateAllProofs();
       await _stopPresence();
       return;
     }
     if (_participating) await _startAdvertising();
+    // Android and iOS may keep an existing GATT connection across a brief
+    // inactive state (for example, opening the notification shade). No new
+    // `connected` callback is guaranteed on resume, so explicitly restart the
+    // authenticated exchange for every retained connection.
+    await _broadcastCapabilities();
+    await _challengeDeclaredPeers();
     await processDue();
   }
 
@@ -270,6 +305,8 @@ class HopRelayCoordinator {
   Future<void> queuePublicEmergency(
     SosMessage sos, {
     required bool includeLocation,
+    RelayAuthorizationScope scope =
+        RelayAuthorizationScope.publicEmergencyRelay,
   }) async {
     if (!_hasPendingWork) _connectionAttempts.clear();
     final identity = await _ensureIdentity();
@@ -290,6 +327,7 @@ class HopRelayCoordinator {
       longitude: includeLocation && hasLocation ? sos.longitude : null,
       createdAt: createdAt,
       expiresAt: expiresAt,
+      scope: scope,
     );
     _cancelledOriginMessageIds.remove(body.originMessageId);
     final unsigned = RelayOfferEnvelope(
@@ -310,6 +348,8 @@ class HopRelayCoordinator {
       immediateSenderKeyId: unsigned.immediateSenderKeyId,
     );
     await _repository.persistOriginOffer(offer, now: _now());
+    _timers[body.originMessageId] = Stopwatch()..start();
+    _timing('relay_enqueued', body.originMessageId, hop: 0);
     _hasPendingWork = true;
     if (_started && _foreground) {
       await _ensureDiscovery();
@@ -412,7 +452,10 @@ class HopRelayCoordinator {
     final peer = event.device?.id.trim();
     switch (event.type) {
       case 'deviceFound':
-        if (peer != null && peer.isNotEmpty) await _maybeConnect(peer);
+        if (peer != null && peer.isNotEmpty) {
+          _log('relay_peer_discovered peer=${_safeCorrelation(peer)}');
+          await _maybeConnect(peer);
+        }
         return;
       case 'connected':
         if (peer == null || peer.isEmpty) return;
@@ -467,12 +510,242 @@ class HopRelayCoordinator {
       await _handleIncomingOffer(peer, role, message);
       return true;
     }
+    if (message.type == RescueResponseTransfer.wireKind) {
+      await _handleIncomingRescueTransfer(peer, role, message);
+      return true;
+    }
+    if (message.type == ChatRelayTransfer.wireKind) {
+      await _handleIncomingChatRelay(peer, role, message);
+      return true;
+    }
     if (message.type == RelayReceiptType.hop.wireValue ||
         message.type == RelayReceiptType.finalRecipient.wireValue) {
       await _handleIncomingReceipt(peer, role, message);
       return true;
     }
     return false;
+  }
+
+  Future<void> _handleIncomingChatRelay(
+    String peer,
+    BleSessionRole role,
+    BleMessage message,
+  ) async {
+    final session = _requireProvenSession(peer, role);
+    final repository = chatRelayRepository;
+    if (repository == null) return;
+    final transfer = ChatRelayTransfer.fromJson(message.payload);
+    if (message.id != transfer.attemptId) {
+      throw const RelayProtocolException(
+        'Chat relay transfer binding is invalid.',
+      );
+    }
+    final envelope = repository.decode(transfer.wireEnvelope);
+    envelope.body.validate(now: _now());
+    if (session.declaredPeer?.keyId != envelope.body.senderKeyId ||
+        !await _cryptography.publicKeyMatchesId(
+          envelope.body.recipientPublicKey,
+          envelope.body.recipientKeyId,
+        ) ||
+        !await _cryptography.verifyChatRelay(envelope, now: _now())) {
+      throw const RelayProtocolException('Chat relay authentication failed.');
+    }
+    await repository.persistIncoming(envelope, now: _now());
+    final identity = await _ensureIdentity();
+    if (identity.keyId == envelope.body.recipientKeyId) {
+      await onChatRelayReceived?.call(envelope);
+      _log(
+        'chat_relay_received incident=${envelope.body.incidentId} message=${envelope.body.messageId}',
+      );
+      return;
+    }
+    await repository.enqueue(
+      envelope,
+      now: _now(),
+      hopCount: transfer.hopCount + 1,
+    );
+    _hasPendingWork = true;
+    unawaited(processDue());
+    _log(
+      'chat_relay_persisted incident=${envelope.body.incidentId} message=${envelope.body.messageId} hop=${transfer.hopCount}',
+    );
+  }
+
+  Future<void> _handleIncomingRescueTransfer(
+    String peer,
+    BleSessionRole role,
+    BleMessage message,
+  ) async {
+    final session = _requireProvenSession(peer, role);
+    final transfer = RescueResponseTransfer.fromJson(message.payload);
+    transfer.validate();
+    _log(
+      'response_transfer_received peer=${session.declaredPeer?.keyId} '
+      'hop=${transfer.hopCount} ack=${transfer.isAck}',
+    );
+    if (transfer.sessionBinding != session.inboundBinding &&
+        transfer.sessionBinding != session.outboundBinding) {
+      throw const RelayProtocolException(
+        'Rescue response session binding is invalid.',
+      );
+    }
+    if (transfer.hopCount >= transfer.maxHops) {
+      throw const RelayProtocolException('Rescue response hop limit reached.');
+    }
+    final inner = transfer.isAck
+        ? RescueResponseAckEnvelope.fromCanonicalWire(transfer.wireEnvelope)
+        : RescueResponseEnvelope.fromCanonicalWire(transfer.wireEnvelope);
+    final originMessageId = transfer.isAck
+        ? (inner as RescueResponseAckEnvelope).body.originMessageId
+        : (inner as RescueResponseEnvelope).body.originMessageId;
+    final stored = await _repository.lookupMessage(originMessageId);
+    if (stored == null) {
+      throw const RelayProtocolException(
+        'Origin relay envelope is unavailable.',
+      );
+    }
+    final origin = RelayOfferEnvelope.fromCanonicalWire(stored.wireEnvelope)
+        .body;
+    final response = transfer.isAck ? null : inner as RescueResponseEnvelope;
+    if (response != null) {
+      final accepted = await _rescueResponseRepository.recordIncoming(
+        envelope: response,
+        origin: origin,
+        now: _now(),
+      );
+      if (!accepted) {
+        _log('rescueResponseDuplicate');
+      }
+      _log(
+        'response_origin_persisted incident=${origin.incidentId} '
+        'response=${response.body.messageId}',
+      );
+      _log(
+        'response_origin_verified incident=${origin.incidentId} '
+        'response=${response.body.messageId} hop=${transfer.hopCount}',
+      );
+      final identity = await _ensureIdentity();
+      if (identity.keyId == origin.originKeyId) {
+        final ackBody = RescueResponseAckBody(
+          ackId: 'ack:${response.body.messageId}:${identity.keyId}',
+          responseMessageId: response.body.messageId,
+          incidentId: origin.incidentId,
+          originMessageId: origin.originMessageId,
+          originKeyId: origin.originKeyId,
+          signerKeyId: identity.keyId,
+          signerPublicKey: base64UrlEncode(identity.publicKey),
+          recipientKeyId: response.body.responderKeyId,
+          sessionBinding: session.inboundBinding ?? session.outboundBinding!,
+          createdAt: _now().toUtc(),
+          expiresAt: _now().toUtc().add(const Duration(minutes: 10)),
+        );
+        final ack = RescueResponseAckEnvelope(
+          body: ackBody,
+          signature: await _cryptography.signRescueResponseAck(
+            ackBody,
+            identity.keyPair,
+          ),
+        );
+        await _rescueResponseRepository.enqueueAck(
+          ack: ack,
+          response: response,
+          now: _now(),
+        );
+        _log(
+          'rescue_ack_enqueued incident=${origin.incidentId} '
+          'response=${response.body.messageId}',
+        );
+        await _sendResponseTransfer(
+          peer,
+          role,
+          ack.toCanonicalWire(),
+          true,
+          session,
+        );
+      } else {
+        // A non-origin node stores the signed response and lets the normal
+        // due-job drain choose another authenticated session opportunistically.
+        await _rescueResponseRepository.enqueueOffer(
+          envelope: response,
+          origin: origin,
+          now: _now(),
+        );
+        _log(
+          'response_relay_persisted incident=${origin.incidentId} '
+          'response=${response.body.messageId} hop=${transfer.hopCount}',
+        );
+        await processDue();
+      }
+    } else {
+      final ack = inner as RescueResponseAckEnvelope;
+      final outbox = await _rescueResponseRepository.findOutbox(
+        ack.body.responseMessageId,
+      );
+      if (outbox != null) {
+        final responseEnvelope = RescueResponseEnvelope.fromCanonicalWire(
+          outbox.payload,
+        );
+        final identity = await _ensureIdentity();
+        if (identity.keyId == ack.body.recipientKeyId) {
+          await _rescueResponseRepository.applyFinalAck(
+            ack: ack,
+            response: responseEnvelope,
+            origin: origin,
+            now: _now(),
+          );
+          _log(
+            'rescue_offer_delivered incident=${origin.incidentId} '
+            'response=${ack.body.responseMessageId}',
+          );
+          _log(
+            'rescue_ack_verified incident=${origin.incidentId} '
+            'response=${ack.body.responseMessageId}',
+          );
+        } else {
+          await _rescueResponseRepository.enqueueAck(
+            ack: ack,
+            response: responseEnvelope,
+            now: _now(),
+          );
+          await processDue();
+          _log(
+            'rescue_ack_relayed incident=${origin.incidentId} '
+            'response=${ack.body.responseMessageId}',
+          );
+        }
+      }
+    }
+    _log('rescueResponsePersisted');
+  }
+
+  Future<void> _sendResponseTransfer(
+    String peer,
+    BleSessionRole role,
+    String wireEnvelope,
+    bool isAck,
+    _RelaySession session,
+  ) async {
+    final transfer = RescueResponseTransfer(
+      attemptId: 'rescue-transfer:${DateTime.now().microsecondsSinceEpoch}',
+      correlationId:
+          'rescue-correlation:${DateTime.now().microsecondsSinceEpoch}',
+      sessionBinding: session.outboundBinding ?? session.inboundBinding ?? '',
+      wireEnvelope: wireEnvelope,
+      hopCount: 0,
+      maxHops: RelayProtocolLimits.maximumHops,
+      isAck: isAck,
+    );
+    transfer.validate();
+    await _sendMessage(
+      peer,
+      role,
+      BleMessage(
+        id: transfer.attemptId,
+        type: RescueResponseTransfer.wireKind,
+        payload: transfer.toJson(),
+        createdAt: _now().toUtc(),
+      ),
+    );
   }
 
   Future<void> processDue() async {
@@ -488,8 +761,64 @@ class HopRelayCoordinator {
     }
   }
 
+  Future<void> enqueueChatRelay(ChatRelayEnvelope envelope) async {
+    final repository = chatRelayRepository;
+    if (repository == null) {
+      throw const RelayPersistenceException(
+        'Chat relay storage is unavailable.',
+      );
+    }
+    await repository.enqueue(envelope, now: _now());
+    _hasPendingWork = true;
+    if (_started && _foreground) unawaited(processDue());
+  }
+
+  Future<ChatRelayEnvelope> signAndEnqueueChatRelay({
+    required String messageId,
+    required String incidentId,
+    required String recipientKeyId,
+    required String recipientPublicKey,
+    required String text,
+    required DateTime createdAt,
+    String? originIncidentBinding,
+  }) async {
+    final identity = await _ensureIdentity();
+    final body = ChatRelayBody(
+      messageId: messageId,
+      incidentId: incidentId,
+      senderKeyId: identity.keyId,
+      senderPublicKey: base64UrlEncode(identity.publicKey),
+      recipientKeyId: recipientKeyId,
+      recipientPublicKey: recipientPublicKey,
+      originIncidentBinding: originIncidentBinding ?? incidentId,
+      text: text,
+      createdAt: createdAt,
+      expiresAt: createdAt.toUtc().add(const Duration(minutes: 30)),
+    );
+    final envelope = ChatRelayEnvelope(
+      body: body,
+      signature: await _cryptography.signChatRelay(body, identity.keyPair),
+    );
+    await enqueueChatRelay(envelope);
+    return envelope;
+  }
+
   Future<void> _processDue() async {
     final now = _now().toUtc();
+    _log(
+      'relay_scheduler_tick foreground=$_foreground participating=$_participating',
+    );
+    final chatRows = chatRelayRepository == null
+        ? const <ChatRelayOutboxData>[]
+        : await chatRelayRepository!.due(now: now);
+    if (chatRows.isNotEmpty) {
+      _hasPendingWork = true;
+      await _ensureIdentity();
+      await _ensureDiscovery();
+      await _broadcastCapabilities();
+    }
+    await _processRescueResponseDue(now);
+    await _processChatRelayDue(now);
     await _repository.recoverStaleAttempts(
       olderThan: now.subtract(ackTimeout),
       now: now,
@@ -505,7 +834,9 @@ class HopRelayCoordinator {
               .toList(growable: false);
     final hadPendingWork = _hasPendingWork;
     _hasPendingWork = messages.isNotEmpty;
+    _log('relay_job_due count=${messages.length}');
     if (messages.isEmpty) {
+      _log('relay_scheduler_idle pending=0');
       if (_discoveryLeaseHeld) {
         await _presence.releaseDiscovery(_discoveryLease);
         _discoveryLeaseHeld = false;
@@ -537,15 +868,44 @@ class HopRelayCoordinator {
         message.originMessageId,
         now: now,
       );
-      for (final entry in _provenPeers().entries) {
+      final provenPeers = _provenPeers();
+      if (provenPeers.isEmpty) {
+        _log(
+          'relay_forward_skipped reason=no_authenticated_peer '
+          'incident=${_safeCorrelation(message.incidentId)}',
+        );
+      }
+      for (final entry in provenPeers.entries) {
         final peer = entry.key;
         final capability = entry.value.peer;
-        if (!capability.participating ||
-            offer.pathKeyIds.contains(capability.keyId) ||
-            message.incomingPeerId == peer ||
-            !(_connected[peer]?.isNotEmpty ?? false)) {
+        if (!capability.participating) {
+          _log(
+            'relay_forward_skipped reason=peer_not_participating peer=${_safeCorrelation(peer)}',
+          );
           continue;
         }
+        if (offer.pathKeyIds.contains(capability.keyId)) {
+          _log(
+            'relay_forward_skipped reason=path_loop peer=${_safeCorrelation(peer)}',
+          );
+          continue;
+        }
+        if (message.incomingPeerId == peer) {
+          _log(
+            'relay_forward_skipped reason=previous_hop peer=${_safeCorrelation(peer)}',
+          );
+          continue;
+        }
+        if (!(_connected[peer]?.isNotEmpty ?? false)) {
+          _log(
+            'relay_forward_skipped reason=session_not_connected peer=${_safeCorrelation(peer)}',
+          );
+          continue;
+        }
+        _log(
+          'relay_forward_eligible incident=${_safeCorrelation(message.incidentId)} '
+          'peer=${_safeCorrelation(peer)}',
+        );
         await _sendOfferToPeer(
           message,
           peer,
@@ -553,6 +913,151 @@ class HopRelayCoordinator {
           capability,
           now,
           participationGeneration,
+        );
+      }
+    }
+  }
+
+  Future<void> _processChatRelayDue(DateTime now) async {
+    final repository = chatRelayRepository;
+    if (repository == null) return;
+    final rows = await repository.due(now: now);
+    if (rows.isEmpty) return;
+    final routes = _provenPeers();
+    final identity = await _ensureIdentity();
+    for (final row in rows) {
+      try {
+        final envelope = repository.decode(row.payload);
+        envelope.body.validate(now: now);
+        if (identity.keyId == envelope.body.recipientKeyId) {
+          await onChatRelayReceived?.call(envelope);
+          await repository.markForwarded(row.messageId, now: now);
+          continue;
+        }
+        MapEntry<String, _ProvenRoute>? candidate;
+        for (final entry in routes.entries) {
+          if (entry.value.peer.keyId == envelope.body.recipientKeyId &&
+              entry.value.peer.participating) {
+            candidate = entry;
+            break;
+          }
+        }
+        // A relay may not know the final recipient's currently reachable
+        // session. Forward opportunistically to one authenticated, opted-in
+        // relay while keeping the immutable final recipient key in the signed
+        // envelope. The next relay must repeat the same validation.
+        candidate ??= routes.entries
+            .where((entry) => entry.value.peer.participating)
+            .cast<MapEntry<String, _ProvenRoute>?>()
+            .firstWhere((entry) => entry != null, orElse: () => null);
+        if (candidate == null) continue;
+        final session =
+            _sessions[_sessionKey(candidate.key, candidate.value.role)];
+        if (session == null || !session.proofComplete) continue;
+        final transfer = ChatRelayTransfer(
+          attemptId: 'chat:${row.messageId}:${candidate.value.peer.keyId}',
+          wireEnvelope: row.payload,
+          hopCount: row.hopCount,
+        );
+        await _sendMessage(
+          candidate.key,
+          candidate.value.role,
+          BleMessage(
+            id: transfer.attemptId,
+            type: ChatRelayTransfer.wireKind,
+            payload: transfer.toJson(),
+            createdAt: now,
+          ),
+        );
+        await repository.markForwarded(row.messageId, now: now);
+        _log(
+          'chat_relay_forwarded incident=${row.incidentId} message=${row.messageId}',
+        );
+      } on Object catch (error) {
+        await repository.markFailed(row.messageId, error, now: now);
+      }
+    }
+  }
+
+  Future<void> _processRescueResponseDue(DateTime now) async {
+    if (!_started || !_foreground) return;
+    final rows = await _rescueResponseRepository.listDueOutbox(now: now);
+    if (rows.isEmpty) return;
+    _log('response_job_due count=${rows.length}');
+    final routes = _provenPeers();
+    for (final row in rows) {
+      final isAck = row.payload.contains('"kind":"rescue.offer_ack"');
+      final targetKey = row.responderKeyId;
+      RescueResponseTransfer? transfer;
+      try {
+        final sessionTarget = routes.entries
+            .where((entry) {
+              final declared = entry.value.peer.keyId;
+              if (isAck) return declared == targetKey;
+              return declared == row.originKeyId;
+            })
+            .toList(growable: false);
+        final fallback = routes.entries.where(
+          (entry) => entry.value.peer.keyId != targetKey,
+        );
+        final candidate = sessionTarget.isNotEmpty
+            ? sessionTarget.first
+            : (fallback.isNotEmpty ? fallback.first : null);
+        if (candidate == null) continue;
+        if (isAck) {
+          RescueResponseAckEnvelope.fromCanonicalWire(row.payload).validate();
+        } else {
+          RescueResponseEnvelope.fromCanonicalWire(row.payload).validate();
+        }
+        final session =
+            _sessions[_sessionKey(candidate.key, candidate.value.role)];
+        if (session == null || !session.proofComplete) continue;
+        transfer = RescueResponseTransfer(
+          attemptId: 'rescue:${row.messageId}:${candidate.value.peer.keyId}',
+          correlationId: 'rescue-correlation:${row.messageId}',
+          sessionBinding: session.outboundBinding ?? '',
+          wireEnvelope: row.payload,
+          hopCount: 0,
+          maxHops: RelayProtocolLimits.maximumHops,
+          isAck: isAck,
+        );
+        transfer.validate();
+        await _rescueResponseRepository.queueAttempt(
+          messageId: row.messageId,
+          nextHopKeyId: candidate.value.peer.keyId,
+          nextHopDeviceId: candidate.key,
+          sessionBinding: session.outboundBinding ?? '',
+          now: now,
+        );
+        _log(
+          'response_forward_started incident=${row.incidentId} '
+          'response=${row.messageId} hop=0',
+        );
+        await _sendMessage(
+          candidate.key,
+          candidate.value.role,
+          BleMessage(
+            id: transfer.attemptId,
+            type: RescueResponseTransfer.wireKind,
+            payload: transfer.toJson(),
+            createdAt: now,
+          ),
+        );
+        await _rescueResponseRepository.markState(
+          row.messageId,
+          RescueResponseDeliveryState.forwarded,
+          now: now,
+        );
+        _log(
+          'response_transfer_completed incident=${row.incidentId} '
+          'response=${row.messageId}',
+        );
+      } on Object catch (error) {
+        await _rescueResponseRepository.markState(
+          row.messageId,
+          RescueResponseDeliveryState.failed,
+          now: now,
+          error: error.toString(),
         );
       }
     }
@@ -613,6 +1118,13 @@ class HopRelayCoordinator {
       correlationId: attempt.correlationId,
     );
     try {
+      _timing(
+        'forwarding_started',
+        message.originMessageId,
+        peer: peer,
+        hop: message.incomingHopCount + 1,
+        retry: attempt.retryCount,
+      );
       await _sendMessage(
         peer,
         role,
@@ -639,6 +1151,13 @@ class HopRelayCoordinator {
         originMessageId: message.originMessageId,
         attemptId: attempt.attemptId,
         now: _now(),
+      );
+      _timing(
+        'transfer_completed',
+        message.originMessageId,
+        peer: peer,
+        hop: message.incomingHopCount + 1,
+        retry: attempt.retryCount,
       );
       _log(
         attempt.state == RelayAttemptState.acceptedByRelay.wireValue
@@ -760,7 +1279,7 @@ class HopRelayCoordinator {
     }
     final participationGeneration = _participationGeneration;
     final session = _requireProvenSession(peer, role);
-    if (session.inboundBinding == null) {
+    if (session.outboundBinding == null) {
       throw const RelayProtocolException(
         'Relay offer session binding is incomplete.',
       );
@@ -774,6 +1293,12 @@ class HopRelayCoordinator {
     final identity = await _ensureIdentity();
     final transfer = RelayOfferTransfer.fromJson(message.payload);
     final offer = RelayOfferEnvelope.fromCanonicalWire(transfer.wireOffer);
+    _timing(
+      'envelope_validated',
+      offer.body.originMessageId,
+      peer: peer,
+      hop: offer.hopCount,
+    );
     if (message.id != transfer.attemptId ||
         message.createdAt.toUtc() != offer.body.createdAt.toUtc() ||
         sender.keyId != offer.immediateSenderKeyId ||
@@ -803,6 +1328,32 @@ class HopRelayCoordinator {
           session.proofComplete,
       now: _now(),
     );
+    _log(
+      'relay_job_persisted incident=${_safeCorrelation(offer.body.incidentId)} '
+      'duplicate=${accepted.duplicate}',
+    );
+    // The durable hop copy is already safe to forward. Do not make the next
+    // hop wait for the receipt write back to the previous hop; on physical
+    // links that write can be a long multi-frame operation and used to stall
+    // B→C forwarding behind A→B acknowledgement traffic.
+    _hasPendingWork = true;
+    unawaited(processDue());
+    if (offer.body.scope == RelayAuthorizationScope.voluntaryRescue &&
+        (rescueModeEnabled?.call() ?? false) &&
+        rescueInbox != null) {
+      await rescueInbox!.insertCandidate(
+        offer,
+        immutableDigest: await _cryptography.immutableDigest(offer.body),
+        now: _now(),
+      );
+      _timing(
+        'candidate_persisted',
+        offer.body.originMessageId,
+        peer: peer,
+        hop: offer.hopCount,
+      );
+      _log('rescueCandidatePersisted origin=${offer.body.originMessageId}');
+    }
     if (!_participating ||
         participationGeneration != _participationGeneration ||
         !identical(_sessions[_sessionKey(peer, role)], session) ||
@@ -828,7 +1379,12 @@ class HopRelayCoordinator {
       signature: base64UrlEncode(List<int>.filled(64, 0)),
       correlationId: transfer.correlationId,
       attemptId: transfer.attemptId,
-      sessionBinding: session.inboundBinding,
+      // Bind the receipt to the proof challenge issued by this receiver. The
+      // offer sender stores the same value as its inbound binding after it
+      // answers that challenge, so a receipt cannot be replayed onto another
+      // physical session. Do not depend on the reciprocal challenge: either
+      // direction can be lost independently on a real GATT link.
+      sessionBinding: session.outboundBinding,
     );
     final receipt = RelayReceiptEnvelope(
       receiptId: unsigned.receiptId,
@@ -860,6 +1416,12 @@ class HopRelayCoordinator {
     _log(
       accepted.duplicate ? 'relayDuplicateReacknowledged' : 'relayPersisted',
     );
+    _timing(
+      'relay_persisted',
+      offer.body.originMessageId,
+      peer: peer,
+      hop: offer.hopCount,
+    );
     await processDue();
   }
 
@@ -884,8 +1446,8 @@ class HopRelayCoordinator {
     final declared = session.declaredPeer;
     if (declared == null ||
         declared.keyId != receipt.signerKeyId ||
-        session.outboundBinding == null ||
-        receipt.sessionBinding != session.outboundBinding) {
+        session.inboundBinding == null ||
+        receipt.sessionBinding != session.inboundBinding) {
       throw const RelayProtocolException(
         'Hop receipt peer binding is invalid.',
       );
@@ -980,16 +1542,41 @@ class HopRelayCoordinator {
     final challenge = RelaySessionChallenge.fromJson(message.payload);
     final declared = session.declaredPeer;
     if (declared == null) {
-      final deferred = session.deferredPeerChallenge;
-      if (deferred != null &&
-          relayCanonicalJson(deferred.toJson()) !=
-              relayCanonicalJson(challenge.toJson())) {
+      // A capability advertisement is unsigned and can be lost before a long
+      // signed challenge completes on a physical GATT link. The challenge
+      // carries the same installation key, participation, role and generation
+      // facts under an Ed25519 signature. Recover the missing declaration only
+      // after binding every local-session field and verifying that signature;
+      // malformed, replayed or wrong-session challenges still fail closed.
+      final identity = await _ensureIdentity();
+      if (challenge.challengedKeyId != identity.keyId ||
+          challenge.challengerRole != _oppositeRole(role).wireValue ||
+          challenge.challengedRole != role.wireValue ||
+          challenge.challengedGeneration != session.generation ||
+          !await _cryptography.verifySessionChallenge(challenge)) {
         throw const RelayProtocolException(
-          'Conflicting relay challenges arrived before capability exchange.',
+          'Relay challenge cannot recover the missing capability.',
         );
       }
       session.deferredPeerChallenge = challenge;
-      _log('relaySessionChallengeDeferred');
+      _log('relaySessionCapabilityRecoveredFromChallenge');
+      await _handleCapabilities(
+        peer,
+        role,
+        BleMessage(
+          id: 'relay-capabilities-v1',
+          type: RelayCapabilityAdvertisement.wireKind,
+          payload: RelayCapabilityAdvertisement(
+            capabilities: const [RelayProtocolCapabilities.relayV2],
+            participating: challenge.challengerParticipating,
+            relayKeyId: challenge.challengerKeyId,
+            relayPublicKey: challenge.challengerPublicKey,
+            sessionGeneration: challenge.challengerGeneration,
+            sessionRole: challenge.challengerRole,
+          ).toJson(),
+          createdAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+        ),
+      );
       return;
     }
     await _respondToSessionChallenge(peer, role, session, challenge);
@@ -1101,6 +1688,9 @@ class HopRelayCoordinator {
       response,
     );
     _log('relaySessionProofEstablished');
+    _log(
+      'authenticated_peer_ready peer=${session.declaredPeer?.keyId ?? 'unknown'}',
+    );
     await processDue();
   }
 
@@ -1368,19 +1958,15 @@ class HopRelayCoordinator {
       return;
     }
     // Android can briefly report both the stale and current privacy address
-    // for the same iOS peripheral. Opening the second GATT link while the
-    // first link is still proving its installation identity (or writing a
-    // complete message) creates two frame streams that iOS exposes under one
-    // central identifier. Those streams can interleave and make neither
-    // signed message reconstructable. Serialize that identity-discovery
-    // window; once the active central route is proven and idle, other peers
-    // remain eligible for discovery and fan-out.
-    if (_hasCentralHandshakeOrWriteInFlight()) return;
+    // for the same iOS peripheral. Serialize only the identity-discovery
+    // window for that same peer; a relay must still be able to connect to a
+    // second peer while the first hop is proving its session.
+    if (_hasCentralHandshakeOrWriteInFlight(peer)) return;
     final attempts = _connectionAttempts[peer] ?? 0;
     if (attempts >= 2 ||
         (_connectionAttempts.length >= maximumConnectionCandidates &&
             !_connectionAttempts.containsKey(peer)) ||
-        _connecting.isNotEmpty) {
+        _connecting.contains(peer)) {
       return;
     }
     _connectionAttempts[peer] = attempts + 1;
@@ -1393,14 +1979,15 @@ class HopRelayCoordinator {
     }
   }
 
-  bool _hasCentralHandshakeOrWriteInFlight() {
+  bool _hasCentralHandshakeOrWriteInFlight(String targetPeer) {
     for (final entry in _sessions.entries) {
       final session = entry.value;
       if (session.role != BleSessionRole.central) continue;
       final separator = entry.key.lastIndexOf('|');
       if (separator <= 0) continue;
       final peer = entry.key.substring(0, separator);
-      if (!(_connected[peer]?.contains(BleSessionRole.central) ?? false)) {
+      if (peer != targetPeer ||
+          !(_connected[peer]?.contains(BleSessionRole.central) ?? false)) {
         continue;
       }
       if (!session.proofComplete || _sendTails.containsKey(entry.key)) {
@@ -1452,6 +2039,34 @@ class HopRelayCoordinator {
   Duration _retryDelay(int retryCount) {
     final multiplier = 1 << retryCount.clamp(0, 4);
     return retryBase * multiplier;
+  }
+
+  void _timing(
+    String event,
+    String originMessageId, {
+    String? peer,
+    int? hop,
+    int? retry,
+  }) {
+    final timer = _timers.putIfAbsent(
+      originMessageId,
+      () => Stopwatch()..start(),
+    );
+    final fields = <String>[
+      'timing=$event',
+      'origin=${_safeCorrelation(originMessageId)}',
+      'elapsedMs=${timer.elapsedMilliseconds}',
+      if (peer != null) 'peer=${_safeCorrelation(peer)}',
+      if (hop != null) 'hop=$hop',
+      if (retry != null) 'retry=$retry',
+    ];
+    _log(fields.join(' '));
+  }
+
+  String _safeCorrelation(String value) {
+    final normalized = value.trim();
+    if (normalized.length <= 24) return normalized;
+    return '${normalized.substring(0, 12)}…${normalized.substring(normalized.length - 8)}';
   }
 
   void _log(String message) => onLog?.call(message);

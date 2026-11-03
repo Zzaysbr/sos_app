@@ -374,3 +374,68 @@ is NOT RUN.
 
 
 Week 5 frozen-source automated result: **203 tests PASS (exit 0), 90 focused PASS (exit 0), analyzer no issues (exit 0), `git diff --check` exit 0, Android debug APK build exit 0 (29.2s Gradle), signed iOS profile build exit 0 (12.6s Xcode), and unsigned iOS debug build exit 0 (289.1s Xcode)**. Added 32 tests; the two original identity failure tests remain enabled and pass. The first Kotlin compile failure is retained and was corrected without dependency changes. The final APK/profile were installed with update-in-place semantics and both processes launched. The user also confirmed Guest advertising → Login A → BLE Start Scan and Logout → Guest Advertising on the updated Android native bridge; final new-input SOS/Chat acceptance is still pending. Signed release and all unexecuted physical scenarios remain NOT RUN.
+
+## Relay v2 checkpoint — 1–2 November 2026
+
+- Physical A → B → C hop-only store-and-forward: **PASS** for one iPhone origin,
+  Android relay and iPad relay-only receiver run. C persisted one hop-1 relay
+  envelope; B persisted one signed hop receipt; origin message ID and immutable
+  digest matched; no normal History row was created at C.
+- Final responder delivery: **NOT IMPLEMENTED / NOT VERIFIED**. The physical
+  result must not be presented as final delivery or human acceptance.
+- Developer observability: a read-only Relay Diagnostics screen now projects
+  existing relay messages, attempts and receipts in Debug/Profile builds. It is
+  inaccessible and non-rendering in Release and exposes no payload, coordinates,
+  peers, keys, signatures or raw errors.
+- Automated validation (2 November 2026): diagnostics 8 passed; focused
+  Relay/diagnostics 105 passed; latest focused coordinator 25 passed; full suite
+  391 passed; analyzer and `git diff --check` passed. Android Debug and unsigned
+  iOS Release compilation passed. The iOS Release executable contains neither
+  diagnostic label checked, but is not signing evidence.
+- Current-build installation: Android Debug and signed iOS Profile patches were
+  installed update-in-place on Android B, iPhone A and iPad C. Bundle/package
+  identity and signing compatibility were checked before installation; no app
+  was uninstalled and no application data was cleared.
+- Physical Diagnostics and hop-only Relay retest: **PASS**. A fresh iPhone
+  origin reached `Stored on 1 relay device`. Android B showed one relay-only
+  hop-0 envelope and later `Stored by next relay`, one attempt and `Received
+  from next relay`. iPad C showed exactly one relay-only hop-1 envelope and
+  `Stored on relay`. Both screens were read-only, privacy-reduced and stable
+  after navigation; B/C normal History remained empty. Android logs record
+  application-level `relayPersisted` and `relayStoredOnNextHop`, not merely a
+  native BLE write.
+- Physical defects fixed before the passing run: hop-receipt session binding
+  used the wrong proof direction, and foreground resume did not re-prove a
+  retained GATT session after an interrupted multi-frame response. Regression
+  tests cover the receiver-issued binding and resume recovery. Protocol, UUIDs,
+  schema, ownership and Direct v1 behavior were not changed.
+- Final responder receipt remains `Not confirmed`: **NOT IMPLEMENTED / NOT
+  VERIFIED**. This physical PASS proves relay-only persistence and hop receipts,
+  not human acceptance, rescue arrival, background operation or release
+  readiness. Evidence is under
+  `/tmp/off_grid_sos_device_validation/relay_diagnostics_physical_2026-11-02/`.
+
+## Option A owner decision and source verification — 2 November 2026
+
+- Owner decision: **Option A — Safe Minimal MVP APPROVED**.
+- Final Delivery v3: **DEFERRED / NOT IMPLEMENTED**.
+- Production Trust Authority, real responder enrollment/eligibility and external
+  operational ownership: **BLOCKED**.
+- Verified source semantics: Direct BLE v1 still requires a matching persisted
+  application ACK; native write completion alone is not confirmation. Relay v2
+  is hop-only and rejects final receipts without a trust anchor. A nearby peer,
+  Firebase UID, Rescue mode or Relay key is not responder authorization.
+- Verified persistence boundary: Relay-only envelopes remain outside normal SOS
+  History and cloud sync. Hop receipt replay is idempotent and cannot be
+  re-labelled as final responder persistence.
+- Verified UI semantics: hop evidence remains `Stored on relay` with final
+  delivery unconfirmed. Direct Chat/Location `Delivered` or `Confirmed received`
+  refers to their matching selected-peer application persistence ACK, not a
+  trusted-responder, human-acceptance or dispatch claim.
+- This section records code/test inspection and current automated validation;
+  it does not add physical-device evidence. Release remains **BLOCKED** by
+  production trust, map, distribution signing and required physical testing.
+- Current commands: focused Relay/SOS/Chat/identity/Guest set **215 passed,
+  exit 0**; full Flutter suite **391 passed, exit 0**;
+  `flutter analyze lib test` **exit 0, no issues**; `git diff --check`
+  **exit 0**. No application source or test modification was required.

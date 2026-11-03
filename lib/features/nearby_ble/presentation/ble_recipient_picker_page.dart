@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/localization/localization.dart';
 import '../data/ble_transport.dart';
 import '../domain/ble_models.dart';
 
@@ -129,17 +130,16 @@ class _BleRecipientPickerPageState extends State<BleRecipientPickerPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: const Text('Choose BLE recipient')),
+      appBar: AppBar(title: Text(l10n.chooseBleRecipient)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Card(
+          Card(
             child: Padding(
-              padding: EdgeInsets.all(14),
-              child: Text(
-                'Select the intended nearby device. The identifier is a transport identifier and is not verified as a person identity.',
-              ),
+              padding: const EdgeInsets.all(14),
+              child: Text(l10n.bleRecipientTrustNotice),
             ),
           ),
           if (_error != null)
@@ -147,38 +147,40 @@ class _BleRecipientPickerPageState extends State<BleRecipientPickerPage> {
               color: Theme.of(context).colorScheme.errorContainer,
               child: ListTile(
                 leading: const Icon(Icons.error_outline),
-                title: const Text('BLE is not ready'),
+                title: Text(l10n.bleNotReady),
                 subtitle: Text(_error!),
               ),
             ),
           if (_devices.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(child: Text('Scanning for nearby devices…')),
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Center(child: Text(l10n.scanningNearby)),
             ),
           for (final device in _devices.values)
             ListTile(
               title: Text(
                 device.name?.isNotEmpty == true
                     ? device.name!
-                    : 'Unnamed device',
+                    : l10n.unnamedDevice,
               ),
               subtitle: Text(
                 '${device.id}${device.rssi == null ? '' : ' · RSSI ${device.rssi}'}\n'
-                'Status: ${_states[_key(device.id)] ?? 'discovered'}',
+                '${l10n.deviceStatus(_states[_key(device.id)] ?? 'discovered')}',
               ),
               isThreeLine: true,
               trailing: FilledButton(
                 onPressed: _connecting == null ? () => _connect(device) : null,
                 child: Text(
-                  _states[_key(device.id)] == 'connected' ? 'Use' : 'Connect',
+                  _states[_key(device.id)] == 'connected'
+                      ? l10n.useDevice
+                      : l10n.connect,
                 ),
               ),
             ),
           const SizedBox(height: 8),
           OutlinedButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Continue without recipient'),
+            child: Text(l10n.continueWithoutRecipient),
           ),
         ],
       ),

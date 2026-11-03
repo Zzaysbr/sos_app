@@ -177,11 +177,16 @@ void main() {
 
   tearDown(() async => database.close());
 
-  test('schema 6 creates dedicated empty relay tables', () async {
-    expect(database.schemaVersion, 6);
+  test('schema 9 creates dedicated relay and rescue tables', () async {
+    expect(database.schemaVersion, 9);
     expect(await database.select(database.bleRelayMessages).get(), isEmpty);
     expect(await database.select(database.bleRelayAttempts).get(), isEmpty);
     expect(await database.select(database.bleRelayReceipts).get(), isEmpty);
+    expect(await database.select(database.rescueInbox).get(), isEmpty);
+    expect(await database.select(database.rescueResponseOutbox).get(), isEmpty);
+    expect(await database.select(database.rescueResponseInbox).get(), isEmpty);
+    expect(await database.select(database.rescueResponseJobs).get(), isEmpty);
+    expect(await database.select(database.rescueResponseReplay).get(), isEmpty);
   });
 
   test(
@@ -367,7 +372,7 @@ void main() {
         },
       );
       final migrated = AppDatabase.forTesting(executor);
-      expect(migrated.schemaVersion, 6);
+      expect(migrated.schemaVersion, 9);
       expect(
         (await migrated.select(migrated.sosMessages).getSingle()).id,
         'existing-v5',

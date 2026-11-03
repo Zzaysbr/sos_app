@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/localization/localization.dart';
 import '../data/ble_protocol.dart';
 import '../data/ble_transport.dart';
 import '../domain/ble_models.dart';
@@ -59,6 +60,46 @@ class _BleTestPageState extends State<BleTestPage> {
 
   String _deviceKey(String id) => id.trim().toLowerCase();
 
+  String _roleKey(String deviceId, BleSessionRole? role) =>
+      '${_deviceKey(deviceId)}|${(role ?? BleSessionRole.central).wireValue}';
+
+  void _setRoleState(String deviceId, BleSessionRole? role, String state) {
+    _states[_roleKey(deviceId, role)] = state;
+  }
+
+  String _peerState(String deviceId) {
+    final peer = _deviceKey(deviceId);
+    final hasRoleState = BleSessionRole.values.any(
+      (role) => _states.containsKey('$peer|${role.wireValue}'),
+    );
+    if (!hasRoleState) return 'discovered';
+    final roleStates = <BleSessionRole, String>{
+      for (final role in BleSessionRole.values)
+        role: _states['$peer|${role.wireValue}'] ?? 'disconnected',
+    };
+    final connected = roleStates.entries
+        .where((entry) => entry.value == 'connected')
+        .map((entry) => entry.key.wireValue)
+        .toList(growable: false);
+    if (connected.isNotEmpty) {
+      return connected.length == 1
+          ? 'connected'
+          : 'connected (${connected.join(' + ')})';
+    }
+    if (roleStates.values.any((state) => state == 'connecting')) {
+      return 'connecting';
+    }
+    if (roleStates.values.any((state) => state == 'disconnected')) {
+      return 'disconnected';
+    }
+    return 'discovered';
+  }
+
+  bool _isPeerConnected(String deviceId) {
+    final state = _peerState(deviceId);
+    return state == 'connected' || state.startsWith('connected (');
+  }
+
   @override
   void initState() {
     super.initState();
@@ -99,9 +140,10 @@ class _BleTestPageState extends State<BleTestPage> {
     final key = _deviceKey(normalizedDeviceId);
     final alreadyDiscovered = _devices.containsKey(key);
     final isNewScanResult = event.type == 'deviceFound' && _scanActive;
+    final isConnectionSnapshot = event.type == 'connected';
     if (device != null &&
         normalizedDeviceId.isNotEmpty &&
-        (isNewScanResult || alreadyDiscovered)) {
+        (isNewScanResult || alreadyDiscovered || isConnectionSnapshot)) {
       final previous = _devices[key];
       if (event.type == 'deviceFound') _lastSeen[key] = DateTime.now();
       _devices[key] = BleDevice(
@@ -127,12 +169,12 @@ class _BleTestPageState extends State<BleTestPage> {
         break;
       case 'connecting':
         _phase = 'connecting';
-        if (device != null) _states[_deviceKey(device.id)] = 'connecting';
+        if (device != null) _setRoleState(device.id, event.role, 'connecting');
         _log('Connecting to ${device?.id ?? 'device'}');
         break;
       case 'connected':
         _phase = 'connected / GATT ready';
-        if (device != null) _states[_deviceKey(device.id)] = 'connected';
+        if (device != null) _setRoleState(device.id, event.role, 'connected');
         if (device != null) {
           _connectionWaiters.remove(_deviceKey(device.id))?.complete();
           if (_isRangeTarget(device.id)) _rangeSession?.recordConnected();
@@ -142,7 +184,7 @@ class _BleTestPageState extends State<BleTestPage> {
       case 'disconnected':
         _phase = 'disconnected';
         if (device != null) {
-          _states[_deviceKey(device.id)] = 'disconnected';
+          _setRoleState(device.id, event.role, 'disconnected');
           _assemblers.removeWhere(
             (key, _) => key.startsWith('${_deviceKey(device.id)}|'),
           );
@@ -347,7 +389,7 @@ class _BleTestPageState extends State<BleTestPage> {
     _assertActive();
     final key = _deviceKey(device.id);
     _selectedDeviceId = key;
-    _states[key] = 'connecting';
+    _setRoleState(device.id, BleSessionRole.central, 'connecting');
     _log('Connect requested for ${device.id}');
     final waiter = Completer<void>();
     _connectionWaiters.remove(key);
@@ -375,7 +417,7 @@ class _BleTestPageState extends State<BleTestPage> {
     if (_busy ||
         device == null ||
         text.isEmpty ||
-        _states[_deviceKey(device.id)] != 'connected') {
+        !_isPeerConnected(device.id)) {
       return;
     }
     await _run('send', () async {
@@ -444,9 +486,7 @@ class _BleTestPageState extends State<BleTestPage> {
 
   void _startRangeTest() {
     final device = _selectedDevice;
-    if (_rangeSending ||
-        device == null ||
-        _states[_deviceKey(device.id)] != 'connected') {
+    if (_rangeSending || device == null || !_isPeerConnected(device.id)) {
       return;
     }
     _rangeTimer?.cancel();
@@ -569,15 +609,14 @@ class _BleTestPageState extends State<BleTestPage> {
   @override
   Widget build(BuildContext context) {
     if (kReleaseMode) {
-      return const Scaffold(
-        body: Center(child: Text('Debug tool unavailable')),
+      return Scaffold(
+        body: Center(child: Text(context.l10n.developerToolUnavailable)),
       );
     }
     final selectedConnected =
-        _selectedDevice != null &&
-        _states[_deviceKey(_selectedDevice!.id)] == 'connected';
+        _selectedDevice != null && _isPeerConnected(_selectedDevice!.id);
     return Scaffold(
-      appBar: AppBar(title: const Text('BLE Test (Debug)')),
+      appBar: AppBar(title: Text(context.l10n.bleTestDebug)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -605,15 +644,13 @@ class _BleTestPageState extends State<BleTestPage> {
 
   Widget _warningCard() => Card(
     color: const Color(0xFFFFF4E5),
-    child: const ListTile(
-      leading: Icon(Icons.bug_report_outlined, color: Color(0xFF9A5A00)),
+    child: ListTile(
+      leading: const Icon(Icons.bug_report_outlined, color: Color(0xFF9A5A00)),
       title: Text(
-        'Debug tool only',
-        style: TextStyle(fontWeight: FontWeight.w700),
+        context.l10n.debugToolOnly,
+        style: const TextStyle(fontWeight: FontWeight.w700),
       ),
-      subtitle: Text(
-        'This screen does not create or send production SOS alerts.',
-      ),
+      subtitle: Text(context.l10n.debugToolSafety),
     ),
   );
 
@@ -625,24 +662,22 @@ class _BleTestPageState extends State<BleTestPage> {
             : Icons.bluetooth,
         color: Colors.blue,
       ),
-      title: const Text('Bluetooth status'),
+      title: Text(context.l10n.bluetoothStatus),
       subtitle: Text(
         'Central: $_centralState\nPeripheral: $_peripheralState\nPhase: $_phase',
       ),
       isThreeLine: true,
       trailing: FilledButton.tonal(
         onPressed: _busy ? null : _requestPermissions,
-        child: const Text('Permissions'),
+        child: Text(context.l10n.permissions),
       ),
     ),
   );
 
-  Widget _capabilityCard() => const Card(
+  Widget _capabilityCard() => Card(
     child: Padding(
-      padding: EdgeInsets.all(14),
-      child: Text(
-        'Android: scan, advertise, connect, write and receive GATT data.\niOS: scan, advertise, connect, write and receive CoreBluetooth data.\nForeground testing is required. Range diagnostics use an application ACK; ordinary test messages report native write acceptance only.',
-      ),
+      padding: const EdgeInsets.all(14),
+      child: Text(context.l10n.blePlatformCapabilities),
     ),
   );
 
@@ -656,22 +691,22 @@ class _BleTestPageState extends State<BleTestPage> {
           FilledButton.icon(
             onPressed: _busy ? null : _startScan,
             icon: const Icon(Icons.search),
-            label: const Text('Start Scan'),
+            label: Text(context.l10n.startScan),
           ),
           OutlinedButton.icon(
             onPressed: _busy ? null : _stopScan,
             icon: const Icon(Icons.stop),
-            label: const Text('Stop Scan'),
+            label: Text(context.l10n.stopScan),
           ),
           FilledButton.tonalIcon(
             onPressed: _busy ? null : _startAdvertising,
             icon: const Icon(Icons.cell_tower),
-            label: const Text('Start Advertising'),
+            label: Text(context.l10n.startAdvertising),
           ),
           OutlinedButton.icon(
             onPressed: _busy ? null : _stopAdvertising,
             icon: const Icon(Icons.stop_circle_outlined),
-            label: const Text('Stop Advertising'),
+            label: Text(context.l10n.stopAdvertising),
           ),
         ],
       ),
@@ -684,16 +719,14 @@ class _BleTestPageState extends State<BleTestPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Discovered devices',
-            style: TextStyle(fontWeight: FontWeight.w700),
+          Text(
+            context.l10n.discoveredDevices,
+            style: const TextStyle(fontWeight: FontWeight.w700),
           ),
           if (_devices.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'No devices discovered yet. Start a scan on both phones.',
-              ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(context.l10n.noDevicesDiscovered),
             ),
           for (final device in _devices.values)
             ListTile(
@@ -701,20 +734,20 @@ class _BleTestPageState extends State<BleTestPage> {
               title: Text(
                 device.name?.isNotEmpty == true
                     ? device.name!
-                    : 'Unnamed device',
+                    : context.l10n.unnamedDevice,
               ),
               subtitle: Text(
-                '${device.id}${device.rssi == null ? '' : ' · RSSI ${device.rssi}'}\nState: ${_states[_deviceKey(device.id)] ?? 'discovered'}',
+                '${device.id}${device.rssi == null ? '' : ' · RSSI ${device.rssi}'}\nState: ${_peerState(device.id)}',
               ),
               isThreeLine: true,
-              trailing: _states[_deviceKey(device.id)] == 'connected'
+              trailing: _peerState(device.id).startsWith('connected')
                   ? OutlinedButton(
                       onPressed: _busy ? null : () => _disconnect(device),
-                      child: const Text('Disconnect'),
+                      child: Text(context.l10n.disconnect),
                     )
                   : FilledButton.tonal(
                       onPressed: _busy ? null : () => _connect(device),
-                      child: const Text('Connect'),
+                      child: Text(context.l10n.connect),
                     ),
             ),
         ],
@@ -731,16 +764,16 @@ class _BleTestPageState extends State<BleTestPage> {
             child: TextField(
               controller: _messageController,
               enabled: enabled && !_busy,
-              decoration: const InputDecoration(
-                labelText: 'Test message',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.l10n.testMessage,
+                border: const OutlineInputBorder(),
               ),
             ),
           ),
           const SizedBox(width: 8),
           FilledButton(
             onPressed: enabled && !_busy ? _send : null,
-            child: const Text('Send'),
+            child: Text(context.l10n.send),
           ),
         ],
       ),
@@ -759,14 +792,12 @@ class _BleTestPageState extends State<BleTestPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'BLE range / quality diagnostic',
-              style: TextStyle(fontWeight: FontWeight.w700),
+            Text(
+              context.l10n.bleRangeDiagnostic,
+              style: const TextStyle(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 6),
-            const Text(
-              'Record the real distance yourself. RSSI is signal strength and is never converted to distance. Repeat each distance in open and obstructed conditions.',
-            ),
+            Text(context.l10n.rangeDiagnosticSafety),
             const SizedBox(height: 10),
             Wrap(
               spacing: 12,
@@ -840,11 +871,11 @@ class _BleTestPageState extends State<BleTestPage> {
                       ? _startRangeTest
                       : null,
                   icon: const Icon(Icons.network_check),
-                  label: const Text('Start range run'),
+                  label: Text(context.l10n.startRangeRun),
                 ),
                 OutlinedButton(
                   onPressed: _rangeSending ? _stopRangeTest : null,
-                  child: const Text('Stop'),
+                  child: Text(context.l10n.stop),
                 ),
               ],
             ),
@@ -857,9 +888,9 @@ class _BleTestPageState extends State<BleTestPage> {
   Widget _receivedCard() => Card(
     child: ExpansionTile(
       initiallyExpanded: true,
-      title: Text('Received messages (${_received.length})'),
+      title: Text(context.l10n.receivedMessages(_received.length)),
       children: _received.isEmpty
-          ? [const ListTile(title: Text('No complete messages received yet.'))]
+          ? [ListTile(title: Text(context.l10n.noCompleteMessages))]
           : _received
                 .map((message) => ListTile(dense: true, title: Text(message)))
                 .toList(),
@@ -871,10 +902,10 @@ class _BleTestPageState extends State<BleTestPage> {
       initiallyExpanded: true,
       title: Row(
         children: [
-          const Expanded(child: Text('Diagnostic log')),
+          Expanded(child: Text(context.l10n.diagnosticLog)),
           TextButton(
             onPressed: _logs.isEmpty ? null : () => setState(_logs.clear),
-            child: const Text('Clear'),
+            child: Text(context.l10n.clear),
           ),
         ],
       ),
@@ -882,7 +913,7 @@ class _BleTestPageState extends State<BleTestPage> {
         SizedBox(
           height: 180,
           child: _logs.isEmpty
-              ? const Center(child: Text('No diagnostics yet.'))
+              ? Center(child: Text(context.l10n.noDiagnostics))
               : ListView.builder(
                   itemCount: _logs.length,
                   itemBuilder: (context, index) => Padding(

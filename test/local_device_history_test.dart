@@ -48,7 +48,7 @@ void main() {
       await tester.tap(find.text('ข้อมูลในเครื่อง'));
       await tester.pumpAndSettle();
       expect(find.text('Guest record stays here'), findsOneWidget);
-      expect(find.text('ข้อมูลในเครื่องเท่านั้น'), findsOneWidget);
+      expect(find.text('Local data only'), findsOneWidget);
       await tester.tap(find.text('Guest record stays here'));
       await tester.pumpAndSettle();
       expect(find.text('SOS Details'), findsOneWidget);

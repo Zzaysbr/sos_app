@@ -39,6 +39,16 @@ import UIKit
           }
           UserDefaults.standard.set(role, forKey: "sos.preferredRole.v1")
           result(nil)
+        case "getPreferredLanguage":
+          result(UserDefaults.standard.string(forKey: "sos.preferredLanguage.v1"))
+        case "setPreferredLanguage":
+          guard let language = call.arguments as? String,
+                ["en", "th"].contains(language) else {
+            result(FlutterError(code: "invalid_language", message: "Unsupported language preference", details: nil))
+            return
+          }
+          UserDefaults.standard.set(language, forKey: "sos.preferredLanguage.v1")
+          result(nil)
         case "getRelayParticipationEnabled":
           result(UserDefaults.standard.bool(forKey: "sos.relayParticipationEnabled.v1"))
         case "setRelayParticipationEnabled":
@@ -53,6 +63,7 @@ import UIKit
             "configured": UserDefaults.standard.bool(forKey: "sos.emergencyConsentConfigured.v1"),
             "allowPublicRelay": UserDefaults.standard.bool(forKey: "sos.emergencyPublicRelay.v1"),
             "shareLocation": UserDefaults.standard.bool(forKey: "sos.emergencyRelayLocation.v1"),
+            "allowVoluntaryRescue": UserDefaults.standard.bool(forKey: "sos.emergencyVoluntaryRescue.v1"),
           ])
         case "setEmergencyConsent":
           guard let value = call.arguments as? [String: Any],
@@ -66,6 +77,7 @@ import UIKit
           UserDefaults.standard.set(configured, forKey: "sos.emergencyConsentConfigured.v1")
           UserDefaults.standard.set(allowPublicRelay, forKey: "sos.emergencyPublicRelay.v1")
           UserDefaults.standard.set(shareLocation, forKey: "sos.emergencyRelayLocation.v1")
+          UserDefaults.standard.set((value["allowVoluntaryRescue"] as? Bool ?? false) && allowPublicRelay, forKey: "sos.emergencyVoluntaryRescue.v1")
           result(nil)
         default:
           result(FlutterMethodNotImplemented)

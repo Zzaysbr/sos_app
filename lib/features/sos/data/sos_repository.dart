@@ -193,6 +193,43 @@ class SosRepository {
     }
   }
 
+  /// Materializes a verified rescue candidate in the local incident scope so
+  /// the existing incident Chat authorization can be reused. This is local
+  /// device state only; it never enqueues a cloud sync operation and does not
+  /// claim that the origin received anything.
+  Future<SosMessage> ensureReceivedIncident({
+    required String id,
+    required String type,
+    String? message,
+    double? latitude,
+    double? longitude,
+    required DateTime createdAt,
+  }) async {
+    final ownerId = _requireOwner();
+    final existing = await findById(id);
+    if (existing != null) return existing;
+    final now = DateTime.now().toUtc();
+    final location = _normalizedLocation(latitude, longitude);
+    await _database
+        .into(_database.sosMessages)
+        .insert(
+          SosMessagesCompanion.insert(
+            id: id,
+            ownerId: ownerId,
+            type: type,
+            message: Value(message),
+            latitude: Value(location.latitude),
+            longitude: Value(location.longitude),
+            status: 'active',
+            syncState: 'deviceOnly',
+            createdAt: createdAt.toUtc(),
+            updatedAt: now,
+          ),
+          mode: InsertMode.insertOrIgnore,
+        );
+    return (await findById(id))!;
+  }
+
   Future<void> update({
     required String id,
     required String type,

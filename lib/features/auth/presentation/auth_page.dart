@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'dart:async';
 
+import '../../../core/localization/localization.dart';
 import '../data/auth_service.dart';
 
 class AuthPage extends StatefulWidget {
@@ -70,13 +71,8 @@ class _AuthPageState extends State<AuthPage> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Unable to sign in. Check your connection and try again.',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.authFailed)));
     } finally {
       if (mounted) {
         setState(() {
@@ -90,7 +86,7 @@ class _AuthPageState extends State<AuthPage> {
     if (_resetLoading || _resendCooldown > 0) return;
     final email = _emailController.text.trim();
     if (!_isValidEmail(email)) {
-      setState(() => _emailError = 'Enter a valid email address.');
+      setState(() => _emailError = context.l10n.enterValidEmail);
       return;
     }
 
@@ -135,6 +131,9 @@ class _AuthPageState extends State<AuthPage> {
       RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email);
 
   String _friendlyResetError(String message) {
+    if (message.contains('not configured')) {
+      return context.l10n.passwordRecoveryUnavailable;
+    }
     if (message.contains('Too many')) {
       return 'Too many requests. Please wait before trying again.';
     }
@@ -179,11 +178,12 @@ class _AuthPageState extends State<AuthPage> {
 
   @override
   Widget build(BuildContext context) {
-    final title = _isRegister ? 'Create account' : 'Login';
-    final action = _isRegister ? 'Register' : 'Login';
+    final l10n = context.l10n;
+    final title = _isRegister ? l10n.createAccount : l10n.login;
+    final action = _isRegister ? l10n.register : l10n.login;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('SOS App')),
+      appBar: AppBar(title: Text(l10n.appTitle)),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -194,13 +194,13 @@ class _AuthPageState extends State<AuthPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    _isResetMode ? 'Reset password' : title,
+                    _isResetMode ? l10n.resetPassword : title,
                     style: Theme.of(context).textTheme.headlineMedium,
                   ),
                   if (_isResetMode) ...[
                     const SizedBox(height: 8),
                     Text(
-                      'We will send a password reset link to your email.',
+                      l10n.resetPasswordDescription,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 16),
@@ -212,9 +212,9 @@ class _AuthPageState extends State<AuthPage> {
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     autocorrect: false,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: l10n.email,
+                      border: const OutlineInputBorder(),
                     ),
                     onChanged: (_) {
                       if (_emailError != null) {
@@ -238,7 +238,7 @@ class _AuthPageState extends State<AuthPage> {
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       decoration: InputDecoration(
-                        labelText: 'Password',
+                        labelText: l10n.password,
                         border: const OutlineInputBorder(),
                         suffixIcon: IconButton(
                           onPressed: () {
@@ -270,14 +270,14 @@ class _AuthPageState extends State<AuthPage> {
                           : const Icon(Icons.mail_outline),
                       label: Text(
                         _resetLoading
-                            ? 'Sending reset link...'
-                            : 'Send Reset Link',
+                            ? l10n.sendingResetLink
+                            : l10n.sendResetLink,
                       ),
                     )
                   else
                     FilledButton(
                       onPressed: _isLoading ? null : _submit,
-                      child: Text(_isLoading ? 'Please wait...' : action),
+                      child: Text(_isLoading ? l10n.pleaseWait : action),
                     ),
 
                   if (!_isRegister && !_isResetMode)
@@ -285,14 +285,14 @@ class _AuthPageState extends State<AuthPage> {
                       alignment: Alignment.centerRight,
                       child: TextButton(
                         onPressed: _isLoading ? null : _openResetMode,
-                        child: const Text('Forgot password?'),
+                        child: Text(l10n.forgotPassword),
                       ),
                     ),
                   const SizedBox(height: 8),
                   if (_isResetMode)
                     TextButton(
                       onPressed: _resetLoading ? null : _backToLogin,
-                      child: const Text('Back to Login'),
+                      child: Text(l10n.backToLogin),
                     )
                   else
                     TextButton(
@@ -305,8 +305,8 @@ class _AuthPageState extends State<AuthPage> {
                             },
                       child: Text(
                         _isRegister
-                            ? 'Already have an account? Login'
-                            : 'Create a new account',
+                            ? l10n.alreadyHaveAccount
+                            : l10n.createNewAccount,
                       ),
                     ),
                 ],
@@ -326,14 +326,12 @@ class _AuthPageState extends State<AuthPage> {
         children: [
           const Icon(Icons.mark_email_read_outlined, size: 42),
           const SizedBox(height: 8),
-          const Text(
-            'Check your email',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          Text(
+            context.l10n.checkEmail,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
           ),
           const SizedBox(height: 6),
-          Text(
-            'If an account exists for ${_emailController.text.trim()}, you may receive a reset link.\nCheck your Inbox and Spam/Junk folder.',
-          ),
+          Text(context.l10n.resetEmailPrivacy(_emailController.text.trim())),
           const SizedBox(height: 12),
           OutlinedButton(
             onPressed: _resendCooldown > 0 || _resetLoading
@@ -341,8 +339,8 @@ class _AuthPageState extends State<AuthPage> {
                 : _resetPassword,
             child: Text(
               _resendCooldown > 0
-                  ? 'Resend in ${_resendCooldown}s'
-                  : 'Resend Email',
+                  ? context.l10n.resendIn(_resendCooldown)
+                  : context.l10n.resendEmail,
             ),
           ),
         ],
@@ -361,7 +359,7 @@ class _AuthPageState extends State<AuthPage> {
           Expanded(child: Text(_resetError!)),
           TextButton(
             onPressed: _resetLoading ? null : _resetPassword,
-            child: const Text('Retry'),
+            child: Text(context.l10n.tryAgain),
           ),
         ],
       ),

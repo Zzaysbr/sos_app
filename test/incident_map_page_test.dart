@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:sos_app/core/database/app_database.dart';
+import 'package:sos_app/core/localization/localization.dart';
 import 'package:sos_app/features/sos/presentation/incident_map_page.dart';
 import 'package:sos_app/features/sos/presentation/map_tile_provider.dart';
 import 'package:sos_app/features/nearby_ble/domain/location_ble_envelope.dart';
@@ -43,12 +45,31 @@ Position _position({DateTime? timestamp}) => Position(
 
 class _FailedTile extends Mock implements TileImage {}
 
+Widget _app({required Widget home, Locale locale = const Locale('en')}) =>
+    MaterialApp(
+      locale: locale,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      home: home,
+    );
+
 void main() {
+  final binding = TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() {
+    binding.platformDispatcher.localeTestValue = const Locale('en');
+  });
+  tearDown(binding.platformDispatcher.clearLocaleTestValue);
+
   testWidgets('shows incident map and unavailable current location', (
     tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(
+      _app(
         home: IncidentMapPage(
           incident: _incident(),
           locationLoader: () async => null,
@@ -86,11 +107,53 @@ void main() {
     );
   });
 
+  testWidgets('renders a rescue candidate location as the incident marker', (
+    tester,
+  ) async {
+    final now = DateTime.utc(2026);
+    final candidate = RescueInboxData(
+      ownerId: 'rescuer',
+      originMessageId: 'relay:location-candidate',
+      incidentId: 'location-candidate',
+      originKeyId: 'origin-key',
+      immutableDigest: 'digest',
+      emergencyType: 'emergency',
+      emergencyMessage: 'Help',
+      includeLocation: true,
+      latitude: 13.701,
+      longitude: 100.501,
+      incomingHopCount: 1,
+      incomingPath: '["origin-key"]',
+      createdAt: now,
+      expiresAt: now.add(const Duration(minutes: 5)),
+      receivedAt: now,
+      state: 'pending',
+    );
+    await tester.pumpWidget(
+      _app(
+        home: IncidentMapPage(
+          incident: _incident(latitude: null, longitude: null),
+          rescueCandidate: candidate,
+          locationLoader: () async => null,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Incident: 13.701000, 100.501000'), findsOneWidget);
+    expect(
+      find.text(
+        'Current location unavailable. Incident location remains available.',
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('renders current location status when permission is available', (
     tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(
+      _app(
         home: IncidentMapPage(
           incident: _incident(),
           locationLoader: () async => _position(),
@@ -108,7 +171,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(
+      _app(
         home: IncidentMapPage(
           incident: _incident(latitude: null, longitude: null),
           locationLoader: () async => null,
@@ -126,7 +189,7 @@ void main() {
 
   testWidgets('rejects out-of-range incident coordinates', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
+      _app(
         home: IncidentMapPage(
           incident: _incident(latitude: 91, longitude: 100),
           locationLoader: () async => null,
@@ -141,11 +204,29 @@ void main() {
     );
   });
 
+  testWidgets('localizes invalid incident coordinates in Thai', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        locale: const Locale('th'),
+        home: IncidentMapPage(
+          incident: _incident(latitude: 91, longitude: 100),
+          locationLoader: () async => null,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('พิกัดของเหตุการณ์ใช้ไม่ได้หรือไม่ถูกต้อง'),
+      findsNWidgets(2),
+    );
+  });
+
   testWidgets('does not start concurrent refresh requests', (tester) async {
     final completer = Completer<Position?>();
     var calls = 0;
     await tester.pumpWidget(
-      MaterialApp(
+      _app(
         home: IncidentMapPage(
           incident: _incident(),
           locationLoader: () {
@@ -166,7 +247,7 @@ void main() {
   testWidgets('ignores a location result after disposal', (tester) async {
     final completer = Completer<Position?>();
     await tester.pumpWidget(
-      MaterialApp(
+      _app(
         home: IncidentMapPage(
           incident: _incident(),
           locationLoader: () => completer.future,
@@ -183,7 +264,7 @@ void main() {
 
   testWidgets('shows stale status from measurement timestamp', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
+      _app(
         home: IncidentMapPage(
           incident: _incident(),
           locationLoader: () async => _position(
@@ -216,7 +297,7 @@ void main() {
       expiresAt: DateTime.utc(2099),
     );
     await tester.pumpWidget(
-      MaterialApp(
+      _app(
         home: IncidentMapPage(
           incident: _incident(),
           incomingLocation: incoming,
@@ -250,7 +331,7 @@ void main() {
       expiresAt: DateTime.utc(2026, 1, 1, 0, 1),
     );
     await tester.pumpWidget(
-      MaterialApp(
+      _app(
         home: IncidentMapPage(
           incident: _incident(),
           incomingLocation: incoming,
@@ -269,15 +350,14 @@ void main() {
   testWidgets(
     'keeps the incident marker when the tile provider is unavailable',
     (tester) async {
-      const unavailable = MapTileProviderConfig(
+      final unavailable = const MapTileProviderConfig(
         urlTemplate: '',
         attribution: '',
         userAgentPackageName: '',
         isDevelopmentFallback: false,
-        validationError: 'Map provider is not configured for this build.',
-      );
+      ).withValidation(isRelease: true);
       await tester.pumpWidget(
-        MaterialApp(
+        _app(
           home: IncidentMapPage(
             incident: _incident(),
             tileProvider: unavailable,
@@ -288,20 +368,42 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byIcon(Icons.location_on), findsOneWidget);
       expect(find.byType(TileLayer), findsNothing);
-      expect(
-        find.text('Map provider is not configured for this build.'),
-        findsOneWidget,
-      );
+      expect(find.text('The map service address is missing.'), findsOneWidget);
       expect(find.text('Incident: 13.700000, 100.500000'), findsOneWidget);
     },
   );
+
+  testWidgets('renders a localized map configuration failure in Thai', (
+    tester,
+  ) async {
+    final unavailable = const MapTileProviderConfig(
+      urlTemplate: '',
+      attribution: '',
+      userAgentPackageName: '',
+      isDevelopmentFallback: false,
+    ).withValidation(isRelease: true);
+    await tester.pumpWidget(
+      _app(
+        locale: const Locale('th'),
+        home: IncidentMapPage(
+          incident: _incident(),
+          tileProvider: unavailable,
+          locationLoader: () async => null,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.location_on), findsOneWidget);
+    expect(find.text('ไม่มีที่อยู่บริการแผนที่'), findsOneWidget);
+  });
 
   testWidgets('shows timeout and preserves the last valid position', (
     tester,
   ) async {
     var fail = false;
     await tester.pumpWidget(
-      MaterialApp(
+      _app(
         home: IncidentMapPage(
           incident: _incident(),
           locationLoader: () async {
@@ -335,7 +437,7 @@ void main() {
       isDevelopmentFallback: false,
     );
     await tester.pumpWidget(
-      MaterialApp(
+      _app(
         home: IncidentMapPage(
           incident: _incident(),
           tileProvider: provider,
@@ -362,7 +464,7 @@ void main() {
         isDevelopmentFallback: false,
       );
       await tester.pumpWidget(
-        MaterialApp(
+        _app(
           home: IncidentMapPage(
             incident: _incident(),
             tileProvider: provider,
@@ -402,7 +504,7 @@ void main() {
         },
       );
       await tester.pumpWidget(
-        MaterialApp(
+        _app(
           home: IncidentMapPage(
             incident: _incident(),
             locationLoader: () async => null,

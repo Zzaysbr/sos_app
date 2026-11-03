@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/localization/localization.dart';
 import '../domain/app_role.dart';
 
 class RoleSelectionPage extends StatelessWidget {
@@ -17,6 +18,7 @@ class RoleSelectionPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
@@ -26,9 +28,9 @@ class RoleSelectionPage extends StatelessWidget {
               _RoleChoice(
                 role: AppRole.needHelp,
                 icon: Icons.sos_rounded,
-                eyebrow: 'NEED HELP',
-                title: 'ฉันต้องการความช่วยเหลือ',
-                description: 'ส่ง SOS ติดตามสถานะการส่ง และกลับเข้าสู่เหตุที่กำลังดำเนินอยู่',
+                eyebrow: l10n.needHelpEyebrow,
+                title: l10n.needHelpTitle,
+                description: l10n.needHelpDescription,
                 color: theme.brightness == Brightness.dark
                     ? const Color(0xFFFF6B64)
                     : const Color(0xFFB42318),
@@ -39,9 +41,9 @@ class RoleSelectionPage extends StatelessWidget {
               _RoleChoice(
                 role: AppRole.rescue,
                 icon: Icons.health_and_safety_rounded,
-                eyebrow: 'RESCUE',
-                title: 'ฉันต้องการช่วยเหลือ',
-                description: 'เปิดรับเหตุใกล้เคียง ตรวจรายละเอียด และติดตามเหตุที่รับช่วยเหลือ',
+                eyebrow: l10n.rescueEyebrow,
+                title: l10n.rescueTitle,
+                description: l10n.rescueDescription,
                 color: theme.brightness == Brightness.dark
                     ? const Color(0xFF70D7B1)
                     : const Color(0xFF006B57),
@@ -70,7 +72,7 @@ class RoleSelectionPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 28),
                       Text(
-                        'วันนี้คุณต้องการทำอะไร?',
+                        l10n.roleQuestion,
                         style: theme.textTheme.displaySmall?.copyWith(
                           fontWeight: FontWeight.w800,
                           letterSpacing: -1.2,
@@ -78,7 +80,7 @@ class RoleSelectionPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'เลือกโหมดเพื่อจัดหน้าจอให้เหมาะกับสถานการณ์ คุณเปลี่ยนโหมดได้ทุกเมื่อโดยข้อมูลเดิมไม่ถูกลบ',
+                        l10n.roleInstruction,
                         style: theme.textTheme.bodyLarge?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                           height: 1.45,
@@ -157,7 +159,7 @@ class RoleSelectionPage extends StatelessWidget {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'โหมดเป็นการจัดรูปแบบการใช้งาน ไม่ใช่การยืนยันตัวตน สิทธิ์เจ้าหน้าที่ หรือสิทธิ์เข้าถึงเหตุของผู้อื่น',
+                              l10n.roleTrustNotice,
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
                                 height: 1.4,
@@ -258,11 +260,13 @@ class _RoleChoiceCard extends StatelessWidget {
                           ),
                         )
                       else ...[
-                        Text(
-                          'เลือกโหมดนี้',
-                          style: TextStyle(
-                            color: choice.color,
-                            fontWeight: FontWeight.w800,
+                        Flexible(
+                          child: Text(
+                            context.l10n.chooseMode,
+                            style: TextStyle(
+                              color: choice.color,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 6),

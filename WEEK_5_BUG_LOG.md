@@ -1,5 +1,55 @@
 # Week 5 — Phase 7 defects and verification
 
+## Manual testing documentation standard (Q-805B)
+
+Physical procedures now require a Test ID, purpose, preconditions, exact
+numbered steps, expected result, sanitized evidence, and an explicit
+PASS/FAIL/PARTIAL/NOT RUN result. The reusable map cases are in
+`PHYSICAL_MAP_ACCEPTANCE.md`; the same standard applies to BLE, Chat, Location,
+SOS, Permissions, Auth and release-install checks. Existing Android/iPhone
+operator results are preserved; the latest iPhone fresh online tile reload is
+now PASS by operator report because a previously unseen area rendered new tiles
+after network restoration.
+
+## Q-806 — Guest/authenticated isolation verification — 3 November 2026
+
+Focused automated verification found no reproducible ownership defect. Coverage
+includes Guest SQLite restart continuity, Guest history surviving login/logout,
+Guest sync exclusion, Account A/B query isolation, retained-stream invalidation,
+in-flight account-change fencing, duplicate sync protection and BLE queue scope.
+No source fix was justified. Live Firebase Rules and physical account-switch
+testing remain NOT RUN and must not be inferred from these tests.
+
+## Q-803 — Critical SOS accessibility — 3 November 2026
+
+Confirmed improvement: the primary SOS hold action had a label but no explicit
+instruction hint or enabled-state semantics. The control now announces the
+hold instruction and disabled state during submission without changing the
+gesture or SOS lifecycle. Added a widget regression test; physical
+VoiceOver/TalkBack acceptance remains NOT RUN.
+
+Q-803 physical acceptance guide `Q803_PHYSICAL_ACCESSIBILITY.md` defines
+independent TalkBack and VoiceOver cases. No physical screen-reader or contrast
+result is claimed in this pass.
+
+## Q-804 — Regression coverage matrix — 3 November 2026
+
+The current tree was checked across authentication, Guest/account ownership,
+SOS persistence/status, BLE identity/lifecycle, Chat/ACK, Location Sharing,
+Relay v2, maps/configuration, settings/localization, accessibility/navigation
+and cloud-sync failure recovery. Existing assertions cover the local/security
+paths; no reproducible defect was found. Automated results remain separate from
+live Firebase and physical-device acceptance.
+
+Q-806 external acceptance preparation added `Q806_EXTERNAL_ACCEPTANCE.md` with
+Guest persistence, A/B separation, logout/session and pending-sync race steps.
+The checked-in Rules suite passed in the available emulator (8 tests); no live
+Firebase or physical account-switch result is claimed.
+
+Firebase CLI metadata access and local Rules dry-run compilation succeeded, but
+live Account A/B testing is blocked without designated test credentials. No
+production records were read or written.
+
 Continuation date: 20–22 October 2026 (Asia/Bangkok). Existing working-tree changes were retained. Release remains **BLOCKED** pending real-radio retests and release configuration. Automated results below never replace physical results in `PHASE_7_RELEASE_VERIFICATION.md`.
 
 ## W5-01 — P0: Chat identity namespaces disagree
@@ -331,3 +381,261 @@ Unsigned iOS debug validation before W5-08: **exit 0, 464.3s**, `ios-debug-build
   this iPhone build. This is not BLE delivery evidence. Direct responder
   selection and current-build iPhone→Android→iPad validation remain open
   release blockers.
+
+## W5-18 — Relay-only physical evidence was not observable in the app
+
+- Physical evidence (1 November 2026): iPhone A → Android B → iPad C completed
+  one foreground hop-only store-and-forward route. C retained one relay-only
+  envelope at incoming hop 1; B retained one verified signed hop receipt;
+  message ID and immutable digest matched. C correctly created no normal SOS
+  History row. This is **not** final-responder delivery.
+- Usability gap: confirming the relay-only row required copying the private app
+  database with development tools. The normal History model intentionally
+  excludes the row, so the operator had no safe on-device evidence view.
+- Fix: developer builds now expose a read-only `Relay Diagnostics` screen backed
+  by the existing Relay v2 message, attempt and receipt tables. It shows only
+  masked IDs, shortened digests, hop/persistence/job state, counts and coarse
+  error categories. It never shows message text, coordinates, peers, keys,
+  signatures or raw errors and never mutates relay state.
+- Evidence semantics: the screen separates local-origin jobs, relay-only
+  envelopes, hop receipts and final responder receipts. A hop receipt is never
+  labelled final delivery. Because the current schema does not durably record a
+  receipt sent by the local hop, absence is displayed as `Not recorded locally`
+  rather than inferred.
+- Release guard: Settings does not construct the route in Release, the route
+  factory returns no route in Release, and the page refuses to render diagnostic
+  data in Release. Debug/Profile developer builds remain available for physical
+  investigation.
+- Physical remediation (2 November 2026): Android logs exposed two independent
+  fail-closed boundaries during the new run. An authenticated receiver rejected
+  an offer because the receipt path required the reciprocal session binding
+  instead of the proof binding issued by the offer receiver. A second run lost
+  foreground while a multi-frame proof response was being written; resume kept
+  the native GATT connection but did not restart proof. Receipt correlation now
+  uses the receiver-issued binding, and foreground resume invalidates partial
+  proof then re-advertises capability and re-challenges retained sessions. No
+  BLE UUID, wire format, schema or message identity changed.
+- Automated evidence (2 November 2026): 8 diagnostics tests pass; the focused
+  Relay/diagnostics set passes 105; the latest focused coordinator set passes
+  25; the full suite passes 391; analyzer and `git diff --check` pass. Android
+  Debug and signed iOS Profile builds installed update-in-place on the tested
+  devices. The prior unsigned iOS Release compile and release-label inspection
+  remain compile evidence only, not release signing evidence.
+- Physical Diagnostics evidence: a fresh iPhone A → Android B → iPad C run
+  showed one hop-0 relay-only envelope on B and one hop-1 relay-only envelope on
+  C. B recorded `Stored by next relay`, one attempt and `Received from next
+  relay`; C recorded `Stored on relay`. Both screens hid sensitive fields,
+  remained read-only and stable after navigation. B/C History remained empty.
+  The origin still correctly showed final delivery unconfirmed.
+- Status: **FIXED / AUTOMATED PASS / ANDROID + IPAD PHYSICAL DIAGNOSTICS PASS**.
+  Final responder delivery remains **NOT IMPLEMENTED / NOT VERIFIED**.
+
+## W5-15 — Option A Safe Minimal MVP decision
+
+- Decision date: 2 November 2026 (Asia/Bangkok).
+- Owner decision: **Option A — Safe Minimal MVP APPROVED**. Final Delivery v3
+  is deferred; no credential, enrollment, trust authority, schema or protocol
+  implementation is authorized.
+- Production Trust Authority, real responder enrollment/eligibility and external
+  operational ownership remain **BLOCKED**.
+- Source verification: Direct v1 remains independent and application-ACK based;
+  Relay v2 remains hop-only; self-signed final receipts fail closed; hop storage
+  never creates normal History; native write is not delivery; exact duplicate
+  hop receipts are idempotent; terminal verified delivery cannot regress; Guest
+  SOS remains local and is not merged into authenticated cloud sync.
+- UI review: Relay copy consistently retains `final delivery unconfirmed` and
+  Diagnostics explicitly says hop storage does not prove responder receipt.
+  Direct Chat/Location delivery wording is backed by the selected-peer persisted
+  application ACK and is not a real-world responder or dispatch claim.
+- Safety defects found: none. No source, schema, native code, BLE UUID/wire
+  format or dependency change was required.
+- Current automated evidence: focused Relay/SOS/Chat/identity/Guest tests
+  **215/215 PASS**; full suite **391/391 PASS**; analyzer and
+  `git diff --check` pass. No source/test safety fix was necessary.
+- Physical verification: **NOT RUN** for this decision task. Existing historical
+  hop-only evidence remains unchanged.
+- Release Gate: **BLOCKED** by production trust, map configuration, signed
+  distribution artifacts and required physical-device verification.
+
+## W5-19 — BLE adapter-off session state mismatch
+
+- Physical evidence (3 November 2026): initial A↔B connection succeeded, but
+  after disabling Bluetooth on A, A still showed Connected while B showed
+  Disconnected. Re-enabling Bluetooth did not reconnect within 15 seconds;
+  manual reconnect remained stuck at Connecting. No application messages were
+  sent.
+- Source evidence: iOS `centralManagerDidUpdateState` emits adapter state
+  without clearing connected/connecting/ready sessions or emitting disconnect;
+  Dart coordinator presence-loss handling does not invalidate peer sessions or
+  schedule reconnect on powered-on. Android has separate GATT cleanup/stale
+  callback guards.
+- Attribution: **CURRENT LIFECYCLE DEFECT / REGRESSION UNPROVEN**. The iOS
+  adapter-state gap exists in the historical `144f1cf` lineage and the prior
+  physical pass did not cover Bluetooth Off→On. Later Chat/Location/Relay work
+  is not established as the cause.
+- Automated coverage gap: no native adapter poweredOff→poweredOn callback
+  contract test asserting session invalidation and serialized recovery.
+- Status: **PHYSICAL FAIL / SOURCE FIX NOT YET AUTHORIZED**. Recommended next
+  step is a focused adapter-state contract and sanitized native event trace
+  before a minimal platform fix; Q-703 and Release remain blocked.
+
+### Q-703 contract remediation — 3 November 2026
+
+- Defined the shared adapter-state contract in `PHYSICAL_BLE_ACCEPTANCE.md`.
+- Dart coordinator now invalidates connected/connecting/binding/assembler state
+  on powered-off, unauthorized, unsupported, or resetting events; powered-on
+  restores eligibility without claiming a connection or auto-selecting a peer.
+- iOS native transport now clears central sessions, cancels setup/write work,
+  emits sanitized disconnect events, and removes stale discovered sessions when
+  the adapter becomes unavailable. Android native behavior was not changed;
+  existing GATT stale-callback cleanup remains in place.
+- Added deterministic lifecycle coverage for powered-off invalidation,
+  powered-on explicit reconnection eligibility, repeated adapter events, and
+  unavailable-state blocking in `test/ble_session_lifecycle_test.dart`.
+- Physical Bluetooth Off→On retest: **NOT RUN**. Q-703 remains acceptance-
+  incomplete pending real-device recovery evidence.
+
+### Q-703 physical recovery retest — 3 November 2026
+
+- Operator observed initialization, discovery, connect, disconnect and three
+  reconnect cycles passing on Samsung↔iPhone. Bluetooth Off produced
+  disconnection; Bluetooth On restored adapter availability without an
+  automatic connection. This is positive evidence for the adapter-state
+  invalidation contract.
+- Leaving the BLE screen without an explicit disconnect cleared the discovered
+  list on return; no crash was reported. This is treated as a new scan-session
+  behavior until lifecycle logs show otherwise.
+- A UI convergence defect remains: one side can show Connected while the peer
+  UI still shows disconnected even though a test message reaches the peer.
+  Transport reachability is not equivalent to synchronized connection state.
+- Fresh explicit reconnect result was not recorded. Status: **PARTIAL /
+  ACCEPTANCE-INCOMPLETE**. Follow-up operator action confirmed that after
+  Bluetooth was enabled again, explicit peer selection and reconnect succeeded.
+  The UI convergence mismatch remains; collect sanitized event ordering before
+  changing source again.
+
+### Q-703B peer connection-state convergence investigation — 3 November 2026
+
+- Read-only source/log review; no production source change.
+- **Confirmed:** coordinator/native state is role-aware, while
+  `BleTestPage._states` is keyed only by peer ID.
+- Retained Android logs show same-peer central/peripheral event ordering. This
+  supports the UI-conflation hypothesis but is not a paired remote-UI proof.
+- Classification: source hazard **CONFIRMED**; stale-label explanation
+  **LIKELY**; platform loss and cross-device convergence cause **UNPROVEN**.
+- Paired sanitized runtime capture: **NOT RUN**. No SOS, Chat, or Location
+  traffic was used.
+- Proposed next step: role-aware UI aggregation and deterministic widget tests,
+  only after approval. Q-703 remains `PARTIAL / ACCEPTANCE-INCOMPLETE`.
+
+### Q-703B remediation — 3 November 2026
+
+- Changed only `BleTestPage` state mapping: `_states` is now keyed by normalized
+  peer and `BleSessionRole`.
+- Aggregate labels preserve a connected role, expose both active roles, and
+  restore connected snapshots after navigation.
+- Added observable widget regressions for central/peripheral disconnect order,
+  both-role aggregation, terminal disconnect, and navigation restoration.
+- Physical verification after this patch: **NOT RUN**.
+
+### Q-703B physical revalidation — operator report
+
+- Updated Android and iPhone builds were reported passing for launch, data
+  preservation, BLE visibility, reconnect cycles, navigation restoration, and
+  Bluetooth Off→On explicit reconnect.
+- Status: **DEVICE-VERIFIED (operator-reported)**. Paired sanitized logs were
+  not retained in this turn; no SOS/Chat/Location traffic was used.
+
+### Q-805 map provider validation — 3 November 2026
+
+- Confirmed defect: non-empty but malformed Geoapify API-key configuration was
+  previously accepted by provider validation.
+- Fix: reject malformed key characters/lengths with a credential-safe error;
+  no key is logged or displayed. Added a regression test.
+- Physical map verification and provider account/quota/terms confirmation
+  remain incomplete.
+
+### Q-805A provider verification — 3 November 2026
+
+- Local configuration is present, ignored and untracked; only the key name and
+  presence were checked. The secret value was not printed.
+- Build-time injection is via `--dart-define-from-file`; malformed/missing
+  values fail closed in automated tests.
+- Account ownership, active plan/quota, key validity against the live service,
+  and current provider terms remain **NOT VERIFIED**.
+- The ignored local config is mode 644; owner should tighten it to mode 600
+  outside Git if other local users are in scope.
+
+### Q-805B physical map acceptance — 3 November 2026
+
+- Samsung SM-A536E: operator reported the complete map checklist passing.
+- iPhone 15 Plus: map loading, pan/zoom, navigation, Geoapify/OSM attribution,
+  links, no-network stability, existing-coordinate visibility, permission
+  denial/regrant and large-text layout passed by operator report.
+- iPhone online recovery is now **PASS — DEVICE VERIFIED (operator-reported)**:
+  after network restoration, a previously unseen area rendered fresh tiles; the
+  existing map remained visible, attribution remained present, and no crash or
+  error was observed.
+- No source fix was required and no production key was exposed.
+
+### Q-707 Stage A direct BLE acceptance — operator report
+
+- Samsung SM-A536E and iPhone 15 Plus discovered each other, connected,
+  disconnected and reconnected successfully.
+- Both UIs agreed on Connected/Disconnected state; no mismatch was observed.
+- No SOS, Chat or Location payload was sent. Stages B–E remain NOT RUN.
+
+### Q-707C SOS regression investigation — 3 November 2026
+
+- **Observed:** Samsung created a local SOS while iPhone was connected and in
+  Rescue/listening mode, but no received SOS appeared in iPhone History.
+- **Confirmed root cause boundary:** the current automatic path persists the
+  SOS and queues Relay v2 (`enqueuePublicRelay`). It does not enqueue Direct
+  SOS v1 with a selected `destinationId`; relay-only envelopes are not normal
+  SOS History records.
+- **Guest/Auth classification:** `UNPROVEN`; no authenticated Account A/B
+  physical run was available, so Guest mode must not be blamed.
+- **Evidence:** existing Direct v1 coordinator tests and receiver persistence
+  tests pass (57 focused tests). The captured Android window showed BLE scan
+  activity but no SOS-level direct enqueue/persist/ACK evidence; this supports
+  the routing divergence but is not a standalone transport failure proof.
+- **Action:** no source change. Keep Q-707C open pending an explicit product
+  decision and authenticated two-account physical validation.
+
+### Q-707D guest three-device relay — Stage A/B operator evidence
+
+- Stage A Samsung→iPhone: local SOS persisted; origin status was `stored on 1
+  relay device`; iPhone Diagnostics showed incoming hop 1 and `stored on
+  relay`. Local receipt state was not recorded.
+- Stage B iPhone→iPad: iPad Relay On, but incoming hop remained 0, no relay job
+  or receipt was visible, and no Rescue incident appeared.
+- Classification: **PARTIAL**. The first observed missing boundary is B→C
+  forwarding/receive; root cause remains unresolved because no paired B↔C
+  session or forwarding-attempt log was captured. History 0 is expected for
+  relay-only data.
+
+### Q-707D latest B→C correction — 3 November 2026
+
+- The later operator run showed iPad Diagnostics incoming hop `1` and
+  `stored on relay` while Relay was On. This confirms relay persistence on C
+  for that run and supersedes the earlier incomplete B→C observation.
+- B/C local receipt state was not recorded, and C History remained `0`.
+- Rescue incident visibility and Help acceptance remain unavailable by the
+  current hop-only Relay v2 design; no source change was made.
+
+### Q-708A final Rescue reception assessment — 3 November 2026
+
+- **Confirmed:** Q-707D proves relay persistence only. C cannot currently
+  promote a Relay v2 row into an actionable Rescue incident.
+- **Required before implementation:** additive final-reception wire version,
+  explicit voluntary-rescue consent/recipient binding, and a dedicated
+  owner-scoped inbox with idempotent replay/expiry handling.
+- **Safety decision:** do not reinterpret relay-only rows, auto-authorize BLE
+  peers, or reuse professional Trusted Responder authorization. Implementation
+  is paused pending owner approval of the protocol/trust design.
+
+Q-708A implementation update — 3 November 2026: added voluntary-rescue scope
+and consent (default off), schema 7 Rescue Inbox migration, Rescue Mode
+candidate persistence, and idempotent local Offer Help. No relay-only row is
+promoted into SOS History and no final delivery is claimed. Physical test is
+NOT RUN.

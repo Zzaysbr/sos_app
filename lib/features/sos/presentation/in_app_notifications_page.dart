@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/localization/localization.dart';
+
 enum InAppNotificationType { newSos, statusChange, chat }
 
 class InAppNotification {
@@ -22,15 +24,22 @@ class InAppNotification {
 }
 
 class MockNotificationRepository {
-  final notifications = <InAppNotification>[
-    InAppNotification(
-      id: 'welcome',
-      title: 'Notifications are ready',
-      detail: 'SOS updates will appear here.',
-      createdAt: DateTime.now(),
-      type: InAppNotificationType.statusChange,
-    ),
-  ];
+  MockNotificationRepository({List<InAppNotification>? initial})
+    : notifications =
+          initial ??
+          <InAppNotification>[
+            InAppNotification(
+              id: 'welcome',
+              title: 'Notifications are ready',
+              detail: 'SOS updates will appear here.',
+              createdAt: DateTime.now(),
+              type: InAppNotificationType.statusChange,
+            ),
+          ];
+
+  MockNotificationRepository.empty() : notifications = <InAppNotification>[];
+
+  final List<InAppNotification> notifications;
   int get unreadCount => notifications.where((item) => !item.read).length;
   void markRead(InAppNotification item) => item.read = true;
   void markAllRead() {
@@ -50,7 +59,8 @@ class InAppNotificationsPage extends StatefulWidget {
 
 class _InAppNotificationsPageState extends State<InAppNotificationsPage> {
   late final MockNotificationRepository _repository =
-      widget.repository ?? MockNotificationRepository();
+      widget.repository ?? MockNotificationRepository.empty();
+  bool _insertedLocalizedWelcome = false;
 
   IconData _icon(InAppNotificationType type) => switch (type) {
     InAppNotificationType.newSos => Icons.warning_amber_rounded,
@@ -60,21 +70,34 @@ class _InAppNotificationsPageState extends State<InAppNotificationsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    if (widget.repository == null && !_insertedLocalizedWelcome) {
+      _insertedLocalizedWelcome = true;
+      _repository.notifications.add(
+        InAppNotification(
+          id: 'welcome',
+          title: l10n.notificationsReady,
+          detail: l10n.notificationsReadyDetail,
+          createdAt: DateTime.now(),
+          type: InAppNotificationType.statusChange,
+        ),
+      );
+    }
     final items = _repository.notifications;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notifications'),
+        title: Text(l10n.notifications),
         actions: [
           TextButton(
             onPressed: _repository.unreadCount == 0
                 ? null
                 : () => setState(_repository.markAllRead),
-            child: const Text('Mark all read'),
+            child: Text(l10n.markAllRead),
           ),
         ],
       ),
       body: items.isEmpty
-          ? const Center(child: Text('No notifications yet.'))
+          ? Center(child: Text(l10n.noNotifications))
           : ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: items.length,
@@ -97,7 +120,7 @@ class _InAppNotificationsPageState extends State<InAppNotificationsPage> {
                       ),
                     ),
                     subtitle: Text(
-                      '${item.detail}\n${item.createdAt.hour.toString().padLeft(2, '0')}:${item.createdAt.minute.toString().padLeft(2, '0')}',
+                      '${item.detail}\n${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(item.createdAt.toLocal()))}',
                     ),
                     isThreeLine: true,
                     trailing: item.read

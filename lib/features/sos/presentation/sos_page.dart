@@ -5,6 +5,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../../core/localization/language_selector_tile.dart';
+import '../../../core/localization/locale_controller.dart';
+import '../../../core/localization/localization.dart';
 import '../../role/data/role_preference_store.dart';
 import '../../role/domain/app_role.dart';
 import '../../role/domain/role_workflow_controller.dart';
@@ -14,11 +17,17 @@ import '../../nearby_ble/data/ble_transport.dart';
 import '../../nearby_ble/data/emergency_consent_store.dart';
 import '../../nearby_ble/data/hop_relay_coordinator.dart';
 import '../../nearby_ble/data/relay_preference_store.dart';
+import '../../nearby_ble/data/rescue_inbox_repository.dart';
+import '../../nearby_ble/data/rescue_response_repository.dart';
+import '../../nearby_ble/data/relay_repository.dart';
+import '../../nearby_ble/data/relay_key_store.dart';
 import '../../nearby_ble/data/sos_ble_coordinator.dart';
 import '../../nearby_ble/presentation/ble_recipient_picker_page.dart';
 import '../../nearby_ble/presentation/ble_test_page.dart';
+import '../../nearby_ble/presentation/relay_diagnostics_page.dart';
 import '../../nearby_ble/domain/ble_delivery_state.dart';
 import '../../nearby_ble/domain/location_ble_envelope.dart';
+import '../../nearby_ble/domain/relay_envelope.dart';
 import '../data/sos_repository.dart';
 import '../data/chat_repository.dart';
 import 'account_page.dart';
@@ -28,6 +37,12 @@ import 'incident_map_page.dart';
 import 'location_sharing_panel.dart';
 
 import 'package:geolocator/geolocator.dart';
+
+class LocationAcquisitionException implements Exception {
+  const LocationAcquisitionException(this.message);
+
+  final String message;
+}
 
 @visibleForTesting
 String sosBleDeliveryStatusText(BleOutboxData? row) {
@@ -63,6 +78,7 @@ class SosPage extends StatefulWidget {
     this.relayPreferenceStore,
     this.emergencyConsentStore,
     this.locationProvider,
+    this.localeController,
   });
 
   final SosRepository repository;
@@ -78,6 +94,7 @@ class SosPage extends StatefulWidget {
   final RelayPreferenceStore? relayPreferenceStore;
   final EmergencyConsentStore? emergencyConsentStore;
   final Future<Position?> Function()? locationProvider;
+  final LocaleController? localeController;
 
   @override
   State<SosPage> createState() => _SosPageState();
@@ -117,6 +134,9 @@ class _SosPageState extends State<SosPage> {
   bool _relayPreferenceSaving = false;
   String? _relayPreferenceError;
   late BleDeliveryRepository _deliveryRepository;
+  late RescueInboxRepository _rescueInboxRepository;
+  late RescueResponseRepository _rescueResponseRepository;
+  late Stream<List<RescueInboxData>> _rescueCandidatesStream;
   late Stream<List<SosMessage>> _rescueSosStream;
   late Stream<List<SosMessage>> _acceptedSosStream;
   late Stream<List<SosMessage>> _activeSosStream;
@@ -144,6 +164,15 @@ class _SosPageState extends State<SosPage> {
       _blePresence = BlePresenceManager.sharedFor(transport);
     }
     _deliveryRepository = BleDeliveryRepository(widget.repository.database);
+    _rescueInboxRepository = RescueInboxRepository(
+      widget.repository.database,
+      ownerId: widget.repository.currentOwnerId ?? guestDeviceOwnerId,
+    );
+    _rescueResponseRepository = RescueResponseRepository(
+      widget.repository.database,
+      ownerId: widget.repository.currentOwnerId ?? guestDeviceOwnerId,
+    );
+    _rescueCandidatesStream = _rescueInboxRepository.watchCandidates();
     _bindSosStreams();
     unawaited(_loadRole());
     unawaited(_loadRelayPreference());
@@ -300,18 +329,35 @@ class _SosPageState extends State<SosPage> {
 
   Future<void> _loadRole() async {
     try {
-      final role = await _roleStore.load();
+      // Victim/need-help is the safe emergency default. A first-run user must
+      // be able to press SOS immediately; Rescue Mode remains an explicit,
+      // persistent opt-in available from Settings.
+      final savedRole = await _roleStore.load();
+      final role = savedRole ?? AppRole.needHelp;
+      if (savedRole == null) {
+        try {
+          await _roleStore.save(role);
+        } catch (_) {
+          // A preference write failure must not block local SOS creation.
+        }
+      }
       if (!mounted) return;
       setState(() {
         _role = role;
         _loadingRole = false;
       });
+      widget.bleCoordinator?.setRescueModeEnabled(role == AppRole.rescue);
     } catch (_) {
       if (!mounted) return;
       setState(() {
+        // A preference read failure must not strand a user behind a setup
+        // gate during an emergency. Fall back to the least-privileged victim
+        // flow; Rescue Mode still requires an explicit later opt-in.
+        _role = AppRole.needHelp;
         _loadingRole = false;
-        _roleError = 'ไม่สามารถอ่านโหมดที่บันทึกไว้ได้ กรุณาเลือกโหมดอีกครั้ง';
+        _roleError = null;
       });
+      widget.bleCoordinator?.setRescueModeEnabled(false);
     }
   }
 
@@ -330,6 +376,7 @@ class _SosPageState extends State<SosPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     if (_loadingRole) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -365,49 +412,51 @@ class _SosPageState extends State<SosPage> {
               });
             },
             destinations: rescue
-                ? const [
+                ? [
                     NavigationDestination(
-                      icon: Icon(Icons.radar_outlined),
-                      selectedIcon: Icon(Icons.radar),
-                      label: 'เหตุใกล้เคียง',
+                      icon: const Icon(Icons.radar_outlined),
+                      selectedIcon: const Icon(Icons.radar),
+                      label: l10n.navNearby,
                     ),
                     NavigationDestination(
-                      icon: Icon(Icons.assignment_outlined),
-                      selectedIcon: Icon(Icons.assignment_turned_in),
-                      label: 'กำลังช่วย',
+                      icon: const Icon(Icons.assignment_outlined),
+                      selectedIcon: const Icon(Icons.assignment_turned_in),
+                      label: l10n.navHelping,
                     ),
                     NavigationDestination(
-                      icon: Icon(Icons.chat_bubble_outline),
-                      selectedIcon: Icon(Icons.chat_bubble),
-                      label: 'แชต',
+                      icon: const Icon(Icons.chat_bubble_outline),
+                      selectedIcon: const Icon(Icons.chat_bubble),
+                      label: l10n.navChat,
                     ),
                     NavigationDestination(
-                      icon: Icon(Icons.settings_outlined),
-                      selectedIcon: Icon(Icons.settings),
-                      label: 'ตั้งค่า',
+                      icon: const Icon(Icons.settings_outlined),
+                      selectedIcon: const Icon(Icons.settings),
+                      label: l10n.navSettings,
                     ),
                   ]
                 : [
                     NavigationDestination(
                       icon: Icon(Icons.sos_outlined),
                       selectedIcon: Icon(Icons.sos),
-                      label: compactNavigation ? 'SOS' : 'ขอความช่วยเหลือ',
-                      tooltip: 'ขอความช่วยเหลือ',
+                      label: compactNavigation
+                          ? l10n.navHelpCompact
+                          : l10n.navHelp,
+                      tooltip: l10n.navHelp,
                     ),
-                    const NavigationDestination(
-                      icon: Icon(Icons.history_outlined),
-                      selectedIcon: Icon(Icons.history),
-                      label: 'ประวัติ',
+                    NavigationDestination(
+                      icon: const Icon(Icons.history_outlined),
+                      selectedIcon: const Icon(Icons.history),
+                      label: l10n.navHistory,
                     ),
-                    const NavigationDestination(
-                      icon: Icon(Icons.chat_bubble_outline),
-                      selectedIcon: Icon(Icons.chat_bubble),
-                      label: 'แชต',
+                    NavigationDestination(
+                      icon: const Icon(Icons.chat_bubble_outline),
+                      selectedIcon: const Icon(Icons.chat_bubble),
+                      label: l10n.navChat,
                     ),
-                    const NavigationDestination(
-                      icon: Icon(Icons.settings_outlined),
-                      selectedIcon: Icon(Icons.settings),
-                      label: 'ตั้งค่า',
+                    NavigationDestination(
+                      icon: const Icon(Icons.settings_outlined),
+                      selectedIcon: const Icon(Icons.settings),
+                      label: l10n.navSettings,
                     ),
                   ],
           );
@@ -459,6 +508,7 @@ class _SosPageState extends State<SosPage> {
         _savingRole = null;
         _currentIndex = 0;
       });
+      widget.bleCoordinator?.setRescueModeEnabled(role == AppRole.rescue);
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -485,28 +535,29 @@ class _SosPageState extends State<SosPage> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'ยังมีเหตุที่กำลังดำเนินอยู่',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                Text(
+                  context.l10n.activeIncidentExists,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'การสลับโหมดจะไม่ยกเลิกเหตุ ไม่ลบข้อมูล และไม่หยุดคิว BLE คุณกลับมาเปิดเหตุเดิมได้ทุกเมื่อ',
-                ),
+                Text(context.l10n.roleSwitchPreservesData),
                 const SizedBox(height: 20),
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () => Navigator.pop(sheetContext, false),
-                        child: const Text('อยู่โหมดเดิม'),
+                        child: Text(context.l10n.stayInMode),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton(
                         onPressed: () => Navigator.pop(sheetContext, true),
-                        child: const Text('สลับโหมด'),
+                        child: Text(context.l10n.switchMode),
                       ),
                     ),
                   ],
@@ -522,6 +573,7 @@ class _SosPageState extends State<SosPage> {
   }
 
   Widget _buildRescueHome() {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final dark = theme.brightness == Brightness.dark;
     const rescue = Color(0xFF006B57);
@@ -564,7 +616,7 @@ class _SosPageState extends State<SosPage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'ศูนย์ช่วยเหลือใกล้ตัว',
+                                    l10n.nearbyRescueCenter,
                                     style: theme.textTheme.headlineMedium
                                         ?.copyWith(
                                           fontWeight: FontWeight.w900,
@@ -573,7 +625,7 @@ class _SosPageState extends State<SosPage> {
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    'เหตุที่รับผ่าน BLE บนอุปกรณ์นี้',
+                                    l10n.receivedOnDevice,
                                     style: theme.textTheme.bodyLarge?.copyWith(
                                       color: theme.colorScheme.onSurfaceVariant,
                                     ),
@@ -582,7 +634,7 @@ class _SosPageState extends State<SosPage> {
                               ),
                             ),
                             IconButton(
-                              tooltip: 'สลับไปโหมดขอความช่วยเหลือ',
+                              tooltip: l10n.switchToNeedHelp,
                               onPressed: _requestRoleSwitch,
                               icon: const Icon(Icons.swap_horiz_rounded),
                             ),
@@ -612,8 +664,8 @@ class _SosPageState extends State<SosPage> {
                                   const SizedBox(height: 18),
                                   Text(
                                     _rescueListening
-                                        ? 'พร้อมรับเหตุใกล้เคียง'
-                                        : 'เปิดรับเหตุเมื่อคุณพร้อม',
+                                        ? l10n.readyForNearbyIncidents
+                                        : l10n.listenWhenReady,
                                     style: theme.textTheme.titleLarge?.copyWith(
                                       fontWeight: FontWeight.w900,
                                     ),
@@ -621,8 +673,8 @@ class _SosPageState extends State<SosPage> {
                                   const SizedBox(height: 8),
                                   Text(
                                     _rescueListening
-                                        ? 'Bluetooth กำลังเปิดรับการเชื่อมต่อ ให้แอปอยู่ด้านหน้าเพื่อความน่าเชื่อถือสูงสุด'
-                                        : 'ระบบจะขอสิทธิ์ Bluetooth เมื่อกดเริ่ม และจะไม่ถือว่าการเชื่อมต่อคือการรับช่วยเหลือ',
+                                        ? l10n.rescueListeningDescription
+                                        : l10n.rescueOffDescription,
                                     style: const TextStyle(height: 1.4),
                                   ),
                                   const SizedBox(height: 18),
@@ -653,10 +705,10 @@ class _SosPageState extends State<SosPage> {
                                             ),
                                       label: Text(
                                         _rescueStarting
-                                            ? 'กำลังเตรียม Bluetooth...'
+                                            ? l10n.rescuePreparingBluetooth
                                             : _rescueListening
-                                            ? 'กำลังเปิดรับเหตุ'
-                                            : 'เริ่มเปิดรับเหตุ',
+                                            ? l10n.rescueListening
+                                            : l10n.startRescueListening,
                                       ),
                                     ),
                                   ),
@@ -669,17 +721,59 @@ class _SosPageState extends State<SosPage> {
                             _activeIncidentReturnBanner(ownActive.first),
                           ],
                           const SizedBox(height: 30),
+                          StreamBuilder<List<RescueInboxData>>(
+                            stream: _rescueCandidatesStream,
+                            builder: (context, candidateSnapshot) {
+                              final candidates =
+                                  candidateSnapshot.data ??
+                                  const <RescueInboxData>[];
+                              if (candidates.isEmpty) {
+                                return const SizedBox.shrink();
+                              }
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Incoming SOS candidates',
+                                    style: theme.textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  for (final candidate in candidates) ...[
+                                    Card(
+                                      child: ListTile(
+                                        leading: const Icon(
+                                          Icons.warning_rounded,
+                                        ),
+                                        title: Text(
+                                          candidate.emergencyType.toUpperCase(),
+                                        ),
+                                        subtitle: Text(
+                                          candidate.emergencyMessage,
+                                        ),
+                                        onTap: () =>
+                                            _showRescueCandidate(candidate),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                  ],
+                                  const SizedBox(height: 18),
+                                ],
+                              );
+                            },
+                          ),
                           Row(
                             children: [
                               Text(
-                                'เหตุที่ได้รับ',
+                                l10n.receivedIncidents,
                                 style: theme.textTheme.titleLarge?.copyWith(
                                   fontWeight: FontWeight.w900,
                                 ),
                               ),
                               const Spacer(),
                               Text(
-                                '${received.length} เหตุ',
+                                l10n.incidentCount(received.length),
                                 style: TextStyle(color: rescueColor),
                               ),
                             ],
@@ -714,70 +808,114 @@ class _SosPageState extends State<SosPage> {
   }
 
   Widget _buildAcceptedIncidents() {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     return SafeArea(
       child: StreamBuilder<List<SosMessage>>(
         stream: _acceptedSosStream,
         builder: (context, snapshot) => StreamBuilder<Set<String>>(
           stream: _acceptedInboundSosIdsStream,
-          builder: (context, inboundSnapshot) {
-            final inboundIds = inboundSnapshot.data ?? const <String>{};
-            final accepted = (snapshot.data ?? const <SosMessage>[])
-                .where(
-                  (sos) =>
-                      inboundIds.contains(sos.id) &&
-                      _roleWorkflow.isAccepted(sos.id),
-                )
-                .toList();
-            return CustomScrollView(
-              slivers: [
-                SliverAppBar(
-                  pinned: true,
-                  title: const Text('เหตุที่กำลังช่วย'),
-                  actions: [
-                    IconButton(
-                      tooltip: 'สลับโหมด',
-                      onPressed: _requestRoleSwitch,
-                      icon: const Icon(Icons.swap_horiz_rounded),
-                    ),
-                  ],
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.all(20),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate([
-                      Text(
-                        'บันทึกบนอุปกรณ์นี้',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+          builder: (context, inboundSnapshot) =>
+              StreamBuilder<List<RescueInboxData>>(
+                stream: _rescueCandidatesStream,
+                builder: (context, candidateSnapshot) {
+                  final inboundIds = inboundSnapshot.data ?? const <String>{};
+                  final accepted = (snapshot.data ?? const <SosMessage>[])
+                      .where(
+                        (sos) =>
+                            inboundIds.contains(sos.id) &&
+                            _roleWorkflow.isAccepted(sos.id),
+                      )
+                      .toList();
+                  final acceptedCandidates =
+                      (candidateSnapshot.data ?? const <RescueInboxData>[])
+                          .where(
+                            (candidate) => candidate.state == 'locallyAccepted',
+                          )
+                          .toList();
+                  return CustomScrollView(
+                    slivers: [
+                      SliverAppBar(
+                        pinned: true,
+                        title: Text(l10n.helpingIncidents),
+                        actions: [
+                          IconButton(
+                            tooltip: l10n.switchModeTooltip,
+                            onPressed: _requestRoleSwitch,
+                            icon: const Icon(Icons.swap_horiz_rounded),
+                          ),
+                        ],
+                      ),
+                      SliverPadding(
+                        padding: const EdgeInsets.all(20),
+                        sliver: SliverList(
+                          delegate: SliverChildListDelegate([
+                            Text(
+                              l10n.storedOnThisDevice,
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              l10n.helpingStateNotice,
+                              style: const TextStyle(height: 1.4),
+                            ),
+                            const SizedBox(height: 20),
+                            if (accepted.isEmpty && acceptedCandidates.isEmpty)
+                              _buildEmptyCard(
+                                icon: Icons.assignment_outlined,
+                                title: l10n.noTrackedIncidents,
+                                message: l10n.trackIncidentHint,
+                                actionLabel: l10n.viewReceivedIncidents,
+                                onAction: () =>
+                                    setState(() => _currentIndex = 0),
+                              )
+                            else ...[
+                              for (final sos in accepted) ...[
+                                _buildRescueIncidentCard(sos),
+                                const SizedBox(height: 12),
+                              ],
+                              for (final candidate in acceptedCandidates) ...[
+                                _buildAcceptedRescueCandidateCard(candidate),
+                                const SizedBox(height: 12),
+                              ],
+                            ],
+                          ]),
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'สถานะนี้ช่วยให้คุณกลับมาเปิดเหตุได้เร็ว แต่ยังไม่ใช่การมอบหมายแบบเอกสิทธิ์และยังไม่ได้ส่งการตอบรับถึงผู้ประสบภัย',
-                        style: TextStyle(height: 1.4),
-                      ),
-                      const SizedBox(height: 20),
-                      if (accepted.isEmpty)
-                        _buildEmptyCard(
-                          icon: Icons.assignment_outlined,
-                          title: 'ยังไม่มีเหตุที่รับติดตาม',
-                          message: 'เลือก “รับช่วยเหลือ” จากเหตุที่ได้รับเพื่อปักไว้ในหน้านี้',
-                          actionLabel: 'ดูเหตุที่ได้รับ',
-                          onAction: () => setState(() => _currentIndex = 0),
-                        )
-                      else
-                        for (final sos in accepted) ...[
-                          _buildRescueIncidentCard(sos),
-                          const SizedBox(height: 12),
-                        ],
-                    ]),
-                  ),
-                ),
-              ],
-            );
-          },
+                    ],
+                  );
+                },
+              ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildAcceptedRescueCandidateCard(RescueInboxData candidate) {
+    return Card(
+      key: ValueKey('accepted-rescue-candidate-${candidate.originMessageId}'),
+      child: StreamBuilder<List<RescueResponseOutboxData>>(
+        stream: _rescueResponseRepository.watchOutboxForIncident(
+          candidate.incidentId,
+        ),
+        builder: (context, snapshot) {
+          final state = snapshot.data != null && snapshot.data!.isNotEmpty
+              ? snapshot.data!.first.state
+              : null;
+          final status = state == null
+              ? 'Help offered locally; delivery not queued'
+              : 'Offer delivery: $state';
+          return ListTile(
+            leading: const Icon(Icons.volunteer_activism_outlined),
+            title: Text(candidate.emergencyType.toUpperCase()),
+            subtitle: Text('${candidate.emergencyMessage}\n$status'),
+            isThreeLine: true,
+            onTap: () => _showRescueCandidate(candidate),
+            trailing: const Icon(Icons.check_circle_outline),
+          );
+        },
       ),
     );
   }
@@ -793,12 +931,178 @@ class _SosPageState extends State<SosPage> {
 
   Widget _buildRescueEmptyState() => _buildEmptyCard(
     icon: Icons.radar_rounded,
-    title: 'ยังไม่มีเหตุที่รับเข้ามา',
-    message: 'เปิดรับเหตุและให้ผู้ประสบภัยเลือกอุปกรณ์นี้เป็นผู้รับ เหตุจะปรากฏหลังบันทึกบนเครื่องสำเร็จ',
+    title: context.l10n.noReceivedIncidents,
+    message: context.l10n.receivedIncidentHint,
   );
 
   Widget _activeIncidentReturnBanner(SosMessage sos) {
     return _buildActiveSosChatBanner(sos, returnToNeedHelp: true);
+  }
+
+  Future<void> _showRescueCandidate(RescueInboxData candidate) async {
+    final accepted = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Incoming SOS candidate',
+                style: Theme.of(sheetContext).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 12),
+              Text(candidate.emergencyType.toUpperCase()),
+              const SizedBox(height: 8),
+              Text(candidate.emergencyMessage),
+              const SizedBox(height: 8),
+              Text('Identity assurance: origin signature + relay attestations'),
+              if (candidate.includeLocation &&
+                  candidate.latitude != null &&
+                  candidate.longitude != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Victim location: ${candidate.latitude!.toStringAsFixed(6)}, '
+                  '${candidate.longitude!.toStringAsFixed(6)}',
+                ),
+                Text(
+                  'Location timestamp: ${_formatDateTime(candidate.createdAt)}',
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(sheetContext);
+                    Navigator.of(context).push<void>(
+                      MaterialPageRoute<void>(
+                        builder: (_) => IncidentMapPage(
+                          incident: SosMessage(
+                            id: candidate.incidentId,
+                            ownerId: candidate.ownerId,
+                            type: candidate.emergencyType,
+                            message: candidate.emergencyMessage,
+                            latitude: candidate.latitude,
+                            longitude: candidate.longitude,
+                            status: 'active',
+                            createdAt: candidate.createdAt,
+                            updatedAt: candidate.receivedAt,
+                            syncState: 'deviceOnly',
+                          ),
+                          rescueCandidate: candidate,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.map_outlined),
+                  label: const Text('View victim location'),
+                ),
+              ] else
+                const Text('Victim location was not included in this SOS.'),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final incident = await _ensureRescueIncident(candidate);
+                  if (!sheetContext.mounted) return;
+                  Navigator.pop(sheetContext);
+                  if (mounted) await _openIncidentChat(incident);
+                },
+                icon: const Icon(Icons.chat_bubble_outline),
+                label: const Text('Open incident chat'),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: candidate.state == 'locallyAccepted'
+                      ? null
+                      : () async {
+                          await _rescueInboxRepository.acceptLocally(
+                            candidate.originMessageId,
+                          );
+                          var queued = false;
+                          Object? queueError;
+                          try {
+                            final relay = RelayRepository(
+                              database: widget.repository.database,
+                            );
+                            final stored = await relay.lookupMessage(
+                              candidate.originMessageId,
+                            );
+                            if (stored == null) {
+                              throw StateError(
+                                'Signed origin envelope is not available locally.',
+                              );
+                            }
+                            final origin = RelayOfferEnvelope.fromCanonicalWire(
+                              stored.wireEnvelope,
+                            ).body;
+                            final identity = await RelayIdentityService(
+                              keyStore: PlatformRelayPrivateKeyStore(),
+                            ).loadOrCreate(allowCreate: true);
+                            final digest = await RelayCryptography()
+                                .immutableDigest(origin);
+                            await _rescueResponseRepository.signAndEnqueueOffer(
+                              origin: origin,
+                              responder: identity,
+                              sessionBinding:
+                                  'incident-binding:${origin.originMessageId}:$digest',
+                            );
+                            await widget.bleCoordinator?.processDue();
+                            queued = true;
+                          } catch (error) {
+                            queueError = error;
+                          }
+                          if (sheetContext.mounted) {
+                            Navigator.pop(sheetContext, true);
+                          }
+                          if (mounted && !queued) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Help saved locally; delivery queued failed: $queueError',
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                  icon: const Icon(Icons.volunteer_activism),
+                  label: Text(
+                    candidate.state == 'locallyAccepted'
+                        ? 'Help offered locally'
+                        : 'Offer Help',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'This records local intent only. The origin has not been notified.',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (accepted == true && mounted) {
+      setState(() => _currentIndex = 1);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Help offered locally and saved on this device.'),
+        ),
+      );
+    }
+  }
+
+  Future<SosMessage> _ensureRescueIncident(RescueInboxData candidate) {
+    return widget.repository.ensureReceivedIncident(
+      id: candidate.incidentId,
+      type: candidate.emergencyType,
+      message: candidate.emergencyMessage,
+      latitude: candidate.latitude,
+      longitude: candidate.longitude,
+      createdAt: candidate.createdAt,
+    );
   }
 
   Widget _buildRescueIncidentCard(SosMessage sos) {
@@ -882,7 +1186,7 @@ class _SosPageState extends State<SosPage> {
                     ? OutlinedButton.icon(
                         onPressed: () => _showSosDetail(sos, rescueView: true),
                         icon: const Icon(Icons.open_in_new_rounded),
-                        label: const Text('เปิดเหตุที่กำลังช่วย'),
+                        label: Text(context.l10n.openTrackedIncident),
                       )
                     : FilledButton.icon(
                         style: FilledButton.styleFrom(
@@ -932,9 +1236,11 @@ class _SosPageState extends State<SosPage> {
       setState(() => _rescueListening = true);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('เปิดรับเหตุไม่สำเร็จ: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.rescueStartFailed(error.toString())),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _rescueStarting = false);
     }
@@ -1033,7 +1339,7 @@ class _SosPageState extends State<SosPage> {
             ),
           ),
           IconButton(
-            tooltip: 'สลับไปโหมดผู้ช่วยเหลือ',
+            tooltip: context.l10n.switchToRescue,
             onPressed: _requestRoleSwitch,
             icon: const Icon(Icons.swap_horiz_rounded),
           ),
@@ -1066,10 +1372,13 @@ class _SosPageState extends State<SosPage> {
   }
 
   Widget _buildSendSosButton() {
+    final l10n = context.l10n;
     final progress = _sosHoldProgress.clamp(0.0, 1.0);
     return Semantics(
       button: true,
-      label: 'กดค้างเพื่อส่ง SOS',
+      label: l10n.sosHold,
+      hint: l10n.holdToStart,
+      enabled: !_sendingSos,
       child: GestureDetector(
         onTapDown: _sendingSos ? null : (_) => _startSosHold(),
         onTapUp: _sendingSos ? null : (_) => _cancelSosHold(),
@@ -1140,10 +1449,10 @@ class _SosPageState extends State<SosPage> {
                   const SizedBox(height: 16),
                   Text(
                     _sendingSos
-                        ? 'กำลังสร้าง SOS...'
+                        ? l10n.creatingSos
                         : _sosHoldActive
-                        ? 'กดค้างต่อ'
-                        : 'ส่ง SOS',
+                        ? l10n.keepHolding
+                        : l10n.sendSos,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 25,
@@ -1154,10 +1463,10 @@ class _SosPageState extends State<SosPage> {
                   const SizedBox(height: 4),
                   Text(
                     _sendingSos
-                        ? 'กำลังตรวจสอบตำแหน่ง'
+                        ? l10n.checkingLocation
                         : _sosHoldActive
                         ? '${((1 - progress) * 1.4).ceil()} sec'
-                        : 'กดค้างเพื่อเริ่ม',
+                        : l10n.holdToStart,
                     style: const TextStyle(color: Colors.white, fontSize: 16),
                   ),
                 ],
@@ -1203,9 +1512,10 @@ class _SosPageState extends State<SosPage> {
     bool returnToNeedHelp = false,
   }) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     return Semantics(
       button: true,
-      label: 'เปิดแชต SOS ที่กำลังดำเนินอยู่',
+      label: l10n.openActiveChat,
       hint: 'เปิดห้องสนทนาของเหตุ ${sos.id}',
       excludeSemantics: true,
       child: Material(
@@ -1229,7 +1539,7 @@ class _SosPageState extends State<SosPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'SOS กำลังดำเนินอยู่',
+                          l10n.activeSos,
                           style: TextStyle(
                             color: colors.onErrorContainer,
                             fontWeight: FontWeight.w900,
@@ -1237,7 +1547,7 @@ class _SosPageState extends State<SosPage> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'แตะเพื่อเปิดแชต · Incident ${sos.id}',
+                          l10n.tapToOpenIncidentChat(sos.id),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(color: colors.onErrorContainer),
@@ -1299,6 +1609,7 @@ class _SosPageState extends State<SosPage> {
   // ---------------------------------------------------------------------------
 
   Widget _buildHistory() {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final background = theme.colorScheme.surface;
     return SafeArea(
@@ -1311,10 +1622,10 @@ class _SosPageState extends State<SosPage> {
                 padding: const EdgeInsets.fromLTRB(20, 20, 12, 4),
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'ประวัติ SOS',
-                        style: TextStyle(
+                        l10n.historyTitle,
+                        style: const TextStyle(
                           fontSize: 30,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.6,
@@ -1323,8 +1634,8 @@ class _SosPageState extends State<SosPage> {
                     ),
                     IconButton(
                       tooltip: _historySearchVisible
-                          ? 'ปิดการค้นหา'
-                          : 'ค้นหาประวัติ',
+                          ? l10n.closeSearch
+                          : l10n.searchHistory,
                       onPressed: () => setState(
                         () => _historySearchVisible = !_historySearchVisible,
                       ),
@@ -1334,8 +1645,8 @@ class _SosPageState extends State<SosPage> {
                     ),
                     IconButton(
                       tooltip: _historyNewestFirst
-                          ? 'ใหม่ก่อน แตะเพื่อเรียงเก่าก่อน'
-                          : 'เก่าก่อน แตะเพื่อเรียงใหม่ก่อน',
+                          ? l10n.newestFirst
+                          : l10n.oldestFirst,
                       onPressed: () => setState(
                         () => _historyNewestFirst = !_historyNewestFirst,
                       ),
@@ -1356,7 +1667,7 @@ class _SosPageState extends State<SosPage> {
                   alignment: Alignment.centerLeft,
                   child: TextButton.icon(
                     icon: const Icon(Icons.phone_android, size: 20),
-                    label: const Text('ข้อมูลในเครื่อง'),
+                    label: Text(l10n.deviceData),
                     style: TextButton.styleFrom(
                       minimumSize: const Size(48, 48),
                     ),
@@ -1366,10 +1677,10 @@ class _SosPageState extends State<SosPage> {
               ),
             ),
             if (!widget.isGuest)
-              const SliverToBoxAdapter(
+              SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: Text('ประวัติบัญชีปัจจุบัน (รวมรายการรอซิงก์)'),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Text(l10n.accountHistoryPendingSync),
                 ),
               ),
             SliverPadding(
@@ -1428,11 +1739,11 @@ class _SosPageState extends State<SosPage> {
                           ),
                           decoration: InputDecoration(
                             prefixIcon: const Icon(Icons.search),
-                            hintText: 'ค้นหา SOS หรือข้อความ',
+                            hintText: l10n.historySearch,
                             suffixIcon: _historySearch.isEmpty
                                 ? null
                                 : IconButton(
-                                    tooltip: 'ล้างคำค้นหา',
+                                    tooltip: l10n.clearSearch,
                                     onPressed: () {
                                       _historySearchController.clear();
                                       setState(() => _historySearch = '');
@@ -1503,28 +1814,28 @@ class _SosPageState extends State<SosPage> {
       child: Row(
         children: [
           _buildHistoryCount(
-            label: 'ทั้งหมด',
+            label: context.l10n.filterAll,
             semanticLabel: 'ประวัติทั้งหมด',
             count: total,
             filter: 'all',
             color: colors.onSurfaceVariant,
           ),
           _buildHistoryCount(
-            label: 'กำลัง',
+            label: context.l10n.filterActive,
             semanticLabel: 'SOS ที่กำลังดำเนินอยู่',
             count: active,
             filter: 'active',
             color: colors.error,
           ),
           _buildHistoryCount(
-            label: 'สำเร็จ',
+            label: context.l10n.filterCompleted,
             semanticLabel: 'SOS ที่สิ้นสุดแล้ว',
             count: resolved,
             filter: 'resolved',
             color: const Color(0xFF397A62),
           ),
           _buildHistoryCount(
-            label: 'ยกเลิก',
+            label: context.l10n.filterCancelled,
             semanticLabel: 'SOS ที่ยกเลิกแล้ว',
             count: cancelled,
             filter: 'cancelled',
@@ -1548,7 +1859,7 @@ class _SosPageState extends State<SosPage> {
       child: Semantics(
         button: true,
         selected: selected,
-        label: '$semanticLabel $count รายการ',
+        label: '$semanticLabel ${context.l10n.itemCount(count)}',
         child: Material(
           color: Colors.transparent,
           child: InkWell(
@@ -1667,7 +1978,7 @@ class _SosPageState extends State<SosPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Location',
+                  sheetContext.l10n.location,
                   style: Theme.of(sheetContext).textTheme.headlineSmall
                       ?.copyWith(fontWeight: FontWeight.w700),
                 ),
@@ -1675,13 +1986,13 @@ class _SosPageState extends State<SosPage> {
                 _buildProfileRow(
                   context: sheetContext,
                   icon: Icons.location_on_outlined,
-                  label: 'Location Services',
+                  label: sheetContext.l10n.locationServices,
                   value: serviceEnabled ? 'Enabled' : 'Disabled',
                 ),
                 _buildProfileRow(
                   context: sheetContext,
                   icon: Icons.security_outlined,
-                  label: 'Permission',
+                  label: sheetContext.l10n.permission,
                   value: permissionText,
                 ),
                 const SizedBox(height: 8),
@@ -1693,7 +2004,7 @@ class _SosPageState extends State<SosPage> {
                         await Geolocator.openLocationSettings();
                       },
                       icon: const Icon(Icons.location_on),
-                      label: const Text('Open Location Settings'),
+                      label: Text(sheetContext.l10n.openLocationSettings),
                     ),
                   ),
                 if (permission == LocationPermission.deniedForever)
@@ -1704,7 +2015,7 @@ class _SosPageState extends State<SosPage> {
                         await Geolocator.openAppSettings();
                       },
                       icon: const Icon(Icons.settings),
-                      label: const Text('Open App Settings'),
+                      label: Text(sheetContext.l10n.openAppSettings),
                     ),
                   ),
                 if (serviceEnabled &&
@@ -1715,7 +2026,7 @@ class _SosPageState extends State<SosPage> {
                       onPressed: () {
                         Navigator.of(sheetContext).pop();
                       },
-                      child: const Text('Close'),
+                      child: Text(sheetContext.l10n.close),
                     ),
                   ),
               ],
@@ -1760,9 +2071,9 @@ class _SosPageState extends State<SosPage> {
 
             return CustomScrollView(
               slivers: [
-                const SliverAppBar(
+                SliverAppBar(
                   pinned: true,
-                  title: Text('แชตตามเหตุการณ์'),
+                  title: Text(context.l10n.incidentChats),
                 ),
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
@@ -1781,7 +2092,7 @@ class _SosPageState extends State<SosPage> {
                       if (incidents.isEmpty)
                         _buildEmptyCard(
                           icon: Icons.chat_bubble_outline,
-                          title: 'ยังไม่มีเหตุสำหรับแชต',
+                          title: context.l10n.noChatIncidents,
                           message: rescue
                               ? 'เหตุที่รับผ่าน BLE จะปรากฏที่นี่หลังบันทึกบนอุปกรณ์สำเร็จ'
                               : 'สร้าง SOS ก่อน แล้วกลับมาเลือกเหตุการณ์ที่ต้องการสนทนา',
@@ -1813,7 +2124,7 @@ class _SosPageState extends State<SosPage> {
       clipBehavior: Clip.antiAlias,
       child: Semantics(
         button: true,
-        label: 'เปิดแชตเหตุ ${sos.type} ${sos.id}',
+        label: context.l10n.openIncidentChatSemantics(sos.type, sos.id),
         child: InkWell(
           onTap: () => _openIncidentChat(sos),
           child: Padding(
@@ -1867,6 +2178,7 @@ class _SosPageState extends State<SosPage> {
   Future<void> _openIncidentChat(
     SosMessage sos, {
     bool returnToNeedHelp = false,
+    ValueListenable<String?>? locationFeedback,
   }) async {
     if (_openingIncidentChat) return;
     _openingIncidentChat = true;
@@ -1886,6 +2198,9 @@ class _SosPageState extends State<SosPage> {
               sos.id,
             ),
             relayStatusStream: widget.bleCoordinator?.watchRelayStatus(sos.id),
+            verifiedHelpOfferStream: _rescueResponseRepository
+                .watchVerifiedOffersForIncident(sos.id),
+            locationFeedback: locationFeedback,
           ),
         ),
       );
@@ -1900,18 +2215,35 @@ class _SosPageState extends State<SosPage> {
   }) async {
     final coordinator = widget.bleCoordinator;
     if (coordinator != null) {
+      // Start the foreground BLE coordinator before queueing a relay message.
+      // Otherwise the message is durable but can remain queued until an
+      // unrelated lifecycle event starts the transport.
+      await widget.onBleStartRequested?.call();
+      final participant = await coordinator.resolveVerifiedChatParticipant(
+        message.sosId,
+      );
+      if (participant != null) {
+        await coordinator.enqueueChatThroughRelay(
+          chat: message,
+          recipientKeyId: participant.keyId,
+          recipientPublicKey: participant.publicKey,
+        );
+        await coordinator.processDue();
+        return;
+      }
       await coordinator.enqueueChat(message, destinationId: destinationId);
-      unawaited(widget.onBleStartRequested?.call());
+      await coordinator.processDue();
       return;
     }
     await widget.onChatMessageCreated?.call(message);
   }
 
   Widget _buildSettings() {
+    final l10n = context.l10n;
     return SafeArea(
       child: CustomScrollView(
         slivers: [
-          const SliverAppBar(pinned: true, title: Text('Settings')),
+          SliverAppBar(pinned: true, title: Text(l10n.settingsTitle)),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
             sliver: SliverList(
@@ -1919,23 +2251,29 @@ class _SosPageState extends State<SosPage> {
                 _buildAccountCard(),
                 const SizedBox(height: 28),
                 _buildSettingsSection(
-                  title: 'PREFERENCES',
+                  title: l10n.preferences,
                   children: [
+                    if (widget.localeController != null) ...[
+                      LanguageSelectorTile(
+                        controller: widget.localeController!,
+                      ),
+                      const Divider(height: 1, indent: 56),
+                    ],
                     _buildSettingsTile(
                       icon: _role == AppRole.rescue
                           ? Icons.health_and_safety_outlined
                           : Icons.sos_outlined,
-                      title: 'โหมดการใช้งาน',
+                      title: l10n.usageMode,
                       subtitle: _role == AppRole.rescue
-                          ? 'ผู้ช่วยเหลือ · แตะเพื่อเปลี่ยนโหมด'
-                          : 'ผู้ประสบภัย · แตะเพื่อเปลี่ยนโหมด',
+                          ? l10n.modeRescueDescription
+                          : l10n.modeNeedHelpDescription,
                       onTap: _requestRoleSwitch,
                     ),
                     const Divider(height: 1, indent: 56),
                     _buildSettingsTile(
                       icon: Icons.notifications_outlined,
-                      title: 'Notifications',
-                      subtitle: 'SOS updates and in-app alerts',
+                      title: l10n.notifications,
+                      subtitle: l10n.notificationsDescription,
                       onTap: () => Navigator.of(context).push<void>(
                         MaterialPageRoute<void>(
                           builder: (_) => InAppNotificationsPage(
@@ -1953,6 +2291,11 @@ class _SosPageState extends State<SosPage> {
                                         ?.watchDeliveryForSos(sosId),
                                     relayStatusStream: widget.bleCoordinator
                                         ?.watchRelayStatus(sosId),
+                                    verifiedHelpOfferStream:
+                                        _rescueResponseRepository
+                                            .watchVerifiedOffersForIncident(
+                                              sosId,
+                                            ),
                                   ),
                                 ),
                               );
@@ -1964,9 +2307,36 @@ class _SosPageState extends State<SosPage> {
                     const Divider(height: 1, indent: 56),
                     _buildSettingsTile(
                       icon: Icons.location_on_outlined,
-                      title: 'Location',
-                      subtitle: 'Permission and location services',
+                      title: l10n.location,
+                      subtitle: l10n.locationSettingsDescription,
                       onTap: _showLocationSettings,
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    SwitchListTile(
+                      key: const ValueKey('voluntary-rescue-consent'),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 6,
+                      ),
+                      secondary: const Icon(Icons.volunteer_activism_outlined),
+                      title: const Text(
+                        'Share SOS with voluntary rescuers',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: const Text(
+                        'Off by default. Allows an opted-in Rescue Mode user to receive this SOS candidate.',
+                      ),
+                      value: _emergencyConsent.allowVoluntaryRescue,
+                      onChanged:
+                          _emergencyConsentLoading ||
+                              _emergencyConsentSaving ||
+                              !_emergencyConsent.allowPublicRelay
+                          ? null
+                          : (value) => _saveEmergencyConsent(
+                              _emergencyConsent.copyWith(
+                                allowVoluntaryRescue: value,
+                              ),
+                            ),
                     ),
                     const Divider(height: 1, indent: 56),
                     SwitchListTile(
@@ -1976,15 +2346,15 @@ class _SosPageState extends State<SosPage> {
                         vertical: 6,
                       ),
                       secondary: const Icon(Icons.sos_outlined),
-                      title: const Text(
-                        'Automatic public relay for my SOS',
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                      title: Text(
+                        l10n.automaticPublicRelay,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                       subtitle: Text(
                         _emergencyConsentError ??
                             (_emergencyConsent.allowPublicRelay
-                                ? 'On. During an emergency, signed SOS data may be stored and forwarded by opted-in nearby devices for up to 30 minutes.'
-                                : 'Off. Configure this before an emergency. Bluetooth permission alone never enables public relay.'),
+                                ? l10n.automaticPublicRelayOn
+                                : l10n.automaticPublicRelayOff),
                       ),
                       value: _emergencyConsent.allowPublicRelay,
                       onChanged:
@@ -2007,13 +2377,11 @@ class _SosPageState extends State<SosPage> {
                         vertical: 6,
                       ),
                       secondary: const Icon(Icons.location_on_outlined),
-                      title: const Text(
-                        'Include location in public relay',
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                      title: Text(
+                        l10n.includeLocationRelay,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
-                      subtitle: const Text(
-                        'Separate consent. When off, relay messages contain no coordinates.',
-                      ),
+                      subtitle: Text(l10n.includeLocationRelayDescription),
                       value:
                           _emergencyConsent.allowPublicRelay &&
                           _emergencyConsent.shareLocation,
@@ -2033,15 +2401,15 @@ class _SosPageState extends State<SosPage> {
                         vertical: 6,
                       ),
                       secondary: const Icon(Icons.hub_outlined),
-                      title: const Text(
-                        'Nearby SOS relay',
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                      title: Text(
+                        l10n.nearbyRelay,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                       subtitle: Text(
                         _relayPreferenceError ??
                             (_relayParticipationEnabled
-                                ? 'On while the app is open. This device may store and forward public emergency SOS messages; it does not become a responder.'
-                                : 'Off by default. Turn this on only to store and forward other people\'s public emergency SOS messages. Your own Public Relay SOS uses the consent selected for that incident.'),
+                                ? l10n.nearbyRelayOn
+                                : l10n.nearbyRelayOff),
                       ),
                       value: _relayParticipationEnabled,
                       onChanged:
@@ -2051,12 +2419,33 @@ class _SosPageState extends State<SosPage> {
                           ? null
                           : _setRelayParticipation,
                     ),
-                    if (kDebugMode) ...[
+                    if (!kReleaseMode && widget.bleCoordinator != null) ...[
+                      const Divider(height: 1, indent: 56),
+                      _buildSettingsTile(
+                        icon: Icons.monitor_heart_outlined,
+                        title: l10n.relayDiagnostics,
+                        subtitle: l10n.relayDiagnosticsDescription,
+                        onTap: () {
+                          final route = RelayDiagnosticsRoute.build(
+                            dataSource: widget
+                                .bleCoordinator!
+                                .relayDiagnosticsDataSource,
+                          );
+                          if (route != null) {
+                            Navigator.of(context).push<void>(route);
+                          }
+                        },
+                      ),
+                    ],
+                    // Profile builds are used for physical-device validation.
+                    // Keep the development-only BLE diagnostics available in
+                    // Debug/Profile, while never exposing it in Release.
+                    if (!kReleaseMode) ...[
                       const Divider(height: 1, indent: 56),
                       _buildSettingsTile(
                         icon: Icons.bluetooth_outlined,
-                        title: 'BLE Test (Debug)',
-                        subtitle: 'Test nearby Bluetooth between phones',
+                        title: l10n.bleTest,
+                        subtitle: l10n.bleTestDescription,
                         onTap: () async {
                           await _prepareBleForInteraction();
                           if (!mounted) return;
@@ -2087,7 +2476,7 @@ class _SosPageState extends State<SosPage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Emergency communication',
+                        l10n.emergencyCommunication,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.outline,
                         ),
@@ -2104,11 +2493,12 @@ class _SosPageState extends State<SosPage> {
   }
 
   Widget _buildAccountCard() {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final email = widget.isGuest
-        ? 'Saved on this device'
-        : FirebaseAuth.instance.currentUser?.email ?? 'No email available';
+        ? l10n.savedOnDevice
+        : FirebaseAuth.instance.currentUser?.email ?? l10n.noEmailAvailable;
     final currentEmail = widget.isGuest
         ? null
         : FirebaseAuth.instance.currentUser?.email;
@@ -2144,7 +2534,7 @@ class _SosPageState extends State<SosPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'My account',
+                      l10n.myAccount,
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -2182,10 +2572,10 @@ class _SosPageState extends State<SosPage> {
                           Expanded(
                             child: Text(
                               widget.isGuest
-                                  ? 'Sign in for new cloud SOS'
+                                  ? l10n.signInForCloud
                                   : verified
-                                  ? 'Email verified'
-                                  : 'Email not verified',
+                                  ? l10n.emailVerified
+                                  : l10n.emailNotVerified,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.labelMedium?.copyWith(
@@ -2273,20 +2663,11 @@ class _SosPageState extends State<SosPage> {
   }
 
   Future<Position?> _getCurrentLocation() async {
+    final l10n = context.l10n;
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
     if (!serviceEnabled) {
-      if (!mounted) {
-        return null;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enable Location Services and try again.'),
-        ),
-      );
-
-      return null;
+      throw LocationAcquisitionException(l10n.locationServicesDisabled);
     }
 
     var permission = await Geolocator.checkPermission();
@@ -2296,33 +2677,11 @@ class _SosPageState extends State<SosPage> {
     }
 
     if (permission == LocationPermission.denied) {
-      if (!mounted) {
-        return null;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Location permission is required to send SOS.'),
-        ),
-      );
-
-      return null;
+      throw LocationAcquisitionException(l10n.locationPermissionRequired);
     }
 
     if (permission == LocationPermission.deniedForever) {
-      if (!mounted) {
-        return null;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Location permission is permanently denied. Enable it in Settings.',
-          ),
-        ),
-      );
-
-      return null;
+      throw LocationAcquisitionException(l10n.locationPermissionDeniedForever);
     }
 
     try {
@@ -2332,17 +2691,18 @@ class _SosPageState extends State<SosPage> {
           timeLimit: Duration(seconds: 10),
         ),
       );
+    } on TimeoutException {
+      throw LocationAcquisitionException(l10n.locationTimedOut);
     } catch (_) {
-      if (!mounted) {
-        return null;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to get your current location.')),
-      );
-
-      return null;
+      throw LocationAcquisitionException(l10n.currentLocationUnavailable);
     }
+  }
+
+  String _locationFailureMessage(Object error, AppLocalizations l10n) {
+    final reason = error is LocationAcquisitionException
+        ? error.message
+        : l10n.currentLocationUnavailable;
+    return '${l10n.locationUnavailableSaved} ($reason)';
   }
 
   Widget _buildProfileRow({
@@ -2395,8 +2755,53 @@ class _SosPageState extends State<SosPage> {
   Future<void> _beginAutomaticEmergencyRouting(
     SosMessage sos,
     EmergencyConsent consent,
+    ValueNotifier<String?> locationFeedback,
   ) async {
+    final l10n = context.l10n;
     try {
+      var routedSos = sos;
+      var includeLocation = false;
+      if (consent.shareLocation) {
+        // Location acquisition is deliberately after local SOS persistence and
+        // Chat navigation. A slow GPS, denied permission, or offline device
+        // must never prevent the emergency record from being created.
+        Position? position;
+        try {
+          position =
+              await (widget.locationProvider?.call() ?? _getCurrentLocation());
+        } catch (error) {
+          // A failed location attempt must not cancel BLE routing or change
+          // the already-persisted SOS into a failed creation.
+          debugPrint(
+            '[SOS location] acquisition failed type=${error.runtimeType}',
+          );
+          locationFeedback.value = _locationFailureMessage(error, l10n);
+        }
+        if (position != null &&
+            isValidSosCoordinatePair(position.latitude, position.longitude)) {
+          try {
+            await widget.repository.update(
+              id: sos.id,
+              type: sos.type,
+              message: sos.message,
+              latitude: position.latitude,
+              longitude: position.longitude,
+              status: sos.status,
+            );
+            routedSos = await widget.repository.findById(sos.id) ?? sos;
+            includeLocation = true;
+          } catch (error) {
+            debugPrint(
+              '[SOS location] update failed type=${error.runtimeType}',
+            );
+          }
+        } else {
+          locationFeedback.value = _locationFailureMessage(
+            LocationAcquisitionException(l10n.currentLocationUnavailable),
+            l10n,
+          );
+        }
+      }
       if (consent.allowPublicRelay) {
         final coordinator = widget.bleCoordinator;
         if (coordinator == null) {
@@ -2405,8 +2810,11 @@ class _SosPageState extends State<SosPage> {
         // Persist the signed relay job before starting native discovery. A
         // permission or Bluetooth failure cannot erase the local SOS or job.
         await coordinator.enqueuePublicRelay(
-          sos,
-          includeLocation: consent.shareLocation,
+          routedSos,
+          includeLocation: includeLocation,
+          scope: consent.allowVoluntaryRescue
+              ? RelayAuthorizationScope.voluntaryRescue
+              : RelayAuthorizationScope.publicEmergencyRelay,
         );
       }
       await widget.onBleStartRequested?.call();
@@ -2455,20 +2863,16 @@ class _SosPageState extends State<SosPage> {
       if (!mounted) return;
       final consent = _emergencyConsent;
       final id = DateTime.now().microsecondsSinceEpoch.toString();
-      final position = consent.shareLocation
-          ? await (widget.locationProvider?.call() ?? _getCurrentLocation())
-          : null;
-
-      if (!mounted) {
-        return;
-      }
 
       await widget.repository.create(
         id: id,
         type: 'emergency',
         message: 'Emergency SOS',
-        latitude: position?.latitude,
-        longitude: position?.longitude,
+        // Location is attached asynchronously after the SOS is persisted.
+        // This keeps SOS creation independent from GPS, permission and
+        // network availability.
+        latitude: null,
+        longitude: null,
         // Direct v1 deliberately stays unrouted until a trustworthy incident
         // route exists. Public Relay v2 performs its own authenticated,
         // capability-gated discovery below.
@@ -2483,36 +2887,33 @@ class _SosPageState extends State<SosPage> {
       // Navigation does not wait for scanning, session proof, connection or
       // acknowledgement. The same persisted incident/message identities are
       // used if a route becomes available later.
-      unawaited(_beginAutomaticEmergencyRouting(created, consent));
+      final locationFeedback = ValueNotifier<String?>(null);
+      unawaited(
+        _beginAutomaticEmergencyRouting(created, consent, locationFeedback),
+      );
 
       if (!mounted) {
         return;
       }
-
-      final hasLocation = isValidSosCoordinatePair(
-        position?.latitude,
-        position?.longitude,
-      );
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             consent.allowPublicRelay
-                ? 'SOS saved. Searching for opted-in relay devices; final delivery is unconfirmed.'
-                : hasLocation
-                ? 'SOS saved with location. Waiting for a trusted nearby route.'
-                : 'SOS saved locally. Waiting for a trusted nearby route.',
+                ? context.l10n.sosSavedRelaySearching
+                : context.l10n.sosSavedLocally,
           ),
         ),
       );
-      await _openIncidentChat(created);
+      await _openIncidentChat(created, locationFeedback: locationFeedback);
     } catch (error) {
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Failed to send SOS: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.sosSendFailed(error.toString()))),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -2526,7 +2927,7 @@ class _SosPageState extends State<SosPage> {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => Scaffold(
-          appBar: AppBar(title: const Text('ข้อมูลในเครื่อง')),
+          appBar: AppBar(title: Text(context.l10n.deviceHistory)),
           body: StreamBuilder<List<SosMessage>>(
             stream: widget.repository.watchDeviceHistory(),
             builder: (context, snapshot) {
@@ -2537,11 +2938,9 @@ class _SosPageState extends State<SosPage> {
               return ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  const Text(
-                    'Guest SOS เก็บอยู่เฉพาะอุปกรณ์นี้ ไม่ผูกกับบัญชีและไม่ส่งขึ้น Cloud ผู้ใช้เครื่องนี้เปิดดูได้',
-                  ),
+                  Text(context.l10n.guestHistoryNotice),
                   const SizedBox(height: 16),
-                  if (rows.isEmpty) const Text('ไม่มีข้อมูล Guest ในเครื่อง'),
+                  if (rows.isEmpty) Text(context.l10n.noGuestHistory),
                   for (final row in rows) ...[
                     _buildSosCard(row, readOnly: true),
                     const SizedBox(height: 12),
@@ -2577,7 +2976,7 @@ class _SosPageState extends State<SosPage> {
                     children: [
                       Expanded(
                         child: Text(
-                          'SOS Details',
+                          sheetContext.l10n.sosDetails,
                           style: Theme.of(sheetContext).textTheme.headlineSmall
                               ?.copyWith(fontWeight: FontWeight.w700),
                         ),
@@ -2585,7 +2984,7 @@ class _SosPageState extends State<SosPage> {
                       _buildStatusChip(sos.status),
                       if (!readOnly && !rescueView)
                         PopupMenuButton<String>(
-                          tooltip: 'จัดการ SOS',
+                          tooltip: sheetContext.l10n.manageSos,
                           onSelected: (value) {
                             Navigator.of(sheetContext).pop();
                             if (value == 'edit') {
@@ -2594,19 +2993,19 @@ class _SosPageState extends State<SosPage> {
                               unawaited(_deleteSos(sos));
                             }
                           },
-                          itemBuilder: (context) => const [
+                          itemBuilder: (context) => [
                             PopupMenuItem(
                               value: 'edit',
-                              child: Text('แก้ไขข้อความ'),
+                              child: Text(context.l10n.editMessage),
                             ),
                             PopupMenuItem(
                               value: 'delete',
-                              child: Text('ลบ SOS'),
+                              child: Text(context.l10n.deleteSos),
                             ),
                           ],
                         ),
                       IconButton(
-                        tooltip: 'Close SOS details',
+                        tooltip: sheetContext.l10n.closeSosDetails,
                         onPressed: () => Navigator.of(sheetContext).pop(),
                         icon: const Icon(Icons.close),
                       ),
@@ -2615,7 +3014,7 @@ class _SosPageState extends State<SosPage> {
                   const SizedBox(height: 24),
                   _buildDetailRow(
                     icon: Icons.warning_amber_rounded,
-                    label: 'Type',
+                    label: sheetContext.l10n.type,
                     value: sos.type,
                   ),
                   if (!readOnly && !rescueView && widget.bleCoordinator != null)
@@ -2625,15 +3024,15 @@ class _SosPageState extends State<SosPage> {
                   if (!readOnly && !rescueView)
                     _buildDetailRow(
                       icon: Icons.volunteer_activism_outlined,
-                      label: 'การตอบรับจากผู้ช่วยเหลือ',
-                      value: 'ยังไม่มีการยืนยันจากมนุษย์ใน protocol ปัจจุบัน สถานะ BLE ด้านบนยืนยันเฉพาะการบันทึกบนเครื่องผู้รับ',
+                      label: sheetContext.l10n.humanResponse,
+                      value: sheetContext.l10n.noHumanConfirmation,
                     ),
                   if (rescueView)
                     _buildDetailRow(
                       icon: _roleWorkflow.isAccepted(sos.id)
                           ? Icons.assignment_turned_in
                           : Icons.assignment_outlined,
-                      label: 'สถานะผู้ช่วยเหลือ',
+                      label: sheetContext.l10n.responderStatus,
                       value: _roleWorkflow.isAccepted(sos.id)
                           ? 'รับติดตามบนอุปกรณ์นี้แล้ว ไม่ใช่การมอบหมายแบบเอกสิทธิ์และยังไม่ได้ตอบกลับผู้ประสบภัย'
                           : 'ยังไม่ได้รับติดตามบนอุปกรณ์นี้ การรับผ่าน BLE ไม่ใช่การตอบรับจากผู้ช่วยเหลือ',
@@ -2659,9 +3058,9 @@ class _SosPageState extends State<SosPage> {
                       builder: (context, snapshot) {
                         final location = snapshot.data;
                         if (location == null) {
-                          return const Text(
-                            'No verified shared location is available for this incident.',
-                            style: TextStyle(color: Color(0xFF777777)),
+                          return Text(
+                            sheetContext.l10n.noVerifiedSharedLocation,
+                            style: const TextStyle(color: Color(0xFF777777)),
                           );
                         }
                         return Column(
@@ -2669,7 +3068,7 @@ class _SosPageState extends State<SosPage> {
                           children: [
                             _buildDetailRow(
                               icon: Icons.share_location,
-                              label: 'Shared location',
+                              label: sheetContext.l10n.sharedLocation,
                               value:
                                   '${location.latitude!.toStringAsFixed(6)}, '
                                   '${location.longitude!.toStringAsFixed(6)}\n'
@@ -2692,7 +3091,9 @@ class _SosPageState extends State<SosPage> {
                                   );
                                 },
                                 icon: const Icon(Icons.map_outlined),
-                                label: const Text('View shared location'),
+                                label: Text(
+                                  sheetContext.l10n.viewSharedLocation,
+                                ),
                               ),
                             ),
                           ],
@@ -2702,12 +3103,12 @@ class _SosPageState extends State<SosPage> {
                   ],
                   _buildDetailRow(
                     icon: Icons.schedule,
-                    label: 'Created',
+                    label: sheetContext.l10n.created,
                     value: _formatDateTime(sos.createdAt),
                   ),
                   _buildDetailRow(
                     icon: Icons.update,
-                    label: 'Updated',
+                    label: sheetContext.l10n.updated,
                     value: _formatDateTime(sos.updatedAt),
                   ),
                   _buildDetailRow(
@@ -2716,17 +3117,17 @@ class _SosPageState extends State<SosPage> {
                         : sos.syncState == 'synced'
                         ? Icons.cloud_done
                         : Icons.cloud_upload_outlined,
-                    label: 'Sync',
+                    label: sheetContext.l10n.sync,
                     value: sos.ownerId == guestDeviceOwnerId
-                        ? 'ข้อมูลในเครื่องเท่านั้น'
+                        ? sheetContext.l10n.deviceOnly
                         : sos.syncState == 'synced'
-                        ? 'Synced'
-                        : 'Pending sync',
+                        ? sheetContext.l10n.synced
+                        : sheetContext.l10n.pendingSync,
                   ),
                   if (sos.message != null && sos.message!.isNotEmpty)
                     _buildDetailRow(
                       icon: Icons.message_outlined,
-                      label: 'Message',
+                      label: sheetContext.l10n.message,
                       value: sos.message!,
                     ),
                   const SizedBox(height: 12),
@@ -2746,18 +3147,21 @@ class _SosPageState extends State<SosPage> {
                                     ?.watchDeliveryForSos(sos.id),
                                 relayStatusStream: widget.bleCoordinator
                                     ?.watchRelayStatus(sos.id),
+                                verifiedHelpOfferStream:
+                                    _rescueResponseRepository
+                                        .watchVerifiedOffersForIncident(sos.id),
                               ),
                             ),
                           );
                         },
                         icon: const Icon(Icons.chat_bubble_outline),
-                        label: const Text('Open incident chat'),
+                        label: Text(sheetContext.l10n.openIncidentChat),
                       ),
                     ),
                   if (sos.latitude != null && sos.longitude != null) ...[
                     _buildDetailRow(
                       icon: Icons.location_on_outlined,
-                      label: 'Location',
+                      label: sheetContext.l10n.location,
                       value:
                           '${sos.latitude!.toStringAsFixed(6)}, '
                           '${sos.longitude!.toStringAsFixed(6)}',
@@ -2774,10 +3178,15 @@ class _SosPageState extends State<SosPage> {
                           );
                         },
                         icon: const Icon(Icons.map_outlined),
-                        label: const Text('View on map'),
+                        label: Text(sheetContext.l10n.viewOnMap),
                       ),
                     ),
-                  ],
+                  ] else
+                    _buildDetailRow(
+                      icon: Icons.location_off_outlined,
+                      label: sheetContext.l10n.location,
+                      value: sheetContext.l10n.incidentCoordinatesUnavailable,
+                    ),
                   const SizedBox(height: 20),
                   if (!readOnly && !rescueView && sos.status == 'active') ...[
                     SizedBox(
@@ -2788,7 +3197,7 @@ class _SosPageState extends State<SosPage> {
                           await _changeSosStatus(sos, 'resolved');
                         },
                         icon: const Icon(Icons.check_circle_outline),
-                        label: const Text('Mark as Resolved'),
+                        label: Text(sheetContext.l10n.markResolved),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -2800,7 +3209,7 @@ class _SosPageState extends State<SosPage> {
                           await _changeSosStatus(sos, 'cancelled');
                         },
                         icon: const Icon(Icons.cancel_outlined),
-                        label: const Text('Cancel SOS'),
+                        label: Text(sheetContext.l10n.cancelSos),
                       ),
                     ),
                   ],
@@ -2811,7 +3220,7 @@ class _SosPageState extends State<SosPage> {
                         onPressed: () {
                           Navigator.of(sheetContext).pop();
                         },
-                        child: const Text('Close'),
+                        child: Text(sheetContext.l10n.close),
                       ),
                     ),
                 ],
@@ -2829,7 +3238,7 @@ class _SosPageState extends State<SosPage> {
       builder: (context, snapshot) {
         final row = snapshot.data;
         final state = row == null ? null : BleOutboxState.parse(row.state);
-        final label = sosBleDeliveryStatusText(row);
+        final label = _localizedSosDeliveryStatus(row);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -2837,13 +3246,13 @@ class _SosPageState extends State<SosPage> {
               icon: state == BleOutboxState.acknowledged
                   ? Icons.check_circle_outline
                   : Icons.bluetooth,
-              label: 'BLE delivery',
+              label: context.l10n.bleDelivery,
               value: label,
             ),
             if (row?.destinationId != null)
               _buildDetailRow(
                 icon: Icons.person_search_outlined,
-                label: 'Recipient',
+                label: context.l10n.recipient,
                 value: row!.destinationId!,
               ),
             if (row != null &&
@@ -2871,20 +3280,43 @@ class _SosPageState extends State<SosPage> {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Unable to set recipient: $error'),
+                            content: Text(
+                              context.l10n.unableSetRecipient(error.toString()),
+                            ),
                           ),
                         );
                       }
                     }
                   },
                   icon: const Icon(Icons.add_link),
-                  label: const Text('Choose recipient'),
+                  label: Text(context.l10n.chooseRecipient),
                 ),
               ),
           ],
         );
       },
     );
+  }
+
+  String _localizedSosDeliveryStatus(BleOutboxData? row) {
+    final l10n = context.l10n;
+    final state = row == null ? null : BleOutboxState.parse(row.state);
+    return switch (state) {
+      null => l10n.waitingForRecipient,
+      BleOutboxState.queued =>
+        row!.destinationId == null
+            ? l10n.waitingForRecipient
+            : l10n.statusQueued,
+      BleOutboxState.sending => l10n.statusSending,
+      BleOutboxState.writeAccepted || BleOutboxState.awaitingAcknowledgement =>
+        l10n.waitingReceiverConfirmation,
+      BleOutboxState.acknowledged => l10n.statusConfirmedStored,
+      BleOutboxState.failed =>
+        row!.nextRetryAt == null
+            ? l10n.statusFailedNoRetry
+            : l10n.statusFailedRetryScheduled,
+      BleOutboxState.expired => l10n.statusExpired,
+    };
   }
 
   Widget _buildRelayDeliveryDetail(SosMessage sos) {
@@ -2897,17 +3329,17 @@ class _SosPageState extends State<SosPage> {
             relay.expiresAt != null &&
             !relay.expiresAt!.isAfter(DateTime.now().toUtc());
         final label = expired
-            ? 'Relay expired before final delivery could be confirmed'
+            ? context.l10n.relayExpiredUnconfirmed
             : relay.acceptedRelayCount > 0
-            ? 'Stored on ${relay.acceptedRelayCount} relay device${relay.acceptedRelayCount == 1 ? '' : 's'}; final delivery unconfirmed'
+            ? context.l10n.storedOnRelay(relay.acceptedRelayCount)
             : relay.pendingAttemptCount > 0
-            ? 'Forwarding through nearby devices; final delivery unconfirmed'
+            ? context.l10n.relayForwardingUnconfirmed
             : relay.failedAttemptCount > 0
-            ? 'Waiting to retry relay forwarding; final delivery unconfirmed'
-            : 'Waiting to forward; final delivery unconfirmed';
+            ? context.l10n.relayRetryUnconfirmed
+            : context.l10n.relayWaitingUnconfirmed;
         return _buildDetailRow(
           icon: relay.acceptedRelayCount > 0 ? Icons.hub : Icons.hub_outlined,
-          label: 'Public SOS relay',
+          label: context.l10n.publicSosRelay,
           value: label,
         );
       },
@@ -2922,18 +3354,22 @@ class _SosPageState extends State<SosPage> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text(isResolved ? 'Resolve SOS?' : 'Cancel SOS?'),
+          title: Text(
+            isResolved
+                ? context.l10n.resolveSosQuestion
+                : context.l10n.cancelSosQuestion,
+          ),
           content: Text(
             isResolved
-                ? 'Are you sure you want to mark this SOS as resolved?'
-                : 'Are you sure you want to cancel this SOS?',
+                ? context.l10n.resolveSosConfirmation
+                : context.l10n.cancelSosConfirmation,
           ),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(dialogContext).pop(false);
               },
-              child: const Text('Back'),
+              child: Text(context.l10n.back),
             ),
             FilledButton(
               style: !isResolved
@@ -2946,7 +3382,9 @@ class _SosPageState extends State<SosPage> {
               onPressed: () {
                 Navigator.of(dialogContext).pop(true);
               },
-              child: Text(isResolved ? 'Resolve' : 'Cancel SOS'),
+              child: Text(
+                isResolved ? context.l10n.resolve : context.l10n.cancelSos,
+              ),
             ),
           ],
         );
@@ -2975,7 +3413,9 @@ class _SosPageState extends State<SosPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            isResolved ? 'SOS marked as resolved.' : 'SOS cancelled.',
+            isResolved
+                ? context.l10n.sosMarkedResolved
+                : context.l10n.sosCancelled,
           ),
         ),
       );
@@ -2984,9 +3424,9 @@ class _SosPageState extends State<SosPage> {
         return;
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to update SOS: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.failedUpdateSos('$error'))),
+      );
     }
   }
 
@@ -3018,15 +3458,15 @@ class _SosPageState extends State<SosPage> {
       }
 
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('SOS updated.')));
+          .showSnackBar(SnackBar(content: Text(context.l10n.sosUpdated)));
     } catch (error) {
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to update SOS: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.failedUpdateSos('$error'))),
+      );
     }
   }
 
@@ -3036,14 +3476,14 @@ class _SosPageState extends State<SosPage> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Delete SOS?'),
-          content: const Text('This action cannot be undone.'),
+          title: Text(context.l10n.deleteSosQuestion),
+          content: Text(context.l10n.deleteCannotUndo),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(dialogContext).pop(false);
               },
-              child: const Text('Cancel'),
+              child: Text(context.l10n.cancel),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
@@ -3052,7 +3492,7 @@ class _SosPageState extends State<SosPage> {
               onPressed: () {
                 Navigator.of(dialogContext).pop(true);
               },
-              child: const Text('Delete'),
+              child: Text(context.l10n.delete),
             ),
           ],
         );
@@ -3072,15 +3512,15 @@ class _SosPageState extends State<SosPage> {
       }
 
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('SOS deleted.')));
+          .showSnackBar(SnackBar(content: Text(context.l10n.sosDeleted)));
     } catch (error) {
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to delete SOS: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.failedDeleteSos('$error'))),
+      );
     }
   }
 
@@ -3101,14 +3541,15 @@ class _SosPageState extends State<SosPage> {
       }
 
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Sync completed.')));
+          .showSnackBar(SnackBar(content: Text(context.l10n.syncCompleted)));
     } catch (error) {
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Sync failed: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.syncFailed('$error'))),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -3235,10 +3676,10 @@ class _SosPageState extends State<SosPage> {
                   const SizedBox(width: 6),
                   Text(
                     readOnly
-                        ? 'ข้อมูลในเครื่องเท่านั้น'
+                        ? context.l10n.localDataOnly
                         : historyStyle
-                        ? 'แตะเพื่อเปิดแชต'
-                        : 'แตะเพื่อดูรายละเอียด',
+                        ? context.l10n.tapToOpenChat
+                        : context.l10n.tapToViewDetails,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const Spacer(),
@@ -3247,7 +3688,7 @@ class _SosPageState extends State<SosPage> {
                       key: ValueKey('sos-details-button-${sos.id}'),
                       onPressed: () => _showSosDetail(sos),
                       icon: const Icon(Icons.info_outline, size: 18),
-                      label: const Text('รายละเอียด'),
+                      label: Text(context.l10n.details),
                     )
                   else if (historyStyle)
                     const Icon(
@@ -3436,20 +3877,20 @@ class _EditSosDialogState extends State<_EditSosDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Edit SOS'),
+      title: Text(context.l10n.editSos),
       content: TextField(
         controller: _messageController,
         maxLines: 3,
         textInputAction: TextInputAction.newline,
-        decoration: const InputDecoration(
-          labelText: 'Message',
-          hintText: 'Describe the emergency',
-          border: OutlineInputBorder(),
+        decoration: InputDecoration(
+          labelText: context.l10n.message,
+          hintText: context.l10n.describeEmergency,
+          border: const OutlineInputBorder(),
         ),
       ),
       actions: [
-        TextButton(onPressed: _cancel, child: const Text('Cancel')),
-        FilledButton(onPressed: _save, child: const Text('Save')),
+        TextButton(onPressed: _cancel, child: Text(context.l10n.cancel)),
+        FilledButton(onPressed: _save, child: Text(context.l10n.save)),
       ],
     );
   }

@@ -11,10 +11,17 @@ import '../domain/ble_delivery_state.dart';
 import '../domain/ble_models.dart';
 import '../domain/sos_ble_envelope.dart';
 import '../domain/location_ble_envelope.dart';
+import '../domain/chat_relay_envelope.dart';
+import '../domain/relay_envelope.dart';
 import 'ble_delivery_repository.dart';
 import 'ble_protocol.dart';
 import 'ble_transport.dart';
 import 'hop_relay_coordinator.dart';
+import 'relay_repository.dart';
+import 'relay_diagnostics_repository.dart';
+import 'rescue_inbox_repository.dart';
+import 'rescue_response_repository.dart';
+import 'chat_relay_repository.dart';
 
 typedef SosBleNow = DateTime Function();
 typedef SosBleRandom = double Function();
@@ -35,6 +42,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
     BleDeliveryRepository? deliveryRepository,
     HopRelayCoordinator? hopRelayCoordinator,
     this.chatRepository,
+    this.rescueModeEnabled,
     this.onLog,
     SosBleNow? now,
     SosBleRandom? random,
@@ -54,6 +62,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
        assert(maxRetryAttempts > 0) {
     _presence = BlePresenceManager.sharedFor(_transport);
     _writes = BleMessageWriteQueue.sharedFor(_transport);
+    _relayDiagnostics = RelayDiagnosticsRepository(database);
     _hopRelay =
         hopRelayCoordinator ??
         HopRelayCoordinator(
@@ -61,6 +70,11 @@ class SosBleCoordinator with WidgetsBindingObserver {
           transport: _transport,
           now: _now,
           onLog: (message) => _log('relay=$message'),
+          rescueModeEnabled: () => isRescueModeEnabled,
+          rescueInbox: RescueInboxRepository(database, ownerId: ownerId),
+          responseOwnerId: ownerId,
+          chatRelayRepository: ChatRelayRepository(database, ownerId: ownerId),
+          onChatRelayReceived: _persistRelayedChat,
         );
   }
 
@@ -73,9 +87,19 @@ class SosBleCoordinator with WidgetsBindingObserver {
   final BleTransportClient _transport;
   late final BlePresenceManager _presence;
   late final BleMessageWriteQueue _writes;
+  late final RelayDiagnosticsRepository _relayDiagnostics;
   final bool _ownsTransport;
   final BleDeliveryRepository _deliveryRepository;
   final ChatRepository? chatRepository;
+  final bool Function()? rescueModeEnabled;
+  bool _localRescueModeEnabled = false;
+
+  void setRescueModeEnabled(bool enabled) {
+    _localRescueModeEnabled = enabled;
+  }
+
+  bool get isRescueModeEnabled =>
+      rescueModeEnabled?.call() ?? _localRescueModeEnabled;
   final void Function(String message)? onLog;
   final SosBleNow _now;
   final SosBleRandom _random;
@@ -88,6 +112,19 @@ class SosBleCoordinator with WidgetsBindingObserver {
   final int maxRetryAttempts;
   final Duration staleAfter;
   final Duration pollInterval;
+
+  Future<void> _persistRelayedChat(ChatRelayEnvelope envelope) async {
+    final repository = chatRepository;
+    if (repository == null) return;
+    await repository.insertIncomingMessage(
+      messageId: envelope.body.messageId,
+      sosId: envelope.body.incidentId,
+      senderId: envelope.body.senderKeyId,
+      recipientId: ownerId,
+      text: envelope.body.text,
+      createdAt: envelope.body.createdAt,
+    );
+  }
 
   final _bindingRetries = <String, Timer>{};
   final _peerBindings = <String, String>{};
@@ -109,8 +146,12 @@ class SosBleCoordinator with WidgetsBindingObserver {
   bool _started = false;
   bool _disposed = false;
   bool _drainRequested = false;
+  bool _adapterUnavailable = false;
 
   bool get isStarted => _started;
+
+  RelayDiagnosticsDataSource get relayDiagnosticsDataSource =>
+      _relayDiagnostics;
 
   Stream<BleOutboxData?> watchLocationDeliveryForSos(String sosId) =>
       _deliveryRepository.watchLocationDeliveryForSos(sosId);
@@ -174,9 +215,15 @@ class SosBleCoordinator with WidgetsBindingObserver {
   Future<void> enqueuePublicRelay(
     SosMessage sos, {
     required bool includeLocation,
+    RelayAuthorizationScope scope =
+        RelayAuthorizationScope.publicEmergencyRelay,
   }) async {
     _ensureUsable();
-    await _hopRelay.queuePublicEmergency(sos, includeLocation: includeLocation);
+    await _hopRelay.queuePublicEmergency(
+      sos,
+      includeLocation: includeLocation,
+      scope: scope,
+    );
     if (_started) unawaited(processDue());
   }
 
@@ -244,6 +291,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
     if (!_started) return;
     _started = false;
     _drainRequested = false;
+    _adapterUnavailable = false;
     WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
     _pollTimer = null;
@@ -395,6 +443,43 @@ class SosBleCoordinator with WidgetsBindingObserver {
     return row;
   }
 
+  /// Queues an authenticated, durable multi-hop Chat message. The final
+  /// recipient key must come from an already verified rescue binding; this
+  /// method intentionally does not derive trust from a BLE address/name.
+  Future<void> enqueueChatThroughRelay({
+    required EmergencyChatMessage chat,
+    required String recipientKeyId,
+    required String recipientPublicKey,
+  }) async {
+    _ensureUsable();
+    await _hopRelay.signAndEnqueueChatRelay(
+      messageId: chat.id,
+      incidentId: chat.sosId,
+      recipientKeyId: recipientKeyId,
+      recipientPublicKey: recipientPublicKey,
+      text: chat.text,
+      createdAt: chat.createdAt,
+    );
+  }
+
+  /// Returns only a cryptographically bound incident participant. The value
+  /// never comes from a BLE address, display name, or picker row.
+  Future<({String keyId, String publicKey})?> resolveVerifiedChatParticipant(
+    String incidentId,
+  ) async {
+    _ensureUsable();
+    final responseBinding = await RescueResponseRepository(
+      _database,
+      ownerId: ownerId,
+    ).verifiedResponderBindingForIncident(incidentId);
+    if (responseBinding != null) return responseBinding;
+    final origin = await RelayRepository(database: _database)
+        .lookupMessage('relay:$incidentId');
+    if (origin == null) return null;
+    final body = RelayOfferEnvelope.fromCanonicalWire(origin.wireEnvelope).body;
+    return (keyId: body.originKeyId, publicKey: body.originPublicKey);
+  }
+
   Future<int> assignPendingChatDestination(
     String sosId,
     String destinationId,
@@ -503,6 +588,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
 
   Future<void> processDue() async {
     if (!_started || _disposed || !_sessionActive) return;
+    await _hopRelay.processDue();
     _drainRequested = true;
     if (_drainFuture != null) return _drainFuture!;
     final future = _drain();
@@ -558,6 +644,13 @@ class SosBleCoordinator with WidgetsBindingObserver {
 
   Future<void> _trySend(BleOutboxData row) async {
     if (!_sessionActive || _disposed) return;
+    if (_adapterUnavailable) {
+      _log(
+        'deliveryWaiting messageId=${row.messageId} '
+        'reason=bluetooth adapter unavailable',
+      );
+      return;
+    }
     if (_sendingMessages.contains(row.messageId)) {
       return;
     }
@@ -738,16 +831,27 @@ class SosBleCoordinator with WidgetsBindingObserver {
       case 'centralState':
       case 'peripheralState':
         if (event.state == 'poweredOn') {
+          _adapterUnavailable = false;
           unawaited(_retryPresence());
         } else if (event.state == 'poweredOff' ||
             event.state == 'unauthorized' ||
             event.state == 'unsupported' ||
             event.state == 'resetting') {
+          _adapterUnavailable = true;
+          unawaited(
+            _invalidateAdapterSessions(
+              'BLE adapter state is ${event.state}; session invalidated.',
+            ),
+          );
           unawaited(_markPresenceLost());
         }
         return;
       case 'connected':
         if (deviceId != null) {
+          if (_adapterUnavailable) {
+            _log('ignoredConnectedWhileAdapterUnavailable peer=$deviceId');
+            return;
+          }
           final role = event.role ?? BleSessionRole.central;
           _connected.putIfAbsent(deviceId, () => <BleSessionRole>{}).add(role);
           _connecting.remove(deviceId);
@@ -1554,6 +1658,30 @@ class SosBleCoordinator with WidgetsBindingObserver {
           'peer=$deviceId reason=$error',
         );
       }
+    }
+  }
+
+  Future<void> _invalidateAdapterSessions(String reason) async {
+    final peers = <String>{
+      ..._connected.keys,
+      ..._connecting,
+      ..._pendingConnectionMessages.keys,
+    };
+    _connected.clear();
+    _connecting.clear();
+    _peerBindings.clear();
+    _peerChallenges.clear();
+    for (final timer in _bindingRetries.values) {
+      timer.cancel();
+    }
+    _bindingRetries.clear();
+    for (final waiter in _bindingWaiters.values) {
+      if (!waiter.isCompleted) waiter.complete();
+    }
+    _bindingWaiters.clear();
+    _assemblers.clear();
+    for (final peer in peers) {
+      await _failPendingConnections(peer, reason);
     }
   }
 

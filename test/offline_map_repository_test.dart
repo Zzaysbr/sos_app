@@ -141,6 +141,39 @@ void main() {
     expect(fetches, 0);
   });
 
+  test(
+    'rejects offline requests without a stable user-agent before fetching',
+    () async {
+      var fetches = 0;
+      final repository = OfflineMapRepository(
+        rootDirectory: root,
+        requestDelay: Duration.zero,
+        fetcher: (uri, headers, timeout) async {
+          fetches++;
+          return Uint8List.fromList([1]);
+        },
+      );
+      await repository.initialize();
+
+      await expectLater(
+        repository.downloadRegion(
+          OfflineMapDownloadRequest(
+            name: 'No identity',
+            providerKey: 'provider-test',
+            urlTemplate: 'https://maps.geoapify.com/v1/tile/osm-carto/{z}/{x}/{y}.png?apiKey=test',
+            userAgent: ' ',
+            bounds: bounds,
+            minZoom: 14,
+            maxZoom: 14,
+          ),
+          cancellation: OfflineMapCancellation(),
+        ),
+        throwsA(isA<OfflineMapException>()),
+      );
+      expect(fetches, 0);
+    },
+  );
+
   test('cancellation removes staging data and publishes no region', () async {
     final cancellation = OfflineMapCancellation();
     var fetches = 0;

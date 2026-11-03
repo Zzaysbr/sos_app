@@ -7168,6 +7168,5073 @@ class BleRelayReceiptsCompanion extends UpdateCompanion<BleRelayReceipt> {
   }
 }
 
+class $RescueInboxTable extends RescueInbox
+    with TableInfo<$RescueInboxTable, RescueInboxData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RescueInboxTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _ownerIdMeta = const VerificationMeta(
+    'ownerId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerId = GeneratedColumn<String>(
+    'owner_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _originMessageIdMeta = const VerificationMeta(
+    'originMessageId',
+  );
+  @override
+  late final GeneratedColumn<String> originMessageId = GeneratedColumn<String>(
+    'origin_message_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _incidentIdMeta = const VerificationMeta(
+    'incidentId',
+  );
+  @override
+  late final GeneratedColumn<String> incidentId = GeneratedColumn<String>(
+    'incident_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _originKeyIdMeta = const VerificationMeta(
+    'originKeyId',
+  );
+  @override
+  late final GeneratedColumn<String> originKeyId = GeneratedColumn<String>(
+    'origin_key_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _immutableDigestMeta = const VerificationMeta(
+    'immutableDigest',
+  );
+  @override
+  late final GeneratedColumn<String> immutableDigest = GeneratedColumn<String>(
+    'immutable_digest',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _emergencyTypeMeta = const VerificationMeta(
+    'emergencyType',
+  );
+  @override
+  late final GeneratedColumn<String> emergencyType = GeneratedColumn<String>(
+    'emergency_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _emergencyMessageMeta = const VerificationMeta(
+    'emergencyMessage',
+  );
+  @override
+  late final GeneratedColumn<String> emergencyMessage = GeneratedColumn<String>(
+    'emergency_message',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _includeLocationMeta = const VerificationMeta(
+    'includeLocation',
+  );
+  @override
+  late final GeneratedColumn<bool> includeLocation = GeneratedColumn<bool>(
+    'include_location',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("include_location" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _latitudeMeta = const VerificationMeta(
+    'latitude',
+  );
+  @override
+  late final GeneratedColumn<double> latitude = GeneratedColumn<double>(
+    'latitude',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _longitudeMeta = const VerificationMeta(
+    'longitude',
+  );
+  @override
+  late final GeneratedColumn<double> longitude = GeneratedColumn<double>(
+    'longitude',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _incomingHopCountMeta = const VerificationMeta(
+    'incomingHopCount',
+  );
+  @override
+  late final GeneratedColumn<int> incomingHopCount = GeneratedColumn<int>(
+    'incoming_hop_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _incomingPathMeta = const VerificationMeta(
+    'incomingPath',
+  );
+  @override
+  late final GeneratedColumn<String> incomingPath = GeneratedColumn<String>(
+    'incoming_path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _expiresAtMeta = const VerificationMeta(
+    'expiresAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> expiresAt = GeneratedColumn<DateTime>(
+    'expires_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _receivedAtMeta = const VerificationMeta(
+    'receivedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> receivedAt = GeneratedColumn<DateTime>(
+    'received_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _stateMeta = const VerificationMeta('state');
+  @override
+  late final GeneratedColumn<String> state = GeneratedColumn<String>(
+    'state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _acceptanceIdMeta = const VerificationMeta(
+    'acceptanceId',
+  );
+  @override
+  late final GeneratedColumn<String> acceptanceId = GeneratedColumn<String>(
+    'acceptance_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _acceptedAtMeta = const VerificationMeta(
+    'acceptedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> acceptedAt = GeneratedColumn<DateTime>(
+    'accepted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    ownerId,
+    originMessageId,
+    incidentId,
+    originKeyId,
+    immutableDigest,
+    emergencyType,
+    emergencyMessage,
+    includeLocation,
+    latitude,
+    longitude,
+    incomingHopCount,
+    incomingPath,
+    createdAt,
+    expiresAt,
+    receivedAt,
+    state,
+    acceptanceId,
+    acceptedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'rescue_inbox';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RescueInboxData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('owner_id')) {
+      context.handle(
+        _ownerIdMeta,
+        ownerId.isAcceptableOrUnknown(data['owner_id']!, _ownerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerIdMeta);
+    }
+    if (data.containsKey('origin_message_id')) {
+      context.handle(
+        _originMessageIdMeta,
+        originMessageId.isAcceptableOrUnknown(
+          data['origin_message_id']!,
+          _originMessageIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_originMessageIdMeta);
+    }
+    if (data.containsKey('incident_id')) {
+      context.handle(
+        _incidentIdMeta,
+        incidentId.isAcceptableOrUnknown(data['incident_id']!, _incidentIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_incidentIdMeta);
+    }
+    if (data.containsKey('origin_key_id')) {
+      context.handle(
+        _originKeyIdMeta,
+        originKeyId.isAcceptableOrUnknown(
+          data['origin_key_id']!,
+          _originKeyIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_originKeyIdMeta);
+    }
+    if (data.containsKey('immutable_digest')) {
+      context.handle(
+        _immutableDigestMeta,
+        immutableDigest.isAcceptableOrUnknown(
+          data['immutable_digest']!,
+          _immutableDigestMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_immutableDigestMeta);
+    }
+    if (data.containsKey('emergency_type')) {
+      context.handle(
+        _emergencyTypeMeta,
+        emergencyType.isAcceptableOrUnknown(
+          data['emergency_type']!,
+          _emergencyTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_emergencyTypeMeta);
+    }
+    if (data.containsKey('emergency_message')) {
+      context.handle(
+        _emergencyMessageMeta,
+        emergencyMessage.isAcceptableOrUnknown(
+          data['emergency_message']!,
+          _emergencyMessageMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_emergencyMessageMeta);
+    }
+    if (data.containsKey('include_location')) {
+      context.handle(
+        _includeLocationMeta,
+        includeLocation.isAcceptableOrUnknown(
+          data['include_location']!,
+          _includeLocationMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_includeLocationMeta);
+    }
+    if (data.containsKey('latitude')) {
+      context.handle(
+        _latitudeMeta,
+        latitude.isAcceptableOrUnknown(data['latitude']!, _latitudeMeta),
+      );
+    }
+    if (data.containsKey('longitude')) {
+      context.handle(
+        _longitudeMeta,
+        longitude.isAcceptableOrUnknown(data['longitude']!, _longitudeMeta),
+      );
+    }
+    if (data.containsKey('incoming_hop_count')) {
+      context.handle(
+        _incomingHopCountMeta,
+        incomingHopCount.isAcceptableOrUnknown(
+          data['incoming_hop_count']!,
+          _incomingHopCountMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_incomingHopCountMeta);
+    }
+    if (data.containsKey('incoming_path')) {
+      context.handle(
+        _incomingPathMeta,
+        incomingPath.isAcceptableOrUnknown(
+          data['incoming_path']!,
+          _incomingPathMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_incomingPathMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('expires_at')) {
+      context.handle(
+        _expiresAtMeta,
+        expiresAt.isAcceptableOrUnknown(data['expires_at']!, _expiresAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_expiresAtMeta);
+    }
+    if (data.containsKey('received_at')) {
+      context.handle(
+        _receivedAtMeta,
+        receivedAt.isAcceptableOrUnknown(data['received_at']!, _receivedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_receivedAtMeta);
+    }
+    if (data.containsKey('state')) {
+      context.handle(
+        _stateMeta,
+        state.isAcceptableOrUnknown(data['state']!, _stateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_stateMeta);
+    }
+    if (data.containsKey('acceptance_id')) {
+      context.handle(
+        _acceptanceIdMeta,
+        acceptanceId.isAcceptableOrUnknown(
+          data['acceptance_id']!,
+          _acceptanceIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('accepted_at')) {
+      context.handle(
+        _acceptedAtMeta,
+        acceptedAt.isAcceptableOrUnknown(data['accepted_at']!, _acceptedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {ownerId, originMessageId};
+  @override
+  RescueInboxData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RescueInboxData(
+      ownerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_id'],
+      )!,
+      originMessageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin_message_id'],
+      )!,
+      incidentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}incident_id'],
+      )!,
+      originKeyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin_key_id'],
+      )!,
+      immutableDigest: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}immutable_digest'],
+      )!,
+      emergencyType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}emergency_type'],
+      )!,
+      emergencyMessage: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}emergency_message'],
+      )!,
+      includeLocation: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}include_location'],
+      )!,
+      latitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}latitude'],
+      ),
+      longitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}longitude'],
+      ),
+      incomingHopCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}incoming_hop_count'],
+      )!,
+      incomingPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}incoming_path'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      expiresAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}expires_at'],
+      )!,
+      receivedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}received_at'],
+      )!,
+      state: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}state'],
+      )!,
+      acceptanceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}acceptance_id'],
+      ),
+      acceptedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}accepted_at'],
+      ),
+    );
+  }
+
+  @override
+  $RescueInboxTable createAlias(String alias) {
+    return $RescueInboxTable(attachedDatabase, alias);
+  }
+}
+
+class RescueInboxData extends DataClass implements Insertable<RescueInboxData> {
+  final String ownerId;
+  final String originMessageId;
+  final String incidentId;
+  final String originKeyId;
+  final String immutableDigest;
+  final String emergencyType;
+  final String emergencyMessage;
+  final bool includeLocation;
+  final double? latitude;
+  final double? longitude;
+  final int incomingHopCount;
+  final String incomingPath;
+  final DateTime createdAt;
+  final DateTime expiresAt;
+  final DateTime receivedAt;
+  final String state;
+  final String? acceptanceId;
+  final DateTime? acceptedAt;
+  const RescueInboxData({
+    required this.ownerId,
+    required this.originMessageId,
+    required this.incidentId,
+    required this.originKeyId,
+    required this.immutableDigest,
+    required this.emergencyType,
+    required this.emergencyMessage,
+    required this.includeLocation,
+    this.latitude,
+    this.longitude,
+    required this.incomingHopCount,
+    required this.incomingPath,
+    required this.createdAt,
+    required this.expiresAt,
+    required this.receivedAt,
+    required this.state,
+    this.acceptanceId,
+    this.acceptedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['owner_id'] = Variable<String>(ownerId);
+    map['origin_message_id'] = Variable<String>(originMessageId);
+    map['incident_id'] = Variable<String>(incidentId);
+    map['origin_key_id'] = Variable<String>(originKeyId);
+    map['immutable_digest'] = Variable<String>(immutableDigest);
+    map['emergency_type'] = Variable<String>(emergencyType);
+    map['emergency_message'] = Variable<String>(emergencyMessage);
+    map['include_location'] = Variable<bool>(includeLocation);
+    if (!nullToAbsent || latitude != null) {
+      map['latitude'] = Variable<double>(latitude);
+    }
+    if (!nullToAbsent || longitude != null) {
+      map['longitude'] = Variable<double>(longitude);
+    }
+    map['incoming_hop_count'] = Variable<int>(incomingHopCount);
+    map['incoming_path'] = Variable<String>(incomingPath);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['expires_at'] = Variable<DateTime>(expiresAt);
+    map['received_at'] = Variable<DateTime>(receivedAt);
+    map['state'] = Variable<String>(state);
+    if (!nullToAbsent || acceptanceId != null) {
+      map['acceptance_id'] = Variable<String>(acceptanceId);
+    }
+    if (!nullToAbsent || acceptedAt != null) {
+      map['accepted_at'] = Variable<DateTime>(acceptedAt);
+    }
+    return map;
+  }
+
+  RescueInboxCompanion toCompanion(bool nullToAbsent) {
+    return RescueInboxCompanion(
+      ownerId: Value(ownerId),
+      originMessageId: Value(originMessageId),
+      incidentId: Value(incidentId),
+      originKeyId: Value(originKeyId),
+      immutableDigest: Value(immutableDigest),
+      emergencyType: Value(emergencyType),
+      emergencyMessage: Value(emergencyMessage),
+      includeLocation: Value(includeLocation),
+      latitude: latitude == null && nullToAbsent
+          ? const Value.absent()
+          : Value(latitude),
+      longitude: longitude == null && nullToAbsent
+          ? const Value.absent()
+          : Value(longitude),
+      incomingHopCount: Value(incomingHopCount),
+      incomingPath: Value(incomingPath),
+      createdAt: Value(createdAt),
+      expiresAt: Value(expiresAt),
+      receivedAt: Value(receivedAt),
+      state: Value(state),
+      acceptanceId: acceptanceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(acceptanceId),
+      acceptedAt: acceptedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(acceptedAt),
+    );
+  }
+
+  factory RescueInboxData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RescueInboxData(
+      ownerId: serializer.fromJson<String>(json['ownerId']),
+      originMessageId: serializer.fromJson<String>(json['originMessageId']),
+      incidentId: serializer.fromJson<String>(json['incidentId']),
+      originKeyId: serializer.fromJson<String>(json['originKeyId']),
+      immutableDigest: serializer.fromJson<String>(json['immutableDigest']),
+      emergencyType: serializer.fromJson<String>(json['emergencyType']),
+      emergencyMessage: serializer.fromJson<String>(json['emergencyMessage']),
+      includeLocation: serializer.fromJson<bool>(json['includeLocation']),
+      latitude: serializer.fromJson<double?>(json['latitude']),
+      longitude: serializer.fromJson<double?>(json['longitude']),
+      incomingHopCount: serializer.fromJson<int>(json['incomingHopCount']),
+      incomingPath: serializer.fromJson<String>(json['incomingPath']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      expiresAt: serializer.fromJson<DateTime>(json['expiresAt']),
+      receivedAt: serializer.fromJson<DateTime>(json['receivedAt']),
+      state: serializer.fromJson<String>(json['state']),
+      acceptanceId: serializer.fromJson<String?>(json['acceptanceId']),
+      acceptedAt: serializer.fromJson<DateTime?>(json['acceptedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'ownerId': serializer.toJson<String>(ownerId),
+      'originMessageId': serializer.toJson<String>(originMessageId),
+      'incidentId': serializer.toJson<String>(incidentId),
+      'originKeyId': serializer.toJson<String>(originKeyId),
+      'immutableDigest': serializer.toJson<String>(immutableDigest),
+      'emergencyType': serializer.toJson<String>(emergencyType),
+      'emergencyMessage': serializer.toJson<String>(emergencyMessage),
+      'includeLocation': serializer.toJson<bool>(includeLocation),
+      'latitude': serializer.toJson<double?>(latitude),
+      'longitude': serializer.toJson<double?>(longitude),
+      'incomingHopCount': serializer.toJson<int>(incomingHopCount),
+      'incomingPath': serializer.toJson<String>(incomingPath),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'expiresAt': serializer.toJson<DateTime>(expiresAt),
+      'receivedAt': serializer.toJson<DateTime>(receivedAt),
+      'state': serializer.toJson<String>(state),
+      'acceptanceId': serializer.toJson<String?>(acceptanceId),
+      'acceptedAt': serializer.toJson<DateTime?>(acceptedAt),
+    };
+  }
+
+  RescueInboxData copyWith({
+    String? ownerId,
+    String? originMessageId,
+    String? incidentId,
+    String? originKeyId,
+    String? immutableDigest,
+    String? emergencyType,
+    String? emergencyMessage,
+    bool? includeLocation,
+    Value<double?> latitude = const Value.absent(),
+    Value<double?> longitude = const Value.absent(),
+    int? incomingHopCount,
+    String? incomingPath,
+    DateTime? createdAt,
+    DateTime? expiresAt,
+    DateTime? receivedAt,
+    String? state,
+    Value<String?> acceptanceId = const Value.absent(),
+    Value<DateTime?> acceptedAt = const Value.absent(),
+  }) => RescueInboxData(
+    ownerId: ownerId ?? this.ownerId,
+    originMessageId: originMessageId ?? this.originMessageId,
+    incidentId: incidentId ?? this.incidentId,
+    originKeyId: originKeyId ?? this.originKeyId,
+    immutableDigest: immutableDigest ?? this.immutableDigest,
+    emergencyType: emergencyType ?? this.emergencyType,
+    emergencyMessage: emergencyMessage ?? this.emergencyMessage,
+    includeLocation: includeLocation ?? this.includeLocation,
+    latitude: latitude.present ? latitude.value : this.latitude,
+    longitude: longitude.present ? longitude.value : this.longitude,
+    incomingHopCount: incomingHopCount ?? this.incomingHopCount,
+    incomingPath: incomingPath ?? this.incomingPath,
+    createdAt: createdAt ?? this.createdAt,
+    expiresAt: expiresAt ?? this.expiresAt,
+    receivedAt: receivedAt ?? this.receivedAt,
+    state: state ?? this.state,
+    acceptanceId: acceptanceId.present ? acceptanceId.value : this.acceptanceId,
+    acceptedAt: acceptedAt.present ? acceptedAt.value : this.acceptedAt,
+  );
+  RescueInboxData copyWithCompanion(RescueInboxCompanion data) {
+    return RescueInboxData(
+      ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
+      originMessageId: data.originMessageId.present
+          ? data.originMessageId.value
+          : this.originMessageId,
+      incidentId: data.incidentId.present
+          ? data.incidentId.value
+          : this.incidentId,
+      originKeyId: data.originKeyId.present
+          ? data.originKeyId.value
+          : this.originKeyId,
+      immutableDigest: data.immutableDigest.present
+          ? data.immutableDigest.value
+          : this.immutableDigest,
+      emergencyType: data.emergencyType.present
+          ? data.emergencyType.value
+          : this.emergencyType,
+      emergencyMessage: data.emergencyMessage.present
+          ? data.emergencyMessage.value
+          : this.emergencyMessage,
+      includeLocation: data.includeLocation.present
+          ? data.includeLocation.value
+          : this.includeLocation,
+      latitude: data.latitude.present ? data.latitude.value : this.latitude,
+      longitude: data.longitude.present ? data.longitude.value : this.longitude,
+      incomingHopCount: data.incomingHopCount.present
+          ? data.incomingHopCount.value
+          : this.incomingHopCount,
+      incomingPath: data.incomingPath.present
+          ? data.incomingPath.value
+          : this.incomingPath,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      expiresAt: data.expiresAt.present ? data.expiresAt.value : this.expiresAt,
+      receivedAt: data.receivedAt.present
+          ? data.receivedAt.value
+          : this.receivedAt,
+      state: data.state.present ? data.state.value : this.state,
+      acceptanceId: data.acceptanceId.present
+          ? data.acceptanceId.value
+          : this.acceptanceId,
+      acceptedAt: data.acceptedAt.present
+          ? data.acceptedAt.value
+          : this.acceptedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RescueInboxData(')
+          ..write('ownerId: $ownerId, ')
+          ..write('originMessageId: $originMessageId, ')
+          ..write('incidentId: $incidentId, ')
+          ..write('originKeyId: $originKeyId, ')
+          ..write('immutableDigest: $immutableDigest, ')
+          ..write('emergencyType: $emergencyType, ')
+          ..write('emergencyMessage: $emergencyMessage, ')
+          ..write('includeLocation: $includeLocation, ')
+          ..write('latitude: $latitude, ')
+          ..write('longitude: $longitude, ')
+          ..write('incomingHopCount: $incomingHopCount, ')
+          ..write('incomingPath: $incomingPath, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('receivedAt: $receivedAt, ')
+          ..write('state: $state, ')
+          ..write('acceptanceId: $acceptanceId, ')
+          ..write('acceptedAt: $acceptedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    ownerId,
+    originMessageId,
+    incidentId,
+    originKeyId,
+    immutableDigest,
+    emergencyType,
+    emergencyMessage,
+    includeLocation,
+    latitude,
+    longitude,
+    incomingHopCount,
+    incomingPath,
+    createdAt,
+    expiresAt,
+    receivedAt,
+    state,
+    acceptanceId,
+    acceptedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RescueInboxData &&
+          other.ownerId == this.ownerId &&
+          other.originMessageId == this.originMessageId &&
+          other.incidentId == this.incidentId &&
+          other.originKeyId == this.originKeyId &&
+          other.immutableDigest == this.immutableDigest &&
+          other.emergencyType == this.emergencyType &&
+          other.emergencyMessage == this.emergencyMessage &&
+          other.includeLocation == this.includeLocation &&
+          other.latitude == this.latitude &&
+          other.longitude == this.longitude &&
+          other.incomingHopCount == this.incomingHopCount &&
+          other.incomingPath == this.incomingPath &&
+          other.createdAt == this.createdAt &&
+          other.expiresAt == this.expiresAt &&
+          other.receivedAt == this.receivedAt &&
+          other.state == this.state &&
+          other.acceptanceId == this.acceptanceId &&
+          other.acceptedAt == this.acceptedAt);
+}
+
+class RescueInboxCompanion extends UpdateCompanion<RescueInboxData> {
+  final Value<String> ownerId;
+  final Value<String> originMessageId;
+  final Value<String> incidentId;
+  final Value<String> originKeyId;
+  final Value<String> immutableDigest;
+  final Value<String> emergencyType;
+  final Value<String> emergencyMessage;
+  final Value<bool> includeLocation;
+  final Value<double?> latitude;
+  final Value<double?> longitude;
+  final Value<int> incomingHopCount;
+  final Value<String> incomingPath;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> expiresAt;
+  final Value<DateTime> receivedAt;
+  final Value<String> state;
+  final Value<String?> acceptanceId;
+  final Value<DateTime?> acceptedAt;
+  final Value<int> rowid;
+  const RescueInboxCompanion({
+    this.ownerId = const Value.absent(),
+    this.originMessageId = const Value.absent(),
+    this.incidentId = const Value.absent(),
+    this.originKeyId = const Value.absent(),
+    this.immutableDigest = const Value.absent(),
+    this.emergencyType = const Value.absent(),
+    this.emergencyMessage = const Value.absent(),
+    this.includeLocation = const Value.absent(),
+    this.latitude = const Value.absent(),
+    this.longitude = const Value.absent(),
+    this.incomingHopCount = const Value.absent(),
+    this.incomingPath = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+    this.receivedAt = const Value.absent(),
+    this.state = const Value.absent(),
+    this.acceptanceId = const Value.absent(),
+    this.acceptedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  RescueInboxCompanion.insert({
+    required String ownerId,
+    required String originMessageId,
+    required String incidentId,
+    required String originKeyId,
+    required String immutableDigest,
+    required String emergencyType,
+    required String emergencyMessage,
+    required bool includeLocation,
+    this.latitude = const Value.absent(),
+    this.longitude = const Value.absent(),
+    required int incomingHopCount,
+    required String incomingPath,
+    required DateTime createdAt,
+    required DateTime expiresAt,
+    required DateTime receivedAt,
+    required String state,
+    this.acceptanceId = const Value.absent(),
+    this.acceptedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : ownerId = Value(ownerId),
+       originMessageId = Value(originMessageId),
+       incidentId = Value(incidentId),
+       originKeyId = Value(originKeyId),
+       immutableDigest = Value(immutableDigest),
+       emergencyType = Value(emergencyType),
+       emergencyMessage = Value(emergencyMessage),
+       includeLocation = Value(includeLocation),
+       incomingHopCount = Value(incomingHopCount),
+       incomingPath = Value(incomingPath),
+       createdAt = Value(createdAt),
+       expiresAt = Value(expiresAt),
+       receivedAt = Value(receivedAt),
+       state = Value(state);
+  static Insertable<RescueInboxData> custom({
+    Expression<String>? ownerId,
+    Expression<String>? originMessageId,
+    Expression<String>? incidentId,
+    Expression<String>? originKeyId,
+    Expression<String>? immutableDigest,
+    Expression<String>? emergencyType,
+    Expression<String>? emergencyMessage,
+    Expression<bool>? includeLocation,
+    Expression<double>? latitude,
+    Expression<double>? longitude,
+    Expression<int>? incomingHopCount,
+    Expression<String>? incomingPath,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? expiresAt,
+    Expression<DateTime>? receivedAt,
+    Expression<String>? state,
+    Expression<String>? acceptanceId,
+    Expression<DateTime>? acceptedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (ownerId != null) 'owner_id': ownerId,
+      if (originMessageId != null) 'origin_message_id': originMessageId,
+      if (incidentId != null) 'incident_id': incidentId,
+      if (originKeyId != null) 'origin_key_id': originKeyId,
+      if (immutableDigest != null) 'immutable_digest': immutableDigest,
+      if (emergencyType != null) 'emergency_type': emergencyType,
+      if (emergencyMessage != null) 'emergency_message': emergencyMessage,
+      if (includeLocation != null) 'include_location': includeLocation,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+      if (incomingHopCount != null) 'incoming_hop_count': incomingHopCount,
+      if (incomingPath != null) 'incoming_path': incomingPath,
+      if (createdAt != null) 'created_at': createdAt,
+      if (expiresAt != null) 'expires_at': expiresAt,
+      if (receivedAt != null) 'received_at': receivedAt,
+      if (state != null) 'state': state,
+      if (acceptanceId != null) 'acceptance_id': acceptanceId,
+      if (acceptedAt != null) 'accepted_at': acceptedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  RescueInboxCompanion copyWith({
+    Value<String>? ownerId,
+    Value<String>? originMessageId,
+    Value<String>? incidentId,
+    Value<String>? originKeyId,
+    Value<String>? immutableDigest,
+    Value<String>? emergencyType,
+    Value<String>? emergencyMessage,
+    Value<bool>? includeLocation,
+    Value<double?>? latitude,
+    Value<double?>? longitude,
+    Value<int>? incomingHopCount,
+    Value<String>? incomingPath,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? expiresAt,
+    Value<DateTime>? receivedAt,
+    Value<String>? state,
+    Value<String?>? acceptanceId,
+    Value<DateTime?>? acceptedAt,
+    Value<int>? rowid,
+  }) {
+    return RescueInboxCompanion(
+      ownerId: ownerId ?? this.ownerId,
+      originMessageId: originMessageId ?? this.originMessageId,
+      incidentId: incidentId ?? this.incidentId,
+      originKeyId: originKeyId ?? this.originKeyId,
+      immutableDigest: immutableDigest ?? this.immutableDigest,
+      emergencyType: emergencyType ?? this.emergencyType,
+      emergencyMessage: emergencyMessage ?? this.emergencyMessage,
+      includeLocation: includeLocation ?? this.includeLocation,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      incomingHopCount: incomingHopCount ?? this.incomingHopCount,
+      incomingPath: incomingPath ?? this.incomingPath,
+      createdAt: createdAt ?? this.createdAt,
+      expiresAt: expiresAt ?? this.expiresAt,
+      receivedAt: receivedAt ?? this.receivedAt,
+      state: state ?? this.state,
+      acceptanceId: acceptanceId ?? this.acceptanceId,
+      acceptedAt: acceptedAt ?? this.acceptedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (ownerId.present) {
+      map['owner_id'] = Variable<String>(ownerId.value);
+    }
+    if (originMessageId.present) {
+      map['origin_message_id'] = Variable<String>(originMessageId.value);
+    }
+    if (incidentId.present) {
+      map['incident_id'] = Variable<String>(incidentId.value);
+    }
+    if (originKeyId.present) {
+      map['origin_key_id'] = Variable<String>(originKeyId.value);
+    }
+    if (immutableDigest.present) {
+      map['immutable_digest'] = Variable<String>(immutableDigest.value);
+    }
+    if (emergencyType.present) {
+      map['emergency_type'] = Variable<String>(emergencyType.value);
+    }
+    if (emergencyMessage.present) {
+      map['emergency_message'] = Variable<String>(emergencyMessage.value);
+    }
+    if (includeLocation.present) {
+      map['include_location'] = Variable<bool>(includeLocation.value);
+    }
+    if (latitude.present) {
+      map['latitude'] = Variable<double>(latitude.value);
+    }
+    if (longitude.present) {
+      map['longitude'] = Variable<double>(longitude.value);
+    }
+    if (incomingHopCount.present) {
+      map['incoming_hop_count'] = Variable<int>(incomingHopCount.value);
+    }
+    if (incomingPath.present) {
+      map['incoming_path'] = Variable<String>(incomingPath.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (expiresAt.present) {
+      map['expires_at'] = Variable<DateTime>(expiresAt.value);
+    }
+    if (receivedAt.present) {
+      map['received_at'] = Variable<DateTime>(receivedAt.value);
+    }
+    if (state.present) {
+      map['state'] = Variable<String>(state.value);
+    }
+    if (acceptanceId.present) {
+      map['acceptance_id'] = Variable<String>(acceptanceId.value);
+    }
+    if (acceptedAt.present) {
+      map['accepted_at'] = Variable<DateTime>(acceptedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RescueInboxCompanion(')
+          ..write('ownerId: $ownerId, ')
+          ..write('originMessageId: $originMessageId, ')
+          ..write('incidentId: $incidentId, ')
+          ..write('originKeyId: $originKeyId, ')
+          ..write('immutableDigest: $immutableDigest, ')
+          ..write('emergencyType: $emergencyType, ')
+          ..write('emergencyMessage: $emergencyMessage, ')
+          ..write('includeLocation: $includeLocation, ')
+          ..write('latitude: $latitude, ')
+          ..write('longitude: $longitude, ')
+          ..write('incomingHopCount: $incomingHopCount, ')
+          ..write('incomingPath: $incomingPath, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('receivedAt: $receivedAt, ')
+          ..write('state: $state, ')
+          ..write('acceptanceId: $acceptanceId, ')
+          ..write('acceptedAt: $acceptedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $RescueResponseOutboxTable extends RescueResponseOutbox
+    with TableInfo<$RescueResponseOutboxTable, RescueResponseOutboxData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RescueResponseOutboxTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _ownerIdMeta = const VerificationMeta(
+    'ownerId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerId = GeneratedColumn<String>(
+    'owner_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _messageIdMeta = const VerificationMeta(
+    'messageId',
+  );
+  @override
+  late final GeneratedColumn<String> messageId = GeneratedColumn<String>(
+    'message_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _incidentIdMeta = const VerificationMeta(
+    'incidentId',
+  );
+  @override
+  late final GeneratedColumn<String> incidentId = GeneratedColumn<String>(
+    'incident_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _originMessageIdMeta = const VerificationMeta(
+    'originMessageId',
+  );
+  @override
+  late final GeneratedColumn<String> originMessageId = GeneratedColumn<String>(
+    'origin_message_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _originKeyIdMeta = const VerificationMeta(
+    'originKeyId',
+  );
+  @override
+  late final GeneratedColumn<String> originKeyId = GeneratedColumn<String>(
+    'origin_key_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _responderKeyIdMeta = const VerificationMeta(
+    'responderKeyId',
+  );
+  @override
+  late final GeneratedColumn<String> responderKeyId = GeneratedColumn<String>(
+    'responder_key_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _stateMeta = const VerificationMeta('state');
+  @override
+  late final GeneratedColumn<String> state = GeneratedColumn<String>(
+    'state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _retryCountMeta = const VerificationMeta(
+    'retryCount',
+  );
+  @override
+  late final GeneratedColumn<int> retryCount = GeneratedColumn<int>(
+    'retry_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _nextRetryAtMeta = const VerificationMeta(
+    'nextRetryAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> nextRetryAt = GeneratedColumn<DateTime>(
+    'next_retry_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _expiresAtMeta = const VerificationMeta(
+    'expiresAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> expiresAt = GeneratedColumn<DateTime>(
+    'expires_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _finalAckAtMeta = const VerificationMeta(
+    'finalAckAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> finalAckAt = GeneratedColumn<DateTime>(
+    'final_ack_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastErrorMeta = const VerificationMeta(
+    'lastError',
+  );
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+    'last_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    ownerId,
+    messageId,
+    incidentId,
+    originMessageId,
+    originKeyId,
+    responderKeyId,
+    payload,
+    state,
+    retryCount,
+    nextRetryAt,
+    expiresAt,
+    createdAt,
+    updatedAt,
+    finalAckAt,
+    lastError,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'rescue_response_outbox';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RescueResponseOutboxData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('owner_id')) {
+      context.handle(
+        _ownerIdMeta,
+        ownerId.isAcceptableOrUnknown(data['owner_id']!, _ownerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerIdMeta);
+    }
+    if (data.containsKey('message_id')) {
+      context.handle(
+        _messageIdMeta,
+        messageId.isAcceptableOrUnknown(data['message_id']!, _messageIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_messageIdMeta);
+    }
+    if (data.containsKey('incident_id')) {
+      context.handle(
+        _incidentIdMeta,
+        incidentId.isAcceptableOrUnknown(data['incident_id']!, _incidentIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_incidentIdMeta);
+    }
+    if (data.containsKey('origin_message_id')) {
+      context.handle(
+        _originMessageIdMeta,
+        originMessageId.isAcceptableOrUnknown(
+          data['origin_message_id']!,
+          _originMessageIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_originMessageIdMeta);
+    }
+    if (data.containsKey('origin_key_id')) {
+      context.handle(
+        _originKeyIdMeta,
+        originKeyId.isAcceptableOrUnknown(
+          data['origin_key_id']!,
+          _originKeyIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_originKeyIdMeta);
+    }
+    if (data.containsKey('responder_key_id')) {
+      context.handle(
+        _responderKeyIdMeta,
+        responderKeyId.isAcceptableOrUnknown(
+          data['responder_key_id']!,
+          _responderKeyIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_responderKeyIdMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    if (data.containsKey('state')) {
+      context.handle(
+        _stateMeta,
+        state.isAcceptableOrUnknown(data['state']!, _stateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_stateMeta);
+    }
+    if (data.containsKey('retry_count')) {
+      context.handle(
+        _retryCountMeta,
+        retryCount.isAcceptableOrUnknown(data['retry_count']!, _retryCountMeta),
+      );
+    }
+    if (data.containsKey('next_retry_at')) {
+      context.handle(
+        _nextRetryAtMeta,
+        nextRetryAt.isAcceptableOrUnknown(
+          data['next_retry_at']!,
+          _nextRetryAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('expires_at')) {
+      context.handle(
+        _expiresAtMeta,
+        expiresAt.isAcceptableOrUnknown(data['expires_at']!, _expiresAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_expiresAtMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('final_ack_at')) {
+      context.handle(
+        _finalAckAtMeta,
+        finalAckAt.isAcceptableOrUnknown(
+          data['final_ack_at']!,
+          _finalAckAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(
+        _lastErrorMeta,
+        lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {ownerId, messageId};
+  @override
+  RescueResponseOutboxData map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RescueResponseOutboxData(
+      ownerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_id'],
+      )!,
+      messageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}message_id'],
+      )!,
+      incidentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}incident_id'],
+      )!,
+      originMessageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin_message_id'],
+      )!,
+      originKeyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin_key_id'],
+      )!,
+      responderKeyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}responder_key_id'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      )!,
+      state: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}state'],
+      )!,
+      retryCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}retry_count'],
+      )!,
+      nextRetryAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}next_retry_at'],
+      ),
+      expiresAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}expires_at'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      finalAckAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}final_ack_at'],
+      ),
+      lastError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error'],
+      ),
+    );
+  }
+
+  @override
+  $RescueResponseOutboxTable createAlias(String alias) {
+    return $RescueResponseOutboxTable(attachedDatabase, alias);
+  }
+}
+
+class RescueResponseOutboxData extends DataClass
+    implements Insertable<RescueResponseOutboxData> {
+  final String ownerId;
+  final String messageId;
+  final String incidentId;
+  final String originMessageId;
+  final String originKeyId;
+  final String responderKeyId;
+  final String payload;
+  final String state;
+  final int retryCount;
+  final DateTime? nextRetryAt;
+  final DateTime expiresAt;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? finalAckAt;
+  final String? lastError;
+  const RescueResponseOutboxData({
+    required this.ownerId,
+    required this.messageId,
+    required this.incidentId,
+    required this.originMessageId,
+    required this.originKeyId,
+    required this.responderKeyId,
+    required this.payload,
+    required this.state,
+    required this.retryCount,
+    this.nextRetryAt,
+    required this.expiresAt,
+    required this.createdAt,
+    required this.updatedAt,
+    this.finalAckAt,
+    this.lastError,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['owner_id'] = Variable<String>(ownerId);
+    map['message_id'] = Variable<String>(messageId);
+    map['incident_id'] = Variable<String>(incidentId);
+    map['origin_message_id'] = Variable<String>(originMessageId);
+    map['origin_key_id'] = Variable<String>(originKeyId);
+    map['responder_key_id'] = Variable<String>(responderKeyId);
+    map['payload'] = Variable<String>(payload);
+    map['state'] = Variable<String>(state);
+    map['retry_count'] = Variable<int>(retryCount);
+    if (!nullToAbsent || nextRetryAt != null) {
+      map['next_retry_at'] = Variable<DateTime>(nextRetryAt);
+    }
+    map['expires_at'] = Variable<DateTime>(expiresAt);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || finalAckAt != null) {
+      map['final_ack_at'] = Variable<DateTime>(finalAckAt);
+    }
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    return map;
+  }
+
+  RescueResponseOutboxCompanion toCompanion(bool nullToAbsent) {
+    return RescueResponseOutboxCompanion(
+      ownerId: Value(ownerId),
+      messageId: Value(messageId),
+      incidentId: Value(incidentId),
+      originMessageId: Value(originMessageId),
+      originKeyId: Value(originKeyId),
+      responderKeyId: Value(responderKeyId),
+      payload: Value(payload),
+      state: Value(state),
+      retryCount: Value(retryCount),
+      nextRetryAt: nextRetryAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nextRetryAt),
+      expiresAt: Value(expiresAt),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      finalAckAt: finalAckAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(finalAckAt),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+    );
+  }
+
+  factory RescueResponseOutboxData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RescueResponseOutboxData(
+      ownerId: serializer.fromJson<String>(json['ownerId']),
+      messageId: serializer.fromJson<String>(json['messageId']),
+      incidentId: serializer.fromJson<String>(json['incidentId']),
+      originMessageId: serializer.fromJson<String>(json['originMessageId']),
+      originKeyId: serializer.fromJson<String>(json['originKeyId']),
+      responderKeyId: serializer.fromJson<String>(json['responderKeyId']),
+      payload: serializer.fromJson<String>(json['payload']),
+      state: serializer.fromJson<String>(json['state']),
+      retryCount: serializer.fromJson<int>(json['retryCount']),
+      nextRetryAt: serializer.fromJson<DateTime?>(json['nextRetryAt']),
+      expiresAt: serializer.fromJson<DateTime>(json['expiresAt']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      finalAckAt: serializer.fromJson<DateTime?>(json['finalAckAt']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'ownerId': serializer.toJson<String>(ownerId),
+      'messageId': serializer.toJson<String>(messageId),
+      'incidentId': serializer.toJson<String>(incidentId),
+      'originMessageId': serializer.toJson<String>(originMessageId),
+      'originKeyId': serializer.toJson<String>(originKeyId),
+      'responderKeyId': serializer.toJson<String>(responderKeyId),
+      'payload': serializer.toJson<String>(payload),
+      'state': serializer.toJson<String>(state),
+      'retryCount': serializer.toJson<int>(retryCount),
+      'nextRetryAt': serializer.toJson<DateTime?>(nextRetryAt),
+      'expiresAt': serializer.toJson<DateTime>(expiresAt),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'finalAckAt': serializer.toJson<DateTime?>(finalAckAt),
+      'lastError': serializer.toJson<String?>(lastError),
+    };
+  }
+
+  RescueResponseOutboxData copyWith({
+    String? ownerId,
+    String? messageId,
+    String? incidentId,
+    String? originMessageId,
+    String? originKeyId,
+    String? responderKeyId,
+    String? payload,
+    String? state,
+    int? retryCount,
+    Value<DateTime?> nextRetryAt = const Value.absent(),
+    DateTime? expiresAt,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> finalAckAt = const Value.absent(),
+    Value<String?> lastError = const Value.absent(),
+  }) => RescueResponseOutboxData(
+    ownerId: ownerId ?? this.ownerId,
+    messageId: messageId ?? this.messageId,
+    incidentId: incidentId ?? this.incidentId,
+    originMessageId: originMessageId ?? this.originMessageId,
+    originKeyId: originKeyId ?? this.originKeyId,
+    responderKeyId: responderKeyId ?? this.responderKeyId,
+    payload: payload ?? this.payload,
+    state: state ?? this.state,
+    retryCount: retryCount ?? this.retryCount,
+    nextRetryAt: nextRetryAt.present ? nextRetryAt.value : this.nextRetryAt,
+    expiresAt: expiresAt ?? this.expiresAt,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    finalAckAt: finalAckAt.present ? finalAckAt.value : this.finalAckAt,
+    lastError: lastError.present ? lastError.value : this.lastError,
+  );
+  RescueResponseOutboxData copyWithCompanion(
+    RescueResponseOutboxCompanion data,
+  ) {
+    return RescueResponseOutboxData(
+      ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
+      messageId: data.messageId.present ? data.messageId.value : this.messageId,
+      incidentId: data.incidentId.present
+          ? data.incidentId.value
+          : this.incidentId,
+      originMessageId: data.originMessageId.present
+          ? data.originMessageId.value
+          : this.originMessageId,
+      originKeyId: data.originKeyId.present
+          ? data.originKeyId.value
+          : this.originKeyId,
+      responderKeyId: data.responderKeyId.present
+          ? data.responderKeyId.value
+          : this.responderKeyId,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      state: data.state.present ? data.state.value : this.state,
+      retryCount: data.retryCount.present
+          ? data.retryCount.value
+          : this.retryCount,
+      nextRetryAt: data.nextRetryAt.present
+          ? data.nextRetryAt.value
+          : this.nextRetryAt,
+      expiresAt: data.expiresAt.present ? data.expiresAt.value : this.expiresAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      finalAckAt: data.finalAckAt.present
+          ? data.finalAckAt.value
+          : this.finalAckAt,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RescueResponseOutboxData(')
+          ..write('ownerId: $ownerId, ')
+          ..write('messageId: $messageId, ')
+          ..write('incidentId: $incidentId, ')
+          ..write('originMessageId: $originMessageId, ')
+          ..write('originKeyId: $originKeyId, ')
+          ..write('responderKeyId: $responderKeyId, ')
+          ..write('payload: $payload, ')
+          ..write('state: $state, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('nextRetryAt: $nextRetryAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('finalAckAt: $finalAckAt, ')
+          ..write('lastError: $lastError')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    ownerId,
+    messageId,
+    incidentId,
+    originMessageId,
+    originKeyId,
+    responderKeyId,
+    payload,
+    state,
+    retryCount,
+    nextRetryAt,
+    expiresAt,
+    createdAt,
+    updatedAt,
+    finalAckAt,
+    lastError,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RescueResponseOutboxData &&
+          other.ownerId == this.ownerId &&
+          other.messageId == this.messageId &&
+          other.incidentId == this.incidentId &&
+          other.originMessageId == this.originMessageId &&
+          other.originKeyId == this.originKeyId &&
+          other.responderKeyId == this.responderKeyId &&
+          other.payload == this.payload &&
+          other.state == this.state &&
+          other.retryCount == this.retryCount &&
+          other.nextRetryAt == this.nextRetryAt &&
+          other.expiresAt == this.expiresAt &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.finalAckAt == this.finalAckAt &&
+          other.lastError == this.lastError);
+}
+
+class RescueResponseOutboxCompanion
+    extends UpdateCompanion<RescueResponseOutboxData> {
+  final Value<String> ownerId;
+  final Value<String> messageId;
+  final Value<String> incidentId;
+  final Value<String> originMessageId;
+  final Value<String> originKeyId;
+  final Value<String> responderKeyId;
+  final Value<String> payload;
+  final Value<String> state;
+  final Value<int> retryCount;
+  final Value<DateTime?> nextRetryAt;
+  final Value<DateTime> expiresAt;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> finalAckAt;
+  final Value<String?> lastError;
+  final Value<int> rowid;
+  const RescueResponseOutboxCompanion({
+    this.ownerId = const Value.absent(),
+    this.messageId = const Value.absent(),
+    this.incidentId = const Value.absent(),
+    this.originMessageId = const Value.absent(),
+    this.originKeyId = const Value.absent(),
+    this.responderKeyId = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.state = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.nextRetryAt = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.finalAckAt = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  RescueResponseOutboxCompanion.insert({
+    required String ownerId,
+    required String messageId,
+    required String incidentId,
+    required String originMessageId,
+    required String originKeyId,
+    required String responderKeyId,
+    required String payload,
+    required String state,
+    this.retryCount = const Value.absent(),
+    this.nextRetryAt = const Value.absent(),
+    required DateTime expiresAt,
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.finalAckAt = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : ownerId = Value(ownerId),
+       messageId = Value(messageId),
+       incidentId = Value(incidentId),
+       originMessageId = Value(originMessageId),
+       originKeyId = Value(originKeyId),
+       responderKeyId = Value(responderKeyId),
+       payload = Value(payload),
+       state = Value(state),
+       expiresAt = Value(expiresAt),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<RescueResponseOutboxData> custom({
+    Expression<String>? ownerId,
+    Expression<String>? messageId,
+    Expression<String>? incidentId,
+    Expression<String>? originMessageId,
+    Expression<String>? originKeyId,
+    Expression<String>? responderKeyId,
+    Expression<String>? payload,
+    Expression<String>? state,
+    Expression<int>? retryCount,
+    Expression<DateTime>? nextRetryAt,
+    Expression<DateTime>? expiresAt,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? finalAckAt,
+    Expression<String>? lastError,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (ownerId != null) 'owner_id': ownerId,
+      if (messageId != null) 'message_id': messageId,
+      if (incidentId != null) 'incident_id': incidentId,
+      if (originMessageId != null) 'origin_message_id': originMessageId,
+      if (originKeyId != null) 'origin_key_id': originKeyId,
+      if (responderKeyId != null) 'responder_key_id': responderKeyId,
+      if (payload != null) 'payload': payload,
+      if (state != null) 'state': state,
+      if (retryCount != null) 'retry_count': retryCount,
+      if (nextRetryAt != null) 'next_retry_at': nextRetryAt,
+      if (expiresAt != null) 'expires_at': expiresAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (finalAckAt != null) 'final_ack_at': finalAckAt,
+      if (lastError != null) 'last_error': lastError,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  RescueResponseOutboxCompanion copyWith({
+    Value<String>? ownerId,
+    Value<String>? messageId,
+    Value<String>? incidentId,
+    Value<String>? originMessageId,
+    Value<String>? originKeyId,
+    Value<String>? responderKeyId,
+    Value<String>? payload,
+    Value<String>? state,
+    Value<int>? retryCount,
+    Value<DateTime?>? nextRetryAt,
+    Value<DateTime>? expiresAt,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? finalAckAt,
+    Value<String?>? lastError,
+    Value<int>? rowid,
+  }) {
+    return RescueResponseOutboxCompanion(
+      ownerId: ownerId ?? this.ownerId,
+      messageId: messageId ?? this.messageId,
+      incidentId: incidentId ?? this.incidentId,
+      originMessageId: originMessageId ?? this.originMessageId,
+      originKeyId: originKeyId ?? this.originKeyId,
+      responderKeyId: responderKeyId ?? this.responderKeyId,
+      payload: payload ?? this.payload,
+      state: state ?? this.state,
+      retryCount: retryCount ?? this.retryCount,
+      nextRetryAt: nextRetryAt ?? this.nextRetryAt,
+      expiresAt: expiresAt ?? this.expiresAt,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      finalAckAt: finalAckAt ?? this.finalAckAt,
+      lastError: lastError ?? this.lastError,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (ownerId.present) {
+      map['owner_id'] = Variable<String>(ownerId.value);
+    }
+    if (messageId.present) {
+      map['message_id'] = Variable<String>(messageId.value);
+    }
+    if (incidentId.present) {
+      map['incident_id'] = Variable<String>(incidentId.value);
+    }
+    if (originMessageId.present) {
+      map['origin_message_id'] = Variable<String>(originMessageId.value);
+    }
+    if (originKeyId.present) {
+      map['origin_key_id'] = Variable<String>(originKeyId.value);
+    }
+    if (responderKeyId.present) {
+      map['responder_key_id'] = Variable<String>(responderKeyId.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (state.present) {
+      map['state'] = Variable<String>(state.value);
+    }
+    if (retryCount.present) {
+      map['retry_count'] = Variable<int>(retryCount.value);
+    }
+    if (nextRetryAt.present) {
+      map['next_retry_at'] = Variable<DateTime>(nextRetryAt.value);
+    }
+    if (expiresAt.present) {
+      map['expires_at'] = Variable<DateTime>(expiresAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (finalAckAt.present) {
+      map['final_ack_at'] = Variable<DateTime>(finalAckAt.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RescueResponseOutboxCompanion(')
+          ..write('ownerId: $ownerId, ')
+          ..write('messageId: $messageId, ')
+          ..write('incidentId: $incidentId, ')
+          ..write('originMessageId: $originMessageId, ')
+          ..write('originKeyId: $originKeyId, ')
+          ..write('responderKeyId: $responderKeyId, ')
+          ..write('payload: $payload, ')
+          ..write('state: $state, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('nextRetryAt: $nextRetryAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('finalAckAt: $finalAckAt, ')
+          ..write('lastError: $lastError, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $RescueResponseInboxTable extends RescueResponseInbox
+    with TableInfo<$RescueResponseInboxTable, RescueResponseInboxData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RescueResponseInboxTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _ownerIdMeta = const VerificationMeta(
+    'ownerId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerId = GeneratedColumn<String>(
+    'owner_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _messageIdMeta = const VerificationMeta(
+    'messageId',
+  );
+  @override
+  late final GeneratedColumn<String> messageId = GeneratedColumn<String>(
+    'message_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _incidentIdMeta = const VerificationMeta(
+    'incidentId',
+  );
+  @override
+  late final GeneratedColumn<String> incidentId = GeneratedColumn<String>(
+    'incident_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _originMessageIdMeta = const VerificationMeta(
+    'originMessageId',
+  );
+  @override
+  late final GeneratedColumn<String> originMessageId = GeneratedColumn<String>(
+    'origin_message_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _responderKeyIdMeta = const VerificationMeta(
+    'responderKeyId',
+  );
+  @override
+  late final GeneratedColumn<String> responderKeyId = GeneratedColumn<String>(
+    'responder_key_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _immutableDigestMeta = const VerificationMeta(
+    'immutableDigest',
+  );
+  @override
+  late final GeneratedColumn<String> immutableDigest = GeneratedColumn<String>(
+    'immutable_digest',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _stateMeta = const VerificationMeta('state');
+  @override
+  late final GeneratedColumn<String> state = GeneratedColumn<String>(
+    'state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _receivedAtMeta = const VerificationMeta(
+    'receivedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> receivedAt = GeneratedColumn<DateTime>(
+    'received_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _processedAtMeta = const VerificationMeta(
+    'processedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> processedAt = GeneratedColumn<DateTime>(
+    'processed_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    ownerId,
+    messageId,
+    incidentId,
+    originMessageId,
+    responderKeyId,
+    immutableDigest,
+    payload,
+    state,
+    receivedAt,
+    processedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'rescue_response_inbox';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RescueResponseInboxData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('owner_id')) {
+      context.handle(
+        _ownerIdMeta,
+        ownerId.isAcceptableOrUnknown(data['owner_id']!, _ownerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerIdMeta);
+    }
+    if (data.containsKey('message_id')) {
+      context.handle(
+        _messageIdMeta,
+        messageId.isAcceptableOrUnknown(data['message_id']!, _messageIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_messageIdMeta);
+    }
+    if (data.containsKey('incident_id')) {
+      context.handle(
+        _incidentIdMeta,
+        incidentId.isAcceptableOrUnknown(data['incident_id']!, _incidentIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_incidentIdMeta);
+    }
+    if (data.containsKey('origin_message_id')) {
+      context.handle(
+        _originMessageIdMeta,
+        originMessageId.isAcceptableOrUnknown(
+          data['origin_message_id']!,
+          _originMessageIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_originMessageIdMeta);
+    }
+    if (data.containsKey('responder_key_id')) {
+      context.handle(
+        _responderKeyIdMeta,
+        responderKeyId.isAcceptableOrUnknown(
+          data['responder_key_id']!,
+          _responderKeyIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_responderKeyIdMeta);
+    }
+    if (data.containsKey('immutable_digest')) {
+      context.handle(
+        _immutableDigestMeta,
+        immutableDigest.isAcceptableOrUnknown(
+          data['immutable_digest']!,
+          _immutableDigestMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_immutableDigestMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    if (data.containsKey('state')) {
+      context.handle(
+        _stateMeta,
+        state.isAcceptableOrUnknown(data['state']!, _stateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_stateMeta);
+    }
+    if (data.containsKey('received_at')) {
+      context.handle(
+        _receivedAtMeta,
+        receivedAt.isAcceptableOrUnknown(data['received_at']!, _receivedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_receivedAtMeta);
+    }
+    if (data.containsKey('processed_at')) {
+      context.handle(
+        _processedAtMeta,
+        processedAt.isAcceptableOrUnknown(
+          data['processed_at']!,
+          _processedAtMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {ownerId, messageId};
+  @override
+  RescueResponseInboxData map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RescueResponseInboxData(
+      ownerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_id'],
+      )!,
+      messageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}message_id'],
+      )!,
+      incidentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}incident_id'],
+      )!,
+      originMessageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin_message_id'],
+      )!,
+      responderKeyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}responder_key_id'],
+      )!,
+      immutableDigest: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}immutable_digest'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      )!,
+      state: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}state'],
+      )!,
+      receivedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}received_at'],
+      )!,
+      processedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}processed_at'],
+      ),
+    );
+  }
+
+  @override
+  $RescueResponseInboxTable createAlias(String alias) {
+    return $RescueResponseInboxTable(attachedDatabase, alias);
+  }
+}
+
+class RescueResponseInboxData extends DataClass
+    implements Insertable<RescueResponseInboxData> {
+  final String ownerId;
+  final String messageId;
+  final String incidentId;
+  final String originMessageId;
+  final String responderKeyId;
+  final String immutableDigest;
+  final String payload;
+  final String state;
+  final DateTime receivedAt;
+  final DateTime? processedAt;
+  const RescueResponseInboxData({
+    required this.ownerId,
+    required this.messageId,
+    required this.incidentId,
+    required this.originMessageId,
+    required this.responderKeyId,
+    required this.immutableDigest,
+    required this.payload,
+    required this.state,
+    required this.receivedAt,
+    this.processedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['owner_id'] = Variable<String>(ownerId);
+    map['message_id'] = Variable<String>(messageId);
+    map['incident_id'] = Variable<String>(incidentId);
+    map['origin_message_id'] = Variable<String>(originMessageId);
+    map['responder_key_id'] = Variable<String>(responderKeyId);
+    map['immutable_digest'] = Variable<String>(immutableDigest);
+    map['payload'] = Variable<String>(payload);
+    map['state'] = Variable<String>(state);
+    map['received_at'] = Variable<DateTime>(receivedAt);
+    if (!nullToAbsent || processedAt != null) {
+      map['processed_at'] = Variable<DateTime>(processedAt);
+    }
+    return map;
+  }
+
+  RescueResponseInboxCompanion toCompanion(bool nullToAbsent) {
+    return RescueResponseInboxCompanion(
+      ownerId: Value(ownerId),
+      messageId: Value(messageId),
+      incidentId: Value(incidentId),
+      originMessageId: Value(originMessageId),
+      responderKeyId: Value(responderKeyId),
+      immutableDigest: Value(immutableDigest),
+      payload: Value(payload),
+      state: Value(state),
+      receivedAt: Value(receivedAt),
+      processedAt: processedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(processedAt),
+    );
+  }
+
+  factory RescueResponseInboxData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RescueResponseInboxData(
+      ownerId: serializer.fromJson<String>(json['ownerId']),
+      messageId: serializer.fromJson<String>(json['messageId']),
+      incidentId: serializer.fromJson<String>(json['incidentId']),
+      originMessageId: serializer.fromJson<String>(json['originMessageId']),
+      responderKeyId: serializer.fromJson<String>(json['responderKeyId']),
+      immutableDigest: serializer.fromJson<String>(json['immutableDigest']),
+      payload: serializer.fromJson<String>(json['payload']),
+      state: serializer.fromJson<String>(json['state']),
+      receivedAt: serializer.fromJson<DateTime>(json['receivedAt']),
+      processedAt: serializer.fromJson<DateTime?>(json['processedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'ownerId': serializer.toJson<String>(ownerId),
+      'messageId': serializer.toJson<String>(messageId),
+      'incidentId': serializer.toJson<String>(incidentId),
+      'originMessageId': serializer.toJson<String>(originMessageId),
+      'responderKeyId': serializer.toJson<String>(responderKeyId),
+      'immutableDigest': serializer.toJson<String>(immutableDigest),
+      'payload': serializer.toJson<String>(payload),
+      'state': serializer.toJson<String>(state),
+      'receivedAt': serializer.toJson<DateTime>(receivedAt),
+      'processedAt': serializer.toJson<DateTime?>(processedAt),
+    };
+  }
+
+  RescueResponseInboxData copyWith({
+    String? ownerId,
+    String? messageId,
+    String? incidentId,
+    String? originMessageId,
+    String? responderKeyId,
+    String? immutableDigest,
+    String? payload,
+    String? state,
+    DateTime? receivedAt,
+    Value<DateTime?> processedAt = const Value.absent(),
+  }) => RescueResponseInboxData(
+    ownerId: ownerId ?? this.ownerId,
+    messageId: messageId ?? this.messageId,
+    incidentId: incidentId ?? this.incidentId,
+    originMessageId: originMessageId ?? this.originMessageId,
+    responderKeyId: responderKeyId ?? this.responderKeyId,
+    immutableDigest: immutableDigest ?? this.immutableDigest,
+    payload: payload ?? this.payload,
+    state: state ?? this.state,
+    receivedAt: receivedAt ?? this.receivedAt,
+    processedAt: processedAt.present ? processedAt.value : this.processedAt,
+  );
+  RescueResponseInboxData copyWithCompanion(RescueResponseInboxCompanion data) {
+    return RescueResponseInboxData(
+      ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
+      messageId: data.messageId.present ? data.messageId.value : this.messageId,
+      incidentId: data.incidentId.present
+          ? data.incidentId.value
+          : this.incidentId,
+      originMessageId: data.originMessageId.present
+          ? data.originMessageId.value
+          : this.originMessageId,
+      responderKeyId: data.responderKeyId.present
+          ? data.responderKeyId.value
+          : this.responderKeyId,
+      immutableDigest: data.immutableDigest.present
+          ? data.immutableDigest.value
+          : this.immutableDigest,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      state: data.state.present ? data.state.value : this.state,
+      receivedAt: data.receivedAt.present
+          ? data.receivedAt.value
+          : this.receivedAt,
+      processedAt: data.processedAt.present
+          ? data.processedAt.value
+          : this.processedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RescueResponseInboxData(')
+          ..write('ownerId: $ownerId, ')
+          ..write('messageId: $messageId, ')
+          ..write('incidentId: $incidentId, ')
+          ..write('originMessageId: $originMessageId, ')
+          ..write('responderKeyId: $responderKeyId, ')
+          ..write('immutableDigest: $immutableDigest, ')
+          ..write('payload: $payload, ')
+          ..write('state: $state, ')
+          ..write('receivedAt: $receivedAt, ')
+          ..write('processedAt: $processedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    ownerId,
+    messageId,
+    incidentId,
+    originMessageId,
+    responderKeyId,
+    immutableDigest,
+    payload,
+    state,
+    receivedAt,
+    processedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RescueResponseInboxData &&
+          other.ownerId == this.ownerId &&
+          other.messageId == this.messageId &&
+          other.incidentId == this.incidentId &&
+          other.originMessageId == this.originMessageId &&
+          other.responderKeyId == this.responderKeyId &&
+          other.immutableDigest == this.immutableDigest &&
+          other.payload == this.payload &&
+          other.state == this.state &&
+          other.receivedAt == this.receivedAt &&
+          other.processedAt == this.processedAt);
+}
+
+class RescueResponseInboxCompanion
+    extends UpdateCompanion<RescueResponseInboxData> {
+  final Value<String> ownerId;
+  final Value<String> messageId;
+  final Value<String> incidentId;
+  final Value<String> originMessageId;
+  final Value<String> responderKeyId;
+  final Value<String> immutableDigest;
+  final Value<String> payload;
+  final Value<String> state;
+  final Value<DateTime> receivedAt;
+  final Value<DateTime?> processedAt;
+  final Value<int> rowid;
+  const RescueResponseInboxCompanion({
+    this.ownerId = const Value.absent(),
+    this.messageId = const Value.absent(),
+    this.incidentId = const Value.absent(),
+    this.originMessageId = const Value.absent(),
+    this.responderKeyId = const Value.absent(),
+    this.immutableDigest = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.state = const Value.absent(),
+    this.receivedAt = const Value.absent(),
+    this.processedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  RescueResponseInboxCompanion.insert({
+    required String ownerId,
+    required String messageId,
+    required String incidentId,
+    required String originMessageId,
+    required String responderKeyId,
+    required String immutableDigest,
+    required String payload,
+    required String state,
+    required DateTime receivedAt,
+    this.processedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : ownerId = Value(ownerId),
+       messageId = Value(messageId),
+       incidentId = Value(incidentId),
+       originMessageId = Value(originMessageId),
+       responderKeyId = Value(responderKeyId),
+       immutableDigest = Value(immutableDigest),
+       payload = Value(payload),
+       state = Value(state),
+       receivedAt = Value(receivedAt);
+  static Insertable<RescueResponseInboxData> custom({
+    Expression<String>? ownerId,
+    Expression<String>? messageId,
+    Expression<String>? incidentId,
+    Expression<String>? originMessageId,
+    Expression<String>? responderKeyId,
+    Expression<String>? immutableDigest,
+    Expression<String>? payload,
+    Expression<String>? state,
+    Expression<DateTime>? receivedAt,
+    Expression<DateTime>? processedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (ownerId != null) 'owner_id': ownerId,
+      if (messageId != null) 'message_id': messageId,
+      if (incidentId != null) 'incident_id': incidentId,
+      if (originMessageId != null) 'origin_message_id': originMessageId,
+      if (responderKeyId != null) 'responder_key_id': responderKeyId,
+      if (immutableDigest != null) 'immutable_digest': immutableDigest,
+      if (payload != null) 'payload': payload,
+      if (state != null) 'state': state,
+      if (receivedAt != null) 'received_at': receivedAt,
+      if (processedAt != null) 'processed_at': processedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  RescueResponseInboxCompanion copyWith({
+    Value<String>? ownerId,
+    Value<String>? messageId,
+    Value<String>? incidentId,
+    Value<String>? originMessageId,
+    Value<String>? responderKeyId,
+    Value<String>? immutableDigest,
+    Value<String>? payload,
+    Value<String>? state,
+    Value<DateTime>? receivedAt,
+    Value<DateTime?>? processedAt,
+    Value<int>? rowid,
+  }) {
+    return RescueResponseInboxCompanion(
+      ownerId: ownerId ?? this.ownerId,
+      messageId: messageId ?? this.messageId,
+      incidentId: incidentId ?? this.incidentId,
+      originMessageId: originMessageId ?? this.originMessageId,
+      responderKeyId: responderKeyId ?? this.responderKeyId,
+      immutableDigest: immutableDigest ?? this.immutableDigest,
+      payload: payload ?? this.payload,
+      state: state ?? this.state,
+      receivedAt: receivedAt ?? this.receivedAt,
+      processedAt: processedAt ?? this.processedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (ownerId.present) {
+      map['owner_id'] = Variable<String>(ownerId.value);
+    }
+    if (messageId.present) {
+      map['message_id'] = Variable<String>(messageId.value);
+    }
+    if (incidentId.present) {
+      map['incident_id'] = Variable<String>(incidentId.value);
+    }
+    if (originMessageId.present) {
+      map['origin_message_id'] = Variable<String>(originMessageId.value);
+    }
+    if (responderKeyId.present) {
+      map['responder_key_id'] = Variable<String>(responderKeyId.value);
+    }
+    if (immutableDigest.present) {
+      map['immutable_digest'] = Variable<String>(immutableDigest.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (state.present) {
+      map['state'] = Variable<String>(state.value);
+    }
+    if (receivedAt.present) {
+      map['received_at'] = Variable<DateTime>(receivedAt.value);
+    }
+    if (processedAt.present) {
+      map['processed_at'] = Variable<DateTime>(processedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RescueResponseInboxCompanion(')
+          ..write('ownerId: $ownerId, ')
+          ..write('messageId: $messageId, ')
+          ..write('incidentId: $incidentId, ')
+          ..write('originMessageId: $originMessageId, ')
+          ..write('responderKeyId: $responderKeyId, ')
+          ..write('immutableDigest: $immutableDigest, ')
+          ..write('payload: $payload, ')
+          ..write('state: $state, ')
+          ..write('receivedAt: $receivedAt, ')
+          ..write('processedAt: $processedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $RescueResponseJobsTable extends RescueResponseJobs
+    with TableInfo<$RescueResponseJobsTable, RescueResponseJob> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RescueResponseJobsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _ownerIdMeta = const VerificationMeta(
+    'ownerId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerId = GeneratedColumn<String>(
+    'owner_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _responseMessageIdMeta = const VerificationMeta(
+    'responseMessageId',
+  );
+  @override
+  late final GeneratedColumn<String> responseMessageId =
+      GeneratedColumn<String>(
+        'response_message_id',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _nextHopKeyIdMeta = const VerificationMeta(
+    'nextHopKeyId',
+  );
+  @override
+  late final GeneratedColumn<String> nextHopKeyId = GeneratedColumn<String>(
+    'next_hop_key_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nextHopDeviceIdMeta = const VerificationMeta(
+    'nextHopDeviceId',
+  );
+  @override
+  late final GeneratedColumn<String> nextHopDeviceId = GeneratedColumn<String>(
+    'next_hop_device_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sessionBindingMeta = const VerificationMeta(
+    'sessionBinding',
+  );
+  @override
+  late final GeneratedColumn<String> sessionBinding = GeneratedColumn<String>(
+    'session_binding',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _stateMeta = const VerificationMeta('state');
+  @override
+  late final GeneratedColumn<String> state = GeneratedColumn<String>(
+    'state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _retryCountMeta = const VerificationMeta(
+    'retryCount',
+  );
+  @override
+  late final GeneratedColumn<int> retryCount = GeneratedColumn<int>(
+    'retry_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _nextRetryAtMeta = const VerificationMeta(
+    'nextRetryAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> nextRetryAt = GeneratedColumn<DateTime>(
+    'next_retry_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastAttemptAtMeta = const VerificationMeta(
+    'lastAttemptAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastAttemptAt =
+      GeneratedColumn<DateTime>(
+        'last_attempt_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastErrorMeta = const VerificationMeta(
+    'lastError',
+  );
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+    'last_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    ownerId,
+    responseMessageId,
+    nextHopKeyId,
+    nextHopDeviceId,
+    sessionBinding,
+    state,
+    retryCount,
+    nextRetryAt,
+    lastAttemptAt,
+    createdAt,
+    updatedAt,
+    lastError,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'rescue_response_jobs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RescueResponseJob> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('owner_id')) {
+      context.handle(
+        _ownerIdMeta,
+        ownerId.isAcceptableOrUnknown(data['owner_id']!, _ownerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerIdMeta);
+    }
+    if (data.containsKey('response_message_id')) {
+      context.handle(
+        _responseMessageIdMeta,
+        responseMessageId.isAcceptableOrUnknown(
+          data['response_message_id']!,
+          _responseMessageIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_responseMessageIdMeta);
+    }
+    if (data.containsKey('next_hop_key_id')) {
+      context.handle(
+        _nextHopKeyIdMeta,
+        nextHopKeyId.isAcceptableOrUnknown(
+          data['next_hop_key_id']!,
+          _nextHopKeyIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_nextHopKeyIdMeta);
+    }
+    if (data.containsKey('next_hop_device_id')) {
+      context.handle(
+        _nextHopDeviceIdMeta,
+        nextHopDeviceId.isAcceptableOrUnknown(
+          data['next_hop_device_id']!,
+          _nextHopDeviceIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_nextHopDeviceIdMeta);
+    }
+    if (data.containsKey('session_binding')) {
+      context.handle(
+        _sessionBindingMeta,
+        sessionBinding.isAcceptableOrUnknown(
+          data['session_binding']!,
+          _sessionBindingMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_sessionBindingMeta);
+    }
+    if (data.containsKey('state')) {
+      context.handle(
+        _stateMeta,
+        state.isAcceptableOrUnknown(data['state']!, _stateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_stateMeta);
+    }
+    if (data.containsKey('retry_count')) {
+      context.handle(
+        _retryCountMeta,
+        retryCount.isAcceptableOrUnknown(data['retry_count']!, _retryCountMeta),
+      );
+    }
+    if (data.containsKey('next_retry_at')) {
+      context.handle(
+        _nextRetryAtMeta,
+        nextRetryAt.isAcceptableOrUnknown(
+          data['next_retry_at']!,
+          _nextRetryAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_attempt_at')) {
+      context.handle(
+        _lastAttemptAtMeta,
+        lastAttemptAt.isAcceptableOrUnknown(
+          data['last_attempt_at']!,
+          _lastAttemptAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(
+        _lastErrorMeta,
+        lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {
+    ownerId,
+    responseMessageId,
+    nextHopKeyId,
+  };
+  @override
+  RescueResponseJob map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RescueResponseJob(
+      ownerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_id'],
+      )!,
+      responseMessageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}response_message_id'],
+      )!,
+      nextHopKeyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}next_hop_key_id'],
+      )!,
+      nextHopDeviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}next_hop_device_id'],
+      )!,
+      sessionBinding: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}session_binding'],
+      )!,
+      state: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}state'],
+      )!,
+      retryCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}retry_count'],
+      )!,
+      nextRetryAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}next_retry_at'],
+      ),
+      lastAttemptAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_attempt_at'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      lastError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error'],
+      ),
+    );
+  }
+
+  @override
+  $RescueResponseJobsTable createAlias(String alias) {
+    return $RescueResponseJobsTable(attachedDatabase, alias);
+  }
+}
+
+class RescueResponseJob extends DataClass
+    implements Insertable<RescueResponseJob> {
+  final String ownerId;
+  final String responseMessageId;
+  final String nextHopKeyId;
+  final String nextHopDeviceId;
+  final String sessionBinding;
+  final String state;
+  final int retryCount;
+  final DateTime? nextRetryAt;
+  final DateTime? lastAttemptAt;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final String? lastError;
+  const RescueResponseJob({
+    required this.ownerId,
+    required this.responseMessageId,
+    required this.nextHopKeyId,
+    required this.nextHopDeviceId,
+    required this.sessionBinding,
+    required this.state,
+    required this.retryCount,
+    this.nextRetryAt,
+    this.lastAttemptAt,
+    required this.createdAt,
+    required this.updatedAt,
+    this.lastError,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['owner_id'] = Variable<String>(ownerId);
+    map['response_message_id'] = Variable<String>(responseMessageId);
+    map['next_hop_key_id'] = Variable<String>(nextHopKeyId);
+    map['next_hop_device_id'] = Variable<String>(nextHopDeviceId);
+    map['session_binding'] = Variable<String>(sessionBinding);
+    map['state'] = Variable<String>(state);
+    map['retry_count'] = Variable<int>(retryCount);
+    if (!nullToAbsent || nextRetryAt != null) {
+      map['next_retry_at'] = Variable<DateTime>(nextRetryAt);
+    }
+    if (!nullToAbsent || lastAttemptAt != null) {
+      map['last_attempt_at'] = Variable<DateTime>(lastAttemptAt);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    return map;
+  }
+
+  RescueResponseJobsCompanion toCompanion(bool nullToAbsent) {
+    return RescueResponseJobsCompanion(
+      ownerId: Value(ownerId),
+      responseMessageId: Value(responseMessageId),
+      nextHopKeyId: Value(nextHopKeyId),
+      nextHopDeviceId: Value(nextHopDeviceId),
+      sessionBinding: Value(sessionBinding),
+      state: Value(state),
+      retryCount: Value(retryCount),
+      nextRetryAt: nextRetryAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nextRetryAt),
+      lastAttemptAt: lastAttemptAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastAttemptAt),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+    );
+  }
+
+  factory RescueResponseJob.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RescueResponseJob(
+      ownerId: serializer.fromJson<String>(json['ownerId']),
+      responseMessageId: serializer.fromJson<String>(json['responseMessageId']),
+      nextHopKeyId: serializer.fromJson<String>(json['nextHopKeyId']),
+      nextHopDeviceId: serializer.fromJson<String>(json['nextHopDeviceId']),
+      sessionBinding: serializer.fromJson<String>(json['sessionBinding']),
+      state: serializer.fromJson<String>(json['state']),
+      retryCount: serializer.fromJson<int>(json['retryCount']),
+      nextRetryAt: serializer.fromJson<DateTime?>(json['nextRetryAt']),
+      lastAttemptAt: serializer.fromJson<DateTime?>(json['lastAttemptAt']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'ownerId': serializer.toJson<String>(ownerId),
+      'responseMessageId': serializer.toJson<String>(responseMessageId),
+      'nextHopKeyId': serializer.toJson<String>(nextHopKeyId),
+      'nextHopDeviceId': serializer.toJson<String>(nextHopDeviceId),
+      'sessionBinding': serializer.toJson<String>(sessionBinding),
+      'state': serializer.toJson<String>(state),
+      'retryCount': serializer.toJson<int>(retryCount),
+      'nextRetryAt': serializer.toJson<DateTime?>(nextRetryAt),
+      'lastAttemptAt': serializer.toJson<DateTime?>(lastAttemptAt),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'lastError': serializer.toJson<String?>(lastError),
+    };
+  }
+
+  RescueResponseJob copyWith({
+    String? ownerId,
+    String? responseMessageId,
+    String? nextHopKeyId,
+    String? nextHopDeviceId,
+    String? sessionBinding,
+    String? state,
+    int? retryCount,
+    Value<DateTime?> nextRetryAt = const Value.absent(),
+    Value<DateTime?> lastAttemptAt = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<String?> lastError = const Value.absent(),
+  }) => RescueResponseJob(
+    ownerId: ownerId ?? this.ownerId,
+    responseMessageId: responseMessageId ?? this.responseMessageId,
+    nextHopKeyId: nextHopKeyId ?? this.nextHopKeyId,
+    nextHopDeviceId: nextHopDeviceId ?? this.nextHopDeviceId,
+    sessionBinding: sessionBinding ?? this.sessionBinding,
+    state: state ?? this.state,
+    retryCount: retryCount ?? this.retryCount,
+    nextRetryAt: nextRetryAt.present ? nextRetryAt.value : this.nextRetryAt,
+    lastAttemptAt: lastAttemptAt.present
+        ? lastAttemptAt.value
+        : this.lastAttemptAt,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    lastError: lastError.present ? lastError.value : this.lastError,
+  );
+  RescueResponseJob copyWithCompanion(RescueResponseJobsCompanion data) {
+    return RescueResponseJob(
+      ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
+      responseMessageId: data.responseMessageId.present
+          ? data.responseMessageId.value
+          : this.responseMessageId,
+      nextHopKeyId: data.nextHopKeyId.present
+          ? data.nextHopKeyId.value
+          : this.nextHopKeyId,
+      nextHopDeviceId: data.nextHopDeviceId.present
+          ? data.nextHopDeviceId.value
+          : this.nextHopDeviceId,
+      sessionBinding: data.sessionBinding.present
+          ? data.sessionBinding.value
+          : this.sessionBinding,
+      state: data.state.present ? data.state.value : this.state,
+      retryCount: data.retryCount.present
+          ? data.retryCount.value
+          : this.retryCount,
+      nextRetryAt: data.nextRetryAt.present
+          ? data.nextRetryAt.value
+          : this.nextRetryAt,
+      lastAttemptAt: data.lastAttemptAt.present
+          ? data.lastAttemptAt.value
+          : this.lastAttemptAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RescueResponseJob(')
+          ..write('ownerId: $ownerId, ')
+          ..write('responseMessageId: $responseMessageId, ')
+          ..write('nextHopKeyId: $nextHopKeyId, ')
+          ..write('nextHopDeviceId: $nextHopDeviceId, ')
+          ..write('sessionBinding: $sessionBinding, ')
+          ..write('state: $state, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('nextRetryAt: $nextRetryAt, ')
+          ..write('lastAttemptAt: $lastAttemptAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('lastError: $lastError')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    ownerId,
+    responseMessageId,
+    nextHopKeyId,
+    nextHopDeviceId,
+    sessionBinding,
+    state,
+    retryCount,
+    nextRetryAt,
+    lastAttemptAt,
+    createdAt,
+    updatedAt,
+    lastError,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RescueResponseJob &&
+          other.ownerId == this.ownerId &&
+          other.responseMessageId == this.responseMessageId &&
+          other.nextHopKeyId == this.nextHopKeyId &&
+          other.nextHopDeviceId == this.nextHopDeviceId &&
+          other.sessionBinding == this.sessionBinding &&
+          other.state == this.state &&
+          other.retryCount == this.retryCount &&
+          other.nextRetryAt == this.nextRetryAt &&
+          other.lastAttemptAt == this.lastAttemptAt &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.lastError == this.lastError);
+}
+
+class RescueResponseJobsCompanion extends UpdateCompanion<RescueResponseJob> {
+  final Value<String> ownerId;
+  final Value<String> responseMessageId;
+  final Value<String> nextHopKeyId;
+  final Value<String> nextHopDeviceId;
+  final Value<String> sessionBinding;
+  final Value<String> state;
+  final Value<int> retryCount;
+  final Value<DateTime?> nextRetryAt;
+  final Value<DateTime?> lastAttemptAt;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<String?> lastError;
+  final Value<int> rowid;
+  const RescueResponseJobsCompanion({
+    this.ownerId = const Value.absent(),
+    this.responseMessageId = const Value.absent(),
+    this.nextHopKeyId = const Value.absent(),
+    this.nextHopDeviceId = const Value.absent(),
+    this.sessionBinding = const Value.absent(),
+    this.state = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.nextRetryAt = const Value.absent(),
+    this.lastAttemptAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  RescueResponseJobsCompanion.insert({
+    required String ownerId,
+    required String responseMessageId,
+    required String nextHopKeyId,
+    required String nextHopDeviceId,
+    required String sessionBinding,
+    required String state,
+    this.retryCount = const Value.absent(),
+    this.nextRetryAt = const Value.absent(),
+    this.lastAttemptAt = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.lastError = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : ownerId = Value(ownerId),
+       responseMessageId = Value(responseMessageId),
+       nextHopKeyId = Value(nextHopKeyId),
+       nextHopDeviceId = Value(nextHopDeviceId),
+       sessionBinding = Value(sessionBinding),
+       state = Value(state),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<RescueResponseJob> custom({
+    Expression<String>? ownerId,
+    Expression<String>? responseMessageId,
+    Expression<String>? nextHopKeyId,
+    Expression<String>? nextHopDeviceId,
+    Expression<String>? sessionBinding,
+    Expression<String>? state,
+    Expression<int>? retryCount,
+    Expression<DateTime>? nextRetryAt,
+    Expression<DateTime>? lastAttemptAt,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<String>? lastError,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (ownerId != null) 'owner_id': ownerId,
+      if (responseMessageId != null) 'response_message_id': responseMessageId,
+      if (nextHopKeyId != null) 'next_hop_key_id': nextHopKeyId,
+      if (nextHopDeviceId != null) 'next_hop_device_id': nextHopDeviceId,
+      if (sessionBinding != null) 'session_binding': sessionBinding,
+      if (state != null) 'state': state,
+      if (retryCount != null) 'retry_count': retryCount,
+      if (nextRetryAt != null) 'next_retry_at': nextRetryAt,
+      if (lastAttemptAt != null) 'last_attempt_at': lastAttemptAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (lastError != null) 'last_error': lastError,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  RescueResponseJobsCompanion copyWith({
+    Value<String>? ownerId,
+    Value<String>? responseMessageId,
+    Value<String>? nextHopKeyId,
+    Value<String>? nextHopDeviceId,
+    Value<String>? sessionBinding,
+    Value<String>? state,
+    Value<int>? retryCount,
+    Value<DateTime?>? nextRetryAt,
+    Value<DateTime?>? lastAttemptAt,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<String?>? lastError,
+    Value<int>? rowid,
+  }) {
+    return RescueResponseJobsCompanion(
+      ownerId: ownerId ?? this.ownerId,
+      responseMessageId: responseMessageId ?? this.responseMessageId,
+      nextHopKeyId: nextHopKeyId ?? this.nextHopKeyId,
+      nextHopDeviceId: nextHopDeviceId ?? this.nextHopDeviceId,
+      sessionBinding: sessionBinding ?? this.sessionBinding,
+      state: state ?? this.state,
+      retryCount: retryCount ?? this.retryCount,
+      nextRetryAt: nextRetryAt ?? this.nextRetryAt,
+      lastAttemptAt: lastAttemptAt ?? this.lastAttemptAt,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      lastError: lastError ?? this.lastError,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (ownerId.present) {
+      map['owner_id'] = Variable<String>(ownerId.value);
+    }
+    if (responseMessageId.present) {
+      map['response_message_id'] = Variable<String>(responseMessageId.value);
+    }
+    if (nextHopKeyId.present) {
+      map['next_hop_key_id'] = Variable<String>(nextHopKeyId.value);
+    }
+    if (nextHopDeviceId.present) {
+      map['next_hop_device_id'] = Variable<String>(nextHopDeviceId.value);
+    }
+    if (sessionBinding.present) {
+      map['session_binding'] = Variable<String>(sessionBinding.value);
+    }
+    if (state.present) {
+      map['state'] = Variable<String>(state.value);
+    }
+    if (retryCount.present) {
+      map['retry_count'] = Variable<int>(retryCount.value);
+    }
+    if (nextRetryAt.present) {
+      map['next_retry_at'] = Variable<DateTime>(nextRetryAt.value);
+    }
+    if (lastAttemptAt.present) {
+      map['last_attempt_at'] = Variable<DateTime>(lastAttemptAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RescueResponseJobsCompanion(')
+          ..write('ownerId: $ownerId, ')
+          ..write('responseMessageId: $responseMessageId, ')
+          ..write('nextHopKeyId: $nextHopKeyId, ')
+          ..write('nextHopDeviceId: $nextHopDeviceId, ')
+          ..write('sessionBinding: $sessionBinding, ')
+          ..write('state: $state, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('nextRetryAt: $nextRetryAt, ')
+          ..write('lastAttemptAt: $lastAttemptAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('lastError: $lastError, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $RescueResponseReplayTable extends RescueResponseReplay
+    with TableInfo<$RescueResponseReplayTable, RescueResponseReplayData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RescueResponseReplayTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _ownerIdMeta = const VerificationMeta(
+    'ownerId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerId = GeneratedColumn<String>(
+    'owner_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _messageIdMeta = const VerificationMeta(
+    'messageId',
+  );
+  @override
+  late final GeneratedColumn<String> messageId = GeneratedColumn<String>(
+    'message_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _immutableDigestMeta = const VerificationMeta(
+    'immutableDigest',
+  );
+  @override
+  late final GeneratedColumn<String> immutableDigest = GeneratedColumn<String>(
+    'immutable_digest',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _firstSeenAtMeta = const VerificationMeta(
+    'firstSeenAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> firstSeenAt = GeneratedColumn<DateTime>(
+    'first_seen_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _expiresAtMeta = const VerificationMeta(
+    'expiresAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> expiresAt = GeneratedColumn<DateTime>(
+    'expires_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    ownerId,
+    messageId,
+    immutableDigest,
+    firstSeenAt,
+    expiresAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'rescue_response_replay';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RescueResponseReplayData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('owner_id')) {
+      context.handle(
+        _ownerIdMeta,
+        ownerId.isAcceptableOrUnknown(data['owner_id']!, _ownerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerIdMeta);
+    }
+    if (data.containsKey('message_id')) {
+      context.handle(
+        _messageIdMeta,
+        messageId.isAcceptableOrUnknown(data['message_id']!, _messageIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_messageIdMeta);
+    }
+    if (data.containsKey('immutable_digest')) {
+      context.handle(
+        _immutableDigestMeta,
+        immutableDigest.isAcceptableOrUnknown(
+          data['immutable_digest']!,
+          _immutableDigestMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_immutableDigestMeta);
+    }
+    if (data.containsKey('first_seen_at')) {
+      context.handle(
+        _firstSeenAtMeta,
+        firstSeenAt.isAcceptableOrUnknown(
+          data['first_seen_at']!,
+          _firstSeenAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_firstSeenAtMeta);
+    }
+    if (data.containsKey('expires_at')) {
+      context.handle(
+        _expiresAtMeta,
+        expiresAt.isAcceptableOrUnknown(data['expires_at']!, _expiresAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_expiresAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {ownerId, messageId};
+  @override
+  RescueResponseReplayData map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RescueResponseReplayData(
+      ownerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_id'],
+      )!,
+      messageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}message_id'],
+      )!,
+      immutableDigest: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}immutable_digest'],
+      )!,
+      firstSeenAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}first_seen_at'],
+      )!,
+      expiresAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}expires_at'],
+      )!,
+    );
+  }
+
+  @override
+  $RescueResponseReplayTable createAlias(String alias) {
+    return $RescueResponseReplayTable(attachedDatabase, alias);
+  }
+}
+
+class RescueResponseReplayData extends DataClass
+    implements Insertable<RescueResponseReplayData> {
+  final String ownerId;
+  final String messageId;
+  final String immutableDigest;
+  final DateTime firstSeenAt;
+  final DateTime expiresAt;
+  const RescueResponseReplayData({
+    required this.ownerId,
+    required this.messageId,
+    required this.immutableDigest,
+    required this.firstSeenAt,
+    required this.expiresAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['owner_id'] = Variable<String>(ownerId);
+    map['message_id'] = Variable<String>(messageId);
+    map['immutable_digest'] = Variable<String>(immutableDigest);
+    map['first_seen_at'] = Variable<DateTime>(firstSeenAt);
+    map['expires_at'] = Variable<DateTime>(expiresAt);
+    return map;
+  }
+
+  RescueResponseReplayCompanion toCompanion(bool nullToAbsent) {
+    return RescueResponseReplayCompanion(
+      ownerId: Value(ownerId),
+      messageId: Value(messageId),
+      immutableDigest: Value(immutableDigest),
+      firstSeenAt: Value(firstSeenAt),
+      expiresAt: Value(expiresAt),
+    );
+  }
+
+  factory RescueResponseReplayData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RescueResponseReplayData(
+      ownerId: serializer.fromJson<String>(json['ownerId']),
+      messageId: serializer.fromJson<String>(json['messageId']),
+      immutableDigest: serializer.fromJson<String>(json['immutableDigest']),
+      firstSeenAt: serializer.fromJson<DateTime>(json['firstSeenAt']),
+      expiresAt: serializer.fromJson<DateTime>(json['expiresAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'ownerId': serializer.toJson<String>(ownerId),
+      'messageId': serializer.toJson<String>(messageId),
+      'immutableDigest': serializer.toJson<String>(immutableDigest),
+      'firstSeenAt': serializer.toJson<DateTime>(firstSeenAt),
+      'expiresAt': serializer.toJson<DateTime>(expiresAt),
+    };
+  }
+
+  RescueResponseReplayData copyWith({
+    String? ownerId,
+    String? messageId,
+    String? immutableDigest,
+    DateTime? firstSeenAt,
+    DateTime? expiresAt,
+  }) => RescueResponseReplayData(
+    ownerId: ownerId ?? this.ownerId,
+    messageId: messageId ?? this.messageId,
+    immutableDigest: immutableDigest ?? this.immutableDigest,
+    firstSeenAt: firstSeenAt ?? this.firstSeenAt,
+    expiresAt: expiresAt ?? this.expiresAt,
+  );
+  RescueResponseReplayData copyWithCompanion(
+    RescueResponseReplayCompanion data,
+  ) {
+    return RescueResponseReplayData(
+      ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
+      messageId: data.messageId.present ? data.messageId.value : this.messageId,
+      immutableDigest: data.immutableDigest.present
+          ? data.immutableDigest.value
+          : this.immutableDigest,
+      firstSeenAt: data.firstSeenAt.present
+          ? data.firstSeenAt.value
+          : this.firstSeenAt,
+      expiresAt: data.expiresAt.present ? data.expiresAt.value : this.expiresAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RescueResponseReplayData(')
+          ..write('ownerId: $ownerId, ')
+          ..write('messageId: $messageId, ')
+          ..write('immutableDigest: $immutableDigest, ')
+          ..write('firstSeenAt: $firstSeenAt, ')
+          ..write('expiresAt: $expiresAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(ownerId, messageId, immutableDigest, firstSeenAt, expiresAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RescueResponseReplayData &&
+          other.ownerId == this.ownerId &&
+          other.messageId == this.messageId &&
+          other.immutableDigest == this.immutableDigest &&
+          other.firstSeenAt == this.firstSeenAt &&
+          other.expiresAt == this.expiresAt);
+}
+
+class RescueResponseReplayCompanion
+    extends UpdateCompanion<RescueResponseReplayData> {
+  final Value<String> ownerId;
+  final Value<String> messageId;
+  final Value<String> immutableDigest;
+  final Value<DateTime> firstSeenAt;
+  final Value<DateTime> expiresAt;
+  final Value<int> rowid;
+  const RescueResponseReplayCompanion({
+    this.ownerId = const Value.absent(),
+    this.messageId = const Value.absent(),
+    this.immutableDigest = const Value.absent(),
+    this.firstSeenAt = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  RescueResponseReplayCompanion.insert({
+    required String ownerId,
+    required String messageId,
+    required String immutableDigest,
+    required DateTime firstSeenAt,
+    required DateTime expiresAt,
+    this.rowid = const Value.absent(),
+  }) : ownerId = Value(ownerId),
+       messageId = Value(messageId),
+       immutableDigest = Value(immutableDigest),
+       firstSeenAt = Value(firstSeenAt),
+       expiresAt = Value(expiresAt);
+  static Insertable<RescueResponseReplayData> custom({
+    Expression<String>? ownerId,
+    Expression<String>? messageId,
+    Expression<String>? immutableDigest,
+    Expression<DateTime>? firstSeenAt,
+    Expression<DateTime>? expiresAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (ownerId != null) 'owner_id': ownerId,
+      if (messageId != null) 'message_id': messageId,
+      if (immutableDigest != null) 'immutable_digest': immutableDigest,
+      if (firstSeenAt != null) 'first_seen_at': firstSeenAt,
+      if (expiresAt != null) 'expires_at': expiresAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  RescueResponseReplayCompanion copyWith({
+    Value<String>? ownerId,
+    Value<String>? messageId,
+    Value<String>? immutableDigest,
+    Value<DateTime>? firstSeenAt,
+    Value<DateTime>? expiresAt,
+    Value<int>? rowid,
+  }) {
+    return RescueResponseReplayCompanion(
+      ownerId: ownerId ?? this.ownerId,
+      messageId: messageId ?? this.messageId,
+      immutableDigest: immutableDigest ?? this.immutableDigest,
+      firstSeenAt: firstSeenAt ?? this.firstSeenAt,
+      expiresAt: expiresAt ?? this.expiresAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (ownerId.present) {
+      map['owner_id'] = Variable<String>(ownerId.value);
+    }
+    if (messageId.present) {
+      map['message_id'] = Variable<String>(messageId.value);
+    }
+    if (immutableDigest.present) {
+      map['immutable_digest'] = Variable<String>(immutableDigest.value);
+    }
+    if (firstSeenAt.present) {
+      map['first_seen_at'] = Variable<DateTime>(firstSeenAt.value);
+    }
+    if (expiresAt.present) {
+      map['expires_at'] = Variable<DateTime>(expiresAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RescueResponseReplayCompanion(')
+          ..write('ownerId: $ownerId, ')
+          ..write('messageId: $messageId, ')
+          ..write('immutableDigest: $immutableDigest, ')
+          ..write('firstSeenAt: $firstSeenAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ChatRelayOutboxTable extends ChatRelayOutbox
+    with TableInfo<$ChatRelayOutboxTable, ChatRelayOutboxData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ChatRelayOutboxTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _ownerIdMeta = const VerificationMeta(
+    'ownerId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerId = GeneratedColumn<String>(
+    'owner_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _messageIdMeta = const VerificationMeta(
+    'messageId',
+  );
+  @override
+  late final GeneratedColumn<String> messageId = GeneratedColumn<String>(
+    'message_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _incidentIdMeta = const VerificationMeta(
+    'incidentId',
+  );
+  @override
+  late final GeneratedColumn<String> incidentId = GeneratedColumn<String>(
+    'incident_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _senderKeyIdMeta = const VerificationMeta(
+    'senderKeyId',
+  );
+  @override
+  late final GeneratedColumn<String> senderKeyId = GeneratedColumn<String>(
+    'sender_key_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _recipientKeyIdMeta = const VerificationMeta(
+    'recipientKeyId',
+  );
+  @override
+  late final GeneratedColumn<String> recipientKeyId = GeneratedColumn<String>(
+    'recipient_key_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _stateMeta = const VerificationMeta('state');
+  @override
+  late final GeneratedColumn<String> state = GeneratedColumn<String>(
+    'state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _hopCountMeta = const VerificationMeta(
+    'hopCount',
+  );
+  @override
+  late final GeneratedColumn<int> hopCount = GeneratedColumn<int>(
+    'hop_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _retryCountMeta = const VerificationMeta(
+    'retryCount',
+  );
+  @override
+  late final GeneratedColumn<int> retryCount = GeneratedColumn<int>(
+    'retry_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _nextRetryAtMeta = const VerificationMeta(
+    'nextRetryAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> nextRetryAt = GeneratedColumn<DateTime>(
+    'next_retry_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _expiresAtMeta = const VerificationMeta(
+    'expiresAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> expiresAt = GeneratedColumn<DateTime>(
+    'expires_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastErrorMeta = const VerificationMeta(
+    'lastError',
+  );
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+    'last_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    ownerId,
+    messageId,
+    incidentId,
+    senderKeyId,
+    recipientKeyId,
+    payload,
+    state,
+    hopCount,
+    retryCount,
+    nextRetryAt,
+    expiresAt,
+    createdAt,
+    updatedAt,
+    lastError,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'chat_relay_outbox';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ChatRelayOutboxData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('owner_id')) {
+      context.handle(
+        _ownerIdMeta,
+        ownerId.isAcceptableOrUnknown(data['owner_id']!, _ownerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerIdMeta);
+    }
+    if (data.containsKey('message_id')) {
+      context.handle(
+        _messageIdMeta,
+        messageId.isAcceptableOrUnknown(data['message_id']!, _messageIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_messageIdMeta);
+    }
+    if (data.containsKey('incident_id')) {
+      context.handle(
+        _incidentIdMeta,
+        incidentId.isAcceptableOrUnknown(data['incident_id']!, _incidentIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_incidentIdMeta);
+    }
+    if (data.containsKey('sender_key_id')) {
+      context.handle(
+        _senderKeyIdMeta,
+        senderKeyId.isAcceptableOrUnknown(
+          data['sender_key_id']!,
+          _senderKeyIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_senderKeyIdMeta);
+    }
+    if (data.containsKey('recipient_key_id')) {
+      context.handle(
+        _recipientKeyIdMeta,
+        recipientKeyId.isAcceptableOrUnknown(
+          data['recipient_key_id']!,
+          _recipientKeyIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_recipientKeyIdMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    if (data.containsKey('state')) {
+      context.handle(
+        _stateMeta,
+        state.isAcceptableOrUnknown(data['state']!, _stateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_stateMeta);
+    }
+    if (data.containsKey('hop_count')) {
+      context.handle(
+        _hopCountMeta,
+        hopCount.isAcceptableOrUnknown(data['hop_count']!, _hopCountMeta),
+      );
+    }
+    if (data.containsKey('retry_count')) {
+      context.handle(
+        _retryCountMeta,
+        retryCount.isAcceptableOrUnknown(data['retry_count']!, _retryCountMeta),
+      );
+    }
+    if (data.containsKey('next_retry_at')) {
+      context.handle(
+        _nextRetryAtMeta,
+        nextRetryAt.isAcceptableOrUnknown(
+          data['next_retry_at']!,
+          _nextRetryAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('expires_at')) {
+      context.handle(
+        _expiresAtMeta,
+        expiresAt.isAcceptableOrUnknown(data['expires_at']!, _expiresAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_expiresAtMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(
+        _lastErrorMeta,
+        lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {ownerId, messageId};
+  @override
+  ChatRelayOutboxData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ChatRelayOutboxData(
+      ownerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_id'],
+      )!,
+      messageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}message_id'],
+      )!,
+      incidentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}incident_id'],
+      )!,
+      senderKeyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sender_key_id'],
+      )!,
+      recipientKeyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recipient_key_id'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      )!,
+      state: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}state'],
+      )!,
+      hopCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}hop_count'],
+      )!,
+      retryCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}retry_count'],
+      )!,
+      nextRetryAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}next_retry_at'],
+      ),
+      expiresAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}expires_at'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      lastError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error'],
+      ),
+    );
+  }
+
+  @override
+  $ChatRelayOutboxTable createAlias(String alias) {
+    return $ChatRelayOutboxTable(attachedDatabase, alias);
+  }
+}
+
+class ChatRelayOutboxData extends DataClass
+    implements Insertable<ChatRelayOutboxData> {
+  final String ownerId;
+  final String messageId;
+  final String incidentId;
+  final String senderKeyId;
+  final String recipientKeyId;
+  final String payload;
+  final String state;
+  final int hopCount;
+  final int retryCount;
+  final DateTime? nextRetryAt;
+  final DateTime expiresAt;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final String? lastError;
+  const ChatRelayOutboxData({
+    required this.ownerId,
+    required this.messageId,
+    required this.incidentId,
+    required this.senderKeyId,
+    required this.recipientKeyId,
+    required this.payload,
+    required this.state,
+    required this.hopCount,
+    required this.retryCount,
+    this.nextRetryAt,
+    required this.expiresAt,
+    required this.createdAt,
+    required this.updatedAt,
+    this.lastError,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['owner_id'] = Variable<String>(ownerId);
+    map['message_id'] = Variable<String>(messageId);
+    map['incident_id'] = Variable<String>(incidentId);
+    map['sender_key_id'] = Variable<String>(senderKeyId);
+    map['recipient_key_id'] = Variable<String>(recipientKeyId);
+    map['payload'] = Variable<String>(payload);
+    map['state'] = Variable<String>(state);
+    map['hop_count'] = Variable<int>(hopCount);
+    map['retry_count'] = Variable<int>(retryCount);
+    if (!nullToAbsent || nextRetryAt != null) {
+      map['next_retry_at'] = Variable<DateTime>(nextRetryAt);
+    }
+    map['expires_at'] = Variable<DateTime>(expiresAt);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    return map;
+  }
+
+  ChatRelayOutboxCompanion toCompanion(bool nullToAbsent) {
+    return ChatRelayOutboxCompanion(
+      ownerId: Value(ownerId),
+      messageId: Value(messageId),
+      incidentId: Value(incidentId),
+      senderKeyId: Value(senderKeyId),
+      recipientKeyId: Value(recipientKeyId),
+      payload: Value(payload),
+      state: Value(state),
+      hopCount: Value(hopCount),
+      retryCount: Value(retryCount),
+      nextRetryAt: nextRetryAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nextRetryAt),
+      expiresAt: Value(expiresAt),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+    );
+  }
+
+  factory ChatRelayOutboxData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ChatRelayOutboxData(
+      ownerId: serializer.fromJson<String>(json['ownerId']),
+      messageId: serializer.fromJson<String>(json['messageId']),
+      incidentId: serializer.fromJson<String>(json['incidentId']),
+      senderKeyId: serializer.fromJson<String>(json['senderKeyId']),
+      recipientKeyId: serializer.fromJson<String>(json['recipientKeyId']),
+      payload: serializer.fromJson<String>(json['payload']),
+      state: serializer.fromJson<String>(json['state']),
+      hopCount: serializer.fromJson<int>(json['hopCount']),
+      retryCount: serializer.fromJson<int>(json['retryCount']),
+      nextRetryAt: serializer.fromJson<DateTime?>(json['nextRetryAt']),
+      expiresAt: serializer.fromJson<DateTime>(json['expiresAt']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'ownerId': serializer.toJson<String>(ownerId),
+      'messageId': serializer.toJson<String>(messageId),
+      'incidentId': serializer.toJson<String>(incidentId),
+      'senderKeyId': serializer.toJson<String>(senderKeyId),
+      'recipientKeyId': serializer.toJson<String>(recipientKeyId),
+      'payload': serializer.toJson<String>(payload),
+      'state': serializer.toJson<String>(state),
+      'hopCount': serializer.toJson<int>(hopCount),
+      'retryCount': serializer.toJson<int>(retryCount),
+      'nextRetryAt': serializer.toJson<DateTime?>(nextRetryAt),
+      'expiresAt': serializer.toJson<DateTime>(expiresAt),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'lastError': serializer.toJson<String?>(lastError),
+    };
+  }
+
+  ChatRelayOutboxData copyWith({
+    String? ownerId,
+    String? messageId,
+    String? incidentId,
+    String? senderKeyId,
+    String? recipientKeyId,
+    String? payload,
+    String? state,
+    int? hopCount,
+    int? retryCount,
+    Value<DateTime?> nextRetryAt = const Value.absent(),
+    DateTime? expiresAt,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<String?> lastError = const Value.absent(),
+  }) => ChatRelayOutboxData(
+    ownerId: ownerId ?? this.ownerId,
+    messageId: messageId ?? this.messageId,
+    incidentId: incidentId ?? this.incidentId,
+    senderKeyId: senderKeyId ?? this.senderKeyId,
+    recipientKeyId: recipientKeyId ?? this.recipientKeyId,
+    payload: payload ?? this.payload,
+    state: state ?? this.state,
+    hopCount: hopCount ?? this.hopCount,
+    retryCount: retryCount ?? this.retryCount,
+    nextRetryAt: nextRetryAt.present ? nextRetryAt.value : this.nextRetryAt,
+    expiresAt: expiresAt ?? this.expiresAt,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    lastError: lastError.present ? lastError.value : this.lastError,
+  );
+  ChatRelayOutboxData copyWithCompanion(ChatRelayOutboxCompanion data) {
+    return ChatRelayOutboxData(
+      ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
+      messageId: data.messageId.present ? data.messageId.value : this.messageId,
+      incidentId: data.incidentId.present
+          ? data.incidentId.value
+          : this.incidentId,
+      senderKeyId: data.senderKeyId.present
+          ? data.senderKeyId.value
+          : this.senderKeyId,
+      recipientKeyId: data.recipientKeyId.present
+          ? data.recipientKeyId.value
+          : this.recipientKeyId,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      state: data.state.present ? data.state.value : this.state,
+      hopCount: data.hopCount.present ? data.hopCount.value : this.hopCount,
+      retryCount: data.retryCount.present
+          ? data.retryCount.value
+          : this.retryCount,
+      nextRetryAt: data.nextRetryAt.present
+          ? data.nextRetryAt.value
+          : this.nextRetryAt,
+      expiresAt: data.expiresAt.present ? data.expiresAt.value : this.expiresAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ChatRelayOutboxData(')
+          ..write('ownerId: $ownerId, ')
+          ..write('messageId: $messageId, ')
+          ..write('incidentId: $incidentId, ')
+          ..write('senderKeyId: $senderKeyId, ')
+          ..write('recipientKeyId: $recipientKeyId, ')
+          ..write('payload: $payload, ')
+          ..write('state: $state, ')
+          ..write('hopCount: $hopCount, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('nextRetryAt: $nextRetryAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('lastError: $lastError')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    ownerId,
+    messageId,
+    incidentId,
+    senderKeyId,
+    recipientKeyId,
+    payload,
+    state,
+    hopCount,
+    retryCount,
+    nextRetryAt,
+    expiresAt,
+    createdAt,
+    updatedAt,
+    lastError,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ChatRelayOutboxData &&
+          other.ownerId == this.ownerId &&
+          other.messageId == this.messageId &&
+          other.incidentId == this.incidentId &&
+          other.senderKeyId == this.senderKeyId &&
+          other.recipientKeyId == this.recipientKeyId &&
+          other.payload == this.payload &&
+          other.state == this.state &&
+          other.hopCount == this.hopCount &&
+          other.retryCount == this.retryCount &&
+          other.nextRetryAt == this.nextRetryAt &&
+          other.expiresAt == this.expiresAt &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.lastError == this.lastError);
+}
+
+class ChatRelayOutboxCompanion extends UpdateCompanion<ChatRelayOutboxData> {
+  final Value<String> ownerId;
+  final Value<String> messageId;
+  final Value<String> incidentId;
+  final Value<String> senderKeyId;
+  final Value<String> recipientKeyId;
+  final Value<String> payload;
+  final Value<String> state;
+  final Value<int> hopCount;
+  final Value<int> retryCount;
+  final Value<DateTime?> nextRetryAt;
+  final Value<DateTime> expiresAt;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<String?> lastError;
+  final Value<int> rowid;
+  const ChatRelayOutboxCompanion({
+    this.ownerId = const Value.absent(),
+    this.messageId = const Value.absent(),
+    this.incidentId = const Value.absent(),
+    this.senderKeyId = const Value.absent(),
+    this.recipientKeyId = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.state = const Value.absent(),
+    this.hopCount = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.nextRetryAt = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ChatRelayOutboxCompanion.insert({
+    required String ownerId,
+    required String messageId,
+    required String incidentId,
+    required String senderKeyId,
+    required String recipientKeyId,
+    required String payload,
+    required String state,
+    this.hopCount = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.nextRetryAt = const Value.absent(),
+    required DateTime expiresAt,
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.lastError = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : ownerId = Value(ownerId),
+       messageId = Value(messageId),
+       incidentId = Value(incidentId),
+       senderKeyId = Value(senderKeyId),
+       recipientKeyId = Value(recipientKeyId),
+       payload = Value(payload),
+       state = Value(state),
+       expiresAt = Value(expiresAt),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<ChatRelayOutboxData> custom({
+    Expression<String>? ownerId,
+    Expression<String>? messageId,
+    Expression<String>? incidentId,
+    Expression<String>? senderKeyId,
+    Expression<String>? recipientKeyId,
+    Expression<String>? payload,
+    Expression<String>? state,
+    Expression<int>? hopCount,
+    Expression<int>? retryCount,
+    Expression<DateTime>? nextRetryAt,
+    Expression<DateTime>? expiresAt,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<String>? lastError,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (ownerId != null) 'owner_id': ownerId,
+      if (messageId != null) 'message_id': messageId,
+      if (incidentId != null) 'incident_id': incidentId,
+      if (senderKeyId != null) 'sender_key_id': senderKeyId,
+      if (recipientKeyId != null) 'recipient_key_id': recipientKeyId,
+      if (payload != null) 'payload': payload,
+      if (state != null) 'state': state,
+      if (hopCount != null) 'hop_count': hopCount,
+      if (retryCount != null) 'retry_count': retryCount,
+      if (nextRetryAt != null) 'next_retry_at': nextRetryAt,
+      if (expiresAt != null) 'expires_at': expiresAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (lastError != null) 'last_error': lastError,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ChatRelayOutboxCompanion copyWith({
+    Value<String>? ownerId,
+    Value<String>? messageId,
+    Value<String>? incidentId,
+    Value<String>? senderKeyId,
+    Value<String>? recipientKeyId,
+    Value<String>? payload,
+    Value<String>? state,
+    Value<int>? hopCount,
+    Value<int>? retryCount,
+    Value<DateTime?>? nextRetryAt,
+    Value<DateTime>? expiresAt,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<String?>? lastError,
+    Value<int>? rowid,
+  }) {
+    return ChatRelayOutboxCompanion(
+      ownerId: ownerId ?? this.ownerId,
+      messageId: messageId ?? this.messageId,
+      incidentId: incidentId ?? this.incidentId,
+      senderKeyId: senderKeyId ?? this.senderKeyId,
+      recipientKeyId: recipientKeyId ?? this.recipientKeyId,
+      payload: payload ?? this.payload,
+      state: state ?? this.state,
+      hopCount: hopCount ?? this.hopCount,
+      retryCount: retryCount ?? this.retryCount,
+      nextRetryAt: nextRetryAt ?? this.nextRetryAt,
+      expiresAt: expiresAt ?? this.expiresAt,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      lastError: lastError ?? this.lastError,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (ownerId.present) {
+      map['owner_id'] = Variable<String>(ownerId.value);
+    }
+    if (messageId.present) {
+      map['message_id'] = Variable<String>(messageId.value);
+    }
+    if (incidentId.present) {
+      map['incident_id'] = Variable<String>(incidentId.value);
+    }
+    if (senderKeyId.present) {
+      map['sender_key_id'] = Variable<String>(senderKeyId.value);
+    }
+    if (recipientKeyId.present) {
+      map['recipient_key_id'] = Variable<String>(recipientKeyId.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (state.present) {
+      map['state'] = Variable<String>(state.value);
+    }
+    if (hopCount.present) {
+      map['hop_count'] = Variable<int>(hopCount.value);
+    }
+    if (retryCount.present) {
+      map['retry_count'] = Variable<int>(retryCount.value);
+    }
+    if (nextRetryAt.present) {
+      map['next_retry_at'] = Variable<DateTime>(nextRetryAt.value);
+    }
+    if (expiresAt.present) {
+      map['expires_at'] = Variable<DateTime>(expiresAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ChatRelayOutboxCompanion(')
+          ..write('ownerId: $ownerId, ')
+          ..write('messageId: $messageId, ')
+          ..write('incidentId: $incidentId, ')
+          ..write('senderKeyId: $senderKeyId, ')
+          ..write('recipientKeyId: $recipientKeyId, ')
+          ..write('payload: $payload, ')
+          ..write('state: $state, ')
+          ..write('hopCount: $hopCount, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('nextRetryAt: $nextRetryAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('lastError: $lastError, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ChatRelayInboxTable extends ChatRelayInbox
+    with TableInfo<$ChatRelayInboxTable, ChatRelayInboxData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ChatRelayInboxTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _ownerIdMeta = const VerificationMeta(
+    'ownerId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerId = GeneratedColumn<String>(
+    'owner_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _messageIdMeta = const VerificationMeta(
+    'messageId',
+  );
+  @override
+  late final GeneratedColumn<String> messageId = GeneratedColumn<String>(
+    'message_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _incidentIdMeta = const VerificationMeta(
+    'incidentId',
+  );
+  @override
+  late final GeneratedColumn<String> incidentId = GeneratedColumn<String>(
+    'incident_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _senderKeyIdMeta = const VerificationMeta(
+    'senderKeyId',
+  );
+  @override
+  late final GeneratedColumn<String> senderKeyId = GeneratedColumn<String>(
+    'sender_key_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _recipientKeyIdMeta = const VerificationMeta(
+    'recipientKeyId',
+  );
+  @override
+  late final GeneratedColumn<String> recipientKeyId = GeneratedColumn<String>(
+    'recipient_key_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _stateMeta = const VerificationMeta('state');
+  @override
+  late final GeneratedColumn<String> state = GeneratedColumn<String>(
+    'state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _receivedAtMeta = const VerificationMeta(
+    'receivedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> receivedAt = GeneratedColumn<DateTime>(
+    'received_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    ownerId,
+    messageId,
+    incidentId,
+    senderKeyId,
+    recipientKeyId,
+    payload,
+    state,
+    receivedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'chat_relay_inbox';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ChatRelayInboxData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('owner_id')) {
+      context.handle(
+        _ownerIdMeta,
+        ownerId.isAcceptableOrUnknown(data['owner_id']!, _ownerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerIdMeta);
+    }
+    if (data.containsKey('message_id')) {
+      context.handle(
+        _messageIdMeta,
+        messageId.isAcceptableOrUnknown(data['message_id']!, _messageIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_messageIdMeta);
+    }
+    if (data.containsKey('incident_id')) {
+      context.handle(
+        _incidentIdMeta,
+        incidentId.isAcceptableOrUnknown(data['incident_id']!, _incidentIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_incidentIdMeta);
+    }
+    if (data.containsKey('sender_key_id')) {
+      context.handle(
+        _senderKeyIdMeta,
+        senderKeyId.isAcceptableOrUnknown(
+          data['sender_key_id']!,
+          _senderKeyIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_senderKeyIdMeta);
+    }
+    if (data.containsKey('recipient_key_id')) {
+      context.handle(
+        _recipientKeyIdMeta,
+        recipientKeyId.isAcceptableOrUnknown(
+          data['recipient_key_id']!,
+          _recipientKeyIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_recipientKeyIdMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    if (data.containsKey('state')) {
+      context.handle(
+        _stateMeta,
+        state.isAcceptableOrUnknown(data['state']!, _stateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_stateMeta);
+    }
+    if (data.containsKey('received_at')) {
+      context.handle(
+        _receivedAtMeta,
+        receivedAt.isAcceptableOrUnknown(data['received_at']!, _receivedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_receivedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {ownerId, messageId};
+  @override
+  ChatRelayInboxData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ChatRelayInboxData(
+      ownerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_id'],
+      )!,
+      messageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}message_id'],
+      )!,
+      incidentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}incident_id'],
+      )!,
+      senderKeyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sender_key_id'],
+      )!,
+      recipientKeyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recipient_key_id'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      )!,
+      state: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}state'],
+      )!,
+      receivedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}received_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ChatRelayInboxTable createAlias(String alias) {
+    return $ChatRelayInboxTable(attachedDatabase, alias);
+  }
+}
+
+class ChatRelayInboxData extends DataClass
+    implements Insertable<ChatRelayInboxData> {
+  final String ownerId;
+  final String messageId;
+  final String incidentId;
+  final String senderKeyId;
+  final String recipientKeyId;
+  final String payload;
+  final String state;
+  final DateTime receivedAt;
+  const ChatRelayInboxData({
+    required this.ownerId,
+    required this.messageId,
+    required this.incidentId,
+    required this.senderKeyId,
+    required this.recipientKeyId,
+    required this.payload,
+    required this.state,
+    required this.receivedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['owner_id'] = Variable<String>(ownerId);
+    map['message_id'] = Variable<String>(messageId);
+    map['incident_id'] = Variable<String>(incidentId);
+    map['sender_key_id'] = Variable<String>(senderKeyId);
+    map['recipient_key_id'] = Variable<String>(recipientKeyId);
+    map['payload'] = Variable<String>(payload);
+    map['state'] = Variable<String>(state);
+    map['received_at'] = Variable<DateTime>(receivedAt);
+    return map;
+  }
+
+  ChatRelayInboxCompanion toCompanion(bool nullToAbsent) {
+    return ChatRelayInboxCompanion(
+      ownerId: Value(ownerId),
+      messageId: Value(messageId),
+      incidentId: Value(incidentId),
+      senderKeyId: Value(senderKeyId),
+      recipientKeyId: Value(recipientKeyId),
+      payload: Value(payload),
+      state: Value(state),
+      receivedAt: Value(receivedAt),
+    );
+  }
+
+  factory ChatRelayInboxData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ChatRelayInboxData(
+      ownerId: serializer.fromJson<String>(json['ownerId']),
+      messageId: serializer.fromJson<String>(json['messageId']),
+      incidentId: serializer.fromJson<String>(json['incidentId']),
+      senderKeyId: serializer.fromJson<String>(json['senderKeyId']),
+      recipientKeyId: serializer.fromJson<String>(json['recipientKeyId']),
+      payload: serializer.fromJson<String>(json['payload']),
+      state: serializer.fromJson<String>(json['state']),
+      receivedAt: serializer.fromJson<DateTime>(json['receivedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'ownerId': serializer.toJson<String>(ownerId),
+      'messageId': serializer.toJson<String>(messageId),
+      'incidentId': serializer.toJson<String>(incidentId),
+      'senderKeyId': serializer.toJson<String>(senderKeyId),
+      'recipientKeyId': serializer.toJson<String>(recipientKeyId),
+      'payload': serializer.toJson<String>(payload),
+      'state': serializer.toJson<String>(state),
+      'receivedAt': serializer.toJson<DateTime>(receivedAt),
+    };
+  }
+
+  ChatRelayInboxData copyWith({
+    String? ownerId,
+    String? messageId,
+    String? incidentId,
+    String? senderKeyId,
+    String? recipientKeyId,
+    String? payload,
+    String? state,
+    DateTime? receivedAt,
+  }) => ChatRelayInboxData(
+    ownerId: ownerId ?? this.ownerId,
+    messageId: messageId ?? this.messageId,
+    incidentId: incidentId ?? this.incidentId,
+    senderKeyId: senderKeyId ?? this.senderKeyId,
+    recipientKeyId: recipientKeyId ?? this.recipientKeyId,
+    payload: payload ?? this.payload,
+    state: state ?? this.state,
+    receivedAt: receivedAt ?? this.receivedAt,
+  );
+  ChatRelayInboxData copyWithCompanion(ChatRelayInboxCompanion data) {
+    return ChatRelayInboxData(
+      ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
+      messageId: data.messageId.present ? data.messageId.value : this.messageId,
+      incidentId: data.incidentId.present
+          ? data.incidentId.value
+          : this.incidentId,
+      senderKeyId: data.senderKeyId.present
+          ? data.senderKeyId.value
+          : this.senderKeyId,
+      recipientKeyId: data.recipientKeyId.present
+          ? data.recipientKeyId.value
+          : this.recipientKeyId,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      state: data.state.present ? data.state.value : this.state,
+      receivedAt: data.receivedAt.present
+          ? data.receivedAt.value
+          : this.receivedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ChatRelayInboxData(')
+          ..write('ownerId: $ownerId, ')
+          ..write('messageId: $messageId, ')
+          ..write('incidentId: $incidentId, ')
+          ..write('senderKeyId: $senderKeyId, ')
+          ..write('recipientKeyId: $recipientKeyId, ')
+          ..write('payload: $payload, ')
+          ..write('state: $state, ')
+          ..write('receivedAt: $receivedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    ownerId,
+    messageId,
+    incidentId,
+    senderKeyId,
+    recipientKeyId,
+    payload,
+    state,
+    receivedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ChatRelayInboxData &&
+          other.ownerId == this.ownerId &&
+          other.messageId == this.messageId &&
+          other.incidentId == this.incidentId &&
+          other.senderKeyId == this.senderKeyId &&
+          other.recipientKeyId == this.recipientKeyId &&
+          other.payload == this.payload &&
+          other.state == this.state &&
+          other.receivedAt == this.receivedAt);
+}
+
+class ChatRelayInboxCompanion extends UpdateCompanion<ChatRelayInboxData> {
+  final Value<String> ownerId;
+  final Value<String> messageId;
+  final Value<String> incidentId;
+  final Value<String> senderKeyId;
+  final Value<String> recipientKeyId;
+  final Value<String> payload;
+  final Value<String> state;
+  final Value<DateTime> receivedAt;
+  final Value<int> rowid;
+  const ChatRelayInboxCompanion({
+    this.ownerId = const Value.absent(),
+    this.messageId = const Value.absent(),
+    this.incidentId = const Value.absent(),
+    this.senderKeyId = const Value.absent(),
+    this.recipientKeyId = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.state = const Value.absent(),
+    this.receivedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ChatRelayInboxCompanion.insert({
+    required String ownerId,
+    required String messageId,
+    required String incidentId,
+    required String senderKeyId,
+    required String recipientKeyId,
+    required String payload,
+    required String state,
+    required DateTime receivedAt,
+    this.rowid = const Value.absent(),
+  }) : ownerId = Value(ownerId),
+       messageId = Value(messageId),
+       incidentId = Value(incidentId),
+       senderKeyId = Value(senderKeyId),
+       recipientKeyId = Value(recipientKeyId),
+       payload = Value(payload),
+       state = Value(state),
+       receivedAt = Value(receivedAt);
+  static Insertable<ChatRelayInboxData> custom({
+    Expression<String>? ownerId,
+    Expression<String>? messageId,
+    Expression<String>? incidentId,
+    Expression<String>? senderKeyId,
+    Expression<String>? recipientKeyId,
+    Expression<String>? payload,
+    Expression<String>? state,
+    Expression<DateTime>? receivedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (ownerId != null) 'owner_id': ownerId,
+      if (messageId != null) 'message_id': messageId,
+      if (incidentId != null) 'incident_id': incidentId,
+      if (senderKeyId != null) 'sender_key_id': senderKeyId,
+      if (recipientKeyId != null) 'recipient_key_id': recipientKeyId,
+      if (payload != null) 'payload': payload,
+      if (state != null) 'state': state,
+      if (receivedAt != null) 'received_at': receivedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ChatRelayInboxCompanion copyWith({
+    Value<String>? ownerId,
+    Value<String>? messageId,
+    Value<String>? incidentId,
+    Value<String>? senderKeyId,
+    Value<String>? recipientKeyId,
+    Value<String>? payload,
+    Value<String>? state,
+    Value<DateTime>? receivedAt,
+    Value<int>? rowid,
+  }) {
+    return ChatRelayInboxCompanion(
+      ownerId: ownerId ?? this.ownerId,
+      messageId: messageId ?? this.messageId,
+      incidentId: incidentId ?? this.incidentId,
+      senderKeyId: senderKeyId ?? this.senderKeyId,
+      recipientKeyId: recipientKeyId ?? this.recipientKeyId,
+      payload: payload ?? this.payload,
+      state: state ?? this.state,
+      receivedAt: receivedAt ?? this.receivedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (ownerId.present) {
+      map['owner_id'] = Variable<String>(ownerId.value);
+    }
+    if (messageId.present) {
+      map['message_id'] = Variable<String>(messageId.value);
+    }
+    if (incidentId.present) {
+      map['incident_id'] = Variable<String>(incidentId.value);
+    }
+    if (senderKeyId.present) {
+      map['sender_key_id'] = Variable<String>(senderKeyId.value);
+    }
+    if (recipientKeyId.present) {
+      map['recipient_key_id'] = Variable<String>(recipientKeyId.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (state.present) {
+      map['state'] = Variable<String>(state.value);
+    }
+    if (receivedAt.present) {
+      map['received_at'] = Variable<DateTime>(receivedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ChatRelayInboxCompanion(')
+          ..write('ownerId: $ownerId, ')
+          ..write('messageId: $messageId, ')
+          ..write('incidentId: $incidentId, ')
+          ..write('senderKeyId: $senderKeyId, ')
+          ..write('recipientKeyId: $recipientKeyId, ')
+          ..write('payload: $payload, ')
+          ..write('state: $state, ')
+          ..write('receivedAt: $receivedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -7185,6 +12252,19 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $BleRelayReceiptsTable bleRelayReceipts = $BleRelayReceiptsTable(
     this,
   );
+  late final $RescueInboxTable rescueInbox = $RescueInboxTable(this);
+  late final $RescueResponseOutboxTable rescueResponseOutbox =
+      $RescueResponseOutboxTable(this);
+  late final $RescueResponseInboxTable rescueResponseInbox =
+      $RescueResponseInboxTable(this);
+  late final $RescueResponseJobsTable rescueResponseJobs =
+      $RescueResponseJobsTable(this);
+  late final $RescueResponseReplayTable rescueResponseReplay =
+      $RescueResponseReplayTable(this);
+  late final $ChatRelayOutboxTable chatRelayOutbox = $ChatRelayOutboxTable(
+    this,
+  );
+  late final $ChatRelayInboxTable chatRelayInbox = $ChatRelayInboxTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -7198,6 +12278,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     bleRelayMessages,
     bleRelayAttempts,
     bleRelayReceipts,
+    rescueInbox,
+    rescueResponseOutbox,
+    rescueResponseInbox,
+    rescueResponseJobs,
+    rescueResponseReplay,
+    chatRelayOutbox,
+    chatRelayInbox,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -10938,6 +16025,2538 @@ typedef $$BleRelayReceiptsTableProcessedTableManager =
       BleRelayReceipt,
       PrefetchHooks Function({bool originMessageId})
     >;
+typedef $$RescueInboxTableCreateCompanionBuilder =
+    RescueInboxCompanion Function({
+      required String ownerId,
+      required String originMessageId,
+      required String incidentId,
+      required String originKeyId,
+      required String immutableDigest,
+      required String emergencyType,
+      required String emergencyMessage,
+      required bool includeLocation,
+      Value<double?> latitude,
+      Value<double?> longitude,
+      required int incomingHopCount,
+      required String incomingPath,
+      required DateTime createdAt,
+      required DateTime expiresAt,
+      required DateTime receivedAt,
+      required String state,
+      Value<String?> acceptanceId,
+      Value<DateTime?> acceptedAt,
+      Value<int> rowid,
+    });
+typedef $$RescueInboxTableUpdateCompanionBuilder =
+    RescueInboxCompanion Function({
+      Value<String> ownerId,
+      Value<String> originMessageId,
+      Value<String> incidentId,
+      Value<String> originKeyId,
+      Value<String> immutableDigest,
+      Value<String> emergencyType,
+      Value<String> emergencyMessage,
+      Value<bool> includeLocation,
+      Value<double?> latitude,
+      Value<double?> longitude,
+      Value<int> incomingHopCount,
+      Value<String> incomingPath,
+      Value<DateTime> createdAt,
+      Value<DateTime> expiresAt,
+      Value<DateTime> receivedAt,
+      Value<String> state,
+      Value<String?> acceptanceId,
+      Value<DateTime?> acceptedAt,
+      Value<int> rowid,
+    });
+
+class $$RescueInboxTableFilterComposer
+    extends Composer<_$AppDatabase, $RescueInboxTable> {
+  $$RescueInboxTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get originMessageId => $composableBuilder(
+    column: $table.originMessageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get originKeyId => $composableBuilder(
+    column: $table.originKeyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get immutableDigest => $composableBuilder(
+    column: $table.immutableDigest,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get emergencyType => $composableBuilder(
+    column: $table.emergencyType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get emergencyMessage => $composableBuilder(
+    column: $table.emergencyMessage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get includeLocation => $composableBuilder(
+    column: $table.includeLocation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get latitude => $composableBuilder(
+    column: $table.latitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get longitude => $composableBuilder(
+    column: $table.longitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get incomingHopCount => $composableBuilder(
+    column: $table.incomingHopCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get incomingPath => $composableBuilder(
+    column: $table.incomingPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get acceptanceId => $composableBuilder(
+    column: $table.acceptanceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get acceptedAt => $composableBuilder(
+    column: $table.acceptedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RescueInboxTableOrderingComposer
+    extends Composer<_$AppDatabase, $RescueInboxTable> {
+  $$RescueInboxTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get originMessageId => $composableBuilder(
+    column: $table.originMessageId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get originKeyId => $composableBuilder(
+    column: $table.originKeyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get immutableDigest => $composableBuilder(
+    column: $table.immutableDigest,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get emergencyType => $composableBuilder(
+    column: $table.emergencyType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get emergencyMessage => $composableBuilder(
+    column: $table.emergencyMessage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get includeLocation => $composableBuilder(
+    column: $table.includeLocation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get latitude => $composableBuilder(
+    column: $table.latitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get longitude => $composableBuilder(
+    column: $table.longitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get incomingHopCount => $composableBuilder(
+    column: $table.incomingHopCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get incomingPath => $composableBuilder(
+    column: $table.incomingPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get acceptanceId => $composableBuilder(
+    column: $table.acceptanceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get acceptedAt => $composableBuilder(
+    column: $table.acceptedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RescueInboxTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RescueInboxTable> {
+  $$RescueInboxTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get ownerId =>
+      $composableBuilder(column: $table.ownerId, builder: (column) => column);
+
+  GeneratedColumn<String> get originMessageId => $composableBuilder(
+    column: $table.originMessageId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get originKeyId => $composableBuilder(
+    column: $table.originKeyId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get immutableDigest => $composableBuilder(
+    column: $table.immutableDigest,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get emergencyType => $composableBuilder(
+    column: $table.emergencyType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get emergencyMessage => $composableBuilder(
+    column: $table.emergencyMessage,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get includeLocation => $composableBuilder(
+    column: $table.includeLocation,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get latitude =>
+      $composableBuilder(column: $table.latitude, builder: (column) => column);
+
+  GeneratedColumn<double> get longitude =>
+      $composableBuilder(column: $table.longitude, builder: (column) => column);
+
+  GeneratedColumn<int> get incomingHopCount => $composableBuilder(
+    column: $table.incomingHopCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get incomingPath => $composableBuilder(
+    column: $table.incomingPath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get expiresAt =>
+      $composableBuilder(column: $table.expiresAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get state =>
+      $composableBuilder(column: $table.state, builder: (column) => column);
+
+  GeneratedColumn<String> get acceptanceId => $composableBuilder(
+    column: $table.acceptanceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get acceptedAt => $composableBuilder(
+    column: $table.acceptedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$RescueInboxTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RescueInboxTable,
+          RescueInboxData,
+          $$RescueInboxTableFilterComposer,
+          $$RescueInboxTableOrderingComposer,
+          $$RescueInboxTableAnnotationComposer,
+          $$RescueInboxTableCreateCompanionBuilder,
+          $$RescueInboxTableUpdateCompanionBuilder,
+          (
+            RescueInboxData,
+            BaseReferences<_$AppDatabase, $RescueInboxTable, RescueInboxData>,
+          ),
+          RescueInboxData,
+          PrefetchHooks Function()
+        > {
+  $$RescueInboxTableTableManager(_$AppDatabase db, $RescueInboxTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RescueInboxTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RescueInboxTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RescueInboxTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> ownerId = const Value.absent(),
+                Value<String> originMessageId = const Value.absent(),
+                Value<String> incidentId = const Value.absent(),
+                Value<String> originKeyId = const Value.absent(),
+                Value<String> immutableDigest = const Value.absent(),
+                Value<String> emergencyType = const Value.absent(),
+                Value<String> emergencyMessage = const Value.absent(),
+                Value<bool> includeLocation = const Value.absent(),
+                Value<double?> latitude = const Value.absent(),
+                Value<double?> longitude = const Value.absent(),
+                Value<int> incomingHopCount = const Value.absent(),
+                Value<String> incomingPath = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> expiresAt = const Value.absent(),
+                Value<DateTime> receivedAt = const Value.absent(),
+                Value<String> state = const Value.absent(),
+                Value<String?> acceptanceId = const Value.absent(),
+                Value<DateTime?> acceptedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RescueInboxCompanion(
+                ownerId: ownerId,
+                originMessageId: originMessageId,
+                incidentId: incidentId,
+                originKeyId: originKeyId,
+                immutableDigest: immutableDigest,
+                emergencyType: emergencyType,
+                emergencyMessage: emergencyMessage,
+                includeLocation: includeLocation,
+                latitude: latitude,
+                longitude: longitude,
+                incomingHopCount: incomingHopCount,
+                incomingPath: incomingPath,
+                createdAt: createdAt,
+                expiresAt: expiresAt,
+                receivedAt: receivedAt,
+                state: state,
+                acceptanceId: acceptanceId,
+                acceptedAt: acceptedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String ownerId,
+                required String originMessageId,
+                required String incidentId,
+                required String originKeyId,
+                required String immutableDigest,
+                required String emergencyType,
+                required String emergencyMessage,
+                required bool includeLocation,
+                Value<double?> latitude = const Value.absent(),
+                Value<double?> longitude = const Value.absent(),
+                required int incomingHopCount,
+                required String incomingPath,
+                required DateTime createdAt,
+                required DateTime expiresAt,
+                required DateTime receivedAt,
+                required String state,
+                Value<String?> acceptanceId = const Value.absent(),
+                Value<DateTime?> acceptedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RescueInboxCompanion.insert(
+                ownerId: ownerId,
+                originMessageId: originMessageId,
+                incidentId: incidentId,
+                originKeyId: originKeyId,
+                immutableDigest: immutableDigest,
+                emergencyType: emergencyType,
+                emergencyMessage: emergencyMessage,
+                includeLocation: includeLocation,
+                latitude: latitude,
+                longitude: longitude,
+                incomingHopCount: incomingHopCount,
+                incomingPath: incomingPath,
+                createdAt: createdAt,
+                expiresAt: expiresAt,
+                receivedAt: receivedAt,
+                state: state,
+                acceptanceId: acceptanceId,
+                acceptedAt: acceptedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$RescueInboxTable, RescueInboxData>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $RescueInboxTable,
+                    RescueInboxData
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RescueInboxTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RescueInboxTable,
+      RescueInboxData,
+      $$RescueInboxTableFilterComposer,
+      $$RescueInboxTableOrderingComposer,
+      $$RescueInboxTableAnnotationComposer,
+      $$RescueInboxTableCreateCompanionBuilder,
+      $$RescueInboxTableUpdateCompanionBuilder,
+      (
+        RescueInboxData,
+        BaseReferences<_$AppDatabase, $RescueInboxTable, RescueInboxData>,
+      ),
+      RescueInboxData,
+      PrefetchHooks Function()
+    >;
+typedef $$RescueResponseOutboxTableCreateCompanionBuilder =
+    RescueResponseOutboxCompanion Function({
+      required String ownerId,
+      required String messageId,
+      required String incidentId,
+      required String originMessageId,
+      required String originKeyId,
+      required String responderKeyId,
+      required String payload,
+      required String state,
+      Value<int> retryCount,
+      Value<DateTime?> nextRetryAt,
+      required DateTime expiresAt,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<DateTime?> finalAckAt,
+      Value<String?> lastError,
+      Value<int> rowid,
+    });
+typedef $$RescueResponseOutboxTableUpdateCompanionBuilder =
+    RescueResponseOutboxCompanion Function({
+      Value<String> ownerId,
+      Value<String> messageId,
+      Value<String> incidentId,
+      Value<String> originMessageId,
+      Value<String> originKeyId,
+      Value<String> responderKeyId,
+      Value<String> payload,
+      Value<String> state,
+      Value<int> retryCount,
+      Value<DateTime?> nextRetryAt,
+      Value<DateTime> expiresAt,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> finalAckAt,
+      Value<String?> lastError,
+      Value<int> rowid,
+    });
+
+class $$RescueResponseOutboxTableFilterComposer
+    extends Composer<_$AppDatabase, $RescueResponseOutboxTable> {
+  $$RescueResponseOutboxTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get messageId => $composableBuilder(
+    column: $table.messageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get originMessageId => $composableBuilder(
+    column: $table.originMessageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get originKeyId => $composableBuilder(
+    column: $table.originKeyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get responderKeyId => $composableBuilder(
+    column: $table.responderKeyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get nextRetryAt => $composableBuilder(
+    column: $table.nextRetryAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get finalAckAt => $composableBuilder(
+    column: $table.finalAckAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RescueResponseOutboxTableOrderingComposer
+    extends Composer<_$AppDatabase, $RescueResponseOutboxTable> {
+  $$RescueResponseOutboxTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get messageId => $composableBuilder(
+    column: $table.messageId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get originMessageId => $composableBuilder(
+    column: $table.originMessageId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get originKeyId => $composableBuilder(
+    column: $table.originKeyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get responderKeyId => $composableBuilder(
+    column: $table.responderKeyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get nextRetryAt => $composableBuilder(
+    column: $table.nextRetryAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get finalAckAt => $composableBuilder(
+    column: $table.finalAckAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RescueResponseOutboxTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RescueResponseOutboxTable> {
+  $$RescueResponseOutboxTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get ownerId =>
+      $composableBuilder(column: $table.ownerId, builder: (column) => column);
+
+  GeneratedColumn<String> get messageId =>
+      $composableBuilder(column: $table.messageId, builder: (column) => column);
+
+  GeneratedColumn<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get originMessageId => $composableBuilder(
+    column: $table.originMessageId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get originKeyId => $composableBuilder(
+    column: $table.originKeyId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get responderKeyId => $composableBuilder(
+    column: $table.responderKeyId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  GeneratedColumn<String> get state =>
+      $composableBuilder(column: $table.state, builder: (column) => column);
+
+  GeneratedColumn<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get nextRetryAt => $composableBuilder(
+    column: $table.nextRetryAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get expiresAt =>
+      $composableBuilder(column: $table.expiresAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get finalAckAt => $composableBuilder(
+    column: $table.finalAckAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+}
+
+class $$RescueResponseOutboxTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RescueResponseOutboxTable,
+          RescueResponseOutboxData,
+          $$RescueResponseOutboxTableFilterComposer,
+          $$RescueResponseOutboxTableOrderingComposer,
+          $$RescueResponseOutboxTableAnnotationComposer,
+          $$RescueResponseOutboxTableCreateCompanionBuilder,
+          $$RescueResponseOutboxTableUpdateCompanionBuilder,
+          (
+            RescueResponseOutboxData,
+            BaseReferences<
+              _$AppDatabase,
+              $RescueResponseOutboxTable,
+              RescueResponseOutboxData
+            >,
+          ),
+          RescueResponseOutboxData,
+          PrefetchHooks Function()
+        > {
+  $$RescueResponseOutboxTableTableManager(
+    _$AppDatabase db,
+    $RescueResponseOutboxTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RescueResponseOutboxTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RescueResponseOutboxTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$RescueResponseOutboxTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> ownerId = const Value.absent(),
+                Value<String> messageId = const Value.absent(),
+                Value<String> incidentId = const Value.absent(),
+                Value<String> originMessageId = const Value.absent(),
+                Value<String> originKeyId = const Value.absent(),
+                Value<String> responderKeyId = const Value.absent(),
+                Value<String> payload = const Value.absent(),
+                Value<String> state = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<DateTime?> nextRetryAt = const Value.absent(),
+                Value<DateTime> expiresAt = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> finalAckAt = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RescueResponseOutboxCompanion(
+                ownerId: ownerId,
+                messageId: messageId,
+                incidentId: incidentId,
+                originMessageId: originMessageId,
+                originKeyId: originKeyId,
+                responderKeyId: responderKeyId,
+                payload: payload,
+                state: state,
+                retryCount: retryCount,
+                nextRetryAt: nextRetryAt,
+                expiresAt: expiresAt,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                finalAckAt: finalAckAt,
+                lastError: lastError,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String ownerId,
+                required String messageId,
+                required String incidentId,
+                required String originMessageId,
+                required String originKeyId,
+                required String responderKeyId,
+                required String payload,
+                required String state,
+                Value<int> retryCount = const Value.absent(),
+                Value<DateTime?> nextRetryAt = const Value.absent(),
+                required DateTime expiresAt,
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<DateTime?> finalAckAt = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RescueResponseOutboxCompanion.insert(
+                ownerId: ownerId,
+                messageId: messageId,
+                incidentId: incidentId,
+                originMessageId: originMessageId,
+                originKeyId: originKeyId,
+                responderKeyId: responderKeyId,
+                payload: payload,
+                state: state,
+                retryCount: retryCount,
+                nextRetryAt: nextRetryAt,
+                expiresAt: expiresAt,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                finalAckAt: finalAckAt,
+                lastError: lastError,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<
+                    $RescueResponseOutboxTable,
+                    RescueResponseOutboxData
+                  >(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $RescueResponseOutboxTable,
+                    RescueResponseOutboxData
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RescueResponseOutboxTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RescueResponseOutboxTable,
+      RescueResponseOutboxData,
+      $$RescueResponseOutboxTableFilterComposer,
+      $$RescueResponseOutboxTableOrderingComposer,
+      $$RescueResponseOutboxTableAnnotationComposer,
+      $$RescueResponseOutboxTableCreateCompanionBuilder,
+      $$RescueResponseOutboxTableUpdateCompanionBuilder,
+      (
+        RescueResponseOutboxData,
+        BaseReferences<
+          _$AppDatabase,
+          $RescueResponseOutboxTable,
+          RescueResponseOutboxData
+        >,
+      ),
+      RescueResponseOutboxData,
+      PrefetchHooks Function()
+    >;
+typedef $$RescueResponseInboxTableCreateCompanionBuilder =
+    RescueResponseInboxCompanion Function({
+      required String ownerId,
+      required String messageId,
+      required String incidentId,
+      required String originMessageId,
+      required String responderKeyId,
+      required String immutableDigest,
+      required String payload,
+      required String state,
+      required DateTime receivedAt,
+      Value<DateTime?> processedAt,
+      Value<int> rowid,
+    });
+typedef $$RescueResponseInboxTableUpdateCompanionBuilder =
+    RescueResponseInboxCompanion Function({
+      Value<String> ownerId,
+      Value<String> messageId,
+      Value<String> incidentId,
+      Value<String> originMessageId,
+      Value<String> responderKeyId,
+      Value<String> immutableDigest,
+      Value<String> payload,
+      Value<String> state,
+      Value<DateTime> receivedAt,
+      Value<DateTime?> processedAt,
+      Value<int> rowid,
+    });
+
+class $$RescueResponseInboxTableFilterComposer
+    extends Composer<_$AppDatabase, $RescueResponseInboxTable> {
+  $$RescueResponseInboxTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get messageId => $composableBuilder(
+    column: $table.messageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get originMessageId => $composableBuilder(
+    column: $table.originMessageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get responderKeyId => $composableBuilder(
+    column: $table.responderKeyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get immutableDigest => $composableBuilder(
+    column: $table.immutableDigest,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get processedAt => $composableBuilder(
+    column: $table.processedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RescueResponseInboxTableOrderingComposer
+    extends Composer<_$AppDatabase, $RescueResponseInboxTable> {
+  $$RescueResponseInboxTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get messageId => $composableBuilder(
+    column: $table.messageId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get originMessageId => $composableBuilder(
+    column: $table.originMessageId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get responderKeyId => $composableBuilder(
+    column: $table.responderKeyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get immutableDigest => $composableBuilder(
+    column: $table.immutableDigest,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get processedAt => $composableBuilder(
+    column: $table.processedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RescueResponseInboxTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RescueResponseInboxTable> {
+  $$RescueResponseInboxTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get ownerId =>
+      $composableBuilder(column: $table.ownerId, builder: (column) => column);
+
+  GeneratedColumn<String> get messageId =>
+      $composableBuilder(column: $table.messageId, builder: (column) => column);
+
+  GeneratedColumn<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get originMessageId => $composableBuilder(
+    column: $table.originMessageId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get responderKeyId => $composableBuilder(
+    column: $table.responderKeyId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get immutableDigest => $composableBuilder(
+    column: $table.immutableDigest,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  GeneratedColumn<String> get state =>
+      $composableBuilder(column: $table.state, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get processedAt => $composableBuilder(
+    column: $table.processedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$RescueResponseInboxTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RescueResponseInboxTable,
+          RescueResponseInboxData,
+          $$RescueResponseInboxTableFilterComposer,
+          $$RescueResponseInboxTableOrderingComposer,
+          $$RescueResponseInboxTableAnnotationComposer,
+          $$RescueResponseInboxTableCreateCompanionBuilder,
+          $$RescueResponseInboxTableUpdateCompanionBuilder,
+          (
+            RescueResponseInboxData,
+            BaseReferences<
+              _$AppDatabase,
+              $RescueResponseInboxTable,
+              RescueResponseInboxData
+            >,
+          ),
+          RescueResponseInboxData,
+          PrefetchHooks Function()
+        > {
+  $$RescueResponseInboxTableTableManager(
+    _$AppDatabase db,
+    $RescueResponseInboxTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RescueResponseInboxTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RescueResponseInboxTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$RescueResponseInboxTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> ownerId = const Value.absent(),
+                Value<String> messageId = const Value.absent(),
+                Value<String> incidentId = const Value.absent(),
+                Value<String> originMessageId = const Value.absent(),
+                Value<String> responderKeyId = const Value.absent(),
+                Value<String> immutableDigest = const Value.absent(),
+                Value<String> payload = const Value.absent(),
+                Value<String> state = const Value.absent(),
+                Value<DateTime> receivedAt = const Value.absent(),
+                Value<DateTime?> processedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RescueResponseInboxCompanion(
+                ownerId: ownerId,
+                messageId: messageId,
+                incidentId: incidentId,
+                originMessageId: originMessageId,
+                responderKeyId: responderKeyId,
+                immutableDigest: immutableDigest,
+                payload: payload,
+                state: state,
+                receivedAt: receivedAt,
+                processedAt: processedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String ownerId,
+                required String messageId,
+                required String incidentId,
+                required String originMessageId,
+                required String responderKeyId,
+                required String immutableDigest,
+                required String payload,
+                required String state,
+                required DateTime receivedAt,
+                Value<DateTime?> processedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RescueResponseInboxCompanion.insert(
+                ownerId: ownerId,
+                messageId: messageId,
+                incidentId: incidentId,
+                originMessageId: originMessageId,
+                responderKeyId: responderKeyId,
+                immutableDigest: immutableDigest,
+                payload: payload,
+                state: state,
+                receivedAt: receivedAt,
+                processedAt: processedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<
+                    $RescueResponseInboxTable,
+                    RescueResponseInboxData
+                  >(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $RescueResponseInboxTable,
+                    RescueResponseInboxData
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RescueResponseInboxTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RescueResponseInboxTable,
+      RescueResponseInboxData,
+      $$RescueResponseInboxTableFilterComposer,
+      $$RescueResponseInboxTableOrderingComposer,
+      $$RescueResponseInboxTableAnnotationComposer,
+      $$RescueResponseInboxTableCreateCompanionBuilder,
+      $$RescueResponseInboxTableUpdateCompanionBuilder,
+      (
+        RescueResponseInboxData,
+        BaseReferences<
+          _$AppDatabase,
+          $RescueResponseInboxTable,
+          RescueResponseInboxData
+        >,
+      ),
+      RescueResponseInboxData,
+      PrefetchHooks Function()
+    >;
+typedef $$RescueResponseJobsTableCreateCompanionBuilder =
+    RescueResponseJobsCompanion Function({
+      required String ownerId,
+      required String responseMessageId,
+      required String nextHopKeyId,
+      required String nextHopDeviceId,
+      required String sessionBinding,
+      required String state,
+      Value<int> retryCount,
+      Value<DateTime?> nextRetryAt,
+      Value<DateTime?> lastAttemptAt,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<String?> lastError,
+      Value<int> rowid,
+    });
+typedef $$RescueResponseJobsTableUpdateCompanionBuilder =
+    RescueResponseJobsCompanion Function({
+      Value<String> ownerId,
+      Value<String> responseMessageId,
+      Value<String> nextHopKeyId,
+      Value<String> nextHopDeviceId,
+      Value<String> sessionBinding,
+      Value<String> state,
+      Value<int> retryCount,
+      Value<DateTime?> nextRetryAt,
+      Value<DateTime?> lastAttemptAt,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<String?> lastError,
+      Value<int> rowid,
+    });
+
+class $$RescueResponseJobsTableFilterComposer
+    extends Composer<_$AppDatabase, $RescueResponseJobsTable> {
+  $$RescueResponseJobsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get responseMessageId => $composableBuilder(
+    column: $table.responseMessageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nextHopKeyId => $composableBuilder(
+    column: $table.nextHopKeyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nextHopDeviceId => $composableBuilder(
+    column: $table.nextHopDeviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sessionBinding => $composableBuilder(
+    column: $table.sessionBinding,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get nextRetryAt => $composableBuilder(
+    column: $table.nextRetryAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastAttemptAt => $composableBuilder(
+    column: $table.lastAttemptAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RescueResponseJobsTableOrderingComposer
+    extends Composer<_$AppDatabase, $RescueResponseJobsTable> {
+  $$RescueResponseJobsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get responseMessageId => $composableBuilder(
+    column: $table.responseMessageId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get nextHopKeyId => $composableBuilder(
+    column: $table.nextHopKeyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get nextHopDeviceId => $composableBuilder(
+    column: $table.nextHopDeviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sessionBinding => $composableBuilder(
+    column: $table.sessionBinding,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get nextRetryAt => $composableBuilder(
+    column: $table.nextRetryAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastAttemptAt => $composableBuilder(
+    column: $table.lastAttemptAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RescueResponseJobsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RescueResponseJobsTable> {
+  $$RescueResponseJobsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get ownerId =>
+      $composableBuilder(column: $table.ownerId, builder: (column) => column);
+
+  GeneratedColumn<String> get responseMessageId => $composableBuilder(
+    column: $table.responseMessageId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get nextHopKeyId => $composableBuilder(
+    column: $table.nextHopKeyId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get nextHopDeviceId => $composableBuilder(
+    column: $table.nextHopDeviceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sessionBinding => $composableBuilder(
+    column: $table.sessionBinding,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get state =>
+      $composableBuilder(column: $table.state, builder: (column) => column);
+
+  GeneratedColumn<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get nextRetryAt => $composableBuilder(
+    column: $table.nextRetryAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastAttemptAt => $composableBuilder(
+    column: $table.lastAttemptAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+}
+
+class $$RescueResponseJobsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RescueResponseJobsTable,
+          RescueResponseJob,
+          $$RescueResponseJobsTableFilterComposer,
+          $$RescueResponseJobsTableOrderingComposer,
+          $$RescueResponseJobsTableAnnotationComposer,
+          $$RescueResponseJobsTableCreateCompanionBuilder,
+          $$RescueResponseJobsTableUpdateCompanionBuilder,
+          (
+            RescueResponseJob,
+            BaseReferences<
+              _$AppDatabase,
+              $RescueResponseJobsTable,
+              RescueResponseJob
+            >,
+          ),
+          RescueResponseJob,
+          PrefetchHooks Function()
+        > {
+  $$RescueResponseJobsTableTableManager(
+    _$AppDatabase db,
+    $RescueResponseJobsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RescueResponseJobsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RescueResponseJobsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RescueResponseJobsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> ownerId = const Value.absent(),
+                Value<String> responseMessageId = const Value.absent(),
+                Value<String> nextHopKeyId = const Value.absent(),
+                Value<String> nextHopDeviceId = const Value.absent(),
+                Value<String> sessionBinding = const Value.absent(),
+                Value<String> state = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<DateTime?> nextRetryAt = const Value.absent(),
+                Value<DateTime?> lastAttemptAt = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RescueResponseJobsCompanion(
+                ownerId: ownerId,
+                responseMessageId: responseMessageId,
+                nextHopKeyId: nextHopKeyId,
+                nextHopDeviceId: nextHopDeviceId,
+                sessionBinding: sessionBinding,
+                state: state,
+                retryCount: retryCount,
+                nextRetryAt: nextRetryAt,
+                lastAttemptAt: lastAttemptAt,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                lastError: lastError,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String ownerId,
+                required String responseMessageId,
+                required String nextHopKeyId,
+                required String nextHopDeviceId,
+                required String sessionBinding,
+                required String state,
+                Value<int> retryCount = const Value.absent(),
+                Value<DateTime?> nextRetryAt = const Value.absent(),
+                Value<DateTime?> lastAttemptAt = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<String?> lastError = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RescueResponseJobsCompanion.insert(
+                ownerId: ownerId,
+                responseMessageId: responseMessageId,
+                nextHopKeyId: nextHopKeyId,
+                nextHopDeviceId: nextHopDeviceId,
+                sessionBinding: sessionBinding,
+                state: state,
+                retryCount: retryCount,
+                nextRetryAt: nextRetryAt,
+                lastAttemptAt: lastAttemptAt,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                lastError: lastError,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$RescueResponseJobsTable, RescueResponseJob>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $RescueResponseJobsTable,
+                    RescueResponseJob
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RescueResponseJobsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RescueResponseJobsTable,
+      RescueResponseJob,
+      $$RescueResponseJobsTableFilterComposer,
+      $$RescueResponseJobsTableOrderingComposer,
+      $$RescueResponseJobsTableAnnotationComposer,
+      $$RescueResponseJobsTableCreateCompanionBuilder,
+      $$RescueResponseJobsTableUpdateCompanionBuilder,
+      (
+        RescueResponseJob,
+        BaseReferences<
+          _$AppDatabase,
+          $RescueResponseJobsTable,
+          RescueResponseJob
+        >,
+      ),
+      RescueResponseJob,
+      PrefetchHooks Function()
+    >;
+typedef $$RescueResponseReplayTableCreateCompanionBuilder =
+    RescueResponseReplayCompanion Function({
+      required String ownerId,
+      required String messageId,
+      required String immutableDigest,
+      required DateTime firstSeenAt,
+      required DateTime expiresAt,
+      Value<int> rowid,
+    });
+typedef $$RescueResponseReplayTableUpdateCompanionBuilder =
+    RescueResponseReplayCompanion Function({
+      Value<String> ownerId,
+      Value<String> messageId,
+      Value<String> immutableDigest,
+      Value<DateTime> firstSeenAt,
+      Value<DateTime> expiresAt,
+      Value<int> rowid,
+    });
+
+class $$RescueResponseReplayTableFilterComposer
+    extends Composer<_$AppDatabase, $RescueResponseReplayTable> {
+  $$RescueResponseReplayTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get messageId => $composableBuilder(
+    column: $table.messageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get immutableDigest => $composableBuilder(
+    column: $table.immutableDigest,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get firstSeenAt => $composableBuilder(
+    column: $table.firstSeenAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RescueResponseReplayTableOrderingComposer
+    extends Composer<_$AppDatabase, $RescueResponseReplayTable> {
+  $$RescueResponseReplayTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get messageId => $composableBuilder(
+    column: $table.messageId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get immutableDigest => $composableBuilder(
+    column: $table.immutableDigest,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get firstSeenAt => $composableBuilder(
+    column: $table.firstSeenAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RescueResponseReplayTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RescueResponseReplayTable> {
+  $$RescueResponseReplayTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get ownerId =>
+      $composableBuilder(column: $table.ownerId, builder: (column) => column);
+
+  GeneratedColumn<String> get messageId =>
+      $composableBuilder(column: $table.messageId, builder: (column) => column);
+
+  GeneratedColumn<String> get immutableDigest => $composableBuilder(
+    column: $table.immutableDigest,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get firstSeenAt => $composableBuilder(
+    column: $table.firstSeenAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get expiresAt =>
+      $composableBuilder(column: $table.expiresAt, builder: (column) => column);
+}
+
+class $$RescueResponseReplayTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RescueResponseReplayTable,
+          RescueResponseReplayData,
+          $$RescueResponseReplayTableFilterComposer,
+          $$RescueResponseReplayTableOrderingComposer,
+          $$RescueResponseReplayTableAnnotationComposer,
+          $$RescueResponseReplayTableCreateCompanionBuilder,
+          $$RescueResponseReplayTableUpdateCompanionBuilder,
+          (
+            RescueResponseReplayData,
+            BaseReferences<
+              _$AppDatabase,
+              $RescueResponseReplayTable,
+              RescueResponseReplayData
+            >,
+          ),
+          RescueResponseReplayData,
+          PrefetchHooks Function()
+        > {
+  $$RescueResponseReplayTableTableManager(
+    _$AppDatabase db,
+    $RescueResponseReplayTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RescueResponseReplayTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RescueResponseReplayTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$RescueResponseReplayTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> ownerId = const Value.absent(),
+                Value<String> messageId = const Value.absent(),
+                Value<String> immutableDigest = const Value.absent(),
+                Value<DateTime> firstSeenAt = const Value.absent(),
+                Value<DateTime> expiresAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RescueResponseReplayCompanion(
+                ownerId: ownerId,
+                messageId: messageId,
+                immutableDigest: immutableDigest,
+                firstSeenAt: firstSeenAt,
+                expiresAt: expiresAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String ownerId,
+                required String messageId,
+                required String immutableDigest,
+                required DateTime firstSeenAt,
+                required DateTime expiresAt,
+                Value<int> rowid = const Value.absent(),
+              }) => RescueResponseReplayCompanion.insert(
+                ownerId: ownerId,
+                messageId: messageId,
+                immutableDigest: immutableDigest,
+                firstSeenAt: firstSeenAt,
+                expiresAt: expiresAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<
+                    $RescueResponseReplayTable,
+                    RescueResponseReplayData
+                  >(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $RescueResponseReplayTable,
+                    RescueResponseReplayData
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RescueResponseReplayTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RescueResponseReplayTable,
+      RescueResponseReplayData,
+      $$RescueResponseReplayTableFilterComposer,
+      $$RescueResponseReplayTableOrderingComposer,
+      $$RescueResponseReplayTableAnnotationComposer,
+      $$RescueResponseReplayTableCreateCompanionBuilder,
+      $$RescueResponseReplayTableUpdateCompanionBuilder,
+      (
+        RescueResponseReplayData,
+        BaseReferences<
+          _$AppDatabase,
+          $RescueResponseReplayTable,
+          RescueResponseReplayData
+        >,
+      ),
+      RescueResponseReplayData,
+      PrefetchHooks Function()
+    >;
+typedef $$ChatRelayOutboxTableCreateCompanionBuilder =
+    ChatRelayOutboxCompanion Function({
+      required String ownerId,
+      required String messageId,
+      required String incidentId,
+      required String senderKeyId,
+      required String recipientKeyId,
+      required String payload,
+      required String state,
+      Value<int> hopCount,
+      Value<int> retryCount,
+      Value<DateTime?> nextRetryAt,
+      required DateTime expiresAt,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<String?> lastError,
+      Value<int> rowid,
+    });
+typedef $$ChatRelayOutboxTableUpdateCompanionBuilder =
+    ChatRelayOutboxCompanion Function({
+      Value<String> ownerId,
+      Value<String> messageId,
+      Value<String> incidentId,
+      Value<String> senderKeyId,
+      Value<String> recipientKeyId,
+      Value<String> payload,
+      Value<String> state,
+      Value<int> hopCount,
+      Value<int> retryCount,
+      Value<DateTime?> nextRetryAt,
+      Value<DateTime> expiresAt,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<String?> lastError,
+      Value<int> rowid,
+    });
+
+class $$ChatRelayOutboxTableFilterComposer
+    extends Composer<_$AppDatabase, $ChatRelayOutboxTable> {
+  $$ChatRelayOutboxTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get messageId => $composableBuilder(
+    column: $table.messageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get senderKeyId => $composableBuilder(
+    column: $table.senderKeyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recipientKeyId => $composableBuilder(
+    column: $table.recipientKeyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get hopCount => $composableBuilder(
+    column: $table.hopCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get nextRetryAt => $composableBuilder(
+    column: $table.nextRetryAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ChatRelayOutboxTableOrderingComposer
+    extends Composer<_$AppDatabase, $ChatRelayOutboxTable> {
+  $$ChatRelayOutboxTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get messageId => $composableBuilder(
+    column: $table.messageId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get senderKeyId => $composableBuilder(
+    column: $table.senderKeyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get recipientKeyId => $composableBuilder(
+    column: $table.recipientKeyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get hopCount => $composableBuilder(
+    column: $table.hopCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get nextRetryAt => $composableBuilder(
+    column: $table.nextRetryAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ChatRelayOutboxTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ChatRelayOutboxTable> {
+  $$ChatRelayOutboxTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get ownerId =>
+      $composableBuilder(column: $table.ownerId, builder: (column) => column);
+
+  GeneratedColumn<String> get messageId =>
+      $composableBuilder(column: $table.messageId, builder: (column) => column);
+
+  GeneratedColumn<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get senderKeyId => $composableBuilder(
+    column: $table.senderKeyId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get recipientKeyId => $composableBuilder(
+    column: $table.recipientKeyId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  GeneratedColumn<String> get state =>
+      $composableBuilder(column: $table.state, builder: (column) => column);
+
+  GeneratedColumn<int> get hopCount =>
+      $composableBuilder(column: $table.hopCount, builder: (column) => column);
+
+  GeneratedColumn<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get nextRetryAt => $composableBuilder(
+    column: $table.nextRetryAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get expiresAt =>
+      $composableBuilder(column: $table.expiresAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+}
+
+class $$ChatRelayOutboxTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ChatRelayOutboxTable,
+          ChatRelayOutboxData,
+          $$ChatRelayOutboxTableFilterComposer,
+          $$ChatRelayOutboxTableOrderingComposer,
+          $$ChatRelayOutboxTableAnnotationComposer,
+          $$ChatRelayOutboxTableCreateCompanionBuilder,
+          $$ChatRelayOutboxTableUpdateCompanionBuilder,
+          (
+            ChatRelayOutboxData,
+            BaseReferences<
+              _$AppDatabase,
+              $ChatRelayOutboxTable,
+              ChatRelayOutboxData
+            >,
+          ),
+          ChatRelayOutboxData,
+          PrefetchHooks Function()
+        > {
+  $$ChatRelayOutboxTableTableManager(
+    _$AppDatabase db,
+    $ChatRelayOutboxTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ChatRelayOutboxTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ChatRelayOutboxTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ChatRelayOutboxTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> ownerId = const Value.absent(),
+                Value<String> messageId = const Value.absent(),
+                Value<String> incidentId = const Value.absent(),
+                Value<String> senderKeyId = const Value.absent(),
+                Value<String> recipientKeyId = const Value.absent(),
+                Value<String> payload = const Value.absent(),
+                Value<String> state = const Value.absent(),
+                Value<int> hopCount = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<DateTime?> nextRetryAt = const Value.absent(),
+                Value<DateTime> expiresAt = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ChatRelayOutboxCompanion(
+                ownerId: ownerId,
+                messageId: messageId,
+                incidentId: incidentId,
+                senderKeyId: senderKeyId,
+                recipientKeyId: recipientKeyId,
+                payload: payload,
+                state: state,
+                hopCount: hopCount,
+                retryCount: retryCount,
+                nextRetryAt: nextRetryAt,
+                expiresAt: expiresAt,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                lastError: lastError,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String ownerId,
+                required String messageId,
+                required String incidentId,
+                required String senderKeyId,
+                required String recipientKeyId,
+                required String payload,
+                required String state,
+                Value<int> hopCount = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<DateTime?> nextRetryAt = const Value.absent(),
+                required DateTime expiresAt,
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<String?> lastError = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ChatRelayOutboxCompanion.insert(
+                ownerId: ownerId,
+                messageId: messageId,
+                incidentId: incidentId,
+                senderKeyId: senderKeyId,
+                recipientKeyId: recipientKeyId,
+                payload: payload,
+                state: state,
+                hopCount: hopCount,
+                retryCount: retryCount,
+                nextRetryAt: nextRetryAt,
+                expiresAt: expiresAt,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                lastError: lastError,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ChatRelayOutboxTable, ChatRelayOutboxData>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $ChatRelayOutboxTable,
+                    ChatRelayOutboxData
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ChatRelayOutboxTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ChatRelayOutboxTable,
+      ChatRelayOutboxData,
+      $$ChatRelayOutboxTableFilterComposer,
+      $$ChatRelayOutboxTableOrderingComposer,
+      $$ChatRelayOutboxTableAnnotationComposer,
+      $$ChatRelayOutboxTableCreateCompanionBuilder,
+      $$ChatRelayOutboxTableUpdateCompanionBuilder,
+      (
+        ChatRelayOutboxData,
+        BaseReferences<
+          _$AppDatabase,
+          $ChatRelayOutboxTable,
+          ChatRelayOutboxData
+        >,
+      ),
+      ChatRelayOutboxData,
+      PrefetchHooks Function()
+    >;
+typedef $$ChatRelayInboxTableCreateCompanionBuilder =
+    ChatRelayInboxCompanion Function({
+      required String ownerId,
+      required String messageId,
+      required String incidentId,
+      required String senderKeyId,
+      required String recipientKeyId,
+      required String payload,
+      required String state,
+      required DateTime receivedAt,
+      Value<int> rowid,
+    });
+typedef $$ChatRelayInboxTableUpdateCompanionBuilder =
+    ChatRelayInboxCompanion Function({
+      Value<String> ownerId,
+      Value<String> messageId,
+      Value<String> incidentId,
+      Value<String> senderKeyId,
+      Value<String> recipientKeyId,
+      Value<String> payload,
+      Value<String> state,
+      Value<DateTime> receivedAt,
+      Value<int> rowid,
+    });
+
+class $$ChatRelayInboxTableFilterComposer
+    extends Composer<_$AppDatabase, $ChatRelayInboxTable> {
+  $$ChatRelayInboxTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get messageId => $composableBuilder(
+    column: $table.messageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get senderKeyId => $composableBuilder(
+    column: $table.senderKeyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recipientKeyId => $composableBuilder(
+    column: $table.recipientKeyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ChatRelayInboxTableOrderingComposer
+    extends Composer<_$AppDatabase, $ChatRelayInboxTable> {
+  $$ChatRelayInboxTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get messageId => $composableBuilder(
+    column: $table.messageId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get senderKeyId => $composableBuilder(
+    column: $table.senderKeyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get recipientKeyId => $composableBuilder(
+    column: $table.recipientKeyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ChatRelayInboxTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ChatRelayInboxTable> {
+  $$ChatRelayInboxTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get ownerId =>
+      $composableBuilder(column: $table.ownerId, builder: (column) => column);
+
+  GeneratedColumn<String> get messageId =>
+      $composableBuilder(column: $table.messageId, builder: (column) => column);
+
+  GeneratedColumn<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get senderKeyId => $composableBuilder(
+    column: $table.senderKeyId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get recipientKeyId => $composableBuilder(
+    column: $table.recipientKeyId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  GeneratedColumn<String> get state =>
+      $composableBuilder(column: $table.state, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$ChatRelayInboxTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ChatRelayInboxTable,
+          ChatRelayInboxData,
+          $$ChatRelayInboxTableFilterComposer,
+          $$ChatRelayInboxTableOrderingComposer,
+          $$ChatRelayInboxTableAnnotationComposer,
+          $$ChatRelayInboxTableCreateCompanionBuilder,
+          $$ChatRelayInboxTableUpdateCompanionBuilder,
+          (
+            ChatRelayInboxData,
+            BaseReferences<
+              _$AppDatabase,
+              $ChatRelayInboxTable,
+              ChatRelayInboxData
+            >,
+          ),
+          ChatRelayInboxData,
+          PrefetchHooks Function()
+        > {
+  $$ChatRelayInboxTableTableManager(
+    _$AppDatabase db,
+    $ChatRelayInboxTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ChatRelayInboxTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ChatRelayInboxTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ChatRelayInboxTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> ownerId = const Value.absent(),
+                Value<String> messageId = const Value.absent(),
+                Value<String> incidentId = const Value.absent(),
+                Value<String> senderKeyId = const Value.absent(),
+                Value<String> recipientKeyId = const Value.absent(),
+                Value<String> payload = const Value.absent(),
+                Value<String> state = const Value.absent(),
+                Value<DateTime> receivedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ChatRelayInboxCompanion(
+                ownerId: ownerId,
+                messageId: messageId,
+                incidentId: incidentId,
+                senderKeyId: senderKeyId,
+                recipientKeyId: recipientKeyId,
+                payload: payload,
+                state: state,
+                receivedAt: receivedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String ownerId,
+                required String messageId,
+                required String incidentId,
+                required String senderKeyId,
+                required String recipientKeyId,
+                required String payload,
+                required String state,
+                required DateTime receivedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => ChatRelayInboxCompanion.insert(
+                ownerId: ownerId,
+                messageId: messageId,
+                incidentId: incidentId,
+                senderKeyId: senderKeyId,
+                recipientKeyId: recipientKeyId,
+                payload: payload,
+                state: state,
+                receivedAt: receivedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ChatRelayInboxTable, ChatRelayInboxData>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $ChatRelayInboxTable,
+                    ChatRelayInboxData
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ChatRelayInboxTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ChatRelayInboxTable,
+      ChatRelayInboxData,
+      $$ChatRelayInboxTableFilterComposer,
+      $$ChatRelayInboxTableOrderingComposer,
+      $$ChatRelayInboxTableAnnotationComposer,
+      $$ChatRelayInboxTableCreateCompanionBuilder,
+      $$ChatRelayInboxTableUpdateCompanionBuilder,
+      (
+        ChatRelayInboxData,
+        BaseReferences<_$AppDatabase, $ChatRelayInboxTable, ChatRelayInboxData>,
+      ),
+      ChatRelayInboxData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -10958,4 +18577,18 @@ class $AppDatabaseManager {
       $$BleRelayAttemptsTableTableManager(_db, _db.bleRelayAttempts);
   $$BleRelayReceiptsTableTableManager get bleRelayReceipts =>
       $$BleRelayReceiptsTableTableManager(_db, _db.bleRelayReceipts);
+  $$RescueInboxTableTableManager get rescueInbox =>
+      $$RescueInboxTableTableManager(_db, _db.rescueInbox);
+  $$RescueResponseOutboxTableTableManager get rescueResponseOutbox =>
+      $$RescueResponseOutboxTableTableManager(_db, _db.rescueResponseOutbox);
+  $$RescueResponseInboxTableTableManager get rescueResponseInbox =>
+      $$RescueResponseInboxTableTableManager(_db, _db.rescueResponseInbox);
+  $$RescueResponseJobsTableTableManager get rescueResponseJobs =>
+      $$RescueResponseJobsTableTableManager(_db, _db.rescueResponseJobs);
+  $$RescueResponseReplayTableTableManager get rescueResponseReplay =>
+      $$RescueResponseReplayTableTableManager(_db, _db.rescueResponseReplay);
+  $$ChatRelayOutboxTableTableManager get chatRelayOutbox =>
+      $$ChatRelayOutboxTableTableManager(_db, _db.chatRelayOutbox);
+  $$ChatRelayInboxTableTableManager get chatRelayInbox =>
+      $$ChatRelayInboxTableTableManager(_db, _db.chatRelayInbox);
 }

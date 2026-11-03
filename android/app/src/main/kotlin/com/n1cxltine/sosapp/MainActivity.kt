@@ -42,6 +42,18 @@ class MainActivity : FlutterActivity() {
                             result.error("storage_failed", "Unable to persist role preference", null)
                         }
                     }
+                    "getPreferredLanguage" ->
+                        result.success(preferences.getString("preferred_language", null))
+                    "setPreferredLanguage" -> {
+                        val language = call.arguments as? String
+                        if (language !in setOf("en", "th")) {
+                            result.error("invalid_language", "Unsupported language preference", null)
+                        } else if (preferences.edit().putString("preferred_language", language).commit()) {
+                            result.success(null)
+                        } else {
+                            result.error("storage_failed", "Unable to persist language preference", null)
+                        }
+                    }
                     "getRelayParticipationEnabled" ->
                         result.success(preferences.getBoolean("relay_participation_enabled", false))
                     "setRelayParticipationEnabled" -> {
@@ -59,6 +71,7 @@ class MainActivity : FlutterActivity() {
                     "getEmergencyConsent" -> result.success(mapOf(
                         "configured" to preferences.getBoolean("emergency_consent_configured", false),
                         "allowPublicRelay" to preferences.getBoolean("emergency_public_relay", false),
+                        "allowVoluntaryRescue" to preferences.getBoolean("emergency_voluntary_rescue", false),
                         "shareLocation" to preferences.getBoolean("emergency_relay_location", false),
                     ))
                     "setEmergencyConsent" -> {
@@ -66,6 +79,7 @@ class MainActivity : FlutterActivity() {
                         val configured = value?.get("configured") as? Boolean
                         val allowPublicRelay = value?.get("allowPublicRelay") as? Boolean
                         val shareLocation = value?.get("shareLocation") as? Boolean
+                        val allowVoluntaryRescue = value?.get("allowVoluntaryRescue") as? Boolean ?: false
                         if (configured == null || allowPublicRelay == null || shareLocation == null ||
                             (shareLocation && !allowPublicRelay)) {
                             result.error("invalid_emergency_consent", "Emergency consent is invalid", null)
@@ -73,6 +87,7 @@ class MainActivity : FlutterActivity() {
                                 .putBoolean("emergency_consent_configured", configured)
                                 .putBoolean("emergency_public_relay", allowPublicRelay)
                                 .putBoolean("emergency_relay_location", shareLocation)
+                                .putBoolean("emergency_voluntary_rescue", allowVoluntaryRescue && allowPublicRelay)
                                 .commit()) {
                             result.success(null)
                         } else {

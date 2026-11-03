@@ -70,6 +70,40 @@ void main() {
     expect(queue.single.operation, 'create');
   });
 
+  test('verified rescue candidate can be materialized for local chat access', () async {
+    when(() => auth.currentUser).thenReturn(null);
+    final guestRepository = SosRepository(
+      database: database,
+      cloudService: cloud,
+      firebaseAuth: auth,
+      localOwnerId: guestDeviceOwnerId,
+    );
+
+    final createdAt = DateTime.utc(2026, 11, 4, 3);
+    final incident = await guestRepository.ensureReceivedIncident(
+      id: 'incident-from-rescue-candidate',
+      type: 'emergency',
+      message: 'Victim needs help',
+      latitude: 13.7,
+      longitude: 100.5,
+      createdAt: createdAt,
+    );
+
+    expect(incident.ownerId, guestDeviceOwnerId);
+    expect(incident.syncState, 'deviceOnly');
+    expect(incident.latitude, 13.7);
+    expect(incident.longitude, 100.5);
+    expect(
+      await guestRepository.ensureReceivedIncident(
+        id: incident.id,
+        type: 'emergency',
+        createdAt: createdAt,
+      ),
+      equals(incident),
+    );
+    expect(await database.select(database.sosSyncQueue).get(), isEmpty);
+  });
+
   test(
     'guest creates local SOS without attempting authenticated cloud sync',
     () async {

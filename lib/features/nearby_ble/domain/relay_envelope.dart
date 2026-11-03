@@ -3,8 +3,12 @@ import 'dart:convert';
 
 import 'package:cryptography/cryptography.dart';
 
+import 'rescue_response_envelope.dart';
+import 'chat_relay_envelope.dart';
+
 enum RelayAuthorizationScope {
-  publicEmergencyRelay('publicEmergencyRelay');
+  publicEmergencyRelay('publicEmergencyRelay'),
+  voluntaryRescue('voluntaryRescue');
 
   const RelayAuthorizationScope(this.wireValue);
   final String wireValue;
@@ -680,6 +684,156 @@ class RelayCryptography {
       keyPair: keyPair,
     );
     return base64UrlEncode(signature.bytes);
+  }
+
+  Future<String> signRescueResponse(
+    RescueResponseBody body,
+    SimpleKeyPair keyPair,
+  ) async {
+    body.validate();
+    final signature = await _algorithm.sign(
+      utf8.encode(relayCanonicalJson(body.toCanonicalMap())),
+      keyPair: keyPair,
+    );
+    return base64UrlEncode(signature.bytes);
+  }
+
+  Future<String> signChatRelay(
+    ChatRelayBody body,
+    SimpleKeyPair keyPair,
+  ) async {
+    body.validate();
+    final signature = await _algorithm.sign(
+      utf8.encode(body.toCanonicalWire()),
+      keyPair: keyPair,
+    );
+    return base64UrlEncode(signature.bytes);
+  }
+
+  Future<bool> verifyChatRelay(
+    ChatRelayEnvelope envelope, {
+    DateTime? now,
+  }) async {
+    envelope.body.validate(now: now);
+    final publicBytes = _decodeExact(
+      envelope.body.senderPublicKey,
+      32,
+      'chatSenderPublicKey',
+    );
+    if (await publicKeyId(publicBytes) != envelope.body.senderKeyId) {
+      return false;
+    }
+    return _algorithm.verify(
+      utf8.encode(envelope.body.toCanonicalWire()),
+      signature: Signature(
+        _decodeExact(envelope.signature, 64, 'chatSignature'),
+        publicKey: SimplePublicKey(publicBytes, type: KeyPairType.ed25519),
+      ),
+    );
+  }
+
+  Future<bool> verifyRescueResponse(
+    RescueResponseEnvelope envelope, {
+    DateTime? now,
+  }) async {
+    envelope.validate(now: now);
+    final publicBytes = _decodeExact(
+      envelope.body.responderPublicKey,
+      32,
+      'responderPublicKey',
+    );
+    if (await publicKeyId(publicBytes) != envelope.body.responderKeyId) {
+      return false;
+    }
+    return _algorithm.verify(
+      utf8.encode(relayCanonicalJson(envelope.body.toCanonicalMap())),
+      signature: Signature(
+        _decodeExact(envelope.signature, 64, 'signature'),
+        publicKey: SimplePublicKey(publicBytes, type: KeyPairType.ed25519),
+      ),
+    );
+  }
+
+  /// Verifies both the responder signature and its binding to the exact
+  /// origin SOS. A relay may transport this envelope, but cannot rebind it to
+  /// another incident or origin message.
+  Future<bool> verifyRescueResponseForOrigin(
+    RescueResponseEnvelope envelope,
+    RelayOriginBody origin, {
+    DateTime? now,
+  }) async {
+    if (envelope.body.incidentId != origin.incidentId ||
+        envelope.body.originMessageId != origin.originMessageId ||
+        envelope.body.originKeyId != origin.originKeyId) {
+      return false;
+    }
+    if (envelope.body.expiresAt.isAfter(origin.expiresAt)) {
+      return false;
+    }
+    if (envelope.body.originDigest != await immutableDigest(origin)) {
+      return false;
+    }
+    return verifyRescueResponse(envelope, now: now);
+  }
+
+  Future<String> signRescueResponseAck(
+    RescueResponseAckBody body,
+    SimpleKeyPair keyPair,
+  ) async {
+    body.validate();
+    final signature = await _algorithm.sign(
+      utf8.encode(relayCanonicalJson(body.toCanonicalMap())),
+      keyPair: keyPair,
+    );
+    return base64UrlEncode(signature.bytes);
+  }
+
+  Future<bool> verifyRescueResponseAck(
+    RescueResponseAckEnvelope envelope, {
+    DateTime? now,
+  }) async {
+    envelope.validate(now: now);
+    final publicBytes = _decodeExact(
+      envelope.body.signerPublicKey,
+      32,
+      'signerPublicKey',
+    );
+    if (await publicKeyId(publicBytes) != envelope.body.signerKeyId) {
+      return false;
+    }
+    return _algorithm.verify(
+      utf8.encode(relayCanonicalJson(envelope.body.toCanonicalMap())),
+      signature: Signature(
+        _decodeExact(envelope.signature, 64, 'signature'),
+        publicKey: SimplePublicKey(publicBytes, type: KeyPairType.ed25519),
+      ),
+    );
+  }
+
+  Future<bool> verifyRescueResponseAckForResponse(
+    RescueResponseAckEnvelope ack,
+    RescueResponseEnvelope response,
+    RelayOriginBody origin, {
+    DateTime? now,
+  }) async {
+    if (ack.body.responseMessageId != response.body.messageId ||
+        ack.body.incidentId != origin.incidentId ||
+        ack.body.originMessageId != origin.originMessageId ||
+        ack.body.originKeyId != origin.originKeyId ||
+        ack.body.recipientKeyId != response.body.responderKeyId ||
+        ack.body.signerKeyId != origin.originKeyId) {
+      return false;
+    }
+    final originPublic = _decodeExact(
+      origin.originPublicKey,
+      32,
+      'originPublicKey',
+    );
+    if (ack.body.signerPublicKey != origin.originPublicKey ||
+        await publicKeyId(originPublic) != origin.originKeyId) {
+      return false;
+    }
+    return verifyRescueResponseAck(ack, now: now);
   }
 
   Future<bool> verifyReceipt(

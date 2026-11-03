@@ -103,9 +103,44 @@ void main() {
     expect(validated.validationError, isNot(contains('maps.geoapify.com')));
   });
 
+  test('Geoapify configuration with a malformed API key fails closed', () {
+    const config = MapTileProviderConfig(
+      urlTemplate:
+          'https://maps.geoapify.com/v1/tile/osm-carto/{z}/{x}/{y}.png?apiKey=not%20a%20key',
+      attribution: 'Powered by Geoapify | © OpenStreetMap contributors',
+      userAgentPackageName: 'com.n1cxltine.sosapp',
+      isDevelopmentFallback: false,
+    );
+
+    final validated = config.withValidation(isRelease: true);
+    expect(validated.isUsable, isFalse);
+    expect(
+      validated.validationIssue,
+      MapTileProviderValidationIssue.geoapifyKeyMalformed,
+    );
+    expect(validated.validationError, isNot(contains('not')));
+  });
+
+  test('Geoapify requires both provider and OpenStreetMap attribution', () {
+    const config = MapTileProviderConfig(
+      urlTemplate: 'https://maps.geoapify.com/v1/tile/osm-carto/{z}/{x}/{y}.png?apiKey=test-key-12345678',
+      attribution: 'Example Maps',
+      userAgentPackageName: 'com.n1cxltine.sosapp',
+      isDevelopmentFallback: false,
+    );
+
+    final validated = config.withValidation(isRelease: true);
+    expect(validated.isUsable, isFalse);
+    expect(
+      validated.validationIssue,
+      MapTileProviderValidationIssue.geoapifyAttributionIncomplete,
+    );
+    expect(validated.validationError, isNot(contains('test-key')));
+  });
+
   test('offline downloads are allowed only for valid Geoapify map tiles', () {
     const geoapify = MapTileProviderConfig(
-      urlTemplate: 'https://maps.geoapify.com/v1/tile/osm-carto/{z}/{x}/{y}.png?apiKey=test-key',
+      urlTemplate: 'https://maps.geoapify.com/v1/tile/osm-carto/{z}/{x}/{y}.png?apiKey=test-key-12345678',
       attribution: 'Powered by Geoapify | OpenStreetMap contributors',
       userAgentPackageName: 'com.n1cxltine.sosapp',
       isDevelopmentFallback: false,
@@ -132,14 +167,35 @@ void main() {
 
   test('actual release environment enforces public-provider safety', () {
     const configured = String.fromEnvironment('MAP_TILE_URL');
+    const geoapifyApiKey = String.fromEnvironment('GEOAPIFY_API_KEY');
     final config = MapTileProviderConfig.fromEnvironment(isRelease: true);
     final host = Uri.tryParse(configured)?.host.toLowerCase() ?? '';
-    if (configured.isEmpty ||
+    if ((configured.isEmpty && geoapifyApiKey.isEmpty) ||
         host == 'tile.openstreetmap.org' ||
         host.endsWith('.tile.openstreetmap.org')) {
       expect(config.isUsable, isFalse);
     } else {
       expect(config.isDevelopmentFallback, isFalse);
+    }
+  });
+
+  test('GEOAPIFY_API_KEY creates a safe release tile configuration', () {
+    const configured = String.fromEnvironment('MAP_TILE_URL');
+    const geoapifyApiKey = String.fromEnvironment('GEOAPIFY_API_KEY');
+    final config = MapTileProviderConfig.fromEnvironment(isRelease: true);
+
+    if (configured.isEmpty && geoapifyApiKey.isNotEmpty) {
+      final uri = Uri.parse(config.urlTemplate);
+      expect(config.isUsable, isTrue);
+      expect(config.isDevelopmentFallback, isFalse);
+      expect(uri.scheme, 'https');
+      expect(uri.host, 'maps.geoapify.com');
+      expect(uri.path, startsWith('/v1/tile/'));
+      expect(uri.queryParameters['apiKey']?.isNotEmpty, isTrue);
+      expect(config.attribution.toLowerCase(), contains('geoapify'));
+      expect(config.attribution.toLowerCase(), contains('openstreetmap'));
+      expect(config.userAgentPackageName, isNotEmpty);
+      expect(config.supportsOfflineRegionDownloads, isTrue);
     }
   });
 }

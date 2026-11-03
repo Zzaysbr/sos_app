@@ -440,6 +440,11 @@ void main() {
       await nodeA.coordinator.setParticipationEnabled(true);
       await nodeB.coordinator.setParticipationEnabled(true);
       await nodeA.start();
+      await nodeA.coordinator.queuePublicEmergency(
+        _sos('incident-serialized-central-proof-2', clock),
+        includeLocation: false,
+      );
+      await Future<void>.delayed(Duration.zero);
       await nodeB.start();
       await transportA.connect('device-b');
 
@@ -511,6 +516,87 @@ void main() {
   );
 
   test(
+    'foreground resume re-proves a retained GATT session before relay resumes',
+    () async {
+      final clock = DateTime.utc(2026, 11, 2, 5);
+      final transportA = _LinkedTransport('device-a');
+      final transportB = _LinkedTransport('device-b');
+      transportA.link(transportB);
+      final nodeA = _RelayNode(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        transport: transportA,
+        now: () => clock,
+      );
+      final nodeB = _RelayNode(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        transport: transportB,
+        now: () => clock,
+      );
+      addTearDown(nodeA.close);
+      addTearDown(nodeB.close);
+
+      await nodeA.coordinator.setParticipationEnabled(true);
+      await nodeB.coordinator.setParticipationEnabled(true);
+      await nodeA.start();
+      await nodeB.start();
+      await transportA.connect('device-b');
+      await _eventually(
+        () async =>
+            nodeA.logs.contains('relaySessionProofEstablished') &&
+            nodeB.logs.contains('relaySessionProofEstablished'),
+      );
+      final capabilitiesBefore = transportB.sentMessages
+          .where(
+            (message) => message.type == RelayCapabilityAdvertisement.wireKind,
+          )
+          .length;
+      final challengesBefore = transportB.sentMessages
+          .where((message) => message.type == RelaySessionChallenge.wireKind)
+          .length;
+
+      await nodeB.coordinator.setForeground(false);
+      await nodeB.coordinator.setForeground(true);
+      await _eventually(
+        () async =>
+            transportB.sentMessages
+                    .where(
+                      (message) =>
+                          message.type == RelayCapabilityAdvertisement.wireKind,
+                    )
+                    .length >
+                capabilitiesBefore &&
+            transportB.sentMessages
+                    .where(
+                      (message) =>
+                          message.type == RelaySessionChallenge.wireKind,
+                    )
+                    .length >
+                challengesBefore,
+      );
+
+      await nodeA.coordinator.queuePublicEmergency(
+        _sos('incident-after-foreground-resume', clock),
+        includeLocation: false,
+      );
+      await _eventually(() async {
+        final attempts = await nodeA.database
+            .select(nodeA.database.bleRelayAttempts)
+            .get();
+        return attempts.length == 1 &&
+            attempts.single.state ==
+                RelayAttemptState.acceptedByRelay.wireValue;
+      });
+
+      expect(
+        await nodeB.database.select(nodeB.database.bleRelayMessages).get(),
+        hasLength(1),
+      );
+      expect(nodeA.errors, isEmpty);
+      expect(nodeB.errors, isEmpty);
+    },
+  );
+
+  test(
     'challenge arriving before capability is deferred then verified',
     () async {
       final clock = DateTime.utc(2026, 10, 29, 12);
@@ -543,11 +629,134 @@ void main() {
             nodeB.logs.contains('relaySessionProofEstablished'),
         timeout: const Duration(seconds: 3),
       );
-      expect(nodeB.logs, contains('relaySessionChallengeDeferred'));
+      expect(
+        nodeB.logs,
+        contains('relaySessionCapabilityRecoveredFromChallenge'),
+      );
       expect(nodeA.errors, isEmpty);
       expect(nodeB.errors, isEmpty);
     },
   );
+
+  test(
+    'signed challenge recovers a permanently lost capability advertisement',
+    () async {
+      final clock = DateTime.utc(2026, 11, 2, 4, 30);
+      final transportA = _LinkedTransport('device-a')
+        ..dropMessageTypes.add(RelayCapabilityAdvertisement.wireKind);
+      final transportB = _LinkedTransport('device-b');
+      transportA.link(transportB);
+      final nodeA = _RelayNode(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        transport: transportA,
+        now: () => clock,
+      );
+      final nodeB = _RelayNode(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        transport: transportB,
+        now: () => clock,
+      );
+      addTearDown(nodeA.close);
+      addTearDown(nodeB.close);
+
+      await nodeA.coordinator.setParticipationEnabled(true);
+      await nodeB.coordinator.setParticipationEnabled(true);
+      await nodeB.start();
+      await nodeA.start();
+      await transportA.connect('device-b');
+      await _eventually(
+        () async =>
+            nodeA.logs.contains('relaySessionProofEstablished') &&
+            nodeB.logs.contains('relaySessionProofEstablished'),
+      );
+      await nodeA.coordinator.queuePublicEmergency(
+        _sos('incident-lost-capability', clock),
+        includeLocation: false,
+      );
+
+      await _eventually(() async {
+        final messages = await nodeB.database
+            .select(nodeB.database.bleRelayMessages)
+            .get();
+        final attempts = await nodeA.database
+            .select(nodeA.database.bleRelayAttempts)
+            .get();
+        return messages.length == 1 &&
+            attempts.length == 1 &&
+            attempts.single.state ==
+                RelayAttemptState.acceptedByRelay.wireValue;
+      });
+
+      expect(
+        nodeB.logs,
+        contains('relaySessionCapabilityRecoveredFromChallenge'),
+      );
+      expect(nodeA.errors, isEmpty);
+      expect(nodeB.errors, isEmpty);
+    },
+  );
+
+  test('unsigned challenge cannot recover a missing capability', () async {
+    final clock = DateTime.utc(2026, 11, 2, 4, 45);
+    final localStore = _MemoryKeyStore()
+      ..seed = List<int>.generate(32, (index) => index + 7);
+    final remotePair = await Ed25519().newKeyPairFromSeed(
+      List<int>.generate(32, (index) => index + 77),
+    );
+    final crypto = RelayCryptography();
+    final remotePublic = (await remotePair.extractPublicKey()).bytes;
+    final remoteKeyId = await crypto.publicKeyId(remotePublic);
+    final localIdentity = await RelayIdentityService(keyStore: localStore)
+        .loadOrCreate(allowCreate: true);
+    final transport = _LinkedTransport('device-a');
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    final coordinator = HopRelayCoordinator(
+      database: database,
+      transport: transport,
+      identityService: RelayIdentityService(keyStore: localStore),
+      now: () => clock,
+    );
+    addTearDown(() async {
+      await coordinator.stop();
+      await transport.dispose();
+      await database.close();
+    });
+
+    await coordinator.start();
+    await coordinator.onEvent(
+      const BleEvent(
+        type: 'connected',
+        device: BleDevice(id: 'device-b'),
+        role: BleSessionRole.peripheral,
+      ),
+    );
+    final challenge = RelaySessionChallenge(
+      nonce: base64UrlEncode(List<int>.filled(32, 9)),
+      challengerKeyId: remoteKeyId,
+      challengerPublicKey: base64UrlEncode(remotePublic),
+      challengedKeyId: localIdentity.keyId,
+      challengerRole: BleSessionRole.central.wireValue,
+      challengedRole: BleSessionRole.peripheral.wireValue,
+      challengerGeneration: 1,
+      challengedGeneration: 1,
+      challengerParticipating: true,
+      signature: base64UrlEncode(List<int>.filled(64, 0)),
+    );
+
+    await expectLater(
+      coordinator.handleMessage(
+        'device-b',
+        BleSessionRole.peripheral,
+        BleMessage(
+          id: 'relay-proof-challenge:1',
+          type: RelaySessionChallenge.wireKind,
+          payload: challenge.toJson(),
+          createdAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+        ),
+      ),
+      throwsA(isA<RelayProtocolException>()),
+    );
+  });
 
   test(
     'opted-in peer persists relay-only offer and returns hop receipt',
@@ -668,6 +877,32 @@ void main() {
 
       final capturedReceipt = transportB.sentMessages.lastWhere(
         (message) => message.type == RelayReceiptType.hop.wireValue,
+      );
+      final receipt = RelayReceiptEnvelope.fromJson(capturedReceipt.payload);
+      final receiverChallengeMessage = transportB.sentMessages.lastWhere(
+        (message) => message.type == RelaySessionChallenge.wireKind,
+      );
+      final receiverChallenge = RelaySessionChallenge.fromJson(
+        receiverChallengeMessage.payload,
+      );
+      final senderResponseMessage = transportA.sentMessages.lastWhere(
+        (message) =>
+            message.type == RelaySessionResponse.wireKind &&
+            RelaySessionResponse.fromJson(message.payload).challenge.nonce ==
+                receiverChallenge.nonce,
+      );
+      final senderResponse = RelaySessionResponse.fromJson(
+        senderResponseMessage.payload,
+      );
+      expect(
+        receipt.sessionBinding,
+        await RelayCryptography().relaySessionBinding(
+          receiverChallenge,
+          senderResponse,
+        ),
+        reason:
+            'The hop receipt must use the proof challenge issued by the '
+            'offer receiver, not an independently delivered reciprocal proof.',
       );
       await transportA.disconnect('device-b');
       await transportA.connect('device-b');
@@ -1197,7 +1432,7 @@ void main() {
   );
 
   test(
-    'a second central candidate waits for the active identity proof',
+    'a second central candidate can start while another peer proves identity',
     () async {
       final clock = DateTime.utc(2026, 11, 1, 13);
       final transportA = _LinkedTransport('device-a');
@@ -1212,11 +1447,11 @@ void main() {
       );
       addTearDown(nodeA.close);
 
+      await nodeA.start();
       await nodeA.coordinator.queuePublicEmergency(
         _sos('incident-serialized-central-proof', clock),
         includeLocation: false,
       );
-      await nodeA.start();
       await nodeA.coordinator.onEvent(
         const BleEvent(
           type: 'connected',
@@ -1232,7 +1467,7 @@ void main() {
         ),
       );
 
-      expect(transportA.connectedPeers, isNot(contains('device-c')));
+      expect(transportA.connectedPeers, contains('device-c'));
       expect(nodeA.errors, isEmpty);
     },
   );

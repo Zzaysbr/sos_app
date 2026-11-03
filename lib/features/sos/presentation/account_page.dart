@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/localization/localization.dart';
 import '../../auth/data/auth_service.dart';
 
 class AccountPage extends StatefulWidget {
@@ -21,33 +22,25 @@ class _AccountPageState extends State<AccountPage> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Verification email sent. Check your inbox.'),
-        ),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.verificationSent)));
     } on FirebaseAuthException catch (error, stackTrace) {
       debugPrint('Verification email failed: ${error.code}');
       debugPrintStack(stackTrace: stackTrace);
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to send verification email. Try again later.'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.verificationFailed)));
     } catch (error, stackTrace) {
       debugPrint('Verification email failed: $error');
       debugPrintStack(stackTrace: stackTrace);
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Something went wrong. Please try again.'),
-        ),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.genericError)));
     }
   }
 
@@ -55,48 +48,35 @@ class _AccountPageState extends State<AccountPage> {
     final email = FirebaseAuth.instance.currentUser?.email;
 
     if (email == null || email.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No email address is associated with this account.'),
-        ),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.noAccountEmail)));
       return;
     }
 
     try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email.trim());
+      await AuthService().resetPassword(email: email.trim());
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password reset email sent. Check your inbox.'),
-        ),
-      );
-    } on FirebaseAuthException catch (error, stackTrace) {
-      debugPrint('Password reset failed: ${error.code}');
-      debugPrintStack(stackTrace: stackTrace);
-
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.passwordResetSent)));
+    } on AuthException catch (error) {
       if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Unable to send password reset email. Please try again later.',
-          ),
-        ),
-      );
+      final message = error.message.contains('not configured')
+          ? context.l10n.passwordRecoveryUnavailable
+          : context.l10n.passwordResetFailed;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     } catch (error, stackTrace) {
       debugPrint('Password reset failed: $error');
       debugPrintStack(stackTrace: stackTrace);
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Something went wrong. Please try again.'),
-        ),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.genericError)));
     }
   }
 
@@ -105,19 +85,18 @@ class _AccountPageState extends State<AccountPage> {
       useRootNavigator: false,
       context: context,
       builder: (dialogContext) {
+        final l10n = dialogContext.l10n;
         return AlertDialog(
-          title: const Text('Sign out?'),
-          content: const Text(
-            'You will need to sign in again to use this account.',
-          ),
+          title: Text(l10n.signOutQuestion),
+          content: Text(l10n.signOutWarning),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Sign out'),
+              child: Text(l10n.signOut),
             ),
           ],
         );
@@ -138,25 +117,25 @@ class _AccountPageState extends State<AccountPage> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to sign out. Please try again.')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.signOutFailed)));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final user = FirebaseAuth.instance.currentUser;
-    final email = user?.email ?? 'No email available';
+    final email = user?.email ?? l10n.noEmailAvailable;
     final initial = (user?.email?.isNotEmpty ?? false)
         ? user!.email![0].toUpperCase()
         : '?';
     final verified = user?.emailVerified ?? false;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My account')),
+      appBar: AppBar(title: Text(l10n.myAccount)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
@@ -179,14 +158,14 @@ class _AccountPageState extends State<AccountPage> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'My account',
+                      l10n.myAccount,
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Manage your account and security settings.',
+                      l10n.manageAccount,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: colors.onSurfaceVariant,
@@ -198,7 +177,7 @@ class _AccountPageState extends State<AccountPage> {
             ),
             const SizedBox(height: 28),
             _buildSettingsSection(
-              title: 'ACCOUNT DETAILS',
+              title: l10n.accountDetails,
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 2),
@@ -206,18 +185,18 @@ class _AccountPageState extends State<AccountPage> {
                     children: [
                       _buildProfileRow(
                         icon: Icons.email_outlined,
-                        label: 'Email',
+                        label: l10n.email,
                         value: email,
                       ),
                       _buildProfileRow(
                         icon: Icons.fingerprint,
-                        label: 'User ID',
-                        value: user?.uid ?? 'Unknown',
+                        label: l10n.userId,
+                        value: user?.uid ?? l10n.unknown,
                       ),
                       _buildProfileRow(
                         icon: Icons.verified_user_outlined,
-                        label: 'Email verified',
-                        value: verified ? 'Yes' : 'No',
+                        label: l10n.emailVerified,
+                        value: verified ? l10n.yes : l10n.no,
                       ),
                     ],
                   ),
@@ -226,12 +205,12 @@ class _AccountPageState extends State<AccountPage> {
             ),
             const SizedBox(height: 28),
             _buildSettingsSection(
-              title: 'ACCOUNT',
+              title: l10n.account,
               children: [
                 _buildSettingsTile(
                   icon: Icons.lock_reset_outlined,
-                  title: 'Reset password',
-                  subtitle: 'Send a password reset link by email',
+                  title: l10n.resetPassword,
+                  subtitle: l10n.resetPasswordByEmail,
                   onTap: _sendPasswordReset,
                 ),
               ],
@@ -239,12 +218,12 @@ class _AccountPageState extends State<AccountPage> {
             if (user != null && !verified) ...[
               const SizedBox(height: 28),
               _buildSettingsSection(
-                title: 'VERIFICATION',
+                title: l10n.verification,
                 children: [
                   _buildSettingsTile(
                     icon: Icons.mark_email_read_outlined,
-                    title: 'Verify email address',
-                    subtitle: 'Send a verification link to your email',
+                    title: l10n.verifyEmail,
+                    subtitle: l10n.verifyEmailDescription,
                     onTap: _sendVerificationEmail,
                   ),
                 ],
@@ -252,12 +231,12 @@ class _AccountPageState extends State<AccountPage> {
             ],
             const SizedBox(height: 28),
             _buildSettingsSection(
-              title: 'SECURITY',
+              title: l10n.security,
               children: [
                 _buildSettingsTile(
                   icon: Icons.logout_rounded,
-                  title: 'Sign out',
-                  subtitle: 'Sign out from this device',
+                  title: l10n.signOut,
+                  subtitle: l10n.signOutDescription,
                   isDestructive: true,
                   onTap: _signOut,
                 ),

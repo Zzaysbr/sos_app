@@ -12,7 +12,7 @@ void main() {
     verifier = SchemaVerifier(GeneratedHelper());
   });
 
-  test('authoritative v5 schema migrates to v6 without data loss', () async {
+  test('authoritative v5 schema migrates to v9 without data loss', () async {
     final schema = await verifier.schemaAt(5);
     addTearDown(schema.close);
     final raw = schema.rawDatabase;
@@ -47,7 +47,7 @@ void main() {
     addTearDown(migrated.close);
     await verifier.migrateAndValidate(
       migrated,
-      6,
+      9,
       options: const ValidationOptions(validateDropped: true),
     );
 
@@ -106,14 +106,14 @@ void main() {
     expect(await migrated.select(migrated.bleRelayReceipts).get(), isEmpty);
   });
 
-  test('authoritative v6 schema initializes empty and validates', () async {
-    final connection = await verifier.startAt(6);
+  test('authoritative v7 schema upgrades to v9 and validates', () async {
+    final connection = await verifier.startAt(7);
     final database = AppDatabase.forTesting(connection);
     addTearDown(database.close);
 
     await verifier.migrateAndValidate(
       database,
-      6,
+      9,
       options: const ValidationOptions(validateDropped: true),
     );
     expect(await database.select(database.sosMessages).get(), isEmpty);
@@ -133,7 +133,7 @@ void main() {
     ''');
       final database = _FailingMigrationDatabase(schema.newConnection());
       await expectLater(
-        verifier.migrateAndValidate(database, 6),
+        verifier.migrateAndValidate(database, 9),
         throwsA(anything),
       );
       await database.close();

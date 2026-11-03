@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'password_recovery.dart';
+
 class AuthService {
   AuthService({FirebaseAuth? firebaseAuth})
     : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance;
@@ -56,11 +58,12 @@ class AuthService {
     final normalizedEmail = _normalizeEmail(email);
     _validateEmail(normalizedEmail);
 
-    try {
-      await _firebaseAuth.sendPasswordResetEmail(email: normalizedEmail);
-    } on FirebaseAuthException catch (error) {
-      throw AuthException(_mapFirebaseError(error.code));
-    }
+    // Firebase's email reset endpoint verifies only email ownership. Until a
+    // trusted backend binds that proof to an independently verified second
+    // factor, fail closed instead of offering an email-only password change.
+    throw AuthException(
+      const RecoveryUnavailableException().message,
+    );
   }
 
   Future<void> logout() => _firebaseAuth.signOut();

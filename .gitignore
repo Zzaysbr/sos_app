@@ -93,3 +93,4 @@ dart_defines.release*.json
 
 # Widget Preview related
 .widget_preview/
+config/
