@@ -75,6 +75,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
           responseOwnerId: ownerId,
           chatRelayRepository: ChatRelayRepository(database, ownerId: ownerId),
           onChatRelayReceived: _persistRelayedChat,
+          onChatRelayForwarded: _markChatRelayForwarded,
         );
   }
 
@@ -124,9 +125,33 @@ class SosBleCoordinator with WidgetsBindingObserver {
       text: envelope.body.text,
       createdAt: envelope.body.createdAt,
     );
+    _log(
+      'chat_destination_persisted messageId=${envelope.body.messageId} '
+      'incident=${envelope.body.incidentId}',
+    );
+  }
+
+  Future<void> _markChatRelayForwarded(String messageId) async {
+    final repository = chatRepository;
+    if (repository == null) return;
+    // This is authenticated next-hop acceptance only. Without a signed
+    // final-recipient receipt the message must remain undelivered.
+    final timer = _chatTimers[messageId];
+    _log(
+      'chat_relay_forwarded messageId=$messageId'
+      '${timer == null ? '' : ' elapsedMs=${timer.elapsedMilliseconds}'}',
+    );
+    try {
+      await repository.updateDeliveryStatus(messageId, ChatDeliveryStatus.sent);
+    } on Object {
+      // Relay-only copies on an intermediate device do not have a local Chat
+      // row. Their durable relay state remains authoritative and must not be
+      // turned into a failed transport job because the UI row is absent.
+    }
   }
 
   final _bindingRetries = <String, Timer>{};
+  final _chatTimers = <String, Stopwatch>{};
   final _peerBindings = <String, String>{};
   final _peerChallenges = <String, String>{};
   final _bindingWaiters = <String, Completer<void>>{};
@@ -452,6 +477,9 @@ class SosBleCoordinator with WidgetsBindingObserver {
     required String recipientPublicKey,
   }) async {
     _ensureUsable();
+    final timer = Stopwatch()..start();
+    _chatTimers[chat.id] = timer;
+    _log('chat_send_started messageId=${chat.id} incident=${chat.sosId}');
     await _hopRelay.signAndEnqueueChatRelay(
       messageId: chat.id,
       incidentId: chat.sosId,
@@ -459,6 +487,10 @@ class SosBleCoordinator with WidgetsBindingObserver {
       recipientPublicKey: recipientPublicKey,
       text: chat.text,
       createdAt: chat.createdAt,
+    );
+    _log(
+      'chat_relay_enqueued messageId=${chat.id} incident=${chat.sosId} '
+      'elapsedMs=${timer.elapsedMilliseconds}',
     );
   }
 

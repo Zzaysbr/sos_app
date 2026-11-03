@@ -114,7 +114,7 @@
   "send": "ส่ง",
   "statusQueued": "อยู่ในคิว",
   "statusSending": "กำลังส่ง",
-  "statusAwaitingConfirmation": "รอการยืนยันจากแอปผู้รับ",
+  "statusAwaitingConfirmation": "ส่งต่อแล้ว — ยังไม่ยืนยันการรับปลายทาง",
   "statusConfirmedStored": "ยืนยันว่าบันทึกบนอุปกรณ์ใกล้เคียงที่เลือกแล้ว",
   "statusDelivered": "ส่งถึงอุปกรณ์ผู้รับแล้ว",
   "statusFailedRetryable": "ล้มเหลว · ลองใหม่ได้",

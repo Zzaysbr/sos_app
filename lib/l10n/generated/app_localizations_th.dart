@@ -375,7 +375,8 @@ class AppLocalizationsTh extends AppLocalizations {
   String get statusSending => 'กำลังส่ง';
 
   @override
-  String get statusAwaitingConfirmation => 'รอการยืนยันจากแอปผู้รับ';
+  String get statusAwaitingConfirmation =>
+      'ส่งต่อแล้ว — ยังไม่ยืนยันการรับปลายทาง';
 
   @override
   String get statusConfirmedStored =>

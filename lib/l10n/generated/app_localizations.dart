@@ -785,7 +785,7 @@ abstract class AppLocalizations {
   /// No description provided for @statusAwaitingConfirmation.
   ///
   /// In en, this message translates to:
-  /// **'Awaiting application confirmation'**
+  /// **'Relayed — delivery not confirmed'**
   String get statusAwaitingConfirmation;
 
   /// No description provided for @statusConfirmedStored.

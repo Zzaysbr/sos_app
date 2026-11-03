@@ -125,6 +125,7 @@ class HopRelayCoordinator {
     RescueResponseRepository? rescueResponseRepository,
     this.chatRelayRepository,
     this.onChatRelayReceived,
+    this.onChatRelayForwarded,
     this.ackTimeout = const Duration(seconds: 30),
     this.retryBase = const Duration(seconds: 5),
     // A signed response embeds the signed challenge and can span hundreds of
@@ -168,6 +169,7 @@ class HopRelayCoordinator {
   final RescueResponseRepository _rescueResponseRepository;
   final ChatRelayRepository? chatRelayRepository;
   final Future<void> Function(ChatRelayEnvelope envelope)? onChatRelayReceived;
+  final Future<void> Function(String messageId)? onChatRelayForwarded;
   final Duration ackTimeout;
   final Duration retryBase;
   final Duration proofTimeout;
@@ -970,6 +972,7 @@ class HopRelayCoordinator {
           ),
         );
         await repository.markForwarded(row.messageId, now: now);
+        await onChatRelayForwarded?.call(row.messageId);
         _log(
           'chat_relay_forwarded incident=${row.incidentId} message=${row.messageId}',
         );

@@ -380,7 +380,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get statusSending => 'Sending';
 
   @override
-  String get statusAwaitingConfirmation => 'Awaiting application confirmation';
+  String get statusAwaitingConfirmation => 'Relayed — delivery not confirmed';
 
   @override
   String get statusConfirmedStored =>

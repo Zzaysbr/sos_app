@@ -117,7 +117,7 @@
   "send": "Send",
   "statusQueued": "Queued",
   "statusSending": "Sending",
-  "statusAwaitingConfirmation": "Awaiting application confirmation",
+  "statusAwaitingConfirmation": "Relayed — delivery not confirmed",
   "statusConfirmedStored": "Confirmed stored on the selected nearby device",
   "statusDelivered": "Delivered",
   "statusFailedRetryable": "Failed; retryable",

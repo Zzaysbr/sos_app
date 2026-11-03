@@ -724,76 +724,78 @@ class _SosPageState extends State<SosPage> {
                           StreamBuilder<List<RescueInboxData>>(
                             stream: _rescueCandidatesStream,
                             builder: (context, candidateSnapshot) {
-                              final candidates =
-                                  candidateSnapshot.data ??
-                                  const <RescueInboxData>[];
-                              if (candidates.isEmpty) {
-                                return const SizedBox.shrink();
-                              }
+                              final candidates = (candidateSnapshot.data ??
+                                      const <RescueInboxData>[])
+                                  .where(
+                                    (candidate) =>
+                                        candidate.state != 'expired' &&
+                                        candidate.expiresAt.isAfter(
+                                          DateTime.now().toUtc(),
+                                        ),
+                                  )
+                                  .toList(growable: false);
+                              final activeReceived = received
+                                  .where((sos) => sos.status == 'active')
+                                  .toList(growable: false);
+                              final existingIds = activeReceived
+                                  .map((sos) => sos.id)
+                                  .toSet();
+                              final uniqueCandidates = candidates
+                                  .where(
+                                    (candidate) =>
+                                        !existingIds.contains(candidate.incidentId),
+                                  )
+                                  .toList(growable: false);
+                              final total =
+                                  activeReceived.length + uniqueCandidates.length;
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    'Incoming SOS candidates',
-                                    style: theme.textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.w900,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        l10n.receivedIncidents,
+                                        style: theme.textTheme.titleLarge
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                      ),
+                                      const Spacer(),
+                                      Text(
+                                        l10n.incidentCount(total),
+                                        style: TextStyle(color: rescueColor),
+                                      ),
+                                    ],
                                   ),
                                   const SizedBox(height: 12),
-                                  for (final candidate in candidates) ...[
-                                    Card(
-                                      child: ListTile(
-                                        leading: const Icon(
-                                          Icons.warning_rounded,
-                                        ),
-                                        title: Text(
-                                          candidate.emergencyType.toUpperCase(),
-                                        ),
-                                        subtitle: Text(
-                                          candidate.emergencyMessage,
-                                        ),
-                                        onTap: () =>
-                                            _showRescueCandidate(candidate),
+                                  if (sosSnapshot.connectionState ==
+                                          ConnectionState.waiting ||
+                                      inboundSnapshot.connectionState ==
+                                          ConnectionState.waiting ||
+                                      candidateSnapshot.connectionState ==
+                                          ConnectionState.waiting)
+                                    const Padding(
+                                      padding: EdgeInsets.all(36),
+                                      child: Center(
+                                        child: CircularProgressIndicator(),
                                       ),
-                                    ),
-                                    const SizedBox(height: 8),
+                                    )
+                                  else if (total == 0)
+                                    _buildRescueEmptyState()
+                                  else ...[
+                                    for (final sos in activeReceived) ...[
+                                      _buildRescueIncidentCard(sos),
+                                      const SizedBox(height: 12),
+                                    ],
+                                    for (final candidate in uniqueCandidates) ...[
+                                      _buildIncomingCandidateCard(candidate),
+                                      const SizedBox(height: 12),
+                                    ],
                                   ],
-                                  const SizedBox(height: 18),
                                 ],
                               );
                             },
                           ),
-                          Row(
-                            children: [
-                              Text(
-                                l10n.receivedIncidents,
-                                style: theme.textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              const Spacer(),
-                              Text(
-                                l10n.incidentCount(received.length),
-                                style: TextStyle(color: rescueColor),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          if (sosSnapshot.connectionState ==
-                                  ConnectionState.waiting ||
-                              inboundSnapshot.connectionState ==
-                                  ConnectionState.waiting)
-                            const Padding(
-                              padding: EdgeInsets.all(36),
-                              child: Center(child: CircularProgressIndicator()),
-                            )
-                          else if (received.isEmpty)
-                            _buildRescueEmptyState()
-                          else
-                            for (final sos in received) ...[
-                              _buildRescueIncidentCard(sos),
-                              const SizedBox(height: 12),
-                            ],
                         ]),
                       ),
                     ),
@@ -916,6 +918,19 @@ class _SosPageState extends State<SosPage> {
             trailing: const Icon(Icons.check_circle_outline),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildIncomingCandidateCard(RescueInboxData candidate) {
+    return Card(
+      key: ValueKey('received-rescue-candidate-${candidate.incidentId}'),
+      child: ListTile(
+        leading: const Icon(Icons.warning_rounded),
+        title: Text(candidate.emergencyType.toUpperCase()),
+        subtitle: Text(candidate.emergencyMessage),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: () => _showRescueCandidate(candidate),
       ),
     );
   }
@@ -2688,13 +2703,34 @@ class _SosPageState extends State<SosPage> {
       return await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10),
+          timeLimit: Duration(seconds: 15),
         ),
       );
     } on TimeoutException {
+      final recent = await _recentUsableLastKnownPosition();
+      if (recent != null) return recent;
       throw LocationAcquisitionException(l10n.locationTimedOut);
     } catch (_) {
+      final recent = await _recentUsableLastKnownPosition();
+      if (recent != null) return recent;
       throw LocationAcquisitionException(l10n.currentLocationUnavailable);
+    }
+  }
+
+  Future<Position?> _recentUsableLastKnownPosition() async {
+    try {
+      final position = await Geolocator.getLastKnownPosition();
+      if (position == null ||
+          !isValidSosCoordinatePair(position.latitude, position.longitude) ||
+          !position.accuracy.isFinite ||
+          position.accuracy > 500) {
+        return null;
+      }
+      final age = DateTime.now().toUtc().difference(position.timestamp).abs();
+      if (age > const Duration(minutes: 5)) return null;
+      return position;
+    } on Object {
+      return null;
     }
   }
 
