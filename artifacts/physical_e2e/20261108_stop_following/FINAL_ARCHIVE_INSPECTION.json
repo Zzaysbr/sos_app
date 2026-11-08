@@ -1,0 +1,18 @@
+{
+  "date": "2026-11-08",
+  "build_number": 4,
+  "operator_report": "All old Helping entries removed using explicit local stop-following action",
+  "matching_saved_wired_ipad": true,
+  "inspection": "Read-only Documents DB copy; live copies not coordinated snapshots",
+  "result": {
+    "sqlite_quick_check": "ok",
+    "historical_candidate_count_before": 7,
+    "same_candidate_rows_retained": 7,
+    "archived_locally_count": 7,
+    "still_locally_accepted_count": 0,
+    "prior_chat_rows": 13,
+    "prior_chat_immutable_content_preserved": 13,
+    "new_lifecycle_outbox_ids": 0
+  },
+  "scope": "Seven targeted historical candidates locally archived with retained records/Chat immutable content and no new lifecycle outbox IDs. No physical restart or broad remote-delivery/notification claim."
+}

@@ -1,0 +1,41 @@
+{
+  "date": "2026-11-09",
+  "affected_build": 11,
+  "candidate_build": 12,
+  "user_report": "Unable to prepare attachment / try another15second video",
+  "private_android_log": {
+    "exception": "ExoPlaybackException: Unexpected runtime error",
+    "cause": "IllegalStateException at AudioGraphInput.getInputBuffer -> SequenceAssetLoader -> ExoAssetLoaderAudioRenderer",
+    "native_version": "Media3 1.11.1",
+    "scope": "Captured current Samsung process; generic user message hides precise failure, not a duration diagnosis"
+  },
+  "latest_cached_source_probe": {
+    "tracks": [
+      {
+        "width": 1920,
+        "kind": "vide",
+        "height": 1080,
+        "codec_fourcc": "avc1"
+      },
+      {
+        "width": 0,
+        "codec_fourcc": "aac ",
+        "kind": "soun",
+        "height": 0
+      }
+    ],
+    "duration_seconds": 2.3391
+  },
+  "candidate_change": "Android AudioPassthrough instead of forced32kbps mono AudioReencode; preserve supported AAC while video is still compressed; native plugin may transcode unsupported audio as required",
+  "unchanged_bounds": "H264 <=480px/15fps, output<=512KiB, <=15seconds; no uncompressed source fallback; iOS audio policy unchanged",
+  "diagnostics": "Profile/debug log only whitelisted failure code; no native exception details/file paths/content/identifiers",
+  "focused_tests": {
+    "passed": 14,
+    "failed": 0,
+    "scope": "Pipeline/failure-code/platform-option/picker/viewer host tests, not physical native export"
+  },
+  "status": "Samsung update in progress, native export physical retest pending",
+  "application_static_analysis": "No issues found",
+  "git_diff_check": "PASS",
+  "native_build": "Final configured Android Profile12 PASS + signature/package/cert-lineage/AOT preflight"
+}

@@ -1,0 +1,4057 @@
+diff --git a/WEEK_5_BUG_LOG.md b/WEEK_5_BUG_LOG.md
+index 78075dd..4061be0 100644
+--- a/WEEK_5_BUG_LOG.md
++++ b/WEEK_5_BUG_LOG.md
+@@ -1,5 +1,151 @@
+ # Week 5 — Phase 7 defects and verification
+ 
++## 4 November 2026 — Android/iPhone GATT 133 retry investigation
++
++### Offer session-binding completion race — follow-up implementation
++
++Deterministic production-coordinator/fake-frame test reproduces the exact
++`Rescue response session binding is invalid` error when the remote receives
++a signed proof response before the local native write-completion callback.
++The remote can immediately send an Offer using that derived binding while
++the responder has not committed its inbound binding yet.
++
++The receiver now waits only for the matching pending, cryptographically
++derived inbound binding to finish its native write, then revalidates the
++same active proven session and exact binding. Reset/disconnect releases
++waiters without authorizing retired sessions. Wrong bindings remain rejected.
++Outbound proof readiness is committed only after binding derivation finishes;
++duplicate capabilities no longer reset a proof response being written.
++No protocol/schema/signing/consent changes were made.
++
++Regression: removing the completion wait reproduces the exact binding error;
++restoring it persists a verified Offer without errors. A tampered binding is
++still rejected with the verified inbox remaining idempotent. Focused tests:
++79 passed, exit 0. Analyze/diff check exit 0. Full suite: 468 passed / 7 failed
++(the same two Chat fixture expiry errors and five BLE Test label expectations
++listed above), exit 1. Logs: `/tmp/offer_binding_focused2.log`,
++`/tmp/offer_binding_full_tests.log`, `/tmp/rescue_binding_race_before.log`.
++
++Android Debug and iOS Profile builds with existing production configuration:
++exit 0. A53 update-in-place install/launch completed, installed APK SHA-256
++matches `764fb70d85ac7e2cac4594ec5db7a8e55984b8ad1fbd720dfab07a74c3088de9`.
++B/iPhone and C/V2050 installation of this new build and physical reverse
++Offer/Chat confirmation remain pending. Existing misaddressed signed Chat
++records are retained; they are not silently rewritten or called delivered.
++
++### Victim reply queued — confirmed self-recipient defect
++
++Operator reports C-to-A Chat reception, but A's reply remains Queued. A53
++read-only SQLite evidence for the current incident (masked `8b5645bb`):
++three outgoing local Chat messages have sender key equal to recipient key,
++both equal to the SOS origin. Durable Chat relay rows are failed with
++`A chat message ID is already used for different content`. The latest
++message is persisted locally and has a signed outbox envelope; this failure
++occurs before forwarding to B, during attempted local receive of its own row.
++No verified rescue offer exists in A's inbox for this incident (three verified
++offers belong to other incidents under the same owner).
++
++Source: `resolveVerifiedChatParticipant` fell back from a missing responder
++binding to the signed origin key even on the victim itself. It now detects
++the local origin identity and stops pending verified responder binding; the
++send callback cannot silently fall back to Direct BLE in that case.
++`signAndEnqueueChatRelay` also rejects a local recipient before creating any
++signed outbox row. Existing signed records are preserved and not silently
++rewritten or claimed sent. Focused resolver/three-node-persistence/direct
++coordinator tests: 42 passed. Analyze and diff check: exit 0.
++
++Remaining physical boundary: logs show repeated `Rescue response session
++binding is invalid`, followed by duplicate-installation session replacement
++and `Relay transport session is inactive`. C-to-A display alone does not
++prove three-node Chat traversal. Reply reception at C and successful current
++incident Offer binding remain NOT VERIFIED. The self-recipient guard has
++not yet been built/deployed in this investigation.
++
++### Connected-but-unauthenticated recovery patch — 4 November
++
++- Confirmed source/test gap: a failed/timed-out Session Proof cleared its
++  challenge while GATT stayed connected. Scheduler ticks did not reissue it.
++  A regression drops proof responses, observes timeout and restores the fake
++  link: before the fix the durable SOS never reaches the peer; after the fix
++  it is authenticated and persisted through production frame/coordinator code.
++- Added scheduler-driven proof recovery with existing exponential retry delay,
++  at most three recovery attempts per session, fresh signed challenges and
++  unchanged verification. Disconnect/foreground/consent invalidation clears
++  recovery state. No queue records or cryptographic checks are removed.
++- Duplicate connected events for the same peer and role previously replaced
++  the live session and cancelled capability/proof writes. Stack evidence from
++  the failing proof-window test identified `_sendCapabilities` cancellation
++  inside `onEvent(connected)`. Repeated readiness is now idempotent until a
++  disconnect. That existing test passes with all assertions unchanged; a new
++  test also verifies further SOS reception after duplicate readiness.
++- Stored incoming relay jobs with no attempt now display `Stored on relay ·
++  Pending`. Failed attempts retain truthful failure state.
++- Focused BLE/relay/diagnostics: 87 PASS, exit 0. Analyze and diff check: exit 0.
++  Full suite: 466 PASS / 7 FAIL, exit 1. Failures are two expired-clock Chat
++  repository fixtures and five BLE Test UI label expectations. They are not
++  represented as a full-suite pass; application Chat/UI code was not altered
++  to hide them. Evidence: `/tmp/relay_recovery_full_tests.log`.
++- Android Debug and iOS Profile production-config builds: exit 0. V2050
++  update-in-place install: exit 0, process launch observed (PID 24510).
++  iOS artifact signature/profile verified, expiry 10 November 2026 04:22:58 UTC.
++  iPhone B is unavailable to CoreDevice, so its patch install and paired
++  physical authentication/forwarding verification remain BLOCKED until cable
++  reconnection. No new physical SOS was created by this task.
++
++### V2050 destination evidence — 11:02 local time
++
++Read-only copies of B/iPhone and C/V2050 application SQLite databases show
++one matching SOS (sanitized correlation `f8f0462e`). C persisted it at
++10:48:36 local time. Immutable digests match; C incoming hop is B incoming
++hop plus one; C incoming path equals B recorded outgoing path; C previous
++hop matches that path's final key. C also has the exact message/digest in
++Rescue Inbox with state `locallyAccepted`. This is durable B-to-C reception
++evidence for that older incident, despite B's failed write attempt and zero
++hop receipts. Final receipt/ACK return remains NOT VERIFIED. B's newer
++message (`43ca6005`) is absent from the C snapshot.
++
++Current C process logs show a GATT write timeout at 10:55:10 and a rejected
++GATT write at 11:01:29. B's 11:00 screenshot has one authenticated peer
++skipped for `path_loop` and a second connected, unauthenticated peer. These
++events do not yet establish the precise cause of the current proof/write
++failure or map each radio identifier to an installation. Historical GATT 133
++must not be assumed to explain this new V2050 session.
++
++- Prior physical evidence: iPhone B diagnostics showed two due jobs, a running
++  scheduler, `no_authenticated_peer`, and no forward attempt. Android C logs
++  showed `handleConnectionStateChange`, status 133 / disconnected, followed by
++  successful GATT cleanup. No authenticated session or SOS transfer was proven.
++  The logged retry destination has not been re-correlated with live B in this
++  investigation, so historical radio-address identity is not treated as proof.
++- Confirmed code defect: `_failPendingConnections` counted asynchronous native
++  connection failures only for `queued` rows. A due retry remains `failed`
++  until sending begins; subsequent failures were ignored, freezing retry count
++  and retry eligibility. It now counts both queued and failed pending attempts
++  using the existing state transitions, backoff and maximum attempt limit.
++  Records are retained. This fixes unbounded retry interference; it does not
++  establish the underlying cause of native status 133.
++- Regression test failed before the change (second failure count 1, expected 2)
++  and passes after it. Direct coordinator/transport/adapter lifecycle tests:
++  52 passed, exit 0. Analyze and diff check: exit 0.
++- Broader focused run: 76 passed, 1 failed, exit 1. The session-proof test
++  `session proof timeout starts after the multi-frame challenge write` also
++  fails alone at its empty-error assertion with `Relay send cancelled by
++  participation or session change`. No authentication change was made to hide
++  this result. Logs: `/tmp/gatt133_focused_tests.log` and
++  `/tmp/gatt133_proof_test.log` (local, temporary evidence).
++- Android already rejects duplicate native clients and fences connection,
++  discovery, subscription and write callbacks by GATT object identity. Failure
++  closes/removes the current client. `autoConnect=false`; transport is the
++  Android default. No evidence justifies changing transport or adding delays.
++- iOS registers RX/write and TX/notify on the expected service and starts
++  advertising only after `didAdd` succeeds. This verifies source ordering,
++  not the current physical peripheral readiness.
++- Physical comparison, isolated diagnostic test and post-fix deployment:
++  BLOCKED. ADB currently lists no devices; iPhone 15 Plus is unavailable in
++  CoreDevice. Only iPad is connected and was not touched. No new SOS, signing
++  change, database reset or diagnostic scheduling pause was performed.
++
++
+ ## Manual testing documentation standard (Q-805B)
+ 
+ Physical procedures now require a Test ID, purpose, preconditions, exact
+@@ -634,6 +780,114 @@ Unsigned iOS debug validation before W5-08: **exit 0, 464.3s**, `ios-debug-build
+   peers, or reuse professional Trusted Responder authorization. Implementation
+   is paused pending owner approval of the protocol/trust design.
+ 
++### Android asymmetric connection recovery — 4 November 2026
++
++- B→C path verified by correlated runtime evidence: B forwarding started
++  15:07:09.090 and completed 15:08:06.461; C persisted the same candidate at
++  15:08:05.675. B target-derived attempt ID exactly matches C's assembled
++  transfer ID, and immutable digests match the prior B and C snapshots. C's
++  validated envelope contains one intermediate attestation. See
++  artifacts/physical_e2e/20261104_android_auth/RELAY_PATH_VERIFICATION.md.
++  Receipt return, repeat stability, location and Chat remain unverified for
++  this run. Latest B rows were already cleaned up after expiry.
++
++- Physical delivery update 15:08:05: C=V2050 authenticated at 15:07:32.473,
++  assembled the same incident 1793777993188376 at 15:08:03.872, validated and
++  persisted it, then persisted the Rescue candidate at 15:08:05.675. Read-only
++  C database snapshot confirms both ble_relay_messages and rescue_inbox rows,
++  incoming hop 1, candidate pending, expiry 15:09:53. B's earlier durable row
++  has the same incident with incoming hop 0. Operator was instructed to disable
++  A Bluetooth during this stage. C durable reception is physically verified;
++  current UI visibility, victim location, Chat and hop-receipt return are not
++  yet verified for this run. Evidence:
++  artifacts/physical_e2e/20261104_android_auth/C_SOS_persisted.log.
++
++- New topology A=iPhone, B=A53, C=V2050: read-only snapshots confirm incident
++  1793777993188376 is durably queued on B (first persist 14:41:00), although A
++  exhausted three hop-receipt attempts. B received duplicates of that same ID;
++  first two receipt-send completions followed persistence by about 35/39s.
++  B→C session generation 5 capability took 17s; its challenge call at 14:55:58
++  completed only at 14:57:42. The shared FIFO queue and coordinator send tail
++  let control messages wait behind historical bulk lifecycle traffic.
++- Implemented frame-boundary priority for capability, signed session proof,
++  and signed hop receipts in the shared native-write queue. Only one native
++  write runs per peer; normal messages retain FIFO ordering. Control messages
++  bypass the relay bulk-message tail; no signed payload or validation changed.
++  Existing codec supports interleaved messages by token. Cancellation is
++  checked again before each resumed frame.
++- Deterministic priority/cancellation and coordinator tests: 76 PASS, exit 0.
++  Protocol/Chat focused tests: 18 PASS, exit 0. Analyze, APK build and diff
++  check exit 0. Full suite: 474 passed / 7 failed, exit 1: five existing BLE UI
++  label assertions plus two Chat repository fixtures using already-expired
++  fixed timestamps. No full-suite success claimed.
++- Updated B in place successfully, exit 0. C still needs the same queue patch;
++  physical mutual authentication and B→C durable delivery remain NOT VERIFIED.
++
++- B log correlation confirms B completed verification at 14:20:32.383 but its
++  reverse proof response write did not complete. At 14:20:57.361 B's native
++  write watchdog fired; that handler called disconnect. C's native disconnect
++  followed at 14:20:57.796. The first observed failure is a missing B central
++  write completion, not a signature rejection or a notification timeout in
++  this run. Why that callback ceased is still unconfirmed.
++- Confirmed recovery defects: write timeout retained the GATT until a later
++  native disconnect callback; failGattWrites completed the active queue head
++  twice. Write watchdog now guards both GATT and pending-operation identity,
++  retires the current connection immediately, and queue failure completes each
++  result exactly once. No authentication or protocol checks changed.
++- Validation: 74 focused tests passed; analyze/build/diff check exit 0.
++  Sanitized B evidence: artifacts/physical_e2e/20261104_android_auth/B_auth_timeline.log.
++  Mutual authentication and pending SOS delivery remain NOT VERIFIED.
++
++- 14:19–14:20 physical follow-up after C update: operator reports B
++  authenticated, C unauthenticated, then both peer rows disappear. C log shows
++  capability sent/received, challenge received at 14:20:14.911, signed response
++  generated and fully sent at 14:20:25.397. C does not record receiving the
++  response to its own challenge before native server disconnect status 0 at
++  14:20:57.796. Peer removal follows that native disconnect. No notification
++  timeout was recorded in this window. Thus this disappearance is an actual
++  native disconnect, not evidence of a UI-only filtering defect. Its initiating
++  cause and B's missing response require B's matching logs; do not infer them
++  from status 0. Sanitized C timeline:
++  artifacts/physical_e2e/20261104_android_auth/C_auth_timeline.log.
++
++- Follow-up B=A53, C=SM-A037F operator observation: both UI states Connected,
++  authentication absent. C's native log at 14:13:04.479 records server connected;
++  CCCD enabled at 14:13:05.213; first TX notification submitted at 14:13:05.237.
++  No onNotificationSent appears for that connection in the captured window.
++  C still assembled incoming capabilities/binding frames, but its own capability
++  and challenge sends never completed. This confirms a blocked peripheral TX
++  queue; the underlying Android callback omission remains unexplained.
++- Added a 5-second per-notification callback watchdog. On timeout the current
++  queue fails, peripheral session is retired, and native cancelConnection is
++  requested. No synthetic send success or authentication is generated. Timers
++  are cancelled on callback/disconnect/dispose; old cooldown callbacks check
++  queue identity before touching a reconnected session.
++- Platform source-contract tests: 6 passed (exit 0); Android APK build,
++  flutter analyze lib test, and git diff --check each exit 0. This is recovery
++  coverage, not physical authentication or relay delivery proof.
++
++- Operator reports A53 central → Android peripheral remains Connecting, while
++  the reverse direction connects. The native failing callback is not yet
++  captured; the cause of the asymmetric radio connection remains unverified.
++- Confirmed code gap: the setup watchdog started only after STATE_CONNECTED.
++  A missing initial onConnectionStateChange left the GATT object registered
++  indefinitely and blocked subsequent connection requests for that peer.
++- Added a 15-second initial connection watchdog. Initial/setup timeouts and
++  explicit disconnect now release the current GATT object without requiring a
++  vendor disconnect callback. Existing object-identity guards reject late
++  callbacks from the released connection.
++- Validation: 72 focused platform/coordinator tests passed (exit 0), Android
++  Debug production-config build passed (exit 0), analyze passed (exit 0),
++  diff check passed (exit 0). Native watchdog coverage is a source-contract
++  test, not an Android instrumentation or physical connection test.
++- Update-in-place on A53 RFCT80GPFVY succeeded (exit 0); launcher invocation
++  succeeded (exit 0) and app process was present. Session/history preservation
++  has not been independently inspected. No uninstall or data clearing occurred.
++- Physical B→C/C→B authentication and correct-incident forwarding remain
++  NOT VERIFIED pending the paired device connection run. No new SOS created.
++- Separate BLE UI widget run contains five failing assertions; those failures
++  were observed before this native watchdog change and remain unresolved.
++
+ Q-708A implementation update — 3 November 2026: added voluntary-rescue scope
+ and consent (default off), schema 7 Rescue Inbox migration, Rescue Mode
+ candidate persistence, and idempotent local Offer Help. No relay-only row is
+diff --git a/android/app/src/main/kotlin/com/n1cxltine/sosapp/BleTransportBridge.kt b/android/app/src/main/kotlin/com/n1cxltine/sosapp/BleTransportBridge.kt
+index 526b990..1a5011f 100644
+--- a/android/app/src/main/kotlin/com/n1cxltine/sosapp/BleTransportBridge.kt
++++ b/android/app/src/main/kotlin/com/n1cxltine/sosapp/BleTransportBridge.kt
+@@ -76,13 +76,17 @@ class BleTransportBridge(
+     private val notificationClients = mutableSetOf<String>()
+     private val serverClients = mutableSetOf<String>()
+     private val disconnectReasons = mutableMapOf<String, String>()
++    private val connectionTimeouts = mutableMapOf<String, Runnable>()
+     private val setupTimeouts = mutableMapOf<String, Runnable>()
+     private val connectionAttempts = mutableMapOf<String, Long>()
+     private var nextConnectionAttempt = 0L
++    private val gattConnectionTimeoutMs = 15_000L
+     private val gattSetupTimeoutMs = 15_000L
+     private data class PendingNotification(val value: ByteArray, val result: MethodChannel.Result)
+     private val notificationQueues = mutableMapOf<String, ArrayDeque<PendingNotification>>()
+     private val notificationInFlight = mutableSetOf<String>()
++    private val notificationTimeouts = mutableMapOf<String, Runnable>()
++    private val notificationCallbackTimeoutMs = 5_000L
+     private val maxPendingNotifications = 32
+     // onNotificationSent only confirms that Android's local stack accepted a
+     // notification. Sending the next frame immediately can overrun an iOS
+@@ -138,7 +142,11 @@ class BleTransportBridge(
+         }
+         notificationQueues.clear()
+         notificationInFlight.clear()
++        notificationTimeouts.values.forEach(mainHandler::removeCallbacks)
++        notificationTimeouts.clear()
+         disconnectReasons.clear()
++        connectionTimeouts.values.forEach(mainHandler::removeCallbacks)
++        connectionTimeouts.clear()
+         setupTimeouts.values.forEach(mainHandler::removeCallbacks)
+         setupTimeouts.clear()
+         connectionAttempts.clear()
+@@ -407,9 +415,14 @@ class BleTransportBridge(
+                     .setIncludeDeviceName(false)
+                     .addServiceUuid(ParcelUuid(SERVICE))
+                     .build(),
+-                AdvertiseData.Builder()
+-                    .setIncludeDeviceName(true)
+-                    .build(),
++                // Do not put the device name in the scan response. Some
++                // Android adapters account for the local-name overhead
++                // differently and reject this otherwise valid 128-bit UUID
++                // advertisement with ADVERTISE_FAILED_DATA_TOO_LARGE.
++                // Discovery is filtered by SERVICE, so the name is optional
++                // and can still be supplied by the native device record when
++                // available.
++                AdvertiseData.Builder().build(),
+                 callback,
+             )
+         } catch (error: Exception) {
+@@ -481,6 +494,7 @@ class BleTransportBridge(
+         val attempt = ++nextConnectionAttempt
+         connectionAttempts[id] = attempt
+         clients[id] = gatt
++        scheduleConnectionTimeout(id, gatt, attempt)
+         logDebug("connect attempt=$attempt id=$id")
+         emit(mapOf("type" to "connecting", "device" to device(remote), "role" to "central", "attempt" to attempt))
+         result.success(null)
+@@ -493,14 +507,26 @@ class BleTransportBridge(
+         }
+         disconnectReasons[id] = "flutter disconnect()"
+         clients[id]?.let {
++            val attempt = connectionAttempts[id]
+             logDebug("disconnect requested id=$id")
+             failGattWrites(id, "disconnected", "BLE connection was disconnected")
+-            it.disconnect()
+-            // Wait for onConnectionStateChange before closing this object.
++            try { it.disconnect() } catch (_: SecurityException) { }
++            // Do not depend on a vendor callback to release the GATT object.
++            // A late callback is rejected by isCurrentGatt and cannot clear a
++            // newer retry for the same address.
++            cleanupCentral(id, it)
++            emit(
++                mapOf(
++                    "type" to "disconnected",
++                    "device" to device(it.device),
++                    "error" to "local_disconnect",
++                    "role" to "central",
++                    "attempt" to attempt,
++                ),
++            )
+         }
+         readyClients.remove(id)
+         notificationClients.remove(id)
+-        cancelSetupTimeout(id)
+         result.success(null)
+     }
+ 
+@@ -547,15 +573,11 @@ class BleTransportBridge(
+         }
+ 
+         writeInFlight[id] = pending
++        val attempt = connectionAttempts[id]
+         val timeout = Runnable {
+-            completeGattWrite(
+-                id,
+-                BluetoothGatt.GATT_FAILURE,
+-                "GATT write timed out for $id",
+-                continueQueue = false,
+-            )
+-            failGattWrites(id, "timeout", "GATT write queue timed out for $id")
+-            clients[id]?.disconnect()
++            if (!isCurrentGatt(gatt) || writeInFlight[id] !== pending) return@Runnable
++            logError("GATT write callback timeout id=$id attempt=${attempt ?: "unknown"}")
++            terminateTimedOutConnection(id, gatt, attempt, "GATT write timed out for $id")
+         }
+         writeTimeouts[id] = timeout
+         mainHandler.postDelayed(timeout, gattWriteTimeoutMs)
+@@ -603,8 +625,12 @@ class BleTransportBridge(
+ 
+     private fun failGattWrites(id: String, code: String, message: String) {
+         writeTimeouts.remove(id)?.let(mainHandler::removeCallbacks)
+-        writeInFlight.remove(id)?.result?.error(code, message, null)
+-        writeQueues.remove(id)?.forEach { it.result.error(code, message, null) }
++        val active = writeInFlight.remove(id)
++        val queued = writeQueues.remove(id)
++        // The active write remains at the queue head until its callback.
++        // Detach everything first and complete each MethodChannel result once.
++        active?.result?.error(code, message, null)
++        queued?.forEach { if (it !== active) it.result.error(code, message, null) }
+     }
+ 
+     private fun failAllGattWrites(code: String, message: String) {
+@@ -669,6 +695,22 @@ class BleTransportBridge(
+             return
+         }
+         notificationInFlight.add(id)
++        // A successful API return is not a completed notification. Some
++        // stacks omit onNotificationSent; fail and retire that session rather
++        // than leave every subsequent proof/relay write waiting forever.
++        val timeout = Runnable {
++            if (notificationQueues[id] !== queue || queue.firstOrNull() !== pending ||
++                !notificationInFlight.contains(id)) return@Runnable
++            logError("notification callback timeout id=$id")
++            serverClients.remove(id)
++            notificationClients.remove(id)
++            clearNotificationSession(id, "Notification callback timed out")
++            try { currentServer.cancelConnection(device) } catch (_: SecurityException) { }
++            emit(mapOf("type" to "error", "device" to device(device), "role" to "peripheral", "error" to "notification_callback_timeout"))
++            emit(mapOf("type" to "disconnected", "device" to device(device), "role" to "peripheral", "error" to "notification_callback_timeout"))
++        }
++        notificationTimeouts[id] = timeout
++        mainHandler.postDelayed(timeout, notificationCallbackTimeoutMs)
+     }
+ 
+     private fun device(value: BluetoothDevice, rssi: Int? = null) = mapOf(
+@@ -835,11 +877,12 @@ class BleTransportBridge(
+         }
+         val reason = disconnectReasons[id] ?: "remote_or_stack"
+         logDebug("onConnectionStateChange attempt=${attempt ?: "unknown"} id=$id status=$status newState=$newState reason=$reason")
++        cancelConnectionTimeout(id)
+         if (status != BluetoothGatt.GATT_SUCCESS) {
+             failGattWrites(id, "disconnected", "GATT connection failed for $id (status $status)")
+             cleanupCentral(id, gatt)
+-            emit(mapOf("type" to "error", "error" to "GATT connection failed for $id (status $status)", "device" to device(gatt.device), "role" to "central"))
+-            emit(mapOf("type" to "disconnected", "device" to device(gatt.device), "error" to "status $status", "role" to "central"))
++            emit(mapOf("type" to "error", "error" to "GATT connection failed for $id (status $status)", "device" to device(gatt.device), "role" to "central", "attempt" to attempt))
++            emit(mapOf("type" to "disconnected", "device" to device(gatt.device), "error" to "status $status", "role" to "central", "attempt" to attempt))
+             return
+         }
+         if (newState == BluetoothProfile.STATE_CONNECTED) {
+@@ -853,7 +896,7 @@ class BleTransportBridge(
+         } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+             failGattWrites(id, "disconnected", "GATT disconnected for $id")
+             cleanupCentral(id, gatt)
+-            emit(mapOf("type" to "disconnected", "device" to device(gatt.device), "role" to "central"))
++            emit(mapOf("type" to "disconnected", "device" to device(gatt.device), "role" to "central", "attempt" to attempt))
+         }
+     }
+ 
+@@ -935,10 +978,15 @@ class BleTransportBridge(
+         cancelSetupTimeout(id)
+         val timeout = Runnable {
+             if (isCurrentGatt(gatt) && !readyClients.contains(id)) {
+-                logError("GATT setup timeout id=$id attempt=${connectionAttempts[id] ?: "unknown"}")
+-                emitError("GATT setup timed out for $id")
++                val attempt = connectionAttempts[id]
++                logError("GATT setup timeout id=$id attempt=${attempt ?: "unknown"}")
+                 disconnectReasons[id] = "GATT setup timeout"
+-                gatt.disconnect()
++                terminateTimedOutConnection(
++                    id,
++                    gatt,
++                    attempt,
++                    "GATT setup timed out for $id",
++                )
+             }
+         }
+         setupTimeouts[id] = timeout
+@@ -949,7 +997,60 @@ class BleTransportBridge(
+         setupTimeouts.remove(id)?.let(mainHandler::removeCallbacks)
+     }
+ 
++    private fun scheduleConnectionTimeout(id: String, gatt: BluetoothGatt, attempt: Long) {
++        cancelConnectionTimeout(id)
++        val timeout = Runnable {
++            if (isCurrentGatt(gatt) && !readyClients.contains(id)) {
++                logError("GATT connection callback timeout id=$id attempt=$attempt")
++                disconnectReasons[id] = "GATT connection callback timeout"
++                terminateTimedOutConnection(
++                    id,
++                    gatt,
++                    attempt,
++                    "GATT connection timed out before the first native callback for $id",
++                )
++            }
++        }
++        connectionTimeouts[id] = timeout
++        mainHandler.postDelayed(timeout, gattConnectionTimeoutMs)
++    }
++
++    private fun cancelConnectionTimeout(id: String) {
++        connectionTimeouts.remove(id)?.let(mainHandler::removeCallbacks)
++    }
++
++    private fun terminateTimedOutConnection(
++        id: String,
++        gatt: BluetoothGatt,
++        attempt: Long?,
++        message: String,
++    ) {
++        if (!isCurrentGatt(gatt)) return
++        failGattWrites(id, "timeout", message)
++        try { gatt.disconnect() } catch (_: SecurityException) { }
++        cleanupCentral(id, gatt)
++        emit(
++            mapOf(
++                "type" to "error",
++                "error" to message,
++                "device" to device(gatt.device),
++                "role" to "central",
++                "attempt" to attempt,
++            ),
++        )
++        emit(
++            mapOf(
++                "type" to "disconnected",
++                "device" to device(gatt.device),
++                "error" to "timeout",
++                "role" to "central",
++                "attempt" to attempt,
++            ),
++        )
++    }
++
+     private fun cleanupCentral(id: String, gatt: BluetoothGatt) {
++        cancelConnectionTimeout(id)
+         cancelSetupTimeout(id)
+         readyClients.remove(id)
+         if (clients[id] === gatt) clients.remove(id)
+@@ -1079,6 +1180,11 @@ class BleTransportBridge(
+                 logDebug("onNotificationSent id=${device.address} status=$status subscribed=${notificationClients.contains(device.address)}")
+                 val id = device.address
+                 val queue = notificationQueues[id]
++                if (!notificationInFlight.contains(id) || queue == null || queue.isEmpty()) {
++                    logDebug("Ignoring notification callback without an active write id=$id")
++                    return@onMain
++                }
++                notificationTimeouts.remove(id)?.let(mainHandler::removeCallbacks)
+                 val pending = if (queue != null && !queue.isEmpty()) queue.removeFirst() else null
+                 if (pending != null) {
+                     if (status == BluetoothGatt.GATT_SUCCESS) {
+@@ -1089,6 +1195,7 @@ class BleTransportBridge(
+                         // send it until CoreBluetooth has breathing room.
+                         mainHandler.postDelayed({
+                             if (disposed || session != generation) return@postDelayed
++                            if (notificationQueues[id] !== queue) return@postDelayed
+                             notificationInFlight.remove(id)
+                             flushPeripheralNotifications(id)
+                         }, notificationInterFrameDelayMs)
+@@ -1104,6 +1211,7 @@ class BleTransportBridge(
+     }
+ 
+     private fun clearNotificationSession(id: String, message: String) {
++        notificationTimeouts.remove(id)?.let(mainHandler::removeCallbacks)
+         notificationInFlight.remove(id)
+         notificationQueues.remove(id)?.forEach {
+             it.result.error("disconnected", message, null)
+diff --git a/lib/features/auth/data/auth_service.dart b/lib/features/auth/data/auth_service.dart
+index 42f0af0..4bfa6ab 100644
+--- a/lib/features/auth/data/auth_service.dart
++++ b/lib/features/auth/data/auth_service.dart
+@@ -1,7 +1,5 @@
+ import 'package:firebase_auth/firebase_auth.dart';
+ 
+-import 'password_recovery.dart';
+-
+ class AuthService {
+   AuthService({FirebaseAuth? firebaseAuth})
+     : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance;
+@@ -57,13 +55,16 @@ class AuthService {
+   Future<void> resetPassword({required String email}) async {
+     final normalizedEmail = _normalizeEmail(email);
+     _validateEmail(normalizedEmail);
+-
+-    // Firebase's email reset endpoint verifies only email ownership. Until a
+-    // trusted backend binds that proof to an independently verified second
+-    // factor, fail closed instead of offering an email-only password change.
+-    throw AuthException(
+-      const RecoveryUnavailableException().message,
+-    );
++    try {
++      // Firebase owns the reset token, expiry and email-ownership proof. The
++      // token is never handled or logged by the app.
++      await _firebaseAuth.sendPasswordResetEmail(email: normalizedEmail);
++    } on FirebaseAuthException catch (error) {
++      // Keep the UI non-enumerating even when a project has not enabled
++      // Firebase's account-enumeration protection yet.
++      if (error.code == 'user-not-found') return;
++      throw AuthException(_mapFirebaseError(error.code));
++    }
+   }
+ 
+   Future<void> logout() => _firebaseAuth.signOut();
+@@ -94,6 +95,9 @@ class AuthService {
+         return 'Too many attempts. Try again later.';
+       case 'network-request-failed':
+         return 'Network error. Check your connection.';
++      case 'operation-not-allowed':
++      case 'invalid-action-code':
++        return 'Password recovery is not enabled for this project.';
+       default:
+         return 'Authentication failed. Please try again.';
+     }
+diff --git a/lib/features/nearby_ble/data/ble_delivery_repository.dart b/lib/features/nearby_ble/data/ble_delivery_repository.dart
+index c2faa4c..7e3c2d6 100644
+--- a/lib/features/nearby_ble/data/ble_delivery_repository.dart
++++ b/lib/features/nearby_ble/data/ble_delivery_repository.dart
+@@ -7,6 +7,7 @@ import '../domain/ble_delivery_state.dart';
+ import 'ble_protocol.dart';
+ import '../domain/sos_ble_envelope.dart';
+ import '../domain/location_ble_envelope.dart';
++import '../domain/incident_lifecycle_envelope.dart';
+ 
+ class BlePeerMismatchException extends BleDeliveryStateException {
+   const BlePeerMismatchException()
+@@ -62,6 +63,55 @@ class BleDeliveryRepository {
+     });
+   }
+ 
++  /// Enqueues an additive signed application message using the same durable
++  /// retry/outbox state as Direct SOS. The caller owns validation of the
++  /// message-specific signature and bindings.
++  Future<BleOutboxData> enqueueRaw(
++    BleMessage message, {
++    required String sosId,
++    String? destinationId,
++    DateTime? now,
++  }) async {
++    if (message.id.trim().isEmpty || message.type.trim().isEmpty) {
++      throw const BleDeliveryStateException(
++        'BLE message identity is required.',
++      );
++    }
++    if (message.type != IncidentLifecycleEnvelope.wireKind) {
++      throw const BleDeliveryStateException('Unsupported raw BLE message.');
++    }
++    final payload = jsonEncode(message.payload);
++    final timestamp = (now ?? DateTime.now()).toUtc();
++    return _database.transaction(() async {
++      await _database
++          .into(_database.bleOutbox)
++          .insert(
++            BleOutboxCompanion.insert(
++              messageId: message.id,
++              sosId: sosId,
++              destinationId: Value(
++                destinationId?.trim().isEmpty == true
++                    ? null
++                    : destinationId?.trim(),
++              ),
++              schemaVersion: IncidentLifecycleEnvelope.schemaVersion,
++              payload: payload,
++              state: BleOutboxState.queued.wireValue,
++              createdAt: timestamp,
++              updatedAt: timestamp,
++            ),
++            mode: InsertMode.insertOrIgnore,
++          );
++      final row = await lookupOutbox(message.id);
++      if (row == null || row.payload != payload || row.sosId != sosId) {
++        throw const BleDeliveryStateException(
++          'BLE raw message identity conflict.',
++        );
++      }
++      return row;
++    });
++  }
++
+   /// Enqueues one explicit-recipient location update. Older queued location
+   /// updates for the same SOS are discarded so stale fixes cannot grow the
+   /// durable queue or be displayed as current.
+diff --git a/lib/features/nearby_ble/data/ble_transport.dart b/lib/features/nearby_ble/data/ble_transport.dart
+index 2e0ecc1..e5bf148 100644
+--- a/lib/features/nearby_ble/data/ble_transport.dart
++++ b/lib/features/nearby_ble/data/ble_transport.dart
+@@ -156,7 +156,8 @@ class BleMessageWriteQueue {
+       _shared[transport] ??= BleMessageWriteQueue._(transport);
+ 
+   final BleTransportClient _transport;
+-  final Map<String, Future<void>> _tails = <String, Future<void>>{};
++  final _pending = <String, List<_BleFrameWrite>>{};
++  final _draining = <String>{};
+ 
+   /// Returns false when [canSend] cancels the message before all frames are
+   /// written. Native write completion is deliberately not an application ACK.
+@@ -165,28 +166,65 @@ class BleMessageWriteQueue {
+     Iterable<List<int>> frames, {
+     required BleSessionRole role,
+     bool Function()? canSend,
+-  }) async {
+-    final immutableFrames = frames
+-        .map((frame) => List<int>.unmodifiable(frame))
+-        .toList(growable: false);
+-    final previous = _tails[deviceId] ?? Future<void>.value();
+-    final current = previous.then((_) async {
+-      for (final frame in immutableFrames) {
+-        if (canSend != null && !canSend()) return false;
+-        await _transport.send(deviceId, frame, role: role);
+-      }
+-      return true;
+-    });
+-    final tail = current.then<void>((_) {}, onError: (_) {});
+-    _tails[deviceId] = tail;
++    bool control = false,
++  }) {
++    final write = _BleFrameWrite(
++      frames.map((f) => List<int>.unmodifiable(f)).toList(growable: false),
++      role,
++      canSend,
++      control,
++    );
++    _pending.putIfAbsent(deviceId, () => []).add(write);
++    if (_draining.add(deviceId)) unawaited(_drain(deviceId));
++    return write.completed.future;
++  }
++
++  Future<void> _drain(String deviceId) async {
++    final queue = _pending[deviceId]!;
+     try {
+-      return await current;
++      while (queue.isNotEmpty) {
++        // Authentication and storage receipts must not wait behind a large
++        // backlog. Preempt only between completed native writes. Codec
++        // assemblers already isolate interleaved messages by message ID.
++        final controlIndex = queue.indexWhere((w) => w.control);
++        final write = queue[controlIndex < 0 ? 0 : controlIndex];
++        try {
++          if (write.canSend != null && !write.canSend!()) {
++            queue.remove(write);
++            write.completed.complete(false);
++          } else if (write.index == write.frames.length) {
++            queue.remove(write);
++            write.completed.complete(true);
++          } else {
++            await _transport.send(
++              deviceId,
++              write.frames[write.index],
++              role: write.role,
++            );
++            write.index++;
++          }
++        } catch (error, stack) {
++          queue.remove(write);
++          write.completed.completeError(error, stack);
++        }
++      }
+     } finally {
+-      if (identical(_tails[deviceId], tail)) _tails.remove(deviceId);
++      _pending.remove(deviceId);
++      _draining.remove(deviceId);
+     }
+   }
+ }
+ 
++class _BleFrameWrite {
++  _BleFrameWrite(this.frames, this.role, this.canSend, this.control);
++  final List<List<int>> frames;
++  final BleSessionRole role;
++  final bool Function()? canSend;
++  final bool control;
++  final completed = Completer<bool>();
++  int index = 0;
++}
++
+ class BleTransport implements BleTransportClient {
+   BleTransport({MethodChannel? methods, EventChannel? events})
+     : _methods = methods ?? const MethodChannel('sos_ble_transport/methods'),
+diff --git a/lib/features/nearby_ble/data/chat_relay_repository.dart b/lib/features/nearby_ble/data/chat_relay_repository.dart
+index ecaf82a..7d038f7 100644
+--- a/lib/features/nearby_ble/data/chat_relay_repository.dart
++++ b/lib/features/nearby_ble/data/chat_relay_repository.dart
+@@ -3,6 +3,8 @@ import 'package:drift/drift.dart';
+ import '../../../core/database/app_database.dart';
+ import '../domain/chat_relay_envelope.dart';
+ 
++import 'dart:convert';
++
+ enum ChatRelayDeliveryState { queued, forwarded, delivered, expired, failed }
+ 
+ class ChatRelayRepository {
+@@ -10,6 +12,7 @@ class ChatRelayRepository {
+ 
+   final AppDatabase database;
+   final String ownerId;
++  static const maximumAttempts = 8;
+ 
+   Future<ChatRelayOutboxData?> findOutbox(String messageId) =>
+       (database.select(database.chatRelayOutbox)..where(
+@@ -21,9 +24,18 @@ class ChatRelayRepository {
+     ChatRelayEnvelope envelope, {
+     DateTime? now,
+     int hopCount = 0,
++    ChatRelayTransfer? receivedTransfer,
+   }) async {
+     final timestamp = (now ?? DateTime.now()).toUtc();
+     envelope.body.validate(now: timestamp);
++    final existing = await findOutbox(envelope.body.messageId);
++    if (existing != null) {
++      if (decode(existing.payload).toCanonicalWire() !=
++          envelope.toCanonicalWire()) {
++        throw const FormatException('Conflicting Chat message replay.');
++      }
++      return existing;
++    }
+     await database
+         .into(database.chatRelayOutbox)
+         .insert(
+@@ -33,7 +45,9 @@ class ChatRelayRepository {
+             incidentId: envelope.body.incidentId,
+             senderKeyId: envelope.body.senderKeyId,
+             recipientKeyId: envelope.body.recipientKeyId,
+-            payload: envelope.toCanonicalWire(),
++            payload: receivedTransfer == null
++                ? envelope.toCanonicalWire()
++                : relayTransferWire(receivedTransfer),
+             state: ChatRelayDeliveryState.queued.name,
+             hopCount: Value(hopCount),
+             expiresAt: envelope.body.expiresAt,
+@@ -45,14 +59,22 @@ class ChatRelayRepository {
+     return (await findOutbox(envelope.body.messageId))!;
+   }
+ 
+-  Future<List<ChatRelayOutboxData>> due({DateTime? now}) {
++  Future<List<ChatRelayOutboxData>> due({DateTime? now}) async {
+     final timestamp = (now ?? DateTime.now()).toUtc();
++    await (database.update(database.chatRelayOutbox)..where(
++          (r) =>
++              r.ownerId.equals(ownerId) &
++              r.expiresAt.isSmallerOrEqualValue(timestamp) &
++              r.state.isNotIn(const ['delivered', 'expired']),
++        ))
++        .write(const ChatRelayOutboxCompanion(state: Value('expired')));
+     return (database.select(database.chatRelayOutbox)
+           ..where(
+             (r) =>
+                 r.ownerId.equals(ownerId) &
+                 r.expiresAt.isBiggerThanValue(timestamp) &
+                 r.state.isNotIn(const ['delivered', 'expired']) &
++                r.retryCount.isSmallerThanValue(maximumAttempts) &
+                 (r.nextRetryAt.isNull() |
+                     r.nextRetryAt.isSmallerOrEqualValue(timestamp)),
+           )
+@@ -72,7 +94,12 @@ class ChatRelayRepository {
+                   r.messageId.equals(envelope.body.messageId),
+             ))
+             .getSingleOrNull();
+-    if (existing != null) return false;
++    if (existing != null) {
++      if (existing.payload != envelope.toCanonicalWire()) {
++        throw const FormatException('Conflicting incoming Chat replay.');
++      }
++      return false;
++    }
+     final inserted = await database
+         .into(database.chatRelayInbox)
+         .insert(
+@@ -92,12 +119,18 @@ class ChatRelayRepository {
+   }
+ 
+   Future<void> markForwarded(String messageId, {DateTime? now}) async {
++    final row = await findOutbox(messageId);
++    if (row == null) return;
+     await (database.update(database.chatRelayOutbox)..where(
+           (r) => r.ownerId.equals(ownerId) & r.messageId.equals(messageId),
+         ))
+         .write(
+           ChatRelayOutboxCompanion(
+             state: const Value('forwarded'),
++            retryCount: Value(row.retryCount + 1),
++            nextRetryAt: Value(
++              (now ?? DateTime.now()).toUtc().add(_retry(row.retryCount)),
++            ),
+             updatedAt: Value((now ?? DateTime.now()).toUtc()),
+           ),
+         );
+@@ -108,27 +141,40 @@ class ChatRelayRepository {
+     Object error, {
+     DateTime? now,
+   }) async {
++    final row = await findOutbox(messageId);
++    if (row == null) return;
++    final reason = error.toString().replaceAll(RegExp(r'\s+'), ' ');
+     await (database.update(database.chatRelayOutbox)..where(
+           (r) => r.ownerId.equals(ownerId) & r.messageId.equals(messageId),
+         ))
+         .write(
+           ChatRelayOutboxCompanion(
+             state: const Value('failed'),
+-            lastError: Value(
+-              error
+-                  .toString()
+-                  .replaceAll(RegExp(r'\s+'), ' ')
+-                  .substring(0, error.toString().length.clamp(0, 256)),
+-            ),
+-            retryCount: const Value.absent(),
++            lastError: Value(reason.substring(0, reason.length.clamp(0, 256))),
++            retryCount: Value(row.retryCount + 1),
+             nextRetryAt: Value(
+-              (now ?? DateTime.now()).toUtc().add(const Duration(seconds: 5)),
++              (now ?? DateTime.now()).toUtc().add(_retry(row.retryCount)),
+             ),
+             updatedAt: Value((now ?? DateTime.now()).toUtc()),
+           ),
+         );
+   }
+ 
++  Duration _retry(int attempts) =>
++      Duration(seconds: 5 * (1 << attempts.clamp(0, 6)));
++
++  static String relayTransferWire(ChatRelayTransfer transfer) =>
++      jsonEncode(transfer.toJson());
++  ChatRelayTransfer? storedTransfer(String payload) {
++    final json = jsonDecode(payload);
++    if (json is Map && json['kind'] == ChatRelayTransfer.wireKind) {
++      return ChatRelayTransfer.fromJson(Map<String, Object?>.from(json));
++    }
++    return null;
++  }
++
+   ChatRelayEnvelope decode(String payload) =>
+-      ChatRelayEnvelope.fromCanonicalWire(payload);
++      ChatRelayEnvelope.fromCanonicalWire(
++        storedTransfer(payload)?.wireEnvelope ?? payload,
++      );
+ }
+diff --git a/lib/features/nearby_ble/data/hop_relay_coordinator.dart b/lib/features/nearby_ble/data/hop_relay_coordinator.dart
+index 62056d0..764eca5 100644
+--- a/lib/features/nearby_ble/data/hop_relay_coordinator.dart
++++ b/lib/features/nearby_ble/data/hop_relay_coordinator.dart
+@@ -1,5 +1,6 @@
+ import 'dart:async';
+ import 'dart:convert';
++import 'dart:io' show Platform;
+ import 'dart:math' as math;
+ 
+ import '../../../core/database/app_database.dart';
+@@ -12,12 +13,19 @@ import 'ble_protocol.dart';
+ import 'ble_transport.dart';
+ import 'relay_key_store.dart';
+ import 'relay_repository.dart';
++import 'incident_lifecycle_repository.dart';
+ import 'rescue_inbox_repository.dart';
+ import 'rescue_response_repository.dart';
+ import 'chat_relay_repository.dart';
++import 'chat_relay_authorization.dart';
++import 'relay_diagnostics_repository.dart';
+ 
+ typedef RelayNow = DateTime Function();
+ typedef RelayNonceSource = List<int> Function();
++typedef RelayProofTimer = Timer Function(
++  Duration duration,
++  void Function() callback,
++);
+ 
+ List<int> _secureNonce() {
+   final random = math.Random.secure();
+@@ -69,11 +77,20 @@ class _RelaySession {
+   String? inboundBinding;
+   final Set<String> seenChallengeNonces = <String>{};
+   final Set<String> respondingChallengeNonces = <String>{};
++  final Map<String, Completer<void>> pendingInboundBindings = {};
+   Timer? proofTimeout;
++  DateTime? proofRetryAt;
++  int proofRecoveryAttempts = 0;
+ 
+   void resetProof() {
++    for (final completion in pendingInboundBindings.values) {
++      if (!completion.isCompleted) completion.complete();
++    }
++    pendingInboundBindings.clear();
+     proofTimeout?.cancel();
+     proofTimeout = null;
++    proofRetryAt = null;
++    proofRecoveryAttempts = 0;
+     pendingChallenge = null;
+     deferredPeerChallenge = null;
+     proofComplete = false;
+@@ -118,6 +135,7 @@ class HopRelayCoordinator {
+     RelayCryptography? cryptography,
+     RelayNow? now,
+     RelayNonceSource? nonceSource,
++    RelayProofTimer? proofTimer,
+     this.onLog,
+     this.rescueModeEnabled,
+     this.rescueInbox,
+@@ -152,6 +170,7 @@ class HopRelayCoordinator {
+            identityService ??
+            RelayIdentityService(keyStore: PlatformRelayPrivateKeyStore()),
+        _now = now ?? DateTime.now,
++       _proofTimer = proofTimer ?? Timer.new,
+        _nonceSource = nonceSource ?? _secureNonce;
+ 
+   final AppDatabase _database;
+@@ -162,6 +181,7 @@ class HopRelayCoordinator {
+   final BleMessageWriteQueue _writes;
+   final RelayIdentityService _identityService;
+   final RelayNow _now;
++  final RelayProofTimer _proofTimer;
+   final RelayNonceSource _nonceSource;
+   final void Function(String message)? onLog;
+   final bool Function()? rescueModeEnabled;
+@@ -181,6 +201,16 @@ class HopRelayCoordinator {
+   final _cancelledOriginMessageIds = <String>{};
+   final _sendTails = <String, Future<void>>{};
+   final _timers = <String, Stopwatch>{};
++  final RelayRuntimeDiagnosticsController runtimeDiagnostics =
++      RelayRuntimeDiagnosticsController();
++  final Stopwatch _diagnosticClock = Stopwatch()..start();
++  final List<String> _runtimeEvents = <String>[];
++  DateTime? _lastSchedulerExecution;
++  int _runtimeDueJobs = 0;
++  String? _runtimeSelectedPeer;
++  String? _runtimeSkipReason;
++  String? _runtimeForwardAttempt;
++  String? _runtimeDurableReceipt;
+   Future<void>? _processing;
+   RelaySigningIdentity? _identity;
+   bool _started = false;
+@@ -196,6 +226,10 @@ class HopRelayCoordinator {
+ 
+   bool get participationEnabled => _participating;
+ 
++  /// Shared installation identity for additive, origin-authenticated
++  /// application messages. It is the same identity used by Relay v2.
++  Future<RelaySigningIdentity> signingIdentity() => _ensureIdentity();
++
+   Future<bool> hasPendingLocalOrigin() =>
+       _repository.hasForwardableLocalOrigin(now: _now());
+ 
+@@ -452,6 +486,75 @@ class HopRelayCoordinator {
+ 
+   Future<void> onEvent(BleEvent event) async {
+     final peer = event.device?.id.trim();
++    final role = event.role ?? BleSessionRole.central;
++    if (peer != null && peer.isNotEmpty) {
++      switch (event.type) {
++        case 'deviceFound':
++          _authTrace('peer_discovered', peer: peer, role: event.role);
++          break;
++        case 'connecting':
++          _authTrace(
++            'connection_attempt_started',
++            peer: peer,
++            role: role,
++            attempt: event.attempt,
++          );
++          break;
++        case 'discoveringServices':
++        case 'serviceDiscovered':
++          _authTrace(
++            'services_discovered',
++            peer: peer,
++            role: role,
++            attempt: event.attempt,
++          );
++          break;
++        case 'characteristicsDiscovered':
++          _authTrace(
++            'characteristics_discovered',
++            peer: peer,
++            role: role,
++            attempt: event.attempt,
++          );
++          break;
++        case 'connected':
++          // Native bridges emit connected only after the TX notification
++          // subscription is ready. Record both boundaries explicitly so a
++          // physical trace can distinguish a raw link from an app-ready GATT
++          // session without exposing packet contents.
++          _authTrace(
++            'native_connected',
++            peer: peer,
++            role: role,
++            attempt: event.attempt,
++          );
++          _authTrace(
++            'notifications_ready',
++            peer: peer,
++            role: role,
++            attempt: event.attempt,
++          );
++          break;
++        case 'disconnected':
++          _authTrace(
++            'native_disconnected',
++            peer: peer,
++            role: event.role,
++            attempt: event.attempt,
++            reason: _nativeFailureCategory(event.error),
++          );
++          break;
++        case 'error':
++          _authTrace(
++            'native_error',
++            peer: peer,
++            role: event.role,
++            attempt: event.attempt,
++            reason: _nativeFailureCategory(event.error),
++          );
++          break;
++      }
++    }
+     switch (event.type) {
+       case 'deviceFound':
+         if (peer != null && peer.isNotEmpty) {
+@@ -461,16 +564,42 @@ class HopRelayCoordinator {
+         return;
+       case 'connected':
+         if (peer == null || peer.isEmpty) return;
+-        final role = event.role ?? BleSessionRole.central;
+-        _connected.putIfAbsent(peer, () => <BleSessionRole>{}).add(role);
++        if (!_connected.putIfAbsent(peer, () => <BleSessionRole>{}).add(role)) {
++          // Repeated readiness for the same active role is not a new
++          // connection. Replacing it cancels an in-flight capability/proof
++          // write and leaves a healthy GATT link unauthenticated.
++          _log(
++            'relayDuplicateConnectedIgnored peer=${_safeCorrelation(peer)} '
++            'role=${role.wireValue}',
++          );
++          return;
++        }
+         _replaceSession(peer, role);
++        _authTrace(
++          'session_created',
++          peer: peer,
++          role: role,
++          attempt: event.attempt,
++          session: _sessions[_sessionKey(peer, role)],
++        );
+         _connecting.remove(peer);
+         // A non-participating origin still needs to declare its installation
+         // key and session role so an opted-in next hop can authenticate the
+         // per-incident-authorized offer. This does not authorize this device
+         // to accept or forward anyone else's SOS.
+         if (_participating || _hasPendingWork) {
+-          await _sendCapabilities(peer, role);
++          try {
++            await _sendCapabilities(peer, role);
++          } on Object catch (error) {
++            _authTrace(
++              'session_failed',
++              peer: peer,
++              role: role,
++              session: _sessions[_sessionKey(peer, role)],
++              reason: _authenticationFailureCategory(error),
++            );
++            rethrow;
++          }
+         }
+         await processDue();
+         return;
+@@ -484,6 +613,12 @@ class HopRelayCoordinator {
+           if (_connected[peer]?.isEmpty ?? false) _connected.remove(peer);
+           _invalidateSession(peer, event.role!);
+         }
++        _authTrace(
++          'peer_removed',
++          peer: peer,
++          role: event.role,
++          reason: _nativeFailureCategory(event.error),
++        );
+         _connecting.remove(peer);
+         return;
+       default:
+@@ -497,15 +632,66 @@ class HopRelayCoordinator {
+     BleMessage message,
+   ) async {
+     if (message.type == RelayCapabilityAdvertisement.wireKind) {
+-      await _handleCapabilities(peer, role, message);
++      _authTrace(
++        'capability_received',
++        peer: peer,
++        role: role,
++        session: _sessions[_sessionKey(peer, role)],
++      );
++      try {
++        await _handleCapabilities(peer, role, message);
++      } on Object catch (error) {
++        _authTrace(
++          'session_failed',
++          peer: peer,
++          role: role,
++          session: _sessions[_sessionKey(peer, role)],
++          reason: _authenticationFailureCategory(error),
++        );
++        rethrow;
++      }
+       return true;
+     }
+     if (message.type == RelaySessionChallenge.wireKind) {
+-      await _handleSessionChallenge(peer, role, message);
++      _authTrace(
++        'session_challenge_received',
++        peer: peer,
++        role: role,
++        session: _sessions[_sessionKey(peer, role)],
++      );
++      try {
++        await _handleSessionChallenge(peer, role, message);
++      } on Object catch (error) {
++        _authTrace(
++          'session_failed',
++          peer: peer,
++          role: role,
++          session: _sessions[_sessionKey(peer, role)],
++          reason: _authenticationFailureCategory(error),
++        );
++        rethrow;
++      }
+       return true;
+     }
+     if (message.type == RelaySessionResponse.wireKind) {
+-      await _handleSessionResponse(peer, role, message);
++      _authTrace(
++        'session_response_received',
++        peer: peer,
++        role: role,
++        session: _sessions[_sessionKey(peer, role)],
++      );
++      try {
++        await _handleSessionResponse(peer, role, message);
++      } on Object catch (error) {
++        _authTrace(
++          'session_failed',
++          peer: peer,
++          role: role,
++          session: _sessions[_sessionKey(peer, role)],
++          reason: _authenticationFailureCategory(error),
++        );
++        rethrow;
++      }
+       return true;
+     }
+     if (message.type == RelayOfferTransfer.wireKind) {
+@@ -533,18 +719,31 @@ class HopRelayCoordinator {
+     BleSessionRole role,
+     BleMessage message,
+   ) async {
++    final active = _requireSession(peer, role);
++    final transfer = ChatRelayTransfer.fromJson(message.payload);
++    await active.pendingInboundBindings[transfer.sessionBinding]?.future;
+     final session = _requireProvenSession(peer, role);
+     final repository = chatRelayRepository;
+     if (repository == null) return;
+-    final transfer = ChatRelayTransfer.fromJson(message.payload);
+-    if (message.id != transfer.attemptId) {
++    final identity = await _ensureIdentity();
++    final declared = session.declaredPeer!;
++    if (!identical(active, session) ||
++        (transfer.sessionBinding != session.inboundBinding &&
++            transfer.sessionBinding != session.outboundBinding) ||
++        message.id != transfer.attemptId) {
+       throw const RelayProtocolException(
+         'Chat relay transfer binding is invalid.',
+       );
+     }
+     final envelope = repository.decode(transfer.wireEnvelope);
+     envelope.body.validate(now: _now());
+-    if (session.declaredPeer?.keyId != envelope.body.senderKeyId ||
++    if (transfer.attemptId !=
++            'chat:${envelope.body.messageId}:${identity.keyId}' ||
++        !await transfer.verifyPath(
++          immediateKeyId: declared.keyId,
++          immediatePublicKey: declared.publicKey,
++          localKeyId: identity.keyId,
++        ) ||
+         !await _cryptography.publicKeyMatchesId(
+           envelope.body.recipientPublicKey,
+           envelope.body.recipientKeyId,
+@@ -552,20 +751,39 @@ class HopRelayCoordinator {
+         !await _cryptography.verifyChatRelay(envelope, now: _now())) {
+       throw const RelayProtocolException('Chat relay authentication failed.');
+     }
+-    await repository.persistIncoming(envelope, now: _now());
+-    final identity = await _ensureIdentity();
+-    if (identity.keyId == envelope.body.recipientKeyId) {
++    await ChatRelayAuthorization(
++      _database,
++      ownerId: repository.ownerId,
++    ).authorize(envelope, suppliedOffer: transfer.wireRescueOffer);
++    if (!identical(_sessions[_sessionKey(peer, role)], session) ||
++        !session.proofComplete) {
++      throw const RelayProtocolException('Chat relay session changed.');
++    }
++    final isRecipient = identity.keyId == envelope.body.recipientKeyId;
++    if (declared.keyId != envelope.body.senderKeyId && !declared.participating) {
++      throw const RelayProtocolException('Immediate Chat relay opted out.');
++    }
++    if (!isRecipient && !_participating) {
++      throw const RelayProtocolException('Chat relay participation disabled.');
++    }
++    await _database.transaction(() async {
++      await repository.persistIncoming(envelope, now: _now());
++      if (!isRecipient) {
++        await repository.enqueue(
++          envelope,
++          now: _now(),
++          hopCount: transfer.hopCount + 1,
++          receivedTransfer: transfer,
++        );
++      }
++    });
++    if (isRecipient) {
+       await onChatRelayReceived?.call(envelope);
+       _log(
+         'chat_relay_received incident=${envelope.body.incidentId} message=${envelope.body.messageId}',
+       );
+       return;
+     }
+-    await repository.enqueue(
+-      envelope,
+-      now: _now(),
+-      hopCount: transfer.hopCount + 1,
+-    );
+     _hasPendingWork = true;
+     unawaited(processDue());
+     _log(
+@@ -578,9 +796,18 @@ class HopRelayCoordinator {
+     BleSessionRole role,
+     BleMessage message,
+   ) async {
+-    final session = _requireProvenSession(peer, role);
+     final transfer = RescueResponseTransfer.fromJson(message.payload);
+     transfer.validate();
++    final activeSession = _requireSession(peer, role);
++    // A peer can receive our final proof-response frame before the native
++    // write-completion callback lets us commit the derived inbound binding.
++    // Wait only for that exact, cryptographically derived binding; arbitrary
++    // or retired-session bindings still fail closed below.
++    await activeSession.pendingInboundBindings[transfer.sessionBinding]?.future;
++    final session = _requireProvenSession(peer, role);
++    if (!identical(session, activeSession)) {
++      throw const RelayProtocolException('Rescue response session changed.');
++    }
+     _log(
+       'response_transfer_received peer=${session.declaredPeer?.keyId} '
+       'hop=${transfer.hopCount} ack=${transfer.isAck}',
+@@ -785,6 +1012,11 @@ class HopRelayCoordinator {
+     String? originIncidentBinding,
+   }) async {
+     final identity = await _ensureIdentity();
++    if (recipientKeyId == identity.keyId) {
++      throw const RelayProtocolException(
++        'Outgoing relay Chat requires a remote participant.',
++      );
++    }
+     final body = ChatRelayBody(
+       messageId: messageId,
+       incidentId: incidentId,
+@@ -810,6 +1042,7 @@ class HopRelayCoordinator {
+     _log(
+       'relay_scheduler_tick foreground=$_foreground participating=$_participating',
+     );
++    await _retryFailedSessionProofs(now);
+     final chatRows = chatRelayRepository == null
+         ? const <ChatRelayOutboxData>[]
+         : await chatRelayRepository!.due(now: now);
+@@ -835,9 +1068,9 @@ class HopRelayCoordinator {
+               )
+               .toList(growable: false);
+     final hadPendingWork = _hasPendingWork;
+-    _hasPendingWork = messages.isNotEmpty;
++    _hasPendingWork = messages.isNotEmpty || chatRows.isNotEmpty;
+     _log('relay_job_due count=${messages.length}');
+-    if (messages.isEmpty) {
++    if (!_hasPendingWork) {
+       _log('relay_scheduler_idle pending=0');
+       if (_discoveryLeaseHeld) {
+         await _presence.releaseDiscovery(_discoveryLease);
+@@ -931,15 +1164,41 @@ class HopRelayCoordinator {
+       try {
+         final envelope = repository.decode(row.payload);
+         envelope.body.validate(now: now);
++        if (!await _cryptography.verifyChatRelay(envelope, now: now)) {
++          throw const FormatException('Stored Chat signature invalid.');
++        }
++        final stored = repository.storedTransfer(row.payload);
++        final localSender = identity.keyId == envelope.body.senderKeyId;
++        if (!localSender && !_participating) continue;
++        if (stored == null && !localSender) {
++          throw const FormatException('Stored Chat hop evidence unavailable.');
++        }
++        if (stored != null &&
++            !await stored.verifyPath(
++              immediateKeyId: stored.path.last,
++              immediatePublicKey: stored.hops.last['senderPublicKey'] as String,
++              localKeyId: identity.keyId,
++            )) {
++          throw const FormatException('Stored Chat path invalid.');
++        }
++        final authorization = await ChatRelayAuthorization(
++          _database,
++          ownerId: repository.ownerId,
++        ).authorize(envelope, suppliedOffer: stored?.wireRescueOffer);
+         if (identity.keyId == envelope.body.recipientKeyId) {
+           await onChatRelayReceived?.call(envelope);
+           await repository.markForwarded(row.messageId, now: now);
+           continue;
+         }
++        final eligible = routes.entries.where(
++          (e) =>
++              (e.value.peer.participating || e.value.peer.keyId == envelope.body.recipientKeyId) &&
++              !(stored?.path.contains(e.value.peer.keyId) ?? false) &&
++              e.value.peer.keyId != envelope.body.senderKeyId,
++        );
+         MapEntry<String, _ProvenRoute>? candidate;
+-        for (final entry in routes.entries) {
+-          if (entry.value.peer.keyId == envelope.body.recipientKeyId &&
+-              entry.value.peer.participating) {
++        for (final entry in eligible) {
++          if (entry.value.peer.keyId == envelope.body.recipientKeyId) {
+             candidate = entry;
+             break;
+           }
+@@ -948,18 +1207,25 @@ class HopRelayCoordinator {
+         // session. Forward opportunistically to one authenticated, opted-in
+         // relay while keeping the immutable final recipient key in the signed
+         // envelope. The next relay must repeat the same validation.
+-        candidate ??= routes.entries
+-            .where((entry) => entry.value.peer.participating)
++        candidate ??= eligible
+             .cast<MapEntry<String, _ProvenRoute>?>()
+             .firstWhere((entry) => entry != null, orElse: () => null);
+         if (candidate == null) continue;
+         final session =
+             _sessions[_sessionKey(candidate.key, candidate.value.role)];
+         if (session == null || !session.proofComplete) continue;
+-        final transfer = ChatRelayTransfer(
+-          attemptId: 'chat:${row.messageId}:${candidate.value.peer.keyId}',
+-          wireEnvelope: row.payload,
+-          hopCount: row.hopCount,
++        final base =
++            stored ??
++            ChatRelayTransfer(
++              attemptId: '',
++              wireEnvelope: envelope.toCanonicalWire(),
++              hopCount: 0,
++              wireRescueOffer: authorization,
++            );
++        final transfer = await base.forNextHop(
++          identity: identity,
++          nextHopKeyId: candidate.value.peer.keyId,
++          binding: session.outboundBinding ?? '',
+         );
+         await _sendMessage(
+           candidate.key,
+@@ -968,8 +1234,19 @@ class HopRelayCoordinator {
+             id: transfer.attemptId,
+             type: ChatRelayTransfer.wireKind,
+             payload: transfer.toJson(),
+-            createdAt: now,
++            createdAt: envelope.body.createdAt,
+           ),
++          sendAllowed: () =>
++              _started &&
++              _foreground &&
++              session.proofComplete &&
++              identical(
++                _sessions[_sessionKey(candidate!.key, candidate.value.role)],
++                session,
++              ) &&
++              (session.declaredPeer?.participating == true ||
++                  session.declaredPeer?.keyId == envelope.body.recipientKeyId) &&
++              (localSender || _participating),
+         );
+         await repository.markForwarded(row.messageId, now: now);
+         await onChatRelayForwarded?.call(row.messageId);
+@@ -1259,7 +1536,10 @@ class HopRelayCoordinator {
+     }
+     if (existing != null &&
+         existing.participating == declared.participating &&
+-        (session.proofComplete || session.pendingChallenge != null)) {
++        (session.proofComplete ||
++            session.pendingChallenge != null ||
++            session.respondingChallengeNonces.isNotEmpty ||
++            session.pendingInboundBindings.isNotEmpty)) {
+       return;
+     }
+     final deferredChallenge = session.deferredPeerChallenge;
+@@ -1331,6 +1611,10 @@ class HopRelayCoordinator {
+           session.proofComplete,
+       now: _now(),
+     );
++    await IncidentLifecycleRepository(
++      _database,
++      ownerId: _rescueResponseRepository.ownerId,
++    ).reconcileIncident(offer.body.incidentId, now: _now());
+     _log(
+       'relay_job_persisted incident=${_safeCorrelation(offer.body.incidentId)} '
+       'duplicate=${accepted.duplicate}',
+@@ -1498,8 +1782,15 @@ class HopRelayCoordinator {
+       ),
+     );
+     session.pendingChallenge = challenge;
++    session.proofRetryAt = null;
+     session.proofTimeout?.cancel();
+     session.proofTimeout = null;
++    _authTrace(
++      'session_challenge_started',
++      peer: peer,
++      role: session.role,
++      session: session,
++    );
+     try {
+       await _sendMessage(
+         peer,
+@@ -1511,10 +1802,19 @@ class HopRelayCoordinator {
+           createdAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+         ),
+       );
++      _authTrace(
++        'session_challenge_completed',
++        peer: peer,
++        role: session.role,
++        session: session,
++      );
+     } on Object {
+       if (identical(session.pendingChallenge, challenge)) {
+         session.pendingChallenge = null;
+         session.proofComplete = false;
++        session.proofRetryAt = _now().toUtc().add(
++          _retryDelay(session.proofRecoveryAttempts + 1),
++        );
+       }
+       rethrow;
+     }
+@@ -1526,11 +1826,21 @@ class HopRelayCoordinator {
+     // full-duplex response may already have completed by then, in which case
+     // _handleSessionResponse cleared pendingChallenge and no timer is needed.
+     if (identical(session.pendingChallenge, challenge)) {
+-      session.proofTimeout = Timer(proofTimeout, () {
++      session.proofTimeout = _proofTimer(proofTimeout, () {
+         if (identical(session.pendingChallenge, challenge)) {
+           session.pendingChallenge = null;
+           session.proofComplete = false;
++          session.proofRetryAt = _now().toUtc().add(
++            _retryDelay(session.proofRecoveryAttempts + 1),
++          );
+           _log('relaySessionProofTimedOut');
++          _authTrace(
++            'session_failed',
++            peer: peer,
++            role: session.role,
++            session: session,
++            reason: 'proof_timeout',
++          );
+         }
+       });
+     }
+@@ -1633,27 +1943,58 @@ class HopRelayCoordinator {
+           identity.keyPair,
+         ),
+       );
++      _authTrace(
++        'session_response_generated',
++        peer: peer,
++        role: role,
++        session: session,
++      );
+       final inboundBinding = await _cryptography.relaySessionBinding(
+         challenge,
+         response,
+       );
+-      await _sendMessage(
+-        peer,
+-        role,
+-        BleMessage(
+-          id: 'relay-proof-response:${challenge.nonce}',
+-          type: RelaySessionResponse.wireKind,
+-          payload: response.toJson(),
+-          createdAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+-        ),
+-      );
+-      // Commit replay protection and the inbound binding only after the whole
+-      // response has been handed to BLE. If foreground loss or a disconnect
+-      // interrupts the write, the same signed challenge remains retryable on
+-      // this still-active session instead of becoming permanently poisoned.
+-      session.deferredPeerChallenge = null;
+-      session.seenChallengeNonces.add(challenge.nonce);
+-      session.inboundBinding = inboundBinding;
++      final bindingReady = Completer<void>();
++      session.pendingInboundBindings[inboundBinding] = bindingReady;
++      try {
++        await _sendMessage(
++          peer,
++          role,
++          BleMessage(
++            id: 'relay-proof-response:${challenge.nonce}',
++            type: RelaySessionResponse.wireKind,
++            payload: response.toJson(),
++            createdAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
++          ),
++        );
++        _authTrace(
++          'session_response_completed',
++          peer: peer,
++          role: role,
++          session: session,
++        );
++        // Commit replay protection and the inbound binding only after the whole
++        // response has been handed to BLE. If foreground loss or a disconnect
++        // interrupts the write, the same signed challenge remains retryable on
++        // this still-active session instead of becoming permanently poisoned.
++        if (!identical(_sessions[_sessionKey(peer, role)], session) ||
++            !identical(
++              session.pendingInboundBindings[inboundBinding],
++              bindingReady,
++            )) {
++          throw const RelayProtocolException('Relay proof session changed.');
++        }
++        session.deferredPeerChallenge = null;
++        session.seenChallengeNonces.add(challenge.nonce);
++        session.inboundBinding = inboundBinding;
++      } finally {
++        if (identical(
++          session.pendingInboundBindings[inboundBinding],
++          bindingReady,
++        )) {
++          session.pendingInboundBindings.remove(inboundBinding);
++        }
++        if (!bindingReady.isCompleted) bindingReady.complete();
++      }
+     } finally {
+       session.respondingChallengeNonces.remove(challenge.nonce);
+     }
+@@ -1682,15 +2023,27 @@ class HopRelayCoordinator {
+         !await _cryptography.verifySessionResponse(response)) {
+       throw const RelayProtocolException('Relay session response is invalid.');
+     }
++    final outboundBinding = await _cryptography.relaySessionBinding(
++      response.challenge,
++      response,
++    );
++    if (!identical(_sessions[_sessionKey(peer, role)], session) ||
++        !identical(session.pendingChallenge, pending)) {
++      throw const RelayProtocolException('Relay proof session changed.');
++    }
+     session.proofTimeout?.cancel();
+     session.proofTimeout = null;
+     session.pendingChallenge = null;
+     session.proofComplete = true;
+-    session.outboundBinding = await _cryptography.relaySessionBinding(
+-      response.challenge,
+-      response,
+-    );
++    session.proofRetryAt = null;
++    session.outboundBinding = outboundBinding;
+     _log('relaySessionProofEstablished');
++    _authTrace(
++      'session_authenticated',
++      peer: peer,
++      role: role,
++      session: session,
++    );
+     _log(
+       'authenticated_peer_ready peer=${session.declaredPeer?.keyId ?? 'unknown'}',
+     );
+@@ -1801,6 +2154,13 @@ class HopRelayCoordinator {
+   Future<void> _rejectDuplicateSession(String peer, BleSessionRole role) async {
+     final hasOtherRole =
+         _connected[peer]?.any((candidate) => candidate != role) ?? false;
++    _authTrace(
++      'peer_removed',
++      peer: peer,
++      role: role,
++      session: _sessions[_sessionKey(peer, role)],
++      reason: 'duplicate_installation_session',
++    );
+     _invalidateSession(peer, role);
+     _connected[peer]?.remove(role);
+     if (_connected[peer]?.isEmpty ?? false) _connected.remove(peer);
+@@ -1838,6 +2198,13 @@ class HopRelayCoordinator {
+           : _requireSession(peer, role).generation,
+       sessionRole: identity == null ? null : role.wireValue,
+     );
++    final session = _sessions[_sessionKey(peer, role)];
++    _authTrace(
++      'capability_write_started',
++      peer: peer,
++      role: role,
++      session: session,
++    );
+     await _sendMessage(
+       peer,
+       role,
+@@ -1848,6 +2215,12 @@ class HopRelayCoordinator {
+         createdAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+       ),
+     );
++    _authTrace(
++      'capability_write_completed',
++      peer: peer,
++      role: role,
++      session: session,
++    );
+   }
+ 
+   Future<void> _broadcastCapabilities() async {
+@@ -1874,6 +2247,43 @@ class HopRelayCoordinator {
+     }
+   }
+ 
++  Future<void> _retryFailedSessionProofs(DateTime now) async {
++    // A failed proof leaves GATT connected. Neither a fresh discovery event
++    // nor another connected callback is guaranteed, so the existing scheduler
++    // must resume authentication. Bound retries and retain full verification.
++    for (final entry in _sessions.entries.toList(growable: false)) {
++      final session = entry.value;
++      final retryAt = session.proofRetryAt;
++      if (retryAt == null ||
++          retryAt.isAfter(now) ||
++          session.proofComplete ||
++          session.pendingChallenge != null ||
++          session.declaredPeer == null ||
++          session.proofRecoveryAttempts >=
++              RelayRepository.maximumRetriesPerPeer) {
++        continue;
++      }
++      final separator = entry.key.lastIndexOf('|');
++      if (separator <= 0) continue;
++      final peer = entry.key.substring(0, separator);
++      if (!identical(_sessions[entry.key], session) ||
++          !(_connected[peer]?.contains(session.role) ?? false)) {
++        continue;
++      }
++      session.proofRetryAt = null;
++      session.proofRecoveryAttempts++;
++      _log(
++        'relaySessionProofRetry attempt=${session.proofRecoveryAttempts} '
++        'peer=${_safeCorrelation(peer)}',
++      );
++      try {
++        await _issueSessionChallenge(peer, session);
++      } on Object {
++        _log('relaySessionProofWriteFailed');
++      }
++    }
++  }
++
+   Future<void> _challengeDeclaredPeers() async {
+     for (final entry in _sessions.entries) {
+       final session = entry.value;
+@@ -1902,6 +2312,16 @@ class HopRelayCoordinator {
+     if (session == null || !(_connected[peer]?.contains(role) ?? false)) {
+       throw const RelayPersistenceException('Relay peer disconnected.');
+     }
++    if (_isControlMessage(message)) {
++      await _sendMessageFrames(
++        peer,
++        role,
++        message,
++        session,
++        sendAllowed: sendAllowed,
++      );
++      return;
++    }
+     final previous = _sendTails[key] ?? Future<void>.value();
+     late final Future<void> current;
+     current = previous.catchError((Object _) {}).then((_) async {
+@@ -1938,6 +2358,7 @@ class HopRelayCoordinator {
+         maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
+       ),
+       role: role,
++      control: _isControlMessage(message),
+       canSend: () =>
+           (sendAllowed == null || sendAllowed()) &&
+           _started &&
+@@ -1952,6 +2373,12 @@ class HopRelayCoordinator {
+     }
+   }
+ 
++  bool _isControlMessage(BleMessage message) =>
++      message.type == RelayCapabilityAdvertisement.wireKind ||
++      message.type == RelaySessionChallenge.wireKind ||
++      message.type == RelaySessionResponse.wireKind ||
++      message.type == RelayReceiptType.hop.wireValue;
++
+   Future<void> _maybeConnect(String peer) async {
+     if (!_started ||
+         !_foreground ||
+@@ -1974,11 +2401,24 @@ class HopRelayCoordinator {
+     }
+     _connectionAttempts[peer] = attempts + 1;
+     _connecting.add(peer);
++    _authTrace(
++      'connection_request_started',
++      peer: peer,
++      role: BleSessionRole.central,
++      attempt: attempts + 1,
++    );
+     try {
+       await _transport.connect(peer);
+     } on Object {
+       _connecting.remove(peer);
+       _log('relayCandidateConnectFailed');
++      _authTrace(
++        'session_failed',
++        peer: peer,
++        role: BleSessionRole.central,
++        attempt: attempts + 1,
++        reason: 'connection_request_failed',
++      );
+     }
+   }
+ 
+@@ -2072,5 +2512,115 @@ class HopRelayCoordinator {
+     return '${normalized.substring(0, 12)}…${normalized.substring(normalized.length - 8)}';
+   }
+ 
+-  void _log(String message) => onLog?.call(message);
++  void _authTrace(
++    String event, {
++    required String peer,
++    BleSessionRole? role,
++    int? attempt,
++    _RelaySession? session,
++    String? reason,
++  }) {
++    _log(
++      <String>[
++        'auth_t=${_diagnosticClock.elapsedMicroseconds}',
++        'platform=${Platform.operatingSystem}',
++        'event=$event',
++        'peer=${_safeCorrelation(peer)}',
++        if (role != null) 'role=${role.wireValue}',
++        if (attempt != null) 'attempt=$attempt',
++        if (session != null) 'generation=${session.generation}',
++        if (reason != null) 'reason=$reason',
++      ].join(' '),
++    );
++  }
++
++  String _nativeFailureCategory(String? error) {
++    if (error == null || error.trim().isEmpty) return 'normal_disconnect';
++    final normalized = error.toLowerCase();
++    final status = RegExp(r'status\s+(\d+)').firstMatch(normalized);
++    if (status != null) return 'gatt_status_${status.group(1)}';
++    if (normalized.contains('timeout')) return 'gatt_timeout';
++    if (normalized.contains('notification')) return 'notification_setup';
++    if (normalized.contains('service')) return 'service_discovery';
++    if (normalized.contains('characteristic')) {
++      return 'characteristic_discovery';
++    }
++    if (normalized.contains('disconnect')) return 'native_disconnect';
++    return 'native_error';
++  }
++
++  String _authenticationFailureCategory(Object error) {
++    final normalized = error.toString().toLowerCase();
++    if (normalized.contains('timeout')) return 'proof_timeout';
++    if (normalized.contains('session changed')) return 'session_replaced';
++    if (normalized.contains('inactive') ||
++        normalized.contains('disconnected')) {
++      return 'transport_inactive';
++    }
++    if (normalized.contains('capability key mismatch')) {
++      return 'capability_key_mismatch';
++    }
++    if (normalized.contains('capability role')) {
++      return 'capability_role_mismatch';
++    }
++    if (normalized.contains('own installation key')) return 'self_identity';
++    if (normalized.contains('challenge')) return 'challenge_rejected';
++    if (normalized.contains('response')) return 'response_rejected';
++    if (normalized.contains('cancelled')) return 'write_cancelled';
++    return 'authentication_error';
++  }
++
++  void _log(String message) {
++    onLog?.call(message);
++    final normalized = message.trim();
++    if (normalized.isEmpty) return;
++    _runtimeEvents.add(normalized);
++    if (_runtimeEvents.length > 40) {
++      _runtimeEvents.removeRange(0, _runtimeEvents.length - 40);
++    }
++    if (normalized.startsWith('relay_scheduler_tick')) {
++      _lastSchedulerExecution = _now();
++    } else if (normalized.startsWith('relay_job_due count=')) {
++      _runtimeDueJobs = int.tryParse(normalized.split('=').last) ?? 0;
++    } else if (normalized.contains('relay_forward_skipped reason=')) {
++      _runtimeSkipReason = normalized.split('reason=').last.split(' ').first;
++    } else if (normalized.startsWith('relay_forward_eligible')) {
++      _runtimeSelectedPeer = normalized.contains('peer=')
++          ? normalized.split('peer=').last.split(' ').first
++          : null;
++    } else if (normalized.contains('relay_forward_started') ||
++        normalized.contains('response_forward_started')) {
++      _runtimeForwardAttempt = normalized;
++    } else if (normalized.contains('relayStoredOnNextHop') ||
++        normalized.contains('relay_hop_receipt')) {
++      _runtimeDurableReceipt = normalized;
++    }
++    final peers = <RelayPeerDiagnostic>[];
++    for (final entry in _connected.entries) {
++      for (final role in entry.value) {
++        final session = _sessions['${entry.key}|${role.wireValue}'];
++        peers.add(
++          RelayPeerDiagnostic(
++            peer: _safeCorrelation(entry.key),
++            connected: true,
++            authenticated: session?.proofComplete ?? false,
++            participating: session?.declaredPeer?.participating ?? false,
++            role: role.wireValue,
++          ),
++        );
++      }
++    }
++    runtimeDiagnostics.update(
++      RelayRuntimeDiagnosticsSnapshot(
++        peers: peers,
++        events: List<String>.unmodifiable(_runtimeEvents),
++        lastSchedulerExecution: _lastSchedulerExecution,
++        dueJobs: _runtimeDueJobs,
++        lastSelectedPeer: _runtimeSelectedPeer,
++        lastSkipReason: _runtimeSkipReason,
++        lastForwardAttempt: _runtimeForwardAttempt,
++        lastDurableReceipt: _runtimeDurableReceipt,
++      ),
++    );
++  }
+ }
+diff --git a/lib/features/nearby_ble/data/relay_diagnostics_repository.dart b/lib/features/nearby_ble/data/relay_diagnostics_repository.dart
+index ec76c1f..f5059b9 100644
+--- a/lib/features/nearby_ble/data/relay_diagnostics_repository.dart
++++ b/lib/features/nearby_ble/data/relay_diagnostics_repository.dart
+@@ -48,6 +48,74 @@ abstract interface class RelayDiagnosticsDataSource {
+   Stream<RelayDiagnosticsSnapshot> watchDiagnostics();
+ }
+ 
++class RelayPeerDiagnostic {
++  const RelayPeerDiagnostic({
++    required this.peer,
++    required this.connected,
++    required this.authenticated,
++    required this.participating,
++    required this.role,
++  });
++
++  final String peer;
++  final bool connected;
++  final bool authenticated;
++  final bool participating;
++  final String role;
++}
++
++class RelayRuntimeDiagnosticsSnapshot {
++  const RelayRuntimeDiagnosticsSnapshot({
++    required this.peers,
++    required this.events,
++    this.lastSchedulerExecution,
++    this.dueJobs = 0,
++    this.lastSelectedPeer,
++    this.lastSkipReason,
++    this.lastForwardAttempt,
++    this.lastDurableReceipt,
++  });
++
++  final List<RelayPeerDiagnostic> peers;
++  final List<String> events;
++  final DateTime? lastSchedulerExecution;
++  final int dueJobs;
++  final String? lastSelectedPeer;
++  final String? lastSkipReason;
++  final String? lastForwardAttempt;
++  final String? lastDurableReceipt;
++}
++
++abstract interface class RelayRuntimeDiagnosticsDataSource {
++  Stream<RelayRuntimeDiagnosticsSnapshot> watchRuntimeDiagnostics();
++}
++
++class RelayRuntimeDiagnosticsController
++    implements RelayRuntimeDiagnosticsDataSource {
++  RelayRuntimeDiagnosticsController()
++    : _snapshot = const RelayRuntimeDiagnosticsSnapshot(
++        peers: <RelayPeerDiagnostic>[],
++        events: <String>[],
++      );
++
++  final _controller =
++      StreamController<RelayRuntimeDiagnosticsSnapshot>.broadcast();
++  RelayRuntimeDiagnosticsSnapshot _snapshot;
++
++  RelayRuntimeDiagnosticsSnapshot get snapshot => _snapshot;
++
++  void update(RelayRuntimeDiagnosticsSnapshot snapshot) {
++    _snapshot = snapshot;
++    if (!_controller.isClosed) _controller.add(snapshot);
++  }
++
++  @override
++  Stream<RelayRuntimeDiagnosticsSnapshot> watchRuntimeDiagnostics() async* {
++    yield _snapshot;
++    yield* _controller.stream;
++  }
++}
++
+ /// Read-only, privacy-reduced projection of Relay v2 persistence.
+ ///
+ /// The projection intentionally excludes envelopes, signatures, keys, message
+diff --git a/lib/features/nearby_ble/data/rescue_inbox_repository.dart b/lib/features/nearby_ble/data/rescue_inbox_repository.dart
+index a3559e1..5684e2e 100644
+--- a/lib/features/nearby_ble/data/rescue_inbox_repository.dart
++++ b/lib/features/nearby_ble/data/rescue_inbox_repository.dart
+@@ -5,8 +5,16 @@ import 'package:drift/drift.dart';
+ import '../../../core/database/app_database.dart';
+ import '../domain/relay_envelope.dart';
+ import 'relay_repository.dart';
++import 'incident_lifecycle_repository.dart';
+ 
+-enum RescueCandidateState { pending, viewed, locallyAccepted, expired }
++enum RescueCandidateState {
++  pending,
++  viewed,
++  locallyAccepted,
++  expired,
++  cancelled,
++  resolved,
++}
+ 
+ class RescueInboxRepository {
+   RescueInboxRepository(this.database, {required this.ownerId});
+@@ -34,7 +42,7 @@ class RescueInboxRepository {
+     RelayOfferEnvelope offer, {
+     required String immutableDigest,
+     DateTime? now,
+-  }) async {
++  }) => database.transaction(() async {
+     if (offer.body.scope != RelayAuthorizationScope.voluntaryRescue) {
+       throw const RelayPersistenceException(
+         'Relay offer is not authorized for voluntary rescue.',
+@@ -42,6 +50,13 @@ class RescueInboxRepository {
+     }
+     final timestamp = (now ?? DateTime.now()).toUtc();
+     offer.body.validate(now: timestamp);
++    if (!await RelayCryptography().verifyOffer(offer, now: timestamp) ||
++        immutableDigest !=
++            await RelayCryptography().immutableDigest(offer.body)) {
++      throw const RelayPersistenceException(
++        'Rescue candidate signature or digest is invalid.',
++      );
++    }
+     final existing = await find(offer.body.originMessageId);
+     if (existing != null) {
+       if (existing.immutableDigest != immutableDigest) {
+@@ -49,7 +64,11 @@ class RescueInboxRepository {
+           'Rescue candidate identity conflicts with stored data.',
+         );
+       }
+-      return existing;
++      await IncidentLifecycleRepository(
++        database,
++        ownerId: ownerId,
++      ).reconcileIncident(offer.body.incidentId, now: timestamp);
++      return (await find(offer.body.originMessageId))!;
+     }
+     await database
+         .into(database.rescueInbox)
+@@ -74,35 +93,48 @@ class RescueInboxRepository {
+           ),
+           mode: InsertMode.insertOrIgnore,
+         );
++    await IncidentLifecycleRepository(
++      database,
++      ownerId: ownerId,
++    ).reconcileIncident(offer.body.incidentId, now: timestamp);
+     return (await find(offer.body.originMessageId))!;
+-  }
++  });
+ 
+-  Future<RescueInboxData?> acceptLocally(String originMessageId) async {
+-    final row = await find(originMessageId);
+-    if (row == null) return null;
+-    if (!row.expiresAt.isAfter(DateTime.now().toUtc())) {
+-      await (database.update(database.rescueInbox)..where(
+-            (item) =>
+-                item.ownerId.equals(ownerId) &
+-                item.originMessageId.equals(originMessageId),
+-          ))
+-          .write(const RescueInboxCompanion(state: Value('expired')));
+-      return find(originMessageId);
+-    }
+-    if (row.state == RescueCandidateState.locallyAccepted.name) return row;
+-    final acceptanceId = 'accept:$ownerId:$originMessageId';
+-    await (database.update(database.rescueInbox)..where(
+-          (item) =>
+-              item.ownerId.equals(ownerId) &
+-              item.originMessageId.equals(originMessageId),
+-        ))
+-        .write(
+-          RescueInboxCompanion(
+-            state: const Value('locallyAccepted'),
+-            acceptanceId: Value(acceptanceId),
+-            acceptedAt: Value(DateTime.now().toUtc()),
+-          ),
+-        );
+-    return find(originMessageId);
+-  }
++  Future<RescueInboxData?> acceptLocally(String originMessageId) =>
++      database.transaction(() async {
++        final existing = await find(originMessageId);
++        if (existing != null) {
++          await IncidentLifecycleRepository(
++            database,
++            ownerId: ownerId,
++          ).reconcileIncident(existing.incidentId, now: DateTime.now().toUtc());
++        }
++        final row = await find(originMessageId);
++        if (row == null) return null;
++        if (row.state == 'cancelled' || row.state == 'resolved') return row;
++        if (!row.expiresAt.isAfter(DateTime.now().toUtc())) {
++          await (database.update(database.rescueInbox)..where(
++                (item) =>
++                    item.ownerId.equals(ownerId) &
++                    item.originMessageId.equals(originMessageId),
++              ))
++              .write(const RescueInboxCompanion(state: Value('expired')));
++          return find(originMessageId);
++        }
++        if (row.state == RescueCandidateState.locallyAccepted.name) return row;
++        final acceptanceId = 'accept:$ownerId:$originMessageId';
++        await (database.update(database.rescueInbox)..where(
++              (item) =>
++                  item.ownerId.equals(ownerId) &
++                  item.originMessageId.equals(originMessageId),
++            ))
++            .write(
++              RescueInboxCompanion(
++                state: const Value('locallyAccepted'),
++                acceptanceId: Value(acceptanceId),
++                acceptedAt: Value(DateTime.now().toUtc()),
++              ),
++            );
++        return find(originMessageId);
++      });
+ }
+diff --git a/lib/features/nearby_ble/data/sos_ble_coordinator.dart b/lib/features/nearby_ble/data/sos_ble_coordinator.dart
+index a8ea4d7..0992acd 100644
+--- a/lib/features/nearby_ble/data/sos_ble_coordinator.dart
++++ b/lib/features/nearby_ble/data/sos_ble_coordinator.dart
+@@ -13,15 +13,18 @@ import '../domain/sos_ble_envelope.dart';
+ import '../domain/location_ble_envelope.dart';
+ import '../domain/chat_relay_envelope.dart';
+ import '../domain/relay_envelope.dart';
++import '../domain/incident_lifecycle_envelope.dart';
+ import 'ble_delivery_repository.dart';
+ import 'ble_protocol.dart';
+ import 'ble_transport.dart';
+ import 'hop_relay_coordinator.dart';
+ import 'relay_repository.dart';
++import 'incident_lifecycle_repository.dart';
+ import 'relay_diagnostics_repository.dart';
+ import 'rescue_inbox_repository.dart';
+ import 'rescue_response_repository.dart';
+ import 'chat_relay_repository.dart';
++import 'relay_key_store.dart';
+ 
+ typedef SosBleNow = DateTime Function();
+ typedef SosBleRandom = double Function();
+@@ -41,6 +44,8 @@ class SosBleCoordinator with WidgetsBindingObserver {
+     BleTransportClient? transport,
+     BleDeliveryRepository? deliveryRepository,
+     HopRelayCoordinator? hopRelayCoordinator,
++    RelayIdentityService? relayIdentityService,
++    RelayProofTimer? relayProofTimer,
+     this.chatRepository,
+     this.rescueModeEnabled,
+     this.onLog,
+@@ -68,6 +73,8 @@ class SosBleCoordinator with WidgetsBindingObserver {
+         HopRelayCoordinator(
+           database: database,
+           transport: _transport,
++          identityService: relayIdentityService,
++          proofTimer: relayProofTimer,
+           now: _now,
+           onLog: (message) => _log('relay=$message'),
+           rescueModeEnabled: () => isRescueModeEnabled,
+@@ -178,6 +185,9 @@ class SosBleCoordinator with WidgetsBindingObserver {
+   RelayDiagnosticsDataSource get relayDiagnosticsDataSource =>
+       _relayDiagnostics;
+ 
++  RelayRuntimeDiagnosticsDataSource get relayRuntimeDiagnosticsDataSource =>
++      _hopRelay.runtimeDiagnostics;
++
+   Stream<BleOutboxData?> watchLocationDeliveryForSos(String sosId) =>
+       _deliveryRepository.watchLocationDeliveryForSos(sosId);
+ 
+@@ -258,6 +268,42 @@ class SosBleCoordinator with WidgetsBindingObserver {
+     if (_started) unawaited(processDue());
+   }
+ 
++  /// Publishes an origin-signed terminal lifecycle event through the durable
++  /// BLE outbox. Local repository state is updated by the caller first; this
++  /// method only handles authenticated transport propagation.
++  Future<void> enqueueIncidentLifecycle({
++    required String sosId,
++    required String status,
++    String? destinationId,
++  }) async {
++    _ensureUsable();
++    final identity = await _hopRelay.signingIdentity();
++    final envelope = await IncidentLifecycleEnvelope.sign(
++      incidentId: sosId,
++      status: status,
++      identity: identity,
++      now: _now(),
++    );
++    await envelope.validate(now: _now());
++    var destination = destinationId?.trim();
++    destination ??= await _deliveryRepository.lookupIncidentDestination(sosId);
++    if ((destination == null || destination.isEmpty) &&
++        _peerBindings.isNotEmpty) {
++      final eligible = _peerBindings.keys.where(
++        (peer) => _connected[peer]?.isNotEmpty == true,
++      );
++      destination = eligible.isEmpty ? null : eligible.first;
++    }
++    await _deliveryRepository.enqueueRaw(
++      envelope.toBleMessage(),
++      sosId: sosId,
++      destinationId: destination,
++      now: _now(),
++    );
++    if (_started) unawaited(processDue());
++    _log('lifecycle_enqueued incident=$sosId status=$status');
++  }
++
+   Stream<RelayStatusSnapshot> watchRelayStatus(String incidentId) =>
+       _hopRelay.watchStatus(incidentId);
+ 
+@@ -298,6 +344,10 @@ class SosBleCoordinator with WidgetsBindingObserver {
+         }
+       }
+       final now = _now().toUtc();
++      await IncidentLifecycleRepository(
++        _database,
++        ownerId: ownerId,
++      ).reconcilePending(now: now);
+       await _deliveryRepository.recoverStaleOutbox(
+         ownerId: isSessionCurrent == null ? null : ownerId,
+         olderThan: now.subtract(staleAfter),
+@@ -509,6 +559,15 @@ class SosBleCoordinator with WidgetsBindingObserver {
+         .lookupMessage('relay:$incidentId');
+     if (origin == null) return null;
+     final body = RelayOfferEnvelope.fromCanonicalWire(origin.wireEnvelope).body;
++    final localIdentity = await _hopRelay.signingIdentity();
++    if (body.originKeyId == localIdentity.keyId) {
++      // The victim's own signed SOS proves its identity, not the rescuer's.
++      // Stop here rather than routing its reply to itself or falling back to
++      // an unrelated direct BLE destination in the Chat send callback.
++      throw const BleDeliveryStateException(
++        'Waiting for a verified help offer for this incident.',
++      );
++    }
+     return (keyId: body.originKeyId, publicKey: body.originPublicKey);
+   }
+ 
+@@ -795,11 +854,25 @@ class SosBleCoordinator with WidgetsBindingObserver {
+         sending.payload,
+         now: _now(),
+       );
+-      final envelope = locationEnvelope == null
+-          ? _decodeEnvelope(sending.payload)
+-          : null;
++      SosBleEnvelope? envelope;
++      IncidentLifecycleEnvelope? lifecycle;
++      if (locationEnvelope == null) {
++        final rawKind = stored is Map ? stored['kind'] : null;
++        if (rawKind == IncidentLifecycleEnvelope.wireKind) {
++          lifecycle = _decodeLifecycleEnvelope(sending.payload);
++          if (lifecycle == null) {
++            throw const RelayProtocolException(
++              'Invalid stored lifecycle envelope.',
++            );
++          }
++        } else {
++          envelope = _decodeEnvelope(sending.payload);
++        }
++      }
+       final frames = BleMessageCodec.encode(
+-        (locationEnvelope?.toBleMessage() ?? envelope!.toBleMessage()),
++        (locationEnvelope?.toBleMessage() ??
++            envelope?.toBleMessage() ??
++            lifecycle!.toBleMessage()),
+         maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
+       );
+       final role = _sendRoleFor(deviceId);
+@@ -836,6 +909,11 @@ class SosBleCoordinator with WidgetsBindingObserver {
+         activeRow.messageId,
+         'invalid stored location envelope: $error',
+       );
++    } on RelayProtocolException catch (error) {
++      await _expire(
++        activeRow.messageId,
++        'invalid stored lifecycle envelope: $error',
++      );
+     } catch (error) {
+       await _markFailed(activeRow, 'send failed: $error');
+     } finally {
+@@ -858,6 +936,10 @@ class SosBleCoordinator with WidgetsBindingObserver {
+       // must fail closed for relay without interrupting Direct SOS v1.
+       _log('relayEventRejected type=${event.type} reason=$error');
+     }
++    if (event.type == 'connected' && deviceId != null) {
++      await _assignPendingLifecycleDestination(deviceId);
++      await _forwardPendingLifecycles(deviceId);
++    }
+     switch (event.type) {
+       case 'state':
+       case 'centralState':
+@@ -1069,6 +1151,8 @@ class SosBleCoordinator with WidgetsBindingObserver {
+     if (waiter != null && !waiter.isCompleted) waiter.complete();
+     _log('peerSessionBound');
+     if (bound == null) await _sendBinding(peer, role, challenge, nonce);
++    await _assignPendingLifecycleDestination(peer);
++    await _forwardPendingLifecycles(peer);
+     unawaited(processDue());
+   }
+ 
+@@ -1124,6 +1208,10 @@ class SosBleCoordinator with WidgetsBindingObserver {
+         await _handlePeerBinding(deviceId, role, message);
+         return;
+       }
++      if (message.type == IncidentLifecycleEnvelope.wireKind) {
++        await _handleIncidentLifecycle(deviceId, role, message);
++        return;
++      }
+       if (await _hopRelay.handleMessage(deviceId, role, message)) return;
+       if (message.type == 'location.update' || message.type == 'location.ack') {
+         final location = LocationBleEnvelope.fromBleMessage(message);
+@@ -1189,6 +1277,135 @@ class SosBleCoordinator with WidgetsBindingObserver {
+     }
+   }
+ 
++  Future<void> _handleIncidentLifecycle(
++    String deviceId,
++    BleSessionRole role,
++    BleMessage message,
++  ) async {
++    final lifecycle = IncidentLifecycleEnvelope.fromBleMessage(message);
++    await lifecycle.validate(now: _now());
++    if (requirePeerBinding && !_peerBindings.containsKey(deviceId)) {
++      throw const RelayProtocolException(
++        'Lifecycle relay session is not bound.',
++      );
++    }
++    final authorization = await IncidentLifecycleRepository(
++      _database,
++      ownerId: ownerId,
++    ).receive(lifecycle, sourcePeer: deviceId, now: _now());
++    if (authorization != LifecycleAuthorization.authorized) {
++      _log('lifecycle_${authorization.name} incident=${lifecycle.incidentId}');
++      return;
++    }
++    _log(
++      'lifecycle_persisted incident=${lifecycle.incidentId} status=${lifecycle.status}',
++    );
++    await _forwardLifecycle(lifecycle.eventId, excludePeer: deviceId);
++  }
++
++  Future<void> _forwardLifecycle(String eventId, {String? excludePeer}) async {
++    final records = await IncidentLifecycleRepository(
++      _database,
++      ownerId: ownerId,
++    ).authorizedEvents();
++    final matches = records.where(
++      (r) => _decodeLifecycleEnvelope(r.payload)?.eventId == eventId,
++    );
++    final row = matches.isEmpty ? null : matches.first;
++    if (row == null) return;
++    final lifecycle = _decodeLifecycleEnvelope(row.payload);
++    if (lifecycle == null) return;
++    for (final peer in _peerBindings.keys) {
++      if (peer == excludePeer || _connected[peer]?.isNotEmpty != true) continue;
++      try {
++        await _writes.sendFrames(
++          peer,
++          BleMessageCodec.encode(
++            lifecycle.toBleMessage(),
++            maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
++          ),
++          role: _sendRoleFor(peer),
++          canSend: () => _sessionActive && !_disposed,
++        );
++        _log('lifecycle_forwarded incident=${lifecycle.incidentId} peer=$peer');
++      } on Object catch (error) {
++        _log(
++          'lifecycle_forward_failed incident=${lifecycle.incidentId} reason=$error',
++        );
++      }
++    }
++  }
++
++  Future<void> _assignPendingLifecycleDestination(String peer) async {
++    if (_peerBindings[peer] == null || _connected[peer]?.isNotEmpty != true) {
++      return;
++    }
++    final rows =
++        await (_database.select(_database.bleOutbox)..where(
++              (table) =>
++                  table.destinationId.isNull() &
++                  table.payload.like(
++                    '%"kind":"${IncidentLifecycleEnvelope.wireKind}"%',
++                  ),
++            ))
++            .get();
++    for (final row in rows) {
++      await _deliveryRepository.assignDestinationIfMissing(
++        row.messageId,
++        peer,
++        now: _now(),
++      );
++    }
++  }
++
++  Future<void> _forwardPendingLifecycles(String peer) async {
++    if (_peerBindings[peer] == null || _connected[peer]?.isNotEmpty != true) {
++      return;
++    }
++    final lifecycleRepository = IncidentLifecycleRepository(
++      _database,
++      ownerId: ownerId,
++    );
++    await lifecycleRepository.reconcilePending(now: _now());
++    final rows = await lifecycleRepository.authorizedEvents();
++    for (final row in rows) {
++      if (row.senderDeviceId == peer) continue;
++      final lifecycle = _decodeLifecycleEnvelope(row.payload);
++      if (lifecycle == null) continue;
++      try {
++        await _writes.sendFrames(
++          peer,
++          BleMessageCodec.encode(
++            lifecycle.toBleMessage(),
++            maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
++          ),
++          role: _sendRoleFor(peer),
++          canSend: () => _sessionActive && !_disposed,
++        );
++      } on Object catch (error) {
++        _log(
++          'lifecycle_retry_failed incident=${lifecycle.incidentId} '
++          'reason=$error',
++        );
++      }
++    }
++  }
++
++  IncidentLifecycleEnvelope? _decodeLifecycleEnvelope(String payload) {
++    try {
++      final value = jsonDecode(payload);
++      if (value is! Map ||
++          value['kind'] != IncidentLifecycleEnvelope.wireKind) {
++        return null;
++      }
++      return IncidentLifecycleEnvelope.fromJson(
++        Map<String, Object?>.from(value),
++      );
++    } on Object {
++      return null;
++    }
++  }
++
+   Future<void> _handleAcknowledgement(
+     String deviceId,
+     SosBleEnvelope envelope,
+@@ -1674,7 +1891,12 @@ class SosBleCoordinator with WidgetsBindingObserver {
+     if (messageIds == null || messageIds.isEmpty) return;
+     for (final messageId in messageIds) {
+       final row = await _deliveryRepository.lookupOutbox(messageId);
+-      if (row == null || row.state != BleOutboxState.queued.wireValue) {
++      // A due retry remains failed while connect() waits for the native
++      // callback. Count that attempt too; otherwise asynchronous GATT errors
++      // leave retryCount frozen after the first failure and retry forever.
++      if (row == null ||
++          (row.state != BleOutboxState.queued.wireValue &&
++              row.state != BleOutboxState.failed.wireValue)) {
+         continue;
+       }
+       try {
+diff --git a/lib/features/nearby_ble/domain/chat_relay_envelope.dart b/lib/features/nearby_ble/domain/chat_relay_envelope.dart
+index 0bcaace..4c808b0 100644
+--- a/lib/features/nearby_ble/domain/chat_relay_envelope.dart
++++ b/lib/features/nearby_ble/domain/chat_relay_envelope.dart
+@@ -1,5 +1,9 @@
+ import 'dart:convert';
+ 
++import 'package:cryptography/cryptography.dart';
++
++import '../data/relay_key_store.dart';
++
+ import 'relay_envelope.dart';
+ 
+ /// Signed, immutable Chat payload for the Q-709 transport.
+@@ -162,6 +166,9 @@ class ChatRelayTransfer {
+     required this.wireEnvelope,
+     required this.hopCount,
+     this.maxHops = 3,
++    this.hops = const [],
++    this.wireRescueOffer,
++    this.sessionBinding = '',
+   });
+ 
+   static const wireKind = 'chat.relay.transfer.v1';
+@@ -169,6 +176,9 @@ class ChatRelayTransfer {
+   final String wireEnvelope;
+   final int hopCount;
+   final int maxHops;
++  final List<Map<String, Object?>> hops;
++  final String? wireRescueOffer;
++  final String sessionBinding;
+ 
+   Map<String, Object?> toJson() => {
+     'kind': wireKind,
+@@ -176,6 +186,9 @@ class ChatRelayTransfer {
+     'wireEnvelope': wireEnvelope,
+     'hopCount': hopCount,
+     'maxHops': maxHops,
++    'hops': hops,
++    'wireRescueOffer': wireRescueOffer,
++    'sessionBinding': sessionBinding,
+   };
+ 
+   factory ChatRelayTransfer.fromJson(Map<String, Object?> json) {
+@@ -191,13 +204,130 @@ class ChatRelayTransfer {
+       wireEnvelope: json['wireEnvelope'] as String,
+       hopCount: json['hopCount'] as int,
+       maxHops: json['maxHops'] as int,
++      hops: (json['hops'] as List? ?? const [])
++          .map((h) => Map<String, Object?>.from(h as Map))
++          .toList(),
++      wireRescueOffer: json['wireRescueOffer'] as String?,
++      sessionBinding: json['sessionBinding'] as String? ?? '',
+     );
+     if (transfer.attemptId.trim().isEmpty ||
+         transfer.hopCount < 0 ||
+         transfer.maxHops < 1 ||
++        transfer.maxHops > 3 ||
+         transfer.hopCount >= transfer.maxHops) {
+       throw const FormatException('Chat relay hop limit reached.');
+     }
+     return transfer;
+   }
++
++  List<String> get path => hops.map((h) => h['senderKeyId'] as String).toList();
++
++  Future<String> _chainDigest(List<Map<String, Object?>> prefix) async =>
++      base64UrlEncode(
++        (await Sha256().hash(
++          utf8.encode(
++            relayCanonicalJson({
++              'domain': 'off-grid-sos/chat-hop-chain/v1',
++              'wireEnvelope': wireEnvelope,
++              'wireRescueOffer': wireRescueOffer,
++              'maxHops': maxHops,
++              'hops': prefix,
++            }),
++          ),
++        )).bytes,
++      );
++
++  /// Append a signed hop without changing the original message or prior hops.
++  Future<ChatRelayTransfer> forNextHop({
++    required RelaySigningIdentity identity,
++    required String nextHopKeyId,
++    required String binding,
++  }) async {
++    if (hops.length >= maxHops ||
++        path.contains(identity.keyId) ||
++        path.contains(nextHopKeyId) ||
++        identity.keyId == nextHopKeyId ||
++        binding.isEmpty) {
++      throw const FormatException('Chat relay path exhausted or looped.');
++    }
++    final unsigned = <String, Object?>{
++      'kind': 'chat.relay.hop.v1',
++      'senderKeyId': identity.keyId,
++      'senderPublicKey': base64UrlEncode(identity.publicKey),
++      'nextHopKeyId': nextHopKeyId,
++      'sessionBinding': binding,
++      'previousDigest': await _chainDigest(hops),
++    };
++    final signature = await Ed25519().sign(
++      utf8.encode(relayCanonicalJson(unsigned)),
++      keyPair: identity.keyPair,
++    );
++    return ChatRelayTransfer(
++      attemptId:
++          'chat:${ChatRelayEnvelope.fromCanonicalWire(wireEnvelope).body.messageId}:$nextHopKeyId',
++      wireEnvelope: wireEnvelope,
++      hopCount: hops.length,
++      maxHops: maxHops,
++      wireRescueOffer: wireRescueOffer,
++      sessionBinding: binding,
++      hops: [
++        ...hops,
++        {...unsigned, 'signature': base64UrlEncode(signature.bytes)},
++      ],
++    );
++  }
++
++  Future<bool> verifyPath({
++    required String immediateKeyId,
++    required String immediatePublicKey,
++    required String localKeyId,
++  }) async {
++    if (hops.isEmpty ||
++        hops.length != hopCount + 1 ||
++        hops.length > maxHops ||
++        maxHops > 3 ||
++        wireRescueOffer == null ||
++        sessionBinding.isEmpty) {
++      return false;
++    }
++    final keys = path;
++    final body = ChatRelayEnvelope.fromCanonicalWire(wireEnvelope).body;
++    if (keys.first != body.senderKeyId ||
++        keys.last != immediateKeyId ||
++        keys.contains(localKeyId) ||
++        keys.toSet().length != keys.length ||
++        hops.last['senderPublicKey'] != immediatePublicKey ||
++        hops.last['sessionBinding'] != sessionBinding) {
++      return false;
++    }
++    for (var i = 0; i < hops.length; i++) {
++      final h = Map<String, Object?>.from(hops[i]);
++      final signature = h.remove('signature');
++      if (h['kind'] != 'chat.relay.hop.v1' ||
++          h['senderPublicKey'] is! String ||
++          signature is! String ||
++          h['sessionBinding'] is! String ||
++          (h['sessionBinding'] as String).isEmpty ||
++          h['nextHopKeyId'] !=
++              (i + 1 < keys.length ? keys[i + 1] : localKeyId) ||
++          h['previousDigest'] != await _chainDigest(hops.take(i).toList())) {
++        return false;
++      }
++      final public = base64Url.decode(
++        base64Url.normalize(h['senderPublicKey'] as String),
++      );
++      if (public.length != 32 ||
++          await RelayCryptography().publicKeyId(public) != keys[i] ||
++          !await Ed25519().verify(
++            utf8.encode(relayCanonicalJson(h)),
++            signature: Signature(
++              base64Url.decode(base64Url.normalize(signature)),
++              publicKey: SimplePublicKey(public, type: KeyPairType.ed25519),
++            ),
++          )) {
++        return false;
++      }
++    }
++    return true;
++  }
+ }
+diff --git a/lib/features/nearby_ble/presentation/ble_test_page.dart b/lib/features/nearby_ble/presentation/ble_test_page.dart
+index 44fb705..97e4d3d 100644
+--- a/lib/features/nearby_ble/presentation/ble_test_page.dart
++++ b/lib/features/nearby_ble/presentation/ble_test_page.dart
+@@ -8,14 +8,20 @@ import '../data/ble_protocol.dart';
+ import '../data/ble_transport.dart';
+ import '../domain/ble_models.dart';
+ import '../domain/ble_range_diagnostic.dart';
++import '../data/relay_diagnostics_repository.dart';
++import 'relay_diagnostics_page.dart';
+ 
+ class BleTestPage extends StatefulWidget {
+-  BleTestPage({super.key, BleTransportClient? transport})
+-    : transport = transport ?? BleTransport(),
+-      ownsTransport = transport == null;
++  BleTestPage({
++    super.key,
++    BleTransportClient? transport,
++    this.runtimeDiagnostics,
++  }) : transport = transport ?? BleTransport(),
++       ownsTransport = transport == null;
+ 
+   final BleTransportClient transport;
+   final bool ownsTransport;
++  final RelayRuntimeDiagnosticsDataSource? runtimeDiagnostics;
+ 
+   @override
+   State<BleTestPage> createState() => _BleTestPageState();
+@@ -628,6 +634,8 @@ class _BleTestPageState extends State<BleTestPage> {
+           const SizedBox(height: 12),
+           _controlsCard(),
+           const SizedBox(height: 12),
++          _runtimeDiagnosticsButton(),
++          const SizedBox(height: 12),
+           _devicesCard(),
+           const SizedBox(height: 12),
+           _sendCard(selectedConnected),
+@@ -713,6 +721,23 @@ class _BleTestPageState extends State<BleTestPage> {
+     ),
+   );
+ 
++  Widget _runtimeDiagnosticsButton() {
++    final source = widget.runtimeDiagnostics;
++    if (source == null || kReleaseMode) return const SizedBox.shrink();
++    return Align(
++      alignment: Alignment.centerLeft,
++      child: OutlinedButton.icon(
++        icon: const Icon(Icons.monitor_heart_outlined),
++        label: const Text('Open Relay Diagnostics'),
++        onPressed: () => Navigator.of(context).push<void>(
++          MaterialPageRoute<void>(
++            builder: (_) => RelayRuntimeDiagnosticsPage(dataSource: source),
++          ),
++        ),
++      ),
++    );
++  }
++
+   Widget _devicesCard() => Card(
+     child: Padding(
+       padding: const EdgeInsets.all(12),
+diff --git a/lib/features/nearby_ble/presentation/relay_diagnostics_page.dart b/lib/features/nearby_ble/presentation/relay_diagnostics_page.dart
+index 6db87d5..79756df 100644
+--- a/lib/features/nearby_ble/presentation/relay_diagnostics_page.dart
++++ b/lib/features/nearby_ble/presentation/relay_diagnostics_page.dart
+@@ -9,11 +9,15 @@ class RelayDiagnosticsRoute {
+ 
+   static Route<void>? build({
+     required RelayDiagnosticsDataSource dataSource,
++    RelayRuntimeDiagnosticsDataSource? runtimeDataSource,
+     bool releaseMode = kReleaseMode,
+   }) {
+     if (releaseMode) return null;
+     return MaterialPageRoute<void>(
+-      builder: (_) => RelayDiagnosticsPage(dataSource: dataSource),
++      builder: (_) => RelayDiagnosticsPage(
++        dataSource: dataSource,
++        runtimeDataSource: runtimeDataSource,
++      ),
+     );
+   }
+ }
+@@ -22,10 +26,12 @@ class RelayDiagnosticsPage extends StatelessWidget {
+   const RelayDiagnosticsPage({
+     super.key,
+     required this.dataSource,
++    this.runtimeDataSource,
+     this.releaseMode = kReleaseMode,
+   });
+ 
+   final RelayDiagnosticsDataSource dataSource;
++  final RelayRuntimeDiagnosticsDataSource? runtimeDataSource;
+   final bool releaseMode;
+ 
+   @override
+@@ -62,6 +68,20 @@ class RelayDiagnosticsPage extends StatelessWidget {
+             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+             children: [
+               const _EvidenceNotice(),
++              if (runtimeDataSource != null) ...[
++                const SizedBox(height: 12),
++                StreamBuilder<RelayRuntimeDiagnosticsSnapshot>(
++                  stream: runtimeDataSource!.watchRuntimeDiagnostics(),
++                  builder: (context, runtime) => _RuntimeCard(
++                    snapshot:
++                        runtime.data ??
++                        const RelayRuntimeDiagnosticsSnapshot(
++                          peers: <RelayPeerDiagnostic>[],
++                          events: <String>[],
++                        ),
++                  ),
++                ),
++              ],
+               const SizedBox(height: 12),
+               Text(
+                 context.l10n.relayMessagesStored(entries.length),
+@@ -81,6 +101,92 @@ class RelayDiagnosticsPage extends StatelessWidget {
+   }
+ }
+ 
++class _RuntimeCard extends StatelessWidget {
++  const _RuntimeCard({required this.snapshot});
++
++  final RelayRuntimeDiagnosticsSnapshot snapshot;
++
++  @override
++  Widget build(BuildContext context) {
++    final theme = Theme.of(context);
++    return Card(
++      child: Padding(
++        padding: const EdgeInsets.all(16),
++        child: Column(
++          crossAxisAlignment: CrossAxisAlignment.start,
++          children: [
++            Text('Runtime relay state', style: theme.textTheme.titleMedium),
++            const SizedBox(height: 8),
++            _DiagnosticRow(label: 'Due jobs', value: '${snapshot.dueJobs}'),
++            _DiagnosticRow(
++              label: 'Last scheduler',
++              value:
++                  snapshot.lastSchedulerExecution?.toLocal().toString() ??
++                  'Not recorded',
++            ),
++            _DiagnosticRow(
++              label: 'Last selected peer',
++              value: snapshot.lastSelectedPeer ?? 'Not recorded',
++            ),
++            _DiagnosticRow(
++              label: 'Last skip reason',
++              value: snapshot.lastSkipReason ?? 'Not recorded',
++            ),
++            _DiagnosticRow(
++              label: 'Last forward attempt',
++              value: snapshot.lastForwardAttempt ?? 'Not recorded',
++            ),
++            _DiagnosticRow(
++              label: 'Last durable receipt',
++              value: snapshot.lastDurableReceipt ?? 'Not recorded',
++            ),
++            const SizedBox(height: 8),
++            Text('Peer sessions', style: theme.textTheme.titleSmall),
++            for (final peer in snapshot.peers)
++              Text(
++                '${peer.peer} · ${peer.role} · ${peer.connected ? 'connected' : 'disconnected'} · ${peer.authenticated ? 'authenticated' : 'unauthenticated'} · ${peer.authenticated && peer.participating ? 'eligible' : 'ineligible'}',
++              ),
++            const SizedBox(height: 8),
++            Text('Recent events', style: theme.textTheme.titleSmall),
++            for (final event in snapshot.events) Text(event),
++          ],
++        ),
++      ),
++    );
++  }
++}
++
++class RelayRuntimeDiagnosticsPage extends StatelessWidget {
++  const RelayRuntimeDiagnosticsPage({super.key, required this.dataSource});
++
++  final RelayRuntimeDiagnosticsDataSource dataSource;
++
++  @override
++  Widget build(BuildContext context) {
++    return Scaffold(
++      appBar: AppBar(title: const Text('Relay Runtime Diagnostics')),
++      body: StreamBuilder<RelayRuntimeDiagnosticsSnapshot>(
++        stream: dataSource.watchRuntimeDiagnostics(),
++        builder: (context, snapshot) => ListView(
++          padding: const EdgeInsets.all(16),
++          children: [
++            const _EvidenceNotice(),
++            const SizedBox(height: 12),
++            _RuntimeCard(
++              snapshot:
++                  snapshot.data ??
++                  const RelayRuntimeDiagnosticsSnapshot(
++                    peers: <RelayPeerDiagnostic>[],
++                    events: <String>[],
++                  ),
++            ),
++          ],
++        ),
++      ),
++    );
++  }
++}
++
+ class _EvidenceNotice extends StatelessWidget {
+   const _EvidenceNotice();
+ 
+@@ -238,7 +344,8 @@ class _MessageState extends StatelessWidget {
+ }
+ 
+ String _displayJobStatus(BuildContext context, String value) => switch (value) {
+-  'storedOnRelay' => context.l10n.storedOnRelayStatus,
++  'storedOnRelay' =>
++    '${context.l10n.storedOnRelayStatus} · ${context.l10n.pending}',
+   'acceptedByRelay' => context.l10n.storedByNextRelay,
+   'awaitingHopReceipt' => context.l10n.awaitingHopReceipt,
+   'finalDelivered' => context.l10n.finalReceiptRecorded,
+diff --git a/lib/features/sos/data/sos_repository.dart b/lib/features/sos/data/sos_repository.dart
+index e370f9e..309582e 100644
+--- a/lib/features/sos/data/sos_repository.dart
++++ b/lib/features/sos/data/sos_repository.dart
+@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
+ import 'package:flutter/foundation.dart';
+ 
+ import '../../../core/database/app_database.dart';
++import '../../nearby_ble/data/incident_lifecycle_repository.dart';
+ import 'sos_cloud_service.dart';
+ 
+ bool isValidSosCoordinatePair(double? latitude, double? longitude) {
+@@ -204,10 +205,16 @@ class SosRepository {
+     double? latitude,
+     double? longitude,
+     required DateTime createdAt,
+-  }) async {
++  }) => _database.transaction(() async {
+     final ownerId = _requireOwner();
+     final existing = await findById(id);
+-    if (existing != null) return existing;
++    if (existing != null) {
++      await IncidentLifecycleRepository(
++        _database,
++        ownerId: ownerId,
++      ).reconcileIncident(id, now: DateTime.now().toUtc());
++      return (await findById(id))!;
++    }
+     final now = DateTime.now().toUtc();
+     final location = _normalizedLocation(latitude, longitude);
+     await _database
+@@ -227,8 +234,12 @@ class SosRepository {
+           ),
+           mode: InsertMode.insertOrIgnore,
+         );
++    await IncidentLifecycleRepository(
++      _database,
++      ownerId: ownerId,
++    ).reconcileIncident(id, now: now);
+     return (await findById(id))!;
+-  }
++  });
+ 
+   Future<void> update({
+     required String id,
+diff --git a/lib/features/sos/presentation/sos_page.dart b/lib/features/sos/presentation/sos_page.dart
+index d8d56b1..488a94b 100644
+--- a/lib/features/sos/presentation/sos_page.dart
++++ b/lib/features/sos/presentation/sos_page.dart
+@@ -724,16 +724,19 @@ class _SosPageState extends State<SosPage> {
+                           StreamBuilder<List<RescueInboxData>>(
+                             stream: _rescueCandidatesStream,
+                             builder: (context, candidateSnapshot) {
+-                              final candidates = (candidateSnapshot.data ??
+-                                      const <RescueInboxData>[])
+-                                  .where(
+-                                    (candidate) =>
+-                                        candidate.state != 'expired' &&
+-                                        candidate.expiresAt.isAfter(
+-                                          DateTime.now().toUtc(),
+-                                        ),
+-                                  )
+-                                  .toList(growable: false);
++                              final candidates =
++                                  (candidateSnapshot.data ??
++                                          const <RescueInboxData>[])
++                                      .where(
++                                        (candidate) =>
++                                            candidate.state != 'expired' &&
++                                            candidate.state != 'cancelled' &&
++                                            candidate.state != 'resolved' &&
++                                            candidate.expiresAt.isAfter(
++                                              DateTime.now().toUtc(),
++                                            ),
++                                      )
++                                      .toList(growable: false);
+                               final activeReceived = received
+                                   .where((sos) => sos.status == 'active')
+                                   .toList(growable: false);
+@@ -742,12 +745,14 @@ class _SosPageState extends State<SosPage> {
+                                   .toSet();
+                               final uniqueCandidates = candidates
+                                   .where(
+-                                    (candidate) =>
+-                                        !existingIds.contains(candidate.incidentId),
++                                    (candidate) => !existingIds.contains(
++                                      candidate.incidentId,
++                                    ),
+                                   )
+                                   .toList(growable: false);
+                               final total =
+-                                  activeReceived.length + uniqueCandidates.length;
++                                  activeReceived.length +
++                                  uniqueCandidates.length;
+                               return Column(
+                                 crossAxisAlignment: CrossAxisAlignment.start,
+                                 children: [
+@@ -787,7 +792,8 @@ class _SosPageState extends State<SosPage> {
+                                       _buildRescueIncidentCard(sos),
+                                       const SizedBox(height: 12),
+                                     ],
+-                                    for (final candidate in uniqueCandidates) ...[
++                                    for (final candidate
++                                        in uniqueCandidates) ...[
+                                       _buildIncomingCandidateCard(candidate),
+                                       const SizedBox(height: 12),
+                                     ],
+@@ -1033,9 +1039,14 @@ class _SosPageState extends State<SosPage> {
+                   onPressed: candidate.state == 'locallyAccepted'
+                       ? null
+                       : () async {
+-                          await _rescueInboxRepository.acceptLocally(
+-                            candidate.originMessageId,
+-                          );
++                          final localAcceptance = await _rescueInboxRepository
++                              .acceptLocally(candidate.originMessageId);
++                          if (localAcceptance?.state != 'locallyAccepted') {
++                            if (sheetContext.mounted) {
++                              Navigator.pop(sheetContext);
++                            }
++                            return;
++                          }
+                           var queued = false;
+                           Object? queueError;
+                           try {
+@@ -2445,6 +2456,9 @@ class _SosPageState extends State<SosPage> {
+                             dataSource: widget
+                                 .bleCoordinator!
+                                 .relayDiagnosticsDataSource,
++                            runtimeDataSource: widget
++                                .bleCoordinator!
++                                .relayRuntimeDiagnosticsDataSource,
+                           );
+                           if (route != null) {
+                             Navigator.of(context).push<void>(route);
+@@ -2466,8 +2480,12 @@ class _SosPageState extends State<SosPage> {
+                           if (!mounted) return;
+                           await Navigator.of(context).push<void>(
+                             MaterialPageRoute<void>(
+-                              builder: (_) =>
+-                                  BleTestPage(transport: widget.bleTransport),
++                              builder: (_) => BleTestPage(
++                                transport: widget.bleTransport,
++                                runtimeDiagnostics: widget
++                                    .bleCoordinator
++                                    ?.relayRuntimeDiagnosticsDataSource,
++                              ),
+                             ),
+                           );
+                         },
+@@ -2794,6 +2812,7 @@ class _SosPageState extends State<SosPage> {
+     ValueNotifier<String?> locationFeedback,
+   ) async {
+     final l10n = context.l10n;
++    final routingClock = Stopwatch()..start();
+     try {
+       var routedSos = sos;
+       var includeLocation = false;
+@@ -2826,6 +2845,10 @@ class _SosPageState extends State<SosPage> {
+             );
+             routedSos = await widget.repository.findById(sos.id) ?? sos;
+             includeLocation = true;
++            debugPrint(
++              '[SOS timing] sos_location_ready incident=${sos.id} '
++              'elapsedMs=${routingClock.elapsedMilliseconds}',
++            );
+           } catch (error) {
+             debugPrint(
+               '[SOS location] update failed type=${error.runtimeType}',
+@@ -2852,6 +2875,10 @@ class _SosPageState extends State<SosPage> {
+               ? RelayAuthorizationScope.voluntaryRescue
+               : RelayAuthorizationScope.publicEmergencyRelay,
+         );
++        debugPrint(
++          '[SOS timing] sos_relay_enqueued incident=${sos.id} '
++          'elapsedMs=${routingClock.elapsedMilliseconds}',
++        );
+       }
+       await widget.onBleStartRequested?.call();
+     } catch (error) {
+@@ -2871,6 +2898,8 @@ class _SosPageState extends State<SosPage> {
+     if (_sendingSos) {
+       return;
+     }
++    final creationClock = Stopwatch()..start();
++    debugPrint('[SOS timing] sos_create_started');
+     setState(() {
+       _sendingSos = true;
+     });
+@@ -2914,6 +2943,10 @@ class _SosPageState extends State<SosPage> {
+         // capability-gated discovery below.
+         destinationId: null,
+       );
++      debugPrint(
++        '[SOS timing] sos_local_persisted incident=$id '
++        'elapsedMs=${creationClock.elapsedMilliseconds}',
++      );
+ 
+       final created = await widget.repository.findById(id);
+       if (created == null) {
+@@ -2942,6 +2975,10 @@ class _SosPageState extends State<SosPage> {
+         ),
+       );
+       await _openIncidentChat(created, locationFeedback: locationFeedback);
++      debugPrint(
++        '[SOS timing] sos_chat_opened incident=$id '
++        'elapsedMs=${creationClock.elapsedMilliseconds}',
++      );
+     } catch (error) {
+       if (!mounted) {
+         return;
+@@ -3440,6 +3477,10 @@ class _SosPageState extends State<SosPage> {
+         longitude: sos.longitude,
+         status: status,
+       );
++      await widget.bleCoordinator?.enqueueIncidentLifecycle(
++        sosId: sos.id,
++        status: status,
++      );
+       await widget.bleCoordinator?.cancelPublicRelay(sos.id);
+ 
+       if (!mounted) {
+diff --git a/lib/l10n/app_en.arb b/lib/l10n/app_en.arb
+index e78fb79..cd3780a 100644
+--- a/lib/l10n/app_en.arb
++++ b/lib/l10n/app_en.arb
+@@ -88,7 +88,7 @@
+   "verificationFailed": "Unable to send verification email. Try again later.",
+   "genericError": "Something went wrong. Please try again.",
+   "noAccountEmail": "No email address is associated with this account.",
+-  "passwordResetSent": "Password reset email sent. Check your inbox.",
++  "passwordResetSent": "If an account exists for this email, password reset instructions were sent.",
+   "passwordResetFailed": "Unable to send password reset email. Please try again later.",
+   "passwordRecoveryUnavailable": "Secure password recovery is not configured yet. Contact support instead of using an email-only reset.",
+   "signOutFailed": "Unable to sign out. Please try again.",
+diff --git a/lib/l10n/app_th.arb b/lib/l10n/app_th.arb
+index 89cda5f..b64f234 100644
+--- a/lib/l10n/app_th.arb
++++ b/lib/l10n/app_th.arb
+@@ -86,7 +86,7 @@
+   "verificationFailed": "ส่งอีเมลยืนยันไม่ได้ โปรดลองภายหลัง",
+   "genericError": "เกิดข้อผิดพลาด โปรดลองอีกครั้ง",
+   "noAccountEmail": "บัญชีนี้ไม่มีอีเมลที่เชื่อมโยงอยู่",
+-  "passwordResetSent": "ส่งอีเมลรีเซ็ตรหัสผ่านแล้ว โปรดตรวจสอบกล่องขาเข้า",
++  "passwordResetSent": "หากอีเมลนี้มีบัญชี ระบบจะส่งคำแนะนำการรีเซ็ตรหัสผ่านให้ โปรดตรวจสอบกล่องขาเข้า",
+   "passwordResetFailed": "ส่งอีเมลรีเซ็ตรหัสผ่านไม่ได้ โปรดลองภายหลัง",
+   "passwordRecoveryUnavailable": "ยังไม่ได้ตั้งค่าการกู้คืนรหัสผ่านแบบปลอดภัย โปรดติดต่อผู้ดูแล แทนการรีเซ็ตด้วยอีเมลอย่างเดียว",
+   "signOutFailed": "ออกจากระบบไม่ได้ โปรดลองอีกครั้ง",
+diff --git a/lib/l10n/generated/app_localizations.dart b/lib/l10n/generated/app_localizations.dart
+index 56d973c..4a317a7 100644
+--- a/lib/l10n/generated/app_localizations.dart
++++ b/lib/l10n/generated/app_localizations.dart
+@@ -617,7 +617,7 @@ abstract class AppLocalizations {
+   /// No description provided for @passwordResetSent.
+   ///
+   /// In en, this message translates to:
+-  /// **'Password reset email sent. Check your inbox.'**
++  /// **'If an account exists for this email, password reset instructions were sent.'**
+   String get passwordResetSent;
+ 
+   /// No description provided for @passwordResetFailed.
+diff --git a/lib/l10n/generated/app_localizations_en.dart b/lib/l10n/generated/app_localizations_en.dart
+index c95125b..018e4a8 100644
+--- a/lib/l10n/generated/app_localizations_en.dart
++++ b/lib/l10n/generated/app_localizations_en.dart
+@@ -285,7 +285,7 @@ class AppLocalizationsEn extends AppLocalizations {
+ 
+   @override
+   String get passwordResetSent =>
+-      'Password reset email sent. Check your inbox.';
++      'If an account exists for this email, password reset instructions were sent.';
+ 
+   @override
+   String get passwordResetFailed =>
+diff --git a/lib/l10n/generated/app_localizations_th.dart b/lib/l10n/generated/app_localizations_th.dart
+index 6b07826..14e51c3 100644
+--- a/lib/l10n/generated/app_localizations_th.dart
++++ b/lib/l10n/generated/app_localizations_th.dart
+@@ -281,7 +281,7 @@ class AppLocalizationsTh extends AppLocalizations {
+ 
+   @override
+   String get passwordResetSent =>
+-      'ส่งอีเมลรีเซ็ตรหัสผ่านแล้ว โปรดตรวจสอบกล่องขาเข้า';
++      'หากอีเมลนี้มีบัญชี ระบบจะส่งคำแนะนำการรีเซ็ตรหัสผ่านให้ โปรดตรวจสอบกล่องขาเข้า';
+ 
+   @override
+   String get passwordResetFailed =>
+diff --git a/lib/main.dart b/lib/main.dart
+index 5675b4d..8ef4617 100644
+--- a/lib/main.dart
++++ b/lib/main.dart
+@@ -21,6 +21,7 @@ import 'features/sos/data/sos_cloud_service.dart';
+ import 'features/sos/data/chat_repository.dart';
+ import 'features/sos/data/sos_repository.dart';
+ import 'features/sos/data/sos_sync_coordinator.dart';
++
+ import 'features/sos/presentation/sos_page.dart';
+ import 'features/startup/presentation/startup_page.dart';
+ import 'firebase_options.dart';
+diff --git a/test/ble_presence_manager_test.dart b/test/ble_presence_manager_test.dart
+index 9123b13..3bbb6b5 100644
+--- a/test/ble_presence_manager_test.dart
++++ b/test/ble_presence_manager_test.dart
+@@ -66,6 +66,87 @@ class _PresenceTransport implements BleTransportClient {
+ }
+ 
+ void main() {
++  test(
++    'control frames preempt bulk only after the active native write',
++    () async {
++      final transport = _PresenceTransport();
++      final queue = BleMessageWriteQueue.sharedFor(transport);
++      final started = Completer<void>();
++      final release = Completer<void>();
++      transport.firstWriteStarted = started;
++      transport.releaseFirstWrite = release;
++      addTearDown(transport.dispose);
++      final bulk = queue.sendFrames('peer', const [
++        [1],
++        [2],
++        [3],
++      ], role: BleSessionRole.central);
++      await started.future;
++      final control = queue.sendFrames(
++        'peer',
++        const [
++          [8],
++          [9],
++        ],
++        role: BleSessionRole.peripheral,
++        control: true,
++      );
++      expect(transport.sentFrames, [
++        [1],
++      ]);
++      release.complete();
++      expect(await control, isTrue);
++      expect(await bulk, isTrue);
++      expect(transport.sentFrames, [
++        [1],
++        [8],
++        [9],
++        [2],
++        [3],
++      ]);
++    },
++  );
++
++  test(
++    'session cancellation drops paused bulk after control completes',
++    () async {
++      final transport = _PresenceTransport();
++      final queue = BleMessageWriteQueue.sharedFor(transport);
++      final started = Completer<void>();
++      final release = Completer<void>();
++      transport.firstWriteStarted = started;
++      transport.releaseFirstWrite = release;
++      addTearDown(transport.dispose);
++      var active = true;
++      final bulk = queue.sendFrames(
++        'peer',
++        const [
++          [1],
++          [2],
++        ],
++        role: BleSessionRole.central,
++        canSend: () => active,
++      );
++      await started.future;
++      final control = queue.sendFrames(
++        'peer',
++        const [
++          [8],
++        ],
++        role: BleSessionRole.central,
++        control: true,
++      );
++      active = false;
++      release.complete();
++      expect(await bulk, isFalse);
++      expect(await control, isTrue);
++      expect(transport.sentFrames, [
++        [1],
++        [8],
++      ]);
++    },
++  );
++
+   test(
+     'shared write queue keeps concurrent message frames contiguous',
+     () async {
+diff --git a/test/hop_relay_coordinator_test.dart b/test/hop_relay_coordinator_test.dart
+index da60f0e..e05fbf7 100644
+--- a/test/hop_relay_coordinator_test.dart
++++ b/test/hop_relay_coordinator_test.dart
+@@ -11,9 +11,11 @@ import 'package:sos_app/features/nearby_ble/data/ble_transport.dart';
+ import 'package:sos_app/features/nearby_ble/data/hop_relay_coordinator.dart';
+ import 'package:sos_app/features/nearby_ble/data/relay_key_store.dart';
+ import 'package:sos_app/features/nearby_ble/data/relay_repository.dart';
++import 'package:sos_app/features/nearby_ble/data/rescue_response_repository.dart';
+ import 'package:sos_app/features/nearby_ble/data/sos_ble_coordinator.dart';
+ import 'package:sos_app/features/nearby_ble/domain/ble_models.dart';
+ import 'package:sos_app/features/nearby_ble/domain/relay_envelope.dart';
++import 'package:sos_app/features/nearby_ble/domain/rescue_response_envelope.dart';
+ 
+ class _MemoryKeyStore implements RelayPrivateKeyStore {
+   List<int>? seed;
+@@ -308,11 +310,12 @@ SosMessage _sos(String id, DateTime now) => SosMessage(
+ Future<void> _eventually(
+   Future<bool> Function() condition, {
+   Duration timeout = const Duration(seconds: 5),
++  String Function()? evidence,
+ }) async {
+   final deadline = DateTime.now().add(timeout);
+   while (!await condition()) {
+     if (DateTime.now().isAfter(deadline)) {
+-      fail('Timed out waiting for relay condition.');
++      fail('Timed out waiting for relay condition. ${evidence?.call() ?? ''}');
+     }
+     await Future<void>.delayed(const Duration(milliseconds: 10));
+   }
+@@ -406,6 +409,269 @@ void main() {
+     },
+   );
+ 
++  test(
++    'scheduler retries a timed-out proof without losing the pending SOS',
++    () async {
++      final clock = DateTime.utc(2026, 11, 4, 4);
++      final transportA = _LinkedTransport('retry-a');
++      final transportB = _LinkedTransport('retry-b')
++        ..dropMessageTypes.add(RelaySessionResponse.wireKind);
++      transportA.link(transportB);
++      final nodeA = _RelayNode(
++        database: AppDatabase.forTesting(NativeDatabase.memory()),
++        transport: transportA,
++        now: () => clock,
++        proofTimeout: const Duration(milliseconds: 100),
++      );
++      final nodeB = _RelayNode(
++        database: AppDatabase.forTesting(NativeDatabase.memory()),
++        transport: transportB,
++        now: () => clock,
++      );
++      addTearDown(nodeA.close);
++      addTearDown(nodeB.close);
++      await nodeB.coordinator.setParticipationEnabled(true);
++      await nodeB.start();
++      await nodeA.start();
++      await nodeA.coordinator.queuePublicEmergency(
++        _sos('proof-retry-pending', clock),
++        includeLocation: false,
++      );
++      await _eventually(
++        () async => nodeA.logs.contains('relaySessionProofTimedOut'),
++      );
++      expect(
++        await nodeB.database.select(nodeB.database.bleRelayMessages).get(),
++        isEmpty,
++      );
++      transportB.dropMessageTypes.clear();
++      await nodeA.coordinator.processDue();
++      await _eventually(
++        () async =>
++            (await nodeB.database.select(nodeB.database.bleRelayMessages).get())
++                .isNotEmpty,
++      );
++      expect(
++        await nodeB.database.select(nodeB.database.bleRelayMessages).get(),
++        hasLength(1),
++      );
++      expect(nodeA.logs, contains('relaySessionProofEstablished'));
++      final sentBeforeDuplicate = transportA.sentMessages.length;
++      await nodeA.coordinator.onEvent(
++        const BleEvent(
++          type: 'connected',
++          device: BleDevice(id: 'retry-b'),
++          role: BleSessionRole.central,
++        ),
++      );
++      expect(transportA.sentMessages.length, sentBeforeDuplicate);
++      expect(
++        nodeA.logs.any(
++          (event) => event.startsWith('relayDuplicateConnectedIgnored'),
++        ),
++        isTrue,
++      );
++      await nodeA.coordinator.queuePublicEmergency(
++        _sos('after-duplicate-connected', clock),
++        includeLocation: false,
++      );
++      await _eventually(
++        () async =>
++            (await nodeB.database.select(nodeB.database.bleRelayMessages).get())
++                .length ==
++            2,
++      );
++    },
++  );
++
++  test('proof recovery is bounded and retains the undelivered SOS', () async {
++    final clock = DateTime.utc(2026, 11, 4, 4);
++    final transportA = _LinkedTransport('bounded-a');
++    final transportB = _LinkedTransport('bounded-b')
++      ..dropMessageTypes.add(RelaySessionResponse.wireKind);
++    transportA.link(transportB);
++    final nodeA = _RelayNode(
++      database: AppDatabase.forTesting(NativeDatabase.memory()),
++      transport: transportA,
++      now: () => clock,
++      proofTimeout: const Duration(milliseconds: 100),
++    );
++    final nodeB = _RelayNode(
++      database: AppDatabase.forTesting(NativeDatabase.memory()),
++      transport: transportB,
++      now: () => clock,
++    );
++    addTearDown(nodeA.close);
++    addTearDown(nodeB.close);
++    await nodeB.coordinator.setParticipationEnabled(true);
++    await nodeB.start();
++    await nodeA.start();
++    await nodeA.coordinator.queuePublicEmergency(
++      _sos('bounded-proof-recovery', clock),
++      includeLocation: false,
++    );
++    for (
++      var recovery = 0;
++      recovery <= RelayRepository.maximumRetriesPerPeer;
++      recovery++
++    ) {
++      await _eventually(
++        () async =>
++            nodeA.logs
++                .where((event) => event == 'relaySessionProofTimedOut')
++                .length ==
++            recovery + 1,
++      );
++      await nodeA.coordinator.processDue();
++    }
++    final challenges = transportA.sentMessages
++        .where((message) => message.type == RelaySessionChallenge.wireKind)
++        .length;
++    for (var tick = 0; tick < 5; tick++) {
++      await nodeA.coordinator.processDue();
++    }
++    expect(
++      transportA.sentMessages.where(
++        (message) => message.type == RelaySessionChallenge.wireKind,
++      ),
++      hasLength(challenges),
++    );
++    expect(
++      nodeA.logs.where((event) => event.startsWith('relaySessionProofRetry ')),
++      hasLength(RelayRepository.maximumRetriesPerPeer),
++    );
++    expect(
++      await nodeA.database.select(nodeA.database.bleRelayMessages).get(),
++      hasLength(1),
++    );
++    expect(
++      await nodeB.database.select(nodeB.database.bleRelayMessages).get(),
++      isEmpty,
++    );
++  });
++
++  test('Offer waits for matching proof-response write completion before binding validation', () async {
++    final clock = DateTime.utc(2026, 11, 4, 5);
++    final transportA = _LinkedTransport('binding-origin');
++    final transportC = _LinkedTransport('binding-rescuer');
++    final nodeA = _RelayNode(
++      database: AppDatabase.forTesting(NativeDatabase.memory()),
++      transport: transportA,
++      now: () => clock,
++    );
++    final nodeC = _RelayNode(
++      database: AppDatabase.forTesting(NativeDatabase.memory()),
++      transport: transportC,
++      now: () => clock,
++    );
++    addTearDown(nodeA.close);
++    addTearDown(nodeC.close);
++    await nodeA.coordinator.queuePublicEmergency(
++      _sos('proof-write-offer-race', clock),
++      includeLocation: false,
++      scope: RelayAuthorizationScope.voluntaryRescue,
++    );
++    await nodeA.database
++        .into(nodeA.database.sosMessages)
++        .insert(
++          SosMessagesCompanion.insert(
++            id: 'proof-write-offer-race',
++            ownerId: 'guest:test',
++            type: 'emergency',
++            status: 'active',
++            syncState: 'localOnly',
++            createdAt: clock,
++            updatedAt: clock,
++          ),
++        );
++    final originOffer = await RelayRepository(database: nodeA.database)
++        .loadVerifiedOffer('relay:proof-write-offer-race', now: clock);
++    await RelayRepository(database: nodeC.database).acceptIncomingOffer(
++      originOffer,
++      sourceDeviceId: 'binding-origin',
++      relayEnabled: true,
++      now: clock,
++    );
++    final responsesC = RescueResponseRepository(
++      nodeC.database,
++      ownerId: RelayRepository.localOriginPeerId,
++    );
++    final response = await responsesC.signAndEnqueueOffer(
++      origin: originOffer.body,
++      responder: await nodeC.coordinator.signingIdentity(),
++      sessionBinding: 'prior-authorized-rescue-binding',
++      now: clock,
++    );
++    final responseWriteHeld = Completer<void>();
++    final releaseResponseWrite = Completer<void>();
++    addTearDown(() {
++      if (!releaseResponseWrite.isCompleted) releaseResponseWrite.complete();
++    });
++    transportA.afterMessageDelivery = (message) async {
++      if (message.type == RelaySessionResponse.wireKind &&
++          !responseWriteHeld.isCompleted) {
++        responseWriteHeld.complete();
++        await releaseResponseWrite.future;
++      }
++    };
++    await nodeA.coordinator.setParticipationEnabled(true);
++    await nodeC.coordinator.setParticipationEnabled(true);
++    await nodeA.start();
++    await nodeC.start();
++    transportA.link(transportC);
++    await transportA.connect('binding-rescuer');
++    await responseWriteHeld.future;
++    await _eventually(
++      () async => transportC.sentMessages.any(
++        (message) => message.type == RescueResponseTransfer.wireKind,
++      ),
++      evidence: () =>
++          'Transfer: A=${nodeA.logs} C=${nodeC.logs}; errors=${nodeA.errors}/${nodeC.errors}',
++    );
++    expect(
++      await nodeA.database.select(nodeA.database.rescueResponseInbox).get(),
++      isEmpty,
++    );
++    releaseResponseWrite.complete();
++    await _eventually(
++      () async =>
++          (await nodeA.database
++                  .select(nodeA.database.rescueResponseInbox)
++                  .get())
++              .isNotEmpty,
++      evidence: () =>
++          'Persist: A=${nodeA.logs} C=${nodeC.logs}; errors=${nodeA.errors}/${nodeC.errors}',
++    );
++    final received = await nodeA.database
++        .select(nodeA.database.rescueResponseInbox)
++        .getSingle();
++    expect(received.messageId, response.messageId);
++    expect(received.state, 'verified');
++    expect(nodeA.errors, isEmpty);
++    expect(nodeC.errors, isEmpty);
++    final sent = transportC.sentMessages.firstWhere(
++      (message) => message.type == RescueResponseTransfer.wireKind,
++    );
++    final transfer = RescueResponseTransfer.fromJson(sent.payload);
++    await expectLater(
++      nodeA.coordinator.handleMessage(
++        'binding-rescuer',
++        BleSessionRole.central,
++        BleMessage(
++          id: sent.id,
++          type: sent.type,
++          createdAt: sent.createdAt,
++          payload: {...transfer.toJson(), 'sessionBinding': 'wrong-session'},
++        ),
++      ),
++      throwsA(isA<RelayProtocolException>()),
++    );
++    expect(
++      await nodeA.database.select(nodeA.database.rescueResponseInbox).get(),
++      hasLength(1),
++    );
++  });
++
+   test(
+     'session proof timeout starts after the multi-frame challenge write',
+     () async {
+@@ -1846,4 +2112,97 @@ void main() {
+     expect(await database.select(database.bleOutbox).get(), hasLength(1));
+     verify(() => relay.start()).called(1);
+   });
++
++  test(
++    'runtime authentication diagnostics retain bounded transition evidence',
++    () async {
++      final database = AppDatabase.forTesting(NativeDatabase.memory());
++      final transport = _LinkedTransport('device-a');
++      final coordinator = HopRelayCoordinator(
++        database: database,
++        transport: transport,
++        identityService: RelayIdentityService(keyStore: _MemoryKeyStore()),
++      );
++      addTearDown(() async {
++        await coordinator.stop();
++        await transport.dispose();
++        await database.close();
++      });
++
++      await coordinator.onEvent(
++        const BleEvent(
++          type: 'connected',
++          device: BleDevice(id: 'peer-with-sensitive-native-id'),
++          role: BleSessionRole.central,
++          attempt: 7,
++        ),
++      );
++      await coordinator.onEvent(
++        const BleEvent(
++          type: 'disconnected',
++          device: BleDevice(id: 'peer-with-sensitive-native-id'),
++          role: BleSessionRole.central,
++          attempt: 7,
++          error: 'GATT connection failed (status 133)',
++        ),
++      );
++      final transitionEvents = coordinator.runtimeDiagnostics.snapshot.events;
++      expect(
++        transitionEvents.any(
++          (event) =>
++              event.contains('event=native_connected') &&
++              event.contains('attempt=7'),
++        ),
++        isTrue,
++      );
++      expect(
++        transitionEvents.any(
++          (event) =>
++              event.contains('event=session_created') &&
++              event.contains('generation=1'),
++        ),
++        isTrue,
++      );
++      expect(
++        transitionEvents.any(
++          (event) =>
++              event.contains('event=native_disconnected') &&
++              event.contains('reason=gatt_status_133'),
++        ),
++        isTrue,
++      );
++      expect(
++        transitionEvents.any(
++          (event) =>
++              event.contains('event=peer_removed') &&
++              event.contains('reason=gatt_status_133'),
++        ),
++        isTrue,
++      );
++      for (var index = 0; index < 45; index++) {
++        await coordinator.onEvent(
++          BleEvent(
++            type: 'deviceFound',
++            device: BleDevice(id: 'peer-$index-with-sensitive-native-id'),
++          ),
++        );
++      }
++
++      final events = coordinator.runtimeDiagnostics.snapshot.events;
++      expect(events, hasLength(40));
++      expect(
++        events.any(
++          (event) =>
++              event.contains('event=peer_discovered') &&
++              event.contains('auth_t=') &&
++              event.contains('platform='),
++        ),
++        isTrue,
++      );
++      expect(
++        events.any((event) => event.contains('sensitive-native-id')),
++        isFalse,
++      );
++    },
++  );
+ }
+diff --git a/test/password_recovery_test.dart b/test/password_recovery_test.dart
+index 4761768..36a7582 100644
+--- a/test/password_recovery_test.dart
++++ b/test/password_recovery_test.dart
+@@ -17,7 +17,10 @@ class _Backend implements PasswordRecoveryBackend {
+   String? lastAccount;
+ 
+   @override
+-  Future<void> begin({required String transactionId, required String email}) async {
++  Future<void> begin({
++    required String transactionId,
++    required String email,
++  }) async {
+     beginCount++;
+     lastTransaction = transactionId;
+   }
+@@ -33,12 +36,13 @@ class _Backend implements PasswordRecoveryBackend {
+         (factor == RecoveryFactor.secondFactor && rejectSecondFactor)) {
+       throw const RecoveryException('Verification failed.');
+     }
+-    return foreignProof ?? RecoveryFactorProof(
+-      transactionId: transactionId,
+-      accountBinding: 'account-binding',
+-      factor: factor,
+-      proofId: '$transactionId-${factor.name}',
+-    );
++    return foreignProof ??
++        RecoveryFactorProof(
++          transactionId: transactionId,
++          accountBinding: 'account-binding',
++          factor: factor,
++          proofId: '$transactionId-${factor.name}',
++        );
+   }
+ 
+   @override
+@@ -269,24 +273,57 @@ void main() {
+     expect(backend.beginCount, 2);
+   });
+ 
+-  test('unavailable backend fails closed without claiming email delivery', () async {
+-    final unavailable = PasswordRecoveryCoordinator(
+-      backend: const UnavailablePasswordRecoveryBackend(),
+-    );
+-    await expectLater(
+-      unavailable.start(email: 'person@example.com'),
+-      throwsA(isA<RecoveryUnavailableException>()),
+-    );
+-  });
++  test(
++    'unavailable backend fails closed without claiming email delivery',
++    () async {
++      final unavailable = PasswordRecoveryCoordinator(
++        backend: const UnavailablePasswordRecoveryBackend(),
++      );
++      await expectLater(
++        unavailable.start(email: 'person@example.com'),
++        throwsA(isA<RecoveryUnavailableException>()),
++      );
++    },
++  );
+ 
+-  test('AuthService blocks the legacy email-only Firebase reset path', () async {
++  test('AuthService delegates password reset to Firebase without exposing account state', () async {
+     final auth = _Auth();
++    when(() => auth.sendPasswordResetEmail(email: any(named: 'email')))
++        .thenAnswer((_) async {});
+     final service = AuthService(firebaseAuth: auth);
+ 
+-    await expectLater(
+-      service.resetPassword(email: 'person@example.com'),
+-      throwsA(isA<AuthException>()),
+-    );
+-    verifyNever(() => auth.sendPasswordResetEmail(email: any(named: 'email')));
++    await service.resetPassword(email: 'person@example.com');
++    verify(() => auth.sendPasswordResetEmail(email: 'person@example.com'))
++        .called(1);
++  });
++
++  test('unknown email is treated as a neutral success', () async {
++    final auth = _Auth();
++    when(() => auth.sendPasswordResetEmail(email: any(named: 'email')))
++        .thenThrow(FirebaseAuthException(code: 'user-not-found'));
++
++    await AuthService(firebaseAuth: auth)
++        .resetPassword(email: 'unknown@example.com');
+   });
++
++  test(
++    'network failure is surfaced without exposing provider details',
++    () async {
++      final auth = _Auth();
++      when(() => auth.sendPasswordResetEmail(email: any(named: 'email')))
++          .thenThrow(FirebaseAuthException(code: 'network-request-failed'));
++
++      await expectLater(
++        AuthService(firebaseAuth: auth)
++            .resetPassword(email: 'person@example.com'),
++        throwsA(
++          isA<AuthException>().having(
++            (error) => error.message,
++            'message',
++            'Network error. Check your connection.',
++          ),
++        ),
++      );
++    },
++  );
+ }
+diff --git a/test/q709_chat_integration_test.dart b/test/q709_chat_integration_test.dart
+index cb94696..79b3387 100644
+--- a/test/q709_chat_integration_test.dart
++++ b/test/q709_chat_integration_test.dart
+@@ -7,9 +7,26 @@ import 'package:sos_app/core/database/app_database.dart';
+ import 'package:sos_app/features/nearby_ble/data/ble_transport.dart';
+ import 'package:sos_app/features/nearby_ble/domain/ble_models.dart';
+ import 'package:sos_app/features/nearby_ble/data/relay_repository.dart';
++import 'package:sos_app/features/nearby_ble/data/relay_key_store.dart';
++import 'package:sos_app/features/nearby_ble/data/hop_relay_coordinator.dart';
++import 'package:sos_app/features/nearby_ble/data/chat_relay_repository.dart';
+ import 'package:sos_app/features/nearby_ble/data/sos_ble_coordinator.dart';
+ import 'package:sos_app/features/nearby_ble/domain/relay_envelope.dart';
+ 
++class _SeedStore implements RelayPrivateKeyStore {
++  @override
++  Future<List<int>?> readSeed() async => List<int>.filled(32, 7);
++  @override
++  Future<void> writeSeed(List<int> seed) async {}
++}
++
++HopRelayCoordinator _relay(AppDatabase database) => HopRelayCoordinator(
++  database: database,
++  transport: _Transport(),
++  identityService: RelayIdentityService(keyStore: _SeedStore()),
++  chatRelayRepository: ChatRelayRepository(database, ownerId: 'owner-a'),
++);
++
+ class _Transport implements BleTransportClient {
+   @override
+   Stream<BleEvent> get events => const Stream.empty();
+@@ -52,6 +69,7 @@ void main() {
+         database: database,
+         ownerId: 'owner-c',
+         transport: _Transport(),
++        hopRelayCoordinator: _relay(database),
+       );
+       final binding = await coordinator.resolveVerifiedChatParticipant(
+         'incident-1',
+@@ -61,6 +79,45 @@ void main() {
+     },
+   );
+ 
++  test(
++    'victim without a verified offer cannot resolve itself as recipient',
++    () async {
++      final database = AppDatabase.forTesting(NativeDatabase.memory());
++      addTearDown(database.close);
++      final relay = _relay(database);
++      final identity = await relay.signingIdentity();
++      final offer = await _offer(keyPair: identity.keyPair);
++      await RelayRepository(database: database)
++          .persistOriginOffer(offer, now: offer.body.createdAt);
++      final coordinator = SosBleCoordinator(
++        database: database,
++        ownerId: 'owner-a',
++        transport: _Transport(),
++        hopRelayCoordinator: relay,
++      );
++      await expectLater(
++        coordinator.resolveVerifiedChatParticipant('incident-1'),
++        throwsA(
++          predicate(
++            (Object error) => error.toString().contains('verified help offer'),
++          ),
++        ),
++      );
++      await expectLater(
++        relay.signAndEnqueueChatRelay(
++          messageId: 'self-route',
++          incidentId: 'incident-1',
++          recipientKeyId: identity.keyId,
++          recipientPublicKey: base64UrlEncode(identity.publicKey),
++          text: 'test',
++          createdAt: DateTime.now().toUtc(),
++        ),
++        throwsA(isA<RelayProtocolException>()),
++      );
++      expect(await database.select(database.chatRelayOutbox).get(), isEmpty);
++    },
++  );
++
+   test(
+     'Chat participant resolver fails closed without a verified binding',
+     () async {
+@@ -79,8 +136,8 @@ void main() {
+   );
+ }
+ 
+-Future<RelayOfferEnvelope> _offer() async {
+-  final pair = await Ed25519().newKeyPair();
++Future<RelayOfferEnvelope> _offer({SimpleKeyPair? keyPair}) async {
++  final pair = keyPair ?? await Ed25519().newKeyPair();
+   final public = (await pair.extractPublicKey()).bytes;
+   final crypto = RelayCryptography();
+   final created = DateTime.utc(2026, 11, 4, 2);
+diff --git a/test/relay_diagnostics_page_test.dart b/test/relay_diagnostics_page_test.dart
+index b621183..498d2fd 100644
+--- a/test/relay_diagnostics_page_test.dart
++++ b/test/relay_diagnostics_page_test.dart
+@@ -78,7 +78,7 @@ void main() {
+     expect(find.text('Relay messages stored: 1'), findsOneWidget);
+     expect(find.text('Relay-only envelope'), findsOneWidget);
+     expect(find.text('Incoming hop count'), findsOneWidget);
+-    expect(find.text('Stored on relay'), findsOneWidget);
++    expect(find.text('Stored on relay · Pending'), findsOneWidget);
+   });
+ 
+   test(
+diff --git a/test/relay_platform_security_test.dart b/test/relay_platform_security_test.dart
+index 5394e56..58e39a8 100644
+--- a/test/relay_platform_security_test.dart
++++ b/test/relay_platform_security_test.dart
+@@ -71,6 +71,99 @@ void main() {
+     );
+   });
+ 
++  test('Android central connection attempts have bounded native cleanup', () {
++    final source = File(
++      'android/app/src/main/kotlin/com/n1cxltine/sosapp/'
++      'BleTransportBridge.kt',
++    ).readAsStringSync();
++
++    expect(source, contains('gattConnectionTimeoutMs = 15_000L'));
++    expect(
++      RegExp(
++        r'clients\[id\] = gatt[\s\S]*?'
++        r'scheduleConnectionTimeout\(id, gatt, attempt\)',
++      ).hasMatch(source),
++      isTrue,
++    );
++    expect(
++      RegExp(
++        r'GATT connection callback timeout[\s\S]*?'
++        r'terminateTimedOutConnection\(',
++      ).hasMatch(source),
++      isTrue,
++    );
++    expect(
++      RegExp(
++        r'private fun terminateTimedOutConnection\([\s\S]*?'
++        r'cleanupCentral\(id, gatt\)[\s\S]*?'
++        r'"type" to "disconnected"',
++      ).hasMatch(source),
++      isTrue,
++    );
++    expect(
++      RegExp(
++        r'private fun cleanupCentral\([\s\S]*?'
++        r'cancelConnectionTimeout\(id\)[\s\S]*?'
++        r'cancelSetupTimeout\(id\)[\s\S]*?gatt\.close\(\)',
++      ).hasMatch(source),
++      isTrue,
++    );
++    expect(source, contains('if (clients[id] !== gatt)'));
++  });
++
++  test('Android missing notification callback retires the blocked session', () {
++    final source = File(
++      'android/app/src/main/kotlin/com/n1cxltine/sosapp/'
++      'BleTransportBridge.kt',
++    ).readAsStringSync();
++    expect(source, contains('notificationCallbackTimeoutMs = 5_000L'));
++    expect(source, contains('queue.firstOrNull() !== pending'));
++    expect(
++      source,
++      contains(
++        'clearNotificationSession(id, "Notification callback timed out")',
++      ),
++    );
++    expect(source, contains('currentServer.cancelConnection(device)'));
++    expect(source, contains('"error" to "notification_callback_timeout"'));
++    expect(
++      source,
++      contains(
++        'notificationTimeouts.remove(id)?.let(mainHandler::removeCallbacks)',
++      ),
++    );
++    expect(
++      source,
++      contains('if (notificationQueues[id] !== queue) return@postDelayed'),
++    );
++  });
++
++  test(
++    'Android write timeout retires only its current GATT and completes once',
++    () {
++      final source = File(
++        'android/app/src/main/kotlin/com/n1cxltine/sosapp/'
++        'BleTransportBridge.kt',
++      ).readAsStringSync();
++      expect(
++        source,
++        contains('!isCurrentGatt(gatt) || writeInFlight[id] !== pending'),
++      );
++      expect(
++        source,
++        contains(
++          'terminateTimedOutConnection(id, gatt, attempt, "GATT write timed out for \$id")',
++        ),
++      );
++      expect(source, contains('val active = writeInFlight.remove(id)'));
++      expect(source, contains('val queued = writeQueues.remove(id)'));
++      expect(
++        source,
++        contains('if (it !== active) it.result.error(code, message, null)'),
++      );
++    },
++  );
++
+   test('iOS peripheral relay frames retain receiver-safe pacing', () {
+     final source = File('ios/Runner/BleTransport.swift').readAsStringSync();
+ 
+diff --git a/test/sos_ble_coordinator_test.dart b/test/sos_ble_coordinator_test.dart
+index c8674f2..e15213f 100644
+--- a/test/sos_ble_coordinator_test.dart
++++ b/test/sos_ble_coordinator_test.dart
+@@ -962,6 +962,72 @@ void main() {
+     await reconnectingCoordinator.dispose();
+   });
+ 
++  test(
++    'repeated asynchronous GATT failures consume the bounded retry budget',
++    () async {
++      await coordinator.stop();
++      var clock = DateTime.utc(2026, 1, 1, 12);
++      final retrying = SosBleCoordinator(
++        database: database,
++        ownerId: 'owner-1',
++        transport: transport,
++        chatRepository: chatRepository,
++        now: () => clock,
++        random: () => 0,
++        maxRetryAttempts: 3,
++        pollInterval: const Duration(hours: 1),
++      );
++      addTearDown(retrying.dispose);
++      await retrying.start();
++      final row = await retrying.enqueueSos(_sos(), destinationId: 'gatt-peer');
++      final repository = coordinatorFor(database);
++      for (var attempt = 1; attempt <= 3; attempt++) {
++        await retrying.processDue();
++        expect(
++          transport.connectCalls.where((id) => id == 'gatt-peer'),
++          hasLength(attempt),
++        );
++        // Native connect returns before its asynchronous failure callback.
++        transport.emit(
++          const BleEvent(
++            type: 'error',
++            device: BleDevice(id: 'gatt-peer'),
++            error: 'status 133',
++          ),
++        );
++        BleOutboxData? stored;
++        for (var turn = 0; turn < 100; turn++) {
++          await _settle();
++          stored = await repository.lookupOutbox(row.messageId);
++          if (stored?.retryCount == attempt &&
++              (stored?.state == BleOutboxState.failed.wireValue ||
++                  stored?.state == BleOutboxState.expired.wireValue)) {
++            break;
++          }
++        }
++        expect(stored!.retryCount, attempt);
++        if (attempt < 3) {
++          expect(stored.state, BleOutboxState.failed.wireValue);
++          await retrying.processDue();
++          expect(
++            transport.connectCalls.where((id) => id == 'gatt-peer'),
++            hasLength(attempt),
++          );
++          clock = stored.nextRetryAt!;
++        } else {
++          expect(stored.state, BleOutboxState.expired.wireValue);
++        }
++      }
++      clock = clock.add(const Duration(hours: 1));
++      await retrying.processDue();
++      expect(
++        transport.connectCalls.where((id) => id == 'gatt-peer'),
++        hasLength(3),
++      );
++      expect(await repository.lookupOutbox(row.messageId), isNotNull);
++    },
++  );
++
+   test('disconnect clears partial assembly state before reconnect', () async {
+     final delivery = SosBleEnvelope.fromSosMessage(
+       _sos(),

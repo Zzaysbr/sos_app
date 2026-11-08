@@ -1,0 +1,22 @@
+{
+  "date": "2026-11-07",
+  "device_alias": "iOS-1",
+  "source": "20-second idevicesyslog live capture restricted to the running app process; no app restart/install",
+  "raw_log_sha256": "4555d374bb1501b530c7b4b2a9f7d1a02eea24dd198403a4ea7e8bc75c22e8ca",
+  "capture_lines": 364,
+  "observations": {
+    "scheduler_ticks": 8,
+    "due_count_one_events": 8,
+    "eligible_forward_candidate_events": 8,
+    "forwarding_started_events": 0,
+    "transfer_completed_events": 0,
+    "hop_storage_confirmed_events": 0
+  },
+  "history_access": "Process-scoped log collect denied because root authorization was unavailable; no password requested and no privileged collection performed.",
+  "limits": [
+    "Live interval only; does not recover original SOS send history or correlate original message IDs with Android rejections.",
+    "No scheduler/eligibility failure logged during capture, but existing persisted retry state is not exposed by these logs.",
+    "Retry-budget exhaustion is a hypothesis from failed status plus scheduler eligibility without fresh sends; retry count has not been independently inspected.",
+    "Raw log includes unrelated prior lifecycle work; no message contents, incident IDs or peer identities included in this summary."
+  ]
+}

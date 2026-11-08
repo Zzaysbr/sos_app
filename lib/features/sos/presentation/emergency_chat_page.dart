@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/localization/localization.dart';
 import '../../../core/database/app_database.dart';
@@ -10,6 +13,9 @@ import '../../nearby_ble/data/ble_transport.dart';
 import '../../nearby_ble/domain/ble_delivery_state.dart';
 import '../../nearby_ble/presentation/ble_recipient_picker_page.dart';
 import '../data/chat_repository.dart';
+import '../data/media_attachment_store.dart';
+import 'chat_media.dart';
+import 'chat_media_compression.dart';
 
 /// Temporary in-memory adapter. It deliberately reports Sent only; Delivered
 /// must come from a future BLE/cloud acknowledgement source.
@@ -39,6 +45,9 @@ class MockEmergencyChatRepository implements ChatRepository {
       status: ChatDeliveryStatus.sent,
       isMine: true,
       recipientId: recipientId,
+      attachmentPath: attachmentPath,
+      attachmentMimeType: attachmentMimeType,
+      attachmentName: attachmentName,
     );
     (_messages[sosId] ??= []).add(message);
     return message;
@@ -93,6 +102,9 @@ class EmergencyChatPage extends StatefulWidget {
     this.relayStatusStream,
     this.verifiedHelpOfferStream,
     this.locationFeedback,
+    this.attachmentStore,
+    this.canAttach,
+    this.mediaPicker,
   });
 
   final String? sosId;
@@ -111,6 +123,10 @@ class EmergencyChatPage extends StatefulWidget {
   final Stream<RelayStatusSnapshot>? relayStatusStream;
   final Stream<List<RescueResponseInboxData>>? verifiedHelpOfferStream;
   final ValueListenable<String?>? locationFeedback;
+  final MediaAttachmentStore? attachmentStore;
+  final Future<bool> Function()? canAttach;
+  final Future<PreparedChatMedia?> Function(ChatMediaSource source)?
+  mediaPicker;
 
   @override
   State<EmergencyChatPage> createState() => _EmergencyChatPageState();
@@ -123,6 +139,7 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
   StreamSubscription<List<EmergencyChatMessage>>? _messagesSubscription;
   String? _selectedDestinationId;
   bool _sending = false;
+  bool _picking = false;
   bool _assigningPendingDestination = false;
   bool _loadingMessages = true;
   String? _loadError;
@@ -130,6 +147,7 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
   bool get _hasUnroutedPendingMessages => _messages.any(
     (message) =>
         message.isMine &&
+        message.attachmentPath == null &&
         message.recipientId?.trim().isNotEmpty != true &&
         (message.status == ChatDeliveryStatus.pending ||
             message.status == ChatDeliveryStatus.failed),
@@ -175,6 +193,7 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
     } else {
       _loadingMessages = false;
     }
+    unawaited(_recoverPicker());
   }
 
   Future<void> _loadMessages(String sosId) async {
@@ -260,6 +279,163 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
       }
     } finally {
       if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _recoverPicker() async {
+    final store = widget.attachmentStore;
+    final id = widget.sosId;
+    if (!Platform.isAndroid || store == null || id == null) return;
+    try {
+      final kind = await store.pendingPicker(id);
+      if (kind == null || !mounted) return;
+      final source = ChatMediaSource.values.byName(kind);
+      final lost = await ImagePicker().retrieveLostData();
+      await store.endPicker(id);
+      if (!mounted || lost.files?.isNotEmpty != true) return;
+      final selected = await prepareChatMedia(
+        File(lost.files!.first.path),
+        video:
+            source == ChatMediaSource.cameraVideo ||
+            source == ChatMediaSource.libraryVideo,
+      );
+      if (mounted) await _attach(source, recovered: selected);
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              mediaText(
+                context,
+                'Attachment selection was interrupted. Please choose again.',
+                'การเลือกไฟล์แนบถูกขัดจังหวะ กรุณาเลือกใหม่',
+              ),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _attach(
+    ChatMediaSource source, {
+    PreparedChatMedia? recovered,
+  }) async {
+    final store = widget.attachmentStore;
+    final sosId = widget.sosId;
+    if (store == null || sosId == null || _picking || _sending) return;
+    setState(() => _picking = true);
+    PreparedChatMedia? selected;
+    try {
+      if (await widget.canAttach?.call() != true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                mediaText(
+                  context,
+                  'Wait for a verified help offer before attaching media.',
+                  'รอข้อเสนอช่วยเหลือที่ยืนยันแล้วก่อนส่งไฟล์แนบ',
+                ),
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      if (recovered == null) await store.beginPicker(sosId, source.name);
+      selected =
+          recovered ?? await (widget.mediaPicker ?? pickChatMedia)(source);
+      await store.endPicker(sosId);
+      if (!mounted || selected == null) return;
+      final attachmentBytes = await selected.file.length();
+      if (!mounted) return;
+      final sizeKb = (attachmentBytes / 1024).ceil();
+      final originalBytes = selected.originalBytes;
+      final savings = originalBytes != null && originalBytes > attachmentBytes
+          ? ' (−${((1 - attachmentBytes / originalBytes) * 100).round()}%)'
+          : '';
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          scrollable: true,
+          title: Text(
+            mediaText(dialog, 'Send attachment?', 'ส่งไฟล์แนบหรือไม่?'),
+          ),
+          content: Text(
+            mediaText(
+              dialog,
+              'Ready to send: $sizeKb KB$savings. Photos and videos are automatically compressed. Keep both apps open during nearby transfer.',
+              'พร้อมส่ง: $sizeKb KB$savings บีบอัดรูปและวิดีโออัตโนมัติแล้ว กรุณาเปิดแอปทั้งสองเครื่องไว้ระหว่างส่ง',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialog, false),
+              child: Text(context.l10n.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialog, true),
+              child: Text(context.l10n.send),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || confirmed != true) return;
+      final id =
+          'media-${DateTime.now().microsecondsSinceEpoch}-${math.Random.secure().nextInt(1 << 32)}';
+      final saved = await store.importFile(
+        id: id,
+        incident: sosId,
+        source: selected.file,
+        mime: selected.mime,
+      );
+      if (!mounted) return;
+      final image = selected.mime.startsWith('image/');
+      final message = await _repository.insertMessage(
+        sosId: sosId,
+        text: image ? 'Photo' : 'Video',
+        messageId: id,
+        recipientId: _selectedDestinationId,
+        messageType: 'media',
+        attachmentPath: saved.file.path,
+        attachmentMimeType: selected.mime,
+        attachmentName: image ? 'Photo' : 'Video',
+      );
+      await widget.onMessageCreatedWithDestination?.call(
+        message,
+        destinationId: _selectedDestinationId,
+      );
+      if (mounted) await _loadMessages(sosId);
+    } on Object catch (error) {
+      if (kDebugMode || kProfileMode) {
+        // Do not log native details, file paths, media content or identifiers.
+        debugPrint(
+          '[attachment] prepare_failed code=${chatMediaFailureCode(error)}',
+        );
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              mediaText(
+                context,
+                'Unable to prepare attachment. Try another photo or a video up to 15 seconds. Compression must finish before sending.',
+                'เตรียมไฟล์แนบไม่สำเร็จ ลองรูปอื่นหรือวิดีโอไม่เกิน 15 วินาที ต้องบีบอัดสำเร็จก่อนส่ง',
+              ),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (selected?.temporary == true) {
+        try {
+          await selected!.file.delete();
+        } on Object {
+          /* cache cleanup only */
+        }
+      }
+      if (mounted) setState(() => _picking = false);
     }
   }
 
@@ -497,7 +673,56 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
                             children: [
                               Align(
                                 alignment: Alignment.centerLeft,
-                                child: Text(message.text),
+                                child: message.attachmentPath == null
+                                    ? Text(message.text)
+                                    : InkWell(
+                                        onTap: () => Navigator.of(context)
+                                            .push<void>(
+                                              MaterialPageRoute(
+                                                builder: (_) => ChatMediaViewer(
+                                                  file: File(
+                                                    message.attachmentPath!,
+                                                  ),
+                                                  mime:
+                                                      message
+                                                          .attachmentMimeType ??
+                                                      'image/png',
+                                                ),
+                                              ),
+                                            ),
+                                        child:
+                                            (message.attachmentMimeType ?? '')
+                                                .startsWith('image/')
+                                            ? Image.file(
+                                                File(message.attachmentPath!),
+                                                width: 220,
+                                                height: 180,
+                                                fit: BoxFit.contain,
+                                                errorBuilder: (_, _, _) => Text(
+                                                  mediaText(
+                                                    context,
+                                                    'Attachment unavailable',
+                                                    'ไม่พบไฟล์แนบ',
+                                                  ),
+                                                ),
+                                              )
+                                            : Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(
+                                                    Icons.play_circle_outline,
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    mediaText(
+                                                      context,
+                                                      'Open video',
+                                                      'เปิดวิดีโอ',
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                      ),
                               ),
                               const SizedBox(height: 4),
                               Row(
@@ -534,6 +759,49 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
               padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
               child: Row(
                 children: [
+                  if (widget.attachmentStore != null)
+                    PopupMenuButton<ChatMediaSource>(
+                      tooltip: mediaText(
+                        context,
+                        'Attach photo or video',
+                        'แนบรูปหรือวิดีโอ',
+                      ),
+                      enabled: !_picking && !_sending && widget.sosId != null,
+                      icon: _picking
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.add_photo_alternate_outlined),
+                      onSelected: _attach,
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: ChatMediaSource.cameraImage,
+                          child: Text(
+                            mediaText(context, 'Take photo', 'ถ่ายรูป'),
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: ChatMediaSource.libraryImage,
+                          child: Text(
+                            mediaText(context, 'Choose photo', 'เลือกรูป'),
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: ChatMediaSource.cameraVideo,
+                          child: Text(
+                            mediaText(context, 'Record video', 'ถ่ายวิดีโอ'),
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: ChatMediaSource.libraryVideo,
+                          child: Text(
+                            mediaText(context, 'Choose video', 'เลือกวิดีโอ'),
+                          ),
+                        ),
+                      ],
+                    ),
                   Expanded(
                     child: Semantics(
                       textField: true,

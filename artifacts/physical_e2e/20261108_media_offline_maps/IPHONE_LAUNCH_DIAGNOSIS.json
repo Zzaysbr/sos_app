@@ -1,0 +1,18 @@
+{
+  "date": "2026-11-08",
+  "device_alias": "iPhone 15 Plus",
+  "version": 6,
+  "user_report": "alternatively build in profile or release modes to enable launching from the home screen",
+  "known_build_difference": {
+    "previous_build5_mode": "profile",
+    "installed_build6_mode": "debug"
+  },
+  "local_engine_evidence": [
+    "Cannot create a FlutterEngine instance in debug mode without Flutter tooling or Xcode.",
+    "In iOS 14+, debug mode Flutter apps can only be launched from Flutter tooling, IDEs with Flutter plugins or from Xcode."
+  ],
+  "conclusion": "CONFIRMED displayed Flutter debug-mode Home Screen launch restriction matches installed Debug build; build5 previously Profile. Build-mode selection error, not evidence of lost data or a media-code crash.",
+  "crash_evidence": "One recent app-name Runner crash was privately inspected but app version3.5.1/build2382, not Emergency0.1.0/build6; excluded as unrelated",
+  "actions": "Profile build/signature/standalone guard passed, updated same build6 in place, all20 SOS/56 Chat rows unchanged; awaiting user Home Screen launch/history retest",
+  "resolution": "User confirms signed Profile6 opens normally from Home Screen with previous history retained. Debug-mode launch restriction resolved in this retest."
+}

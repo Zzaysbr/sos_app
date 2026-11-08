@@ -1,0 +1,75 @@
+{
+  "inspection": "Read-only iPhone DB copy; quick_check ok; correlated against private Android incident IDs without exporting them",
+  "incidents": [
+    {
+      "alias": "candidate-1",
+      "android_candidate_state": "cancelled",
+      "iphone_incident_found": true,
+      "iphone_incident_status": "cancelled",
+      "iphone_terminal_outbox": [
+        {
+          "status": "cancelled",
+          "state": "awaitingAcknowledgement",
+          "retry_count": 13,
+          "has_error": false
+        }
+      ]
+    },
+    {
+      "alias": "candidate-2",
+      "android_candidate_state": "locallyAccepted",
+      "iphone_incident_found": true,
+      "iphone_incident_status": "cancelled",
+      "iphone_terminal_outbox": [
+        {
+          "status": "cancelled",
+          "state": "queued",
+          "retry_count": 0,
+          "has_error": false
+        }
+      ]
+    },
+    {
+      "alias": "candidate-3",
+      "android_candidate_state": "cancelled",
+      "iphone_incident_found": true,
+      "iphone_incident_status": "cancelled",
+      "iphone_terminal_outbox": [
+        {
+          "status": "cancelled",
+          "state": "failed",
+          "retry_count": 11,
+          "has_error": true
+        }
+      ]
+    },
+    {
+      "alias": "candidate-4",
+      "android_candidate_state": "cancelled",
+      "iphone_incident_found": true,
+      "iphone_incident_status": "cancelled",
+      "iphone_terminal_outbox": [
+        {
+          "status": "cancelled",
+          "state": "expired",
+          "retry_count": 9,
+          "has_error": true
+        }
+      ]
+    },
+    {
+      "alias": "candidate-5",
+      "android_candidate_state": "cancelled",
+      "iphone_incident_found": true,
+      "iphone_incident_status": "cancelled",
+      "iphone_terminal_outbox": [
+        {
+          "status": "cancelled",
+          "state": "expired",
+          "retry_count": 28,
+          "has_error": true
+        }
+      ]
+    }
+  ]
+}

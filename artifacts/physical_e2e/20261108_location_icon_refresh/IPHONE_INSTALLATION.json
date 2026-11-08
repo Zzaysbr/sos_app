@@ -1,0 +1,13 @@
+{
+  "device": "iPhone 15 Plus",
+  "source_sha256": "0dc633903e3e807d1d5f94e45bf19d1b2f51afeca6212ec035c45454462e1fae",
+  "build_number": 2,
+  "install_exit": 0,
+  "update_in_place": true,
+  "launch_exit": 1,
+  "manual_open_required": true,
+  "launch_user_confirmed": true,
+  "gps_and_notification_icon_retest": "pending",
+  "history_preservation_not_yet_user_verified": true,
+  "user_observation": "App opens normally when tapped manually"
+}

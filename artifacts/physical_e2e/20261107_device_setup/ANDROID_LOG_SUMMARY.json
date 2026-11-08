@@ -1,0 +1,46 @@
+{
+  "date": "2026-11-07",
+  "device_alias": "Android-1",
+  "source": "PID-filtered adb logcat -d; raw logs outside repository only",
+  "device_log_timezone": "Asia/Bangkok",
+  "raw_log_sha256": "c78b5de04995382a60536afc9fc6c904d8c395b678cfe5013212a4553c629816",
+  "raw_log_lines": 20574,
+  "captured_until_as_logged": "11-07 09:49:52.249",
+  "observations": {
+    "missing_active_session_proof_rejections": 2,
+    "same_message_id_for_rejections": true,
+    "assembly_rejected_events": 0,
+    "relay_job_persisted_events": 0,
+    "session_proof_established_events": 2
+  },
+  "timeline": [
+    {
+      "time_as_logged": "11-07 09:34:38.045",
+      "event": "inbound_rejected_missing_active_session_proof"
+    },
+    {
+      "time_as_logged": "11-07 09:35:28.804",
+      "event": "inbound_rejected_missing_active_session_proof"
+    },
+    {
+      "time_as_logged": "11-07 09:35:31.896",
+      "event": "session_proof_timed_out"
+    },
+    {
+      "time_as_logged": "11-07 09:35:59.356",
+      "event": "session_authenticated",
+      "role": "peripheral"
+    },
+    {
+      "time_as_logged": "11-07 09:36:26.151",
+      "event": "session_authenticated",
+      "role": "peripheral"
+    }
+  ],
+  "limits": [
+    "Raw log capture is process-filtered and may omit older messages; absence of persistence logs is not a database query.",
+    "No message contents, IDs, peer addresses or cryptographic identities included.",
+    "Rejection message IDs have not been correlated against iPhone SOS attempts; does not establish the entire timeout root cause.",
+    "No app restart, reinstallation, queue reset or new SOS performed during log collection."
+  ]
+}

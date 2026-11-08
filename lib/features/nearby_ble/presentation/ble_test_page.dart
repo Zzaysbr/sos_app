@@ -8,14 +8,20 @@ import '../data/ble_protocol.dart';
 import '../data/ble_transport.dart';
 import '../domain/ble_models.dart';
 import '../domain/ble_range_diagnostic.dart';
+import '../data/relay_diagnostics_repository.dart';
+import 'relay_diagnostics_page.dart';
 
 class BleTestPage extends StatefulWidget {
-  BleTestPage({super.key, BleTransportClient? transport})
-    : transport = transport ?? BleTransport(),
-      ownsTransport = transport == null;
+  BleTestPage({
+    super.key,
+    BleTransportClient? transport,
+    this.runtimeDiagnostics,
+  }) : transport = transport ?? BleTransport(),
+       ownsTransport = transport == null;
 
   final BleTransportClient transport;
   final bool ownsTransport;
+  final RelayRuntimeDiagnosticsDataSource? runtimeDiagnostics;
 
   @override
   State<BleTestPage> createState() => _BleTestPageState();
@@ -372,7 +378,7 @@ class _BleTestPageState extends State<BleTestPage> {
     _assertActive();
     await _presence.acquireAdvertising(
       _advertisingLease,
-      name: 'Off Grid SOS Test',
+      name: 'Emergency Test',
     );
     _log('Advertising start accepted by native transport');
   });
@@ -628,6 +634,8 @@ class _BleTestPageState extends State<BleTestPage> {
           const SizedBox(height: 12),
           _controlsCard(),
           const SizedBox(height: 12),
+          _runtimeDiagnosticsButton(),
+          const SizedBox(height: 12),
           _devicesCard(),
           const SizedBox(height: 12),
           _sendCard(selectedConnected),
@@ -712,6 +720,23 @@ class _BleTestPageState extends State<BleTestPage> {
       ),
     ),
   );
+
+  Widget _runtimeDiagnosticsButton() {
+    final source = widget.runtimeDiagnostics;
+    if (source == null || kReleaseMode) return const SizedBox.shrink();
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: OutlinedButton.icon(
+        icon: const Icon(Icons.monitor_heart_outlined),
+        label: const Text('Open Relay Diagnostics'),
+        onPressed: () => Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => RelayRuntimeDiagnosticsPage(dataSource: source),
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _devicesCard() => Card(
     child: Padding(

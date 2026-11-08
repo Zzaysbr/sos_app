@@ -1,0 +1,37 @@
+{
+  "date": "2026-11-09",
+  "user_report": {
+    "displayed_prepared_size": "63KB",
+    "sender_status": "queued",
+    "receiver": "no photo within3minutes",
+    "helper_switches": "User clarifies Rescue listening / Nearby SOS Relay off"
+  },
+  "read_only_iphone_latest_media": {
+    "local_delivery_status": "pending",
+    "mime": "image/jpeg",
+    "stored_bytes": 43057,
+    "complete": true,
+    "signed_envelope_bound": true,
+    "signed_outbox_state": "queued",
+    "retry_count": 0,
+    "last_error": null,
+    "allowed_target_count": 0,
+    "local_incident_status": "active"
+  },
+  "correlation_scope": "Latest captured local media is43057bytes; do not claim exact byte correlation to operator reported63KB without further timestamp/file correlation. No IDs/content exported.",
+  "result": "Native preparation produced a bounded stored JPEG; completed delivery NOT verified. Disabled helper switches observed by operator; causality/recovery awaits physical result.",
+  "next": "Read Samsung connection/session diagnostics; no claim disabled switches were sole cause or resolved delivery",
+  "after_helper_enable_user_report": {
+    "receiver": "No photo",
+    "sender": "queued"
+  },
+  "samsung_read_only_log": {
+    "foreground_participating_ticks": 424,
+    "native_ready_connections": 2,
+    "outgoing_capabilities_completed": 4,
+    "incoming_direct_binding_messages": 11,
+    "incoming_relay_capabilities_observed": 0,
+    "authenticated_relay_session_observed": 0,
+    "scope": "Captured current app process log only; direct bindings are not authenticated relay proof"
+  }
+}

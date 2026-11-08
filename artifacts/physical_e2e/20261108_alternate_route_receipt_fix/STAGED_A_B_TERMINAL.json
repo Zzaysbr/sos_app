@@ -1,0 +1,24 @@
+{
+  "date": "2026-11-08",
+  "build_number": 3,
+  "device_alias": "B Samsung",
+  "matching_saved_wired_target": true,
+  "inspection": "Read-only DB copy; quick_check ok; live copy not coordinated snapshot",
+  "terminal": {
+    "same_incident_lifecycle_rows": 1,
+    "processing_state": "lifecycle_authorized",
+    "candidate_state": "cancelled",
+    "signed_status": "cancelled",
+    "origin_key_matches_trusted_SOS": true
+  },
+  "captured_crypto_revalidation": {
+    "tests_passed": 1,
+    "exit": 0,
+    "checks": [
+      "Lifecycle signature and public-key/key-ID binding at recorded receive timestamp",
+      "Actor is trusted SOS origin",
+      "Exact current incident and cancelled status"
+    ]
+  },
+  "scope": "Durable authorized origin cancellation captured at intermediary while C radio off. C reception/list update pending; no lifecycle final receipt protocol claim."
+}

@@ -1,0 +1,77 @@
+{
+  "inspection": "read-only Android app DB copy; quick_check ok",
+  "candidate_count": 5,
+  "candidates": [
+    {
+      "alias": "candidate-1",
+      "candidate_state": "cancelled",
+      "materialized_sos_status": "not materialized",
+      "signed_origin_present": false,
+      "lifecycle_events": [
+        {
+          "processing_state": "lifecycle_authorized",
+          "status": "cancelled"
+        }
+      ],
+      "response_states": [
+        "delivered"
+      ]
+    },
+    {
+      "alias": "candidate-2",
+      "candidate_state": "locallyAccepted",
+      "materialized_sos_status": "not materialized",
+      "signed_origin_present": false,
+      "lifecycle_events": [],
+      "response_states": [
+        "delivered"
+      ]
+    },
+    {
+      "alias": "candidate-3",
+      "candidate_state": "cancelled",
+      "materialized_sos_status": "not materialized",
+      "signed_origin_present": false,
+      "lifecycle_events": [
+        {
+          "processing_state": "lifecycle_authorized",
+          "status": "cancelled"
+        }
+      ],
+      "response_states": [
+        "delivered"
+      ]
+    },
+    {
+      "alias": "candidate-4",
+      "candidate_state": "cancelled",
+      "materialized_sos_status": "not materialized",
+      "signed_origin_present": false,
+      "lifecycle_events": [
+        {
+          "processing_state": "lifecycle_authorized",
+          "status": "cancelled"
+        }
+      ],
+      "response_states": [
+        "delivered"
+      ]
+    },
+    {
+      "alias": "candidate-5",
+      "candidate_state": "cancelled",
+      "materialized_sos_status": "not materialized",
+      "signed_origin_present": false,
+      "lifecycle_events": [
+        {
+          "processing_state": "lifecycle_authorized",
+          "status": "cancelled"
+        }
+      ],
+      "response_states": [
+        "forwarded"
+      ]
+    }
+  ],
+  "historical_origin_state": "requires sender comparison; no receiver terminal event does not prove sender did not send"
+}

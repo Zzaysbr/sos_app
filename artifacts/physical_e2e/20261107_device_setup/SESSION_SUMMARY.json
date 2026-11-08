@@ -1,0 +1,48 @@
+{
+  "date": "2026-11-07",
+  "timezone": "Asia/Bangkok",
+  "scope": "Adjacent iPhone/Android offline pair tests only; iPad installed and launched but Bluetooth disabled during pair testing.",
+  "cleanup": {
+    "current_test_sos": "Cancelled on iPhone, operator-reported",
+    "history": "Incident remains in history, operator-reported",
+    "uninstall_or_data_clear": "None performed",
+    "network_and_relay_settings_restoration": "Not confirmed; no further device mutations performed by assistant"
+  },
+  "results": [
+    {
+      "case": "Initial SOS from cold/unready proof state",
+      "result": "FAIL in operator 3-minute arrival window; Android logged missing active-session proof rejections"
+    },
+    {
+      "case": "SOS after both peer proofs ready",
+      "result": "PASS for one receive/storage-receipt round; Android UI observed and sender hop receipt logged"
+    },
+    {
+      "case": "Help Offer to iPhone",
+      "result": "PASS for one visible verified offer; duplicate wire transfers observed"
+    },
+    {
+      "case": "Final Help Offer ACK to Android",
+      "result": "FAIL; ACKs arrive but transport-session-binding validation rejects them; UI remains forwarded"
+    },
+    {
+      "case": "Android to iPhone text",
+      "result": "PASS for one visible reply; retransmissions logged; no final signed Chat receipt exists"
+    },
+    {
+      "case": "iPhone to Android text before reconnect",
+      "result": "FAIL for initial 3-minute arrival check; sender Queued"
+    },
+    {
+      "case": "Queued text recovery after Android Bluetooth off/on",
+      "result": "PARTIAL; original text arrives once later, after proof timeout/recovery and outside the 3-minute observation window"
+    },
+    {
+      "case": "iPad pair, three-node multi-hop, forced stale native callback",
+      "result": "NOT RUN in this session"
+    }
+  ],
+  "next_priority": "Reproduce and fix session-proof readiness/binding divergence plus queue/retry latency before repeating bidirectional pair acceptance and three-node tests.",
+  "evidence": "See the per-case JSON files in this directory. Raw process logs remain outside repository only.",
+  "limits": "Operator-observed UI counts are not a global exactly-once guarantee. No release/emergency readiness or broad physical verification claimed."
+}

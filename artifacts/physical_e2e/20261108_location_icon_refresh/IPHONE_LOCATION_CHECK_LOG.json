@@ -1,0 +1,15 @@
+{
+  "capture_scope": "Current iPhone build 2 app process only; bounded 120 seconds; no restart/new SOS",
+  "marker_counts": {
+    "check_started": 3,
+    "check_succeeded": 3,
+    "check_failed": 0,
+    "timed_out": 0,
+    "LOCATION UPDATE FAILURE": 0,
+    "permission_denied": 0,
+    "services_disabled": 0
+  },
+  "lines": 1995,
+  "raw_log": "private local /tmp only",
+  "note": "Absence of markers is not evidence that a request never ran."
+}

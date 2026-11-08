@@ -11,9 +11,28 @@ import 'package:sos_app/features/nearby_ble/data/ble_transport.dart';
 import 'package:sos_app/features/nearby_ble/data/hop_relay_coordinator.dart';
 import 'package:sos_app/features/nearby_ble/data/relay_key_store.dart';
 import 'package:sos_app/features/nearby_ble/data/relay_repository.dart';
+import 'package:sos_app/features/nearby_ble/data/rescue_response_repository.dart';
 import 'package:sos_app/features/nearby_ble/data/sos_ble_coordinator.dart';
 import 'package:sos_app/features/nearby_ble/domain/ble_models.dart';
 import 'package:sos_app/features/nearby_ble/domain/relay_envelope.dart';
+import 'package:sos_app/features/nearby_ble/domain/rescue_response_envelope.dart';
+
+class _HeldChallengeCrypto extends RelayCryptography {
+  final started = Completer<void>();
+  final release = Completer<void>();
+  int signatures = 0;
+
+  @override
+  Future<String> signSessionChallenge(
+    RelaySessionChallenge challenge,
+    SimpleKeyPair keyPair,
+  ) async {
+    signatures++;
+    if (!started.isCompleted) started.complete();
+    await release.future;
+    return super.signSessionChallenge(challenge, keyPair);
+  }
+}
 
 class _MemoryKeyStore implements RelayPrivateKeyStore {
   List<int>? seed;
@@ -308,11 +327,12 @@ SosMessage _sos(String id, DateTime now) => SosMessage(
 Future<void> _eventually(
   Future<bool> Function() condition, {
   Duration timeout = const Duration(seconds: 5),
+  String Function()? evidence,
 }) async {
   final deadline = DateTime.now().add(timeout);
   while (!await condition()) {
     if (DateTime.now().isAfter(deadline)) {
-      fail('Timed out waiting for relay condition.');
+      fail('Timed out waiting for relay condition. ${evidence?.call() ?? ''}');
     }
     await Future<void>.delayed(const Duration(milliseconds: 10));
   }
@@ -320,6 +340,92 @@ Future<void> _eventually(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  for (final disconnectWhileSigning in [false, true]) {
+    test(
+      'challenge signing is single-flight and session-scoped; disconnect=$disconnectWhileSigning',
+      () async {
+        final db = AppDatabase.forTesting(NativeDatabase.memory());
+        final transport = _LinkedTransport('single-flight-a');
+        final peer = _LinkedTransport('single-flight-b');
+        transport.link(peer);
+        final crypto = _HeldChallengeCrypto();
+        final coordinator = HopRelayCoordinator(
+          database: db,
+          transport: transport,
+          cryptography: crypto,
+          identityService: RelayIdentityService(keyStore: _MemoryKeyStore()),
+        );
+        addTearDown(() async {
+          if (!crypto.release.isCompleted) crypto.release.complete();
+          await coordinator.stop();
+          await transport.dispose();
+          await peer.dispose();
+          await db.close();
+        });
+        await coordinator.start();
+        await coordinator.onEvent(
+          const BleEvent(
+            type: 'connected',
+            device: BleDevice(id: 'single-flight-b'),
+            role: BleSessionRole.central,
+          ),
+        );
+        final pair = await Ed25519().newKeyPair();
+        final pub = (await pair.extractPublicKey()).bytes;
+        final capability = BleMessage(
+          id: 'relay-capabilities-v1',
+          type: RelayCapabilityAdvertisement.wireKind,
+          payload: RelayCapabilityAdvertisement(
+            capabilities: const [RelayProtocolCapabilities.relayV2],
+            participating: true,
+            relayKeyId: await crypto.publicKeyId(pub),
+            relayPublicKey: base64UrlEncode(pub),
+            sessionGeneration: 1,
+            sessionRole: 'peripheral',
+          ).toJson(),
+          createdAt: DateTime.utc(2026, 11, 7),
+        );
+        final first = coordinator.handleMessage(
+          'single-flight-b',
+          BleSessionRole.central,
+          capability,
+        );
+        await crypto.started.future;
+        final second = coordinator.handleMessage(
+          'single-flight-b',
+          BleSessionRole.central,
+          capability,
+        );
+        await Future<void>.delayed(Duration.zero);
+        if (disconnectWhileSigning) {
+          await coordinator.onEvent(
+            const BleEvent(
+              type: 'disconnected',
+              device: BleDevice(id: 'single-flight-b'),
+              role: BleSessionRole.central,
+            ),
+          );
+          await coordinator.onEvent(
+            const BleEvent(
+              type: 'connected',
+              device: BleDevice(id: 'single-flight-b'),
+              role: BleSessionRole.central,
+            ),
+          );
+        }
+        crypto.release.complete();
+        await Future.wait([first, second]);
+        expect(crypto.signatures, 1);
+        expect(
+          transport.sentMessages.where(
+            (m) => m.type == RelaySessionChallenge.wireKind,
+          ),
+          hasLength(disconnectWhileSigning ? 0 : 1),
+        );
+      },
+    );
+  }
 
   test('default proof window covers measured physical BLE response time', () {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
@@ -405,6 +511,269 @@ void main() {
       expect(recovered.hasPendingLocalOrigin(), completion(isTrue));
     },
   );
+
+  test(
+    'scheduler retries a timed-out proof without losing the pending SOS',
+    () async {
+      final clock = DateTime.utc(2026, 11, 4, 4);
+      final transportA = _LinkedTransport('retry-a');
+      final transportB = _LinkedTransport('retry-b')
+        ..dropMessageTypes.add(RelaySessionResponse.wireKind);
+      transportA.link(transportB);
+      final nodeA = _RelayNode(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        transport: transportA,
+        now: () => clock,
+        proofTimeout: const Duration(milliseconds: 100),
+      );
+      final nodeB = _RelayNode(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        transport: transportB,
+        now: () => clock,
+      );
+      addTearDown(nodeA.close);
+      addTearDown(nodeB.close);
+      await nodeB.coordinator.setParticipationEnabled(true);
+      await nodeB.start();
+      await nodeA.start();
+      await nodeA.coordinator.queuePublicEmergency(
+        _sos('proof-retry-pending', clock),
+        includeLocation: false,
+      );
+      await _eventually(
+        () async => nodeA.logs.contains('relaySessionProofTimedOut'),
+      );
+      expect(
+        await nodeB.database.select(nodeB.database.bleRelayMessages).get(),
+        isEmpty,
+      );
+      transportB.dropMessageTypes.clear();
+      await nodeA.coordinator.processDue();
+      await _eventually(
+        () async =>
+            (await nodeB.database.select(nodeB.database.bleRelayMessages).get())
+                .isNotEmpty,
+      );
+      expect(
+        await nodeB.database.select(nodeB.database.bleRelayMessages).get(),
+        hasLength(1),
+      );
+      expect(nodeA.logs, contains('relaySessionProofEstablished'));
+      final sentBeforeDuplicate = transportA.sentMessages.length;
+      await nodeA.coordinator.onEvent(
+        const BleEvent(
+          type: 'connected',
+          device: BleDevice(id: 'retry-b'),
+          role: BleSessionRole.central,
+        ),
+      );
+      expect(transportA.sentMessages.length, sentBeforeDuplicate);
+      expect(
+        nodeA.logs.any(
+          (event) => event.startsWith('relayDuplicateConnectedIgnored'),
+        ),
+        isTrue,
+      );
+      await nodeA.coordinator.queuePublicEmergency(
+        _sos('after-duplicate-connected', clock),
+        includeLocation: false,
+      );
+      await _eventually(
+        () async =>
+            (await nodeB.database.select(nodeB.database.bleRelayMessages).get())
+                .length ==
+            2,
+      );
+    },
+  );
+
+  test('proof recovery is bounded and retains the undelivered SOS', () async {
+    final clock = DateTime.utc(2026, 11, 4, 4);
+    final transportA = _LinkedTransport('bounded-a');
+    final transportB = _LinkedTransport('bounded-b')
+      ..dropMessageTypes.add(RelaySessionResponse.wireKind);
+    transportA.link(transportB);
+    final nodeA = _RelayNode(
+      database: AppDatabase.forTesting(NativeDatabase.memory()),
+      transport: transportA,
+      now: () => clock,
+      proofTimeout: const Duration(milliseconds: 100),
+    );
+    final nodeB = _RelayNode(
+      database: AppDatabase.forTesting(NativeDatabase.memory()),
+      transport: transportB,
+      now: () => clock,
+    );
+    addTearDown(nodeA.close);
+    addTearDown(nodeB.close);
+    await nodeB.coordinator.setParticipationEnabled(true);
+    await nodeB.start();
+    await nodeA.start();
+    await nodeA.coordinator.queuePublicEmergency(
+      _sos('bounded-proof-recovery', clock),
+      includeLocation: false,
+    );
+    for (
+      var recovery = 0;
+      recovery <= RelayRepository.maximumRetriesPerPeer;
+      recovery++
+    ) {
+      await _eventually(
+        () async =>
+            nodeA.logs
+                .where((event) => event == 'relaySessionProofTimedOut')
+                .length ==
+            recovery + 1,
+      );
+      await nodeA.coordinator.processDue();
+    }
+    final challenges = transportA.sentMessages
+        .where((message) => message.type == RelaySessionChallenge.wireKind)
+        .length;
+    for (var tick = 0; tick < 5; tick++) {
+      await nodeA.coordinator.processDue();
+    }
+    expect(
+      transportA.sentMessages.where(
+        (message) => message.type == RelaySessionChallenge.wireKind,
+      ),
+      hasLength(challenges),
+    );
+    expect(
+      nodeA.logs.where((event) => event.startsWith('relaySessionProofRetry ')),
+      hasLength(RelayRepository.maximumRetriesPerPeer),
+    );
+    expect(
+      await nodeA.database.select(nodeA.database.bleRelayMessages).get(),
+      hasLength(1),
+    );
+    expect(
+      await nodeB.database.select(nodeB.database.bleRelayMessages).get(),
+      isEmpty,
+    );
+  });
+
+  test('Offer waits for matching proof-response write completion before binding validation', () async {
+    final clock = DateTime.utc(2026, 11, 4, 5);
+    final transportA = _LinkedTransport('binding-origin');
+    final transportC = _LinkedTransport('binding-rescuer');
+    final nodeA = _RelayNode(
+      database: AppDatabase.forTesting(NativeDatabase.memory()),
+      transport: transportA,
+      now: () => clock,
+    );
+    final nodeC = _RelayNode(
+      database: AppDatabase.forTesting(NativeDatabase.memory()),
+      transport: transportC,
+      now: () => clock,
+    );
+    addTearDown(nodeA.close);
+    addTearDown(nodeC.close);
+    await nodeA.coordinator.queuePublicEmergency(
+      _sos('proof-write-offer-race', clock),
+      includeLocation: false,
+      scope: RelayAuthorizationScope.voluntaryRescue,
+    );
+    await nodeA.database
+        .into(nodeA.database.sosMessages)
+        .insert(
+          SosMessagesCompanion.insert(
+            id: 'proof-write-offer-race',
+            ownerId: 'guest:test',
+            type: 'emergency',
+            status: 'active',
+            syncState: 'localOnly',
+            createdAt: clock,
+            updatedAt: clock,
+          ),
+        );
+    final originOffer = await RelayRepository(database: nodeA.database)
+        .loadVerifiedOffer('relay:proof-write-offer-race', now: clock);
+    await RelayRepository(database: nodeC.database).acceptIncomingOffer(
+      originOffer,
+      sourceDeviceId: 'binding-origin',
+      relayEnabled: true,
+      now: clock,
+    );
+    final responsesC = RescueResponseRepository(
+      nodeC.database,
+      ownerId: RelayRepository.localOriginPeerId,
+    );
+    final response = await responsesC.signAndEnqueueOffer(
+      origin: originOffer.body,
+      responder: await nodeC.coordinator.signingIdentity(),
+      sessionBinding: 'prior-authorized-rescue-binding',
+      now: clock,
+    );
+    final responseWriteHeld = Completer<void>();
+    final releaseResponseWrite = Completer<void>();
+    addTearDown(() {
+      if (!releaseResponseWrite.isCompleted) releaseResponseWrite.complete();
+    });
+    transportA.afterMessageDelivery = (message) async {
+      if (message.type == RelaySessionResponse.wireKind &&
+          !responseWriteHeld.isCompleted) {
+        responseWriteHeld.complete();
+        await releaseResponseWrite.future;
+      }
+    };
+    await nodeA.coordinator.setParticipationEnabled(true);
+    await nodeC.coordinator.setParticipationEnabled(true);
+    await nodeA.start();
+    await nodeC.start();
+    transportA.link(transportC);
+    await transportA.connect('binding-rescuer');
+    await responseWriteHeld.future;
+    await _eventually(
+      () async => transportC.sentMessages.any(
+        (message) => message.type == RescueResponseTransfer.wireKind,
+      ),
+      evidence: () =>
+          'Transfer: A=${nodeA.logs} C=${nodeC.logs}; errors=${nodeA.errors}/${nodeC.errors}',
+    );
+    expect(
+      await nodeA.database.select(nodeA.database.rescueResponseInbox).get(),
+      isEmpty,
+    );
+    releaseResponseWrite.complete();
+    await _eventually(
+      () async =>
+          (await nodeA.database
+                  .select(nodeA.database.rescueResponseInbox)
+                  .get())
+              .isNotEmpty,
+      evidence: () =>
+          'Persist: A=${nodeA.logs} C=${nodeC.logs}; errors=${nodeA.errors}/${nodeC.errors}',
+    );
+    final received = await nodeA.database
+        .select(nodeA.database.rescueResponseInbox)
+        .getSingle();
+    expect(received.messageId, response.messageId);
+    expect(received.state, 'verified');
+    expect(nodeA.errors, isEmpty);
+    expect(nodeC.errors, isEmpty);
+    final sent = transportC.sentMessages.firstWhere(
+      (message) => message.type == RescueResponseTransfer.wireKind,
+    );
+    final transfer = RescueResponseTransfer.fromJson(sent.payload);
+    await expectLater(
+      nodeA.coordinator.handleMessage(
+        'binding-rescuer',
+        BleSessionRole.central,
+        BleMessage(
+          id: sent.id,
+          type: sent.type,
+          createdAt: sent.createdAt,
+          payload: {...transfer.toJson(), 'sessionBinding': 'wrong-session'},
+        ),
+      ),
+      throwsA(isA<RelayProtocolException>()),
+    );
+    expect(
+      await nodeA.database.select(nodeA.database.rescueResponseInbox).get(),
+      hasLength(1),
+    );
+  });
 
   test(
     'session proof timeout starts after the multi-frame challenge write',
@@ -1288,6 +1657,79 @@ void main() {
     },
   );
 
+  test(
+    'direct SOS received first still returns signed receipt to later relay',
+    () async {
+      final clock = DateTime.utc(2026, 11, 8, 6);
+      final a = _LinkedTransport('route-a');
+      final b = _LinkedTransport('route-b');
+      final c = _LinkedTransport('route-c');
+      a.link(c);
+      a.link(b);
+      b.link(c);
+      final nodeA = _RelayNode(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        transport: a,
+        now: () => clock,
+      );
+      final nodeB = _RelayNode(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        transport: b,
+        now: () => clock,
+      );
+      final nodeC = _RelayNode(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        transport: c,
+        now: () => clock,
+      );
+      addTearDown(nodeA.close);
+      addTearDown(nodeB.close);
+      addTearDown(nodeC.close);
+      await nodeC.coordinator.setParticipationEnabled(true);
+      await nodeC.start();
+      await nodeA.start();
+      await nodeA.coordinator.queuePublicEmergency(
+        _sos('alternate-route', clock),
+        includeLocation: false,
+      );
+      await _eventually(
+        () async =>
+            (await nodeA.database.select(nodeA.database.bleRelayAttempts).get())
+                .any(
+                  (r) => r.state == RelayAttemptState.acceptedByRelay.wireValue,
+                ),
+      );
+      final direct = await nodeC.database
+          .select(nodeC.database.bleRelayMessages)
+          .getSingle();
+      expect(direct.incomingHopCount, 0);
+      await nodeB.coordinator.setParticipationEnabled(true);
+      await nodeB.start();
+      await _eventually(
+        () async =>
+            (await nodeB.database.select(nodeB.database.bleRelayAttempts).get())
+                .any(
+                  (r) => r.state == RelayAttemptState.acceptedByRelay.wireValue,
+                ),
+        evidence: () => 'receiver errors: ${nodeC.errors}',
+      );
+      final retained = await nodeC.database
+          .select(nodeC.database.bleRelayMessages)
+          .getSingle();
+      expect(retained.wireEnvelope, direct.wireEnvelope);
+      expect(retained.incomingPeerId, direct.incomingPeerId);
+      expect(retained.incomingHopCount, 0);
+      expect(nodeC.logs, contains('relayDuplicateReacknowledged'));
+      final receipt = await nodeB.database
+          .select(nodeB.database.bleRelayReceipts)
+          .getSingle();
+      expect(receipt.receiptType, RelayReceiptType.hop.wireValue);
+      expect(nodeA.errors, isEmpty);
+      expect(nodeB.errors, isEmpty);
+      expect(nodeC.errors, isEmpty);
+    },
+  );
+
   test('A to B to C appends one hop and returns only hop receipts', () async {
     final clock = DateTime.utc(2026, 10, 26, 14);
     final transportA = _LinkedTransport('device-a');
@@ -1649,6 +2091,47 @@ void main() {
       expect(transportA.connectCount, 3);
     },
   );
+  test(
+    'exhausted connection budget automatically reopens after bounded cooldown',
+    () async {
+      var clock = DateTime.utc(2026, 10, 29, 13);
+      final transportA = _LinkedTransport('device-a')..failConnections = true;
+      final transportB = _LinkedTransport('device-b');
+      transportA.link(transportB);
+      final nodeA = _RelayNode(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        transport: transportA,
+        now: () => clock,
+      );
+      addTearDown(nodeA.close);
+      addTearDown(() async {
+        await transportB.dispose();
+      });
+
+      await nodeA.coordinator.setParticipationEnabled(true);
+      await nodeA.start();
+      await nodeA.coordinator.queuePublicEmergency(
+        _sos('incident-reset-connect-budget', clock),
+        includeLocation: false,
+      );
+      final found = BleEvent(
+        type: 'deviceFound',
+        device: const BleDevice(id: 'device-b'),
+      );
+      await nodeA.coordinator.onEvent(found);
+      await nodeA.coordinator.onEvent(found);
+      await nodeA.coordinator.onEvent(found);
+      expect(transportA.connectCount, 2);
+
+      clock = clock.add(const Duration(seconds: 29));
+      await nodeA.coordinator.onEvent(found);
+      expect(transportA.connectCount, 2);
+      clock = clock.add(const Duration(seconds: 1));
+      await nodeA.coordinator.onEvent(found);
+
+      expect(transportA.connectCount, 3);
+    },
+  );
 
   test(
     'participation OFF pauses retained third-party work without deletion',
@@ -1846,4 +2329,97 @@ void main() {
     expect(await database.select(database.bleOutbox).get(), hasLength(1));
     verify(() => relay.start()).called(1);
   });
+
+  test(
+    'runtime authentication diagnostics retain bounded transition evidence',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      final transport = _LinkedTransport('device-a');
+      final coordinator = HopRelayCoordinator(
+        database: database,
+        transport: transport,
+        identityService: RelayIdentityService(keyStore: _MemoryKeyStore()),
+      );
+      addTearDown(() async {
+        await coordinator.stop();
+        await transport.dispose();
+        await database.close();
+      });
+
+      await coordinator.onEvent(
+        const BleEvent(
+          type: 'connected',
+          device: BleDevice(id: 'peer-with-sensitive-native-id'),
+          role: BleSessionRole.central,
+          attempt: 7,
+        ),
+      );
+      await coordinator.onEvent(
+        const BleEvent(
+          type: 'disconnected',
+          device: BleDevice(id: 'peer-with-sensitive-native-id'),
+          role: BleSessionRole.central,
+          attempt: 7,
+          error: 'GATT connection failed (status 133)',
+        ),
+      );
+      final transitionEvents = coordinator.runtimeDiagnostics.snapshot.events;
+      expect(
+        transitionEvents.any(
+          (event) =>
+              event.contains('event=native_connected') &&
+              event.contains('attempt=7'),
+        ),
+        isTrue,
+      );
+      expect(
+        transitionEvents.any(
+          (event) =>
+              event.contains('event=session_created') &&
+              event.contains('generation=1'),
+        ),
+        isTrue,
+      );
+      expect(
+        transitionEvents.any(
+          (event) =>
+              event.contains('event=native_disconnected') &&
+              event.contains('reason=gatt_status_133'),
+        ),
+        isTrue,
+      );
+      expect(
+        transitionEvents.any(
+          (event) =>
+              event.contains('event=peer_removed') &&
+              event.contains('reason=gatt_status_133'),
+        ),
+        isTrue,
+      );
+      for (var index = 0; index < 45; index++) {
+        await coordinator.onEvent(
+          BleEvent(
+            type: 'deviceFound',
+            device: BleDevice(id: 'peer-$index-with-sensitive-native-id'),
+          ),
+        );
+      }
+
+      final events = coordinator.runtimeDiagnostics.snapshot.events;
+      expect(events, hasLength(40));
+      expect(
+        events.any(
+          (event) =>
+              event.contains('event=peer_discovered') &&
+              event.contains('auth_t=') &&
+              event.contains('platform='),
+        ),
+        isTrue,
+      );
+      expect(
+        events.any((event) => event.contains('sensitive-native-id')),
+        isFalse,
+      );
+    },
+  );
 }

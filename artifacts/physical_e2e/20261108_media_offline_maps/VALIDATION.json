@@ -1,0 +1,61 @@
+{
+  "date": "2026-11-08",
+  "version": "0.1.0+6",
+  "schema": 10,
+  "source_sha256": "a1f58869b2c0fa26077d1e5df6a9a9b9091ae1a488ab1c94f378530df7b25cbd",
+  "requirements": {
+    "offline_map": "Online region download then reopen same stored region offline; user confirmed; physical test deferred by user",
+    "media": [
+      "camera photo",
+      "library photo",
+      "camera video",
+      "library video"
+    ]
+  },
+  "validation": {
+    "default_tests": {
+      "passed": 601,
+      "failed": 0,
+      "exit": 0,
+      "scope": "Final full rerun after shared-root serialization/quota fix"
+    },
+    "explicit_original_receipt_contract": {
+      "passed": 1,
+      "failed": 0,
+      "exit": 0
+    },
+    "static_analysis": "No issues found; exit0",
+    "android_debug_compile": "Passed, exit0; private map dart-defines applied; APK signature verified",
+    "ios_plist": "plutil valid",
+    "final_media_receipt_ui_regression_focused": {
+      "passed": 15,
+      "failed": 0,
+      "exit": 0
+    },
+    "ios_signed_debug_compile": "Passed, exit0; private map dart-defines applied; codesign deep strict verified",
+    "private_map_build_configuration": {
+      "passed": 1,
+      "failed": 0,
+      "exit": 0,
+      "scope": "Configured release-safe Geoapify config usable, offline region downloads enabled; no live tile HTTP or device acceptance"
+    },
+    "ios_signed_profile_compile": "Passed exit0; configured Profile; codesign/standalone guard passed",
+    "ios_debug_artifact_guard": "Correctly rejects superseded Debug6 for standalone Home Screen use"
+  },
+  "physical_status": "All3 build6 update/visual launch/history confirmations passed; iPad archives retained. Required physical media/offline-map acceptance remains open.",
+  "maps_build_config": "Found existing ignored config/production.json by filename-only content search for known setting name; built with private extracted map defines; key values not exported",
+  "limits": [
+    "No physical media throughput/picker/video interoperability checks",
+    "No physical offline-region download/cold reopen acceptance",
+    "Installed baseline remains build5; old physical results do not verify new source",
+    "Signed plaintext media, no E2EE or file encryption; video metadata retained",
+    "Host positive media transfer uses decodable synthetic PNG; native video validation/playback requires device checks",
+    "2MiB image and10MiB/15second video limits; no transcode;50MiB staging/file quota;30minute TTL; no storage management UI"
+  ],
+  "source_manifest_mismatches_after_build": [],
+  "offline_map_device_test": {
+    "device": "Samsung",
+    "status": "DOWNLOAD STEP PENDING",
+    "scope": "User-defined download region online then reopen stored region offline; no new SOS requested"
+  }
+}

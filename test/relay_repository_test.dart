@@ -177,8 +177,8 @@ void main() {
 
   tearDown(() async => database.close());
 
-  test('schema 9 creates dedicated relay and rescue tables', () async {
-    expect(database.schemaVersion, 9);
+  test('schema 10 creates dedicated relay and rescue tables', () async {
+    expect(database.schemaVersion, 10);
     expect(await database.select(database.bleRelayMessages).get(), isEmpty);
     expect(await database.select(database.bleRelayAttempts).get(), isEmpty);
     expect(await database.select(database.bleRelayReceipts).get(), isEmpty);
@@ -372,7 +372,7 @@ void main() {
         },
       );
       final migrated = AppDatabase.forTesting(executor);
-      expect(migrated.schemaVersion, 9);
+      expect(migrated.schemaVersion, 10);
       expect(
         (await migrated.select(migrated.sosMessages).getSingle()).id,
         'existing-v5',
@@ -448,6 +448,76 @@ void main() {
       expect(await database.select(database.bleOutbox).get(), isEmpty);
     },
   );
+
+  for (final forwardedFirst in [false, true]) {
+    test(
+      'verified alternate SOS route is duplicate; forwardedFirst=$forwardedFirst',
+      () async {
+        final origin = await _offer();
+        final forwarded = await _forwardedOffer(origin, 1);
+        final first = await repository.acceptIncomingOffer(
+          forwardedFirst ? forwarded : origin,
+          sourceDeviceId: forwardedFirst ? 'peer-b' : 'peer-a',
+          relayEnabled: true,
+          now: acceptedAt,
+        );
+        final duplicate = await repository.acceptIncomingOffer(
+          forwardedFirst ? origin : forwarded,
+          sourceDeviceId: forwardedFirst ? 'peer-a' : 'peer-b',
+          relayEnabled: true,
+          now: acceptedAt.add(const Duration(seconds: 1)),
+        );
+        expect(duplicate.duplicate, isTrue);
+        expect(duplicate.row.wireEnvelope, first.row.wireEnvelope);
+        expect(duplicate.row.incomingPeerId, first.row.incomingPeerId);
+        expect(duplicate.row.incomingPath, first.row.incomingPath);
+        expect(duplicate.row.persistedAt, first.row.persistedAt);
+        expect(duplicate.row.retentionDeadline, first.row.retentionDeadline);
+        expect(duplicate.row.storageBytes, first.row.storageBytes);
+        expect(
+          await database.select(database.bleRelayMessages).get(),
+          hasLength(1),
+        );
+        final verified = await repository.loadVerifiedOffer(
+          origin.body.originMessageId,
+          now: acceptedAt,
+        );
+        expect(verified.toCanonicalWire(), first.row.wireEnvelope);
+        // A genuinely different signed body is still a conflicting replay,
+        // even when it arrives with a valid new hop attestation.
+        final changed = await _forwardedOffer(
+          await _offer(message: 'Changed'),
+          1,
+        );
+        await expectLater(
+          repository.acceptIncomingOffer(
+            changed,
+            sourceDeviceId: 'peer-other',
+            relayEnabled: true,
+            now: acceptedAt,
+          ),
+          throwsA(isA<RelayPersistenceException>()),
+        );
+        final forged = RelayOfferEnvelope(
+          body: forwarded.body,
+          originSignature: forwarded.originSignature,
+          hopCount: forwarded.hopCount,
+          pathKeyIds: forwarded.pathKeyIds,
+          immediateSenderKeyId: forwarded.immediateSenderKeyId,
+          // A claimed alternate path without signed hops must not be re-ACKed.
+        );
+        await expectLater(
+          repository.acceptIncomingOffer(
+            forged,
+            sourceDeviceId: 'peer-b',
+            relayEnabled: true,
+            now: acceptedAt,
+          ),
+          throwsA(isA<RelayProtocolException>()),
+        );
+      },
+    );
+  }
 
   test('relay-only queue survives a database process restart', () async {
     final directory = await Directory.systemTemp.createTemp(

@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-08",
+  "build_number": 5,
+  "matching_saved_authorized_wired_samsung": true,
+  "inspection": "Read-only app DB copy; live copy not coordinated snapshot",
+  "result": {
+    "quick_check": "ok",
+    "same_origin_digest": true,
+    "ipad_identity_matches_prior_device_evidence": true,
+    "attempts": [
+      {
+        "state": "acceptedByRelay",
+        "retry_count": 0,
+        "targets_ipad": true
+      }
+    ],
+    "ipad_hop_receipt_rows": 1,
+    "verified_offer_rows": 1,
+    "relay_offer_state": "queued",
+    "relay_offer_retry_count": 0,
+    "same_canonical_offer_payload": true
+  },
+  "captured_crypto_revalidation": {
+    "tests_passed": 1,
+    "exit": 0,
+    "checks": [
+      "iPad signed SOS hop receipt/key-ID/digest",
+      "Signed Help Offer exact SOS-origin binding at recorded receipt timestamp",
+      "Responder matches known iPad installation key"
+    ]
+  },
+  "scope": "B-C SOS receipt and durable C-B Offer supported. C exact stored signed path still pending final endpoint correlation; A verified offer/final ACK not yet observed in this run."
+}

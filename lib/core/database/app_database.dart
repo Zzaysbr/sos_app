@@ -16,6 +16,7 @@ import 'tables/rescue_response_outbox.dart';
 import 'tables/rescue_response_replay.dart';
 import 'tables/chat_relay_outbox.dart';
 import 'tables/chat_relay_inbox.dart';
+import 'tables/chat_receipts.dart';
 
 part 'app_database.g.dart';
 
@@ -36,6 +37,7 @@ part 'app_database.g.dart';
     RescueResponseReplay,
     ChatRelayOutbox,
     ChatRelayInbox,
+    ChatReceipts,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -44,7 +46,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -78,6 +80,9 @@ class AppDatabase extends _$AppDatabase {
           await migrator.createTable(rescueResponseInbox);
           await migrator.createTable(rescueResponseJobs);
           await migrator.createTable(rescueResponseReplay);
+        }
+        if (from < 10) {
+          await migrator.createTable(chatReceipts);
         }
         if (from < 9) {
           await migrator.createTable(chatRelayOutbox);

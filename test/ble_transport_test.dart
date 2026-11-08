@@ -8,6 +8,97 @@ import 'package:sos_app/features/nearby_ble/domain/ble_models.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('native frame capacity is role-specific, bounded and falls back for old native bridges', () async {
+    const methods = MethodChannel('capacity-test/methods');
+    int? capacity = 185;
+    var missing = false;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(methods, (call) async {
+          expect(call.method, 'maxFrameBytes');
+          expect(call.arguments, {'deviceId': 'peer', 'role': 'peripheral'});
+          if (missing) throw MissingPluginException();
+          return capacity;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(methods, null),
+    );
+    final transport = BleTransport(methods: methods);
+    expect(
+      await negotiatedBleFrameBytes(
+        transport,
+        'peer',
+        BleSessionRole.peripheral,
+      ),
+      185,
+    );
+    capacity = 9000;
+    expect(
+      await negotiatedBleFrameBytes(
+        transport,
+        'peer',
+        BleSessionRole.peripheral,
+      ),
+      512,
+    );
+    capacity = 0;
+    expect(
+      await negotiatedBleFrameBytes(
+        transport,
+        'peer',
+        BleSessionRole.peripheral,
+      ),
+      20,
+    );
+    capacity = null;
+    expect(
+      await negotiatedBleFrameBytes(
+        transport,
+        'peer',
+        BleSessionRole.peripheral,
+      ),
+      20,
+    );
+    missing = true;
+    expect(
+      await negotiatedBleFrameBytes(
+        transport,
+        'peer',
+        BleSessionRole.peripheral,
+      ),
+      20,
+    );
+  });
+
+  test('a missing native callback cannot pin transport disposal', () async {
+    const methods = MethodChannel('ble_missing_callback/methods');
+    final nativeSend = Completer<void>();
+    final calls = <String>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(methods, (call) async {
+          calls.add(call.method);
+          if (call.method == 'send') await nativeSend.future;
+          return null;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(methods, null),
+    );
+    final transport = BleTransport(
+      methods: methods,
+      nativeCallTimeout: const Duration(milliseconds: 20),
+    );
+    final send = transport.send('peer', [1]);
+    final assertion = expectLater(send, throwsA(isA<TimeoutException>()));
+    final disposal = transport.dispose();
+    await assertion;
+    await disposal;
+    expect(calls, ['send', 'dispose']);
+    nativeSend.complete();
+    await Future<void>.delayed(Duration.zero);
+    expect(calls, ['send', 'dispose']);
+  });
+
   test('dispose is idempotent and rejects operations afterwards', () async {
     const methods = MethodChannel('ble_transport_test/methods');
     const events = EventChannel('ble_transport_test/events');
@@ -187,6 +278,49 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(methods, null);
   });
+  test('stale native disconnect preserves readiness for current and late listeners', () async {
+    const methods = MethodChannel('generation/methods');
+    const events = EventChannel('generation/events');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    late MockStreamHandlerEventSink native;
+    messenger.setMockMethodCallHandler(methods, (_) async => null);
+    messenger.setMockStreamHandler(
+      events,
+      MockStreamHandler.inline(onListen: (_, sink) => native = sink),
+    );
+    final transport = BleTransport(methods: methods, events: events);
+    addTearDown(transport.dispose);
+    final received = <BleEvent>[];
+    final first = transport.events.listen(received.add);
+    addTearDown(first.cancel);
+    await Future<void>.delayed(Duration.zero);
+    void emit(String type, int attempt) => native.success({
+      'type': type,
+      'device': {'id': 'peer'},
+      'role': 'central',
+      'attempt': attempt,
+    });
+    emit('connected', 1);
+    emit('connected', 2);
+    emit('disconnected', 1);
+    await Future<void>.delayed(Duration.zero);
+    expect(received.map((e) => e.type), ['connected', 'connected']);
+    final replay = <BleEvent>[];
+    final second = transport.events.listen(replay.add);
+    addTearDown(second.cancel);
+    await Future<void>.delayed(Duration.zero);
+    expect(replay.single.attempt, 2);
+    emit('disconnected', 2);
+    await Future<void>.delayed(Duration.zero);
+    expect(received.last.type, 'disconnected');
+    final afterDisconnect = <BleEvent>[];
+    final third = transport.events.listen(afterDisconnect.add);
+    addTearDown(third.cancel);
+    await Future<void>.delayed(Duration.zero);
+    expect(afterDisconnect, isEmpty);
+  });
+
   for (final disconnect in [false, true]) {
     test(disconnect ? 'late listener never replays a disconnected peer' : 'late picker listener receives existing readiness without reconnect', () async {
       const methods = MethodChannel('replay/methods');

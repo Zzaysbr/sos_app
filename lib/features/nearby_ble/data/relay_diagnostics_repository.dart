@@ -48,6 +48,74 @@ abstract interface class RelayDiagnosticsDataSource {
   Stream<RelayDiagnosticsSnapshot> watchDiagnostics();
 }
 
+class RelayPeerDiagnostic {
+  const RelayPeerDiagnostic({
+    required this.peer,
+    required this.connected,
+    required this.authenticated,
+    required this.participating,
+    required this.role,
+  });
+
+  final String peer;
+  final bool connected;
+  final bool authenticated;
+  final bool participating;
+  final String role;
+}
+
+class RelayRuntimeDiagnosticsSnapshot {
+  const RelayRuntimeDiagnosticsSnapshot({
+    required this.peers,
+    required this.events,
+    this.lastSchedulerExecution,
+    this.dueJobs = 0,
+    this.lastSelectedPeer,
+    this.lastSkipReason,
+    this.lastForwardAttempt,
+    this.lastDurableReceipt,
+  });
+
+  final List<RelayPeerDiagnostic> peers;
+  final List<String> events;
+  final DateTime? lastSchedulerExecution;
+  final int dueJobs;
+  final String? lastSelectedPeer;
+  final String? lastSkipReason;
+  final String? lastForwardAttempt;
+  final String? lastDurableReceipt;
+}
+
+abstract interface class RelayRuntimeDiagnosticsDataSource {
+  Stream<RelayRuntimeDiagnosticsSnapshot> watchRuntimeDiagnostics();
+}
+
+class RelayRuntimeDiagnosticsController
+    implements RelayRuntimeDiagnosticsDataSource {
+  RelayRuntimeDiagnosticsController()
+    : _snapshot = const RelayRuntimeDiagnosticsSnapshot(
+        peers: <RelayPeerDiagnostic>[],
+        events: <String>[],
+      );
+
+  final _controller =
+      StreamController<RelayRuntimeDiagnosticsSnapshot>.broadcast();
+  RelayRuntimeDiagnosticsSnapshot _snapshot;
+
+  RelayRuntimeDiagnosticsSnapshot get snapshot => _snapshot;
+
+  void update(RelayRuntimeDiagnosticsSnapshot snapshot) {
+    _snapshot = snapshot;
+    if (!_controller.isClosed) _controller.add(snapshot);
+  }
+
+  @override
+  Stream<RelayRuntimeDiagnosticsSnapshot> watchRuntimeDiagnostics() async* {
+    yield _snapshot;
+    yield* _controller.stream;
+  }
+}
+
 /// Read-only, privacy-reduced projection of Relay v2 persistence.
 ///
 /// The projection intentionally excludes envelopes, signatures, keys, message

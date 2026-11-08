@@ -1,0 +1,50 @@
+{
+  "date": "2026-11-08",
+  "affected_build": 7,
+  "candidate_build": 8,
+  "user_report": {
+    "receiver": "No photo visible after3 minutes",
+    "sender": "Relayed - delivery not confirmed"
+  },
+  "private_snapshot_correlation": {
+    "same_media_id_manifest_and_signed_envelope": true,
+    "sender_complete_file_bytes": 492450,
+    "sender_file_sha256_matches_manifest": true,
+    "receiver_expected_chunks": 121,
+    "receiver_completed_chunks_at_capture": 0,
+    "receiver_missing_index": 0,
+    "receiver_request_count": 3,
+    "sender_outbox": "forwarded/retry1/no last_error",
+    "incident_active": true
+  },
+  "frame_evidence": {
+    "native_frame_bytes": 20,
+    "logical_media_chunk_frame_count": 1028,
+    "first_fragment_index": 0,
+    "following_other_message_frame_count": 198,
+    "observed_gap_seconds": 158.872,
+    "following_message_frame_count": 298,
+    "assembler_previous_token_idle_timeout_seconds": 10,
+    "scope": "Receiver raw frame log shows interleaving gap, not independent identification of other message type or sole failure cause"
+  },
+  "host_reproduction": {
+    "case": "Partial media,160seconds active complete control messages, then remaining fragments",
+    "before": "0 passed/1 failed; reconstructed result null",
+    "after": "Focused transport/protocol/media/receipt40 passed/0failed"
+  },
+  "changes": [
+    "Active-peer-aware assembly retention,10second peer-idle expiry,5minute hard age, existing16-message/64KiB bounds",
+    "Optional negotiated native single-packet frame capacity20..512; old/fake/missing native fallback20",
+    "iOS withoutResponse single-packet bound, retain withResponse writes; peripheral maximumUpdateValueLength",
+    "Android actual per-role MTU callbacks; negotiate after CCCD before ready,3second fallback and stale-session cleanup",
+    "Per-message frame-capacity diagnostics, no keys/content",
+    "Live retry-eligible outgoing Chat keeps pending BLE recovery active even without a final-receipt row or incomplete local file"
+  ],
+  "status": "607 default host tests,1 explicit contract,1 captured-file verification passed; native builds passed; iPhone8 installed and visual launch/history passed. Samsung/iPad7; physical8 media retest pending.",
+  "privacy": "Raw snapshots/logs/media private in temporary directories; identifiers/content/coordinates/keys not exported",
+  "startup_reproduction": {
+    "before": "0 passed/1 failed; queued outgoing Chat incorrectly reported no recovery work",
+    "after": "PASS with live outgoing queue detection; no retry or TTL renewal"
+  },
+  "captured_photo_crypto_test": "1 passed: exact source/receiver envelope, signature at creation time, direct hop, file SHA/length and all chunk Merkle root"
+}

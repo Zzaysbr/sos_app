@@ -12235,6 +12235,681 @@ class ChatRelayInboxCompanion extends UpdateCompanion<ChatRelayInboxData> {
   }
 }
 
+class $ChatReceiptsTable extends ChatReceipts
+    with TableInfo<$ChatReceiptsTable, ChatReceiptData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ChatReceiptsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _ownerIdMeta = const VerificationMeta(
+    'ownerId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerId = GeneratedColumn<String>(
+    'owner_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _messageIdMeta = const VerificationMeta(
+    'messageId',
+  );
+  @override
+  late final GeneratedColumn<String> messageId = GeneratedColumn<String>(
+    'message_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _incidentIdMeta = const VerificationMeta(
+    'incidentId',
+  );
+  @override
+  late final GeneratedColumn<String> incidentId = GeneratedColumn<String>(
+    'incident_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _transferMeta = const VerificationMeta(
+    'transfer',
+  );
+  @override
+  late final GeneratedColumn<String> transfer = GeneratedColumn<String>(
+    'transfer',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _previousKeyIdMeta = const VerificationMeta(
+    'previousKeyId',
+  );
+  @override
+  late final GeneratedColumn<String> previousKeyId = GeneratedColumn<String>(
+    'previous_key_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _receiptMeta = const VerificationMeta(
+    'receipt',
+  );
+  @override
+  late final GeneratedColumn<String> receipt = GeneratedColumn<String>(
+    'receipt',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _stateMeta = const VerificationMeta('state');
+  @override
+  late final GeneratedColumn<String> state = GeneratedColumn<String>(
+    'state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _receivedAtMeta = const VerificationMeta(
+    'receivedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> receivedAt = GeneratedColumn<DateTime>(
+    'received_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _expiresAtMeta = const VerificationMeta(
+    'expiresAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> expiresAt = GeneratedColumn<DateTime>(
+    'expires_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _retryCountMeta = const VerificationMeta(
+    'retryCount',
+  );
+  @override
+  late final GeneratedColumn<int> retryCount = GeneratedColumn<int>(
+    'retry_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _nextRetryAtMeta = const VerificationMeta(
+    'nextRetryAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> nextRetryAt = GeneratedColumn<DateTime>(
+    'next_retry_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    ownerId,
+    messageId,
+    incidentId,
+    transfer,
+    previousKeyId,
+    receipt,
+    state,
+    receivedAt,
+    expiresAt,
+    retryCount,
+    nextRetryAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'chat_receipts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ChatReceiptData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('owner_id')) {
+      context.handle(
+        _ownerIdMeta,
+        ownerId.isAcceptableOrUnknown(data['owner_id']!, _ownerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerIdMeta);
+    }
+    if (data.containsKey('message_id')) {
+      context.handle(
+        _messageIdMeta,
+        messageId.isAcceptableOrUnknown(data['message_id']!, _messageIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_messageIdMeta);
+    }
+    if (data.containsKey('incident_id')) {
+      context.handle(
+        _incidentIdMeta,
+        incidentId.isAcceptableOrUnknown(data['incident_id']!, _incidentIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_incidentIdMeta);
+    }
+    if (data.containsKey('transfer')) {
+      context.handle(
+        _transferMeta,
+        transfer.isAcceptableOrUnknown(data['transfer']!, _transferMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_transferMeta);
+    }
+    if (data.containsKey('previous_key_id')) {
+      context.handle(
+        _previousKeyIdMeta,
+        previousKeyId.isAcceptableOrUnknown(
+          data['previous_key_id']!,
+          _previousKeyIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_previousKeyIdMeta);
+    }
+    if (data.containsKey('receipt')) {
+      context.handle(
+        _receiptMeta,
+        receipt.isAcceptableOrUnknown(data['receipt']!, _receiptMeta),
+      );
+    }
+    if (data.containsKey('state')) {
+      context.handle(
+        _stateMeta,
+        state.isAcceptableOrUnknown(data['state']!, _stateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_stateMeta);
+    }
+    if (data.containsKey('received_at')) {
+      context.handle(
+        _receivedAtMeta,
+        receivedAt.isAcceptableOrUnknown(data['received_at']!, _receivedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_receivedAtMeta);
+    }
+    if (data.containsKey('expires_at')) {
+      context.handle(
+        _expiresAtMeta,
+        expiresAt.isAcceptableOrUnknown(data['expires_at']!, _expiresAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_expiresAtMeta);
+    }
+    if (data.containsKey('retry_count')) {
+      context.handle(
+        _retryCountMeta,
+        retryCount.isAcceptableOrUnknown(data['retry_count']!, _retryCountMeta),
+      );
+    }
+    if (data.containsKey('next_retry_at')) {
+      context.handle(
+        _nextRetryAtMeta,
+        nextRetryAt.isAcceptableOrUnknown(
+          data['next_retry_at']!,
+          _nextRetryAtMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {ownerId, messageId};
+  @override
+  ChatReceiptData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ChatReceiptData(
+      ownerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_id'],
+      )!,
+      messageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}message_id'],
+      )!,
+      incidentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}incident_id'],
+      )!,
+      transfer: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}transfer'],
+      )!,
+      previousKeyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}previous_key_id'],
+      )!,
+      receipt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}receipt'],
+      ),
+      state: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}state'],
+      )!,
+      receivedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}received_at'],
+      )!,
+      expiresAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}expires_at'],
+      )!,
+      retryCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}retry_count'],
+      )!,
+      nextRetryAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}next_retry_at'],
+      ),
+    );
+  }
+
+  @override
+  $ChatReceiptsTable createAlias(String alias) {
+    return $ChatReceiptsTable(attachedDatabase, alias);
+  }
+}
+
+class ChatReceiptData extends DataClass implements Insertable<ChatReceiptData> {
+  final String ownerId;
+  final String messageId;
+  final String incidentId;
+  final String transfer;
+  final String previousKeyId;
+  final String? receipt;
+  final String state;
+  final DateTime receivedAt;
+  final DateTime expiresAt;
+  final int retryCount;
+  final DateTime? nextRetryAt;
+  const ChatReceiptData({
+    required this.ownerId,
+    required this.messageId,
+    required this.incidentId,
+    required this.transfer,
+    required this.previousKeyId,
+    this.receipt,
+    required this.state,
+    required this.receivedAt,
+    required this.expiresAt,
+    required this.retryCount,
+    this.nextRetryAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['owner_id'] = Variable<String>(ownerId);
+    map['message_id'] = Variable<String>(messageId);
+    map['incident_id'] = Variable<String>(incidentId);
+    map['transfer'] = Variable<String>(transfer);
+    map['previous_key_id'] = Variable<String>(previousKeyId);
+    if (!nullToAbsent || receipt != null) {
+      map['receipt'] = Variable<String>(receipt);
+    }
+    map['state'] = Variable<String>(state);
+    map['received_at'] = Variable<DateTime>(receivedAt);
+    map['expires_at'] = Variable<DateTime>(expiresAt);
+    map['retry_count'] = Variable<int>(retryCount);
+    if (!nullToAbsent || nextRetryAt != null) {
+      map['next_retry_at'] = Variable<DateTime>(nextRetryAt);
+    }
+    return map;
+  }
+
+  ChatReceiptsCompanion toCompanion(bool nullToAbsent) {
+    return ChatReceiptsCompanion(
+      ownerId: Value(ownerId),
+      messageId: Value(messageId),
+      incidentId: Value(incidentId),
+      transfer: Value(transfer),
+      previousKeyId: Value(previousKeyId),
+      receipt: receipt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(receipt),
+      state: Value(state),
+      receivedAt: Value(receivedAt),
+      expiresAt: Value(expiresAt),
+      retryCount: Value(retryCount),
+      nextRetryAt: nextRetryAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nextRetryAt),
+    );
+  }
+
+  factory ChatReceiptData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ChatReceiptData(
+      ownerId: serializer.fromJson<String>(json['ownerId']),
+      messageId: serializer.fromJson<String>(json['messageId']),
+      incidentId: serializer.fromJson<String>(json['incidentId']),
+      transfer: serializer.fromJson<String>(json['transfer']),
+      previousKeyId: serializer.fromJson<String>(json['previousKeyId']),
+      receipt: serializer.fromJson<String?>(json['receipt']),
+      state: serializer.fromJson<String>(json['state']),
+      receivedAt: serializer.fromJson<DateTime>(json['receivedAt']),
+      expiresAt: serializer.fromJson<DateTime>(json['expiresAt']),
+      retryCount: serializer.fromJson<int>(json['retryCount']),
+      nextRetryAt: serializer.fromJson<DateTime?>(json['nextRetryAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'ownerId': serializer.toJson<String>(ownerId),
+      'messageId': serializer.toJson<String>(messageId),
+      'incidentId': serializer.toJson<String>(incidentId),
+      'transfer': serializer.toJson<String>(transfer),
+      'previousKeyId': serializer.toJson<String>(previousKeyId),
+      'receipt': serializer.toJson<String?>(receipt),
+      'state': serializer.toJson<String>(state),
+      'receivedAt': serializer.toJson<DateTime>(receivedAt),
+      'expiresAt': serializer.toJson<DateTime>(expiresAt),
+      'retryCount': serializer.toJson<int>(retryCount),
+      'nextRetryAt': serializer.toJson<DateTime?>(nextRetryAt),
+    };
+  }
+
+  ChatReceiptData copyWith({
+    String? ownerId,
+    String? messageId,
+    String? incidentId,
+    String? transfer,
+    String? previousKeyId,
+    Value<String?> receipt = const Value.absent(),
+    String? state,
+    DateTime? receivedAt,
+    DateTime? expiresAt,
+    int? retryCount,
+    Value<DateTime?> nextRetryAt = const Value.absent(),
+  }) => ChatReceiptData(
+    ownerId: ownerId ?? this.ownerId,
+    messageId: messageId ?? this.messageId,
+    incidentId: incidentId ?? this.incidentId,
+    transfer: transfer ?? this.transfer,
+    previousKeyId: previousKeyId ?? this.previousKeyId,
+    receipt: receipt.present ? receipt.value : this.receipt,
+    state: state ?? this.state,
+    receivedAt: receivedAt ?? this.receivedAt,
+    expiresAt: expiresAt ?? this.expiresAt,
+    retryCount: retryCount ?? this.retryCount,
+    nextRetryAt: nextRetryAt.present ? nextRetryAt.value : this.nextRetryAt,
+  );
+  ChatReceiptData copyWithCompanion(ChatReceiptsCompanion data) {
+    return ChatReceiptData(
+      ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
+      messageId: data.messageId.present ? data.messageId.value : this.messageId,
+      incidentId: data.incidentId.present
+          ? data.incidentId.value
+          : this.incidentId,
+      transfer: data.transfer.present ? data.transfer.value : this.transfer,
+      previousKeyId: data.previousKeyId.present
+          ? data.previousKeyId.value
+          : this.previousKeyId,
+      receipt: data.receipt.present ? data.receipt.value : this.receipt,
+      state: data.state.present ? data.state.value : this.state,
+      receivedAt: data.receivedAt.present
+          ? data.receivedAt.value
+          : this.receivedAt,
+      expiresAt: data.expiresAt.present ? data.expiresAt.value : this.expiresAt,
+      retryCount: data.retryCount.present
+          ? data.retryCount.value
+          : this.retryCount,
+      nextRetryAt: data.nextRetryAt.present
+          ? data.nextRetryAt.value
+          : this.nextRetryAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ChatReceiptData(')
+          ..write('ownerId: $ownerId, ')
+          ..write('messageId: $messageId, ')
+          ..write('incidentId: $incidentId, ')
+          ..write('transfer: $transfer, ')
+          ..write('previousKeyId: $previousKeyId, ')
+          ..write('receipt: $receipt, ')
+          ..write('state: $state, ')
+          ..write('receivedAt: $receivedAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('nextRetryAt: $nextRetryAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    ownerId,
+    messageId,
+    incidentId,
+    transfer,
+    previousKeyId,
+    receipt,
+    state,
+    receivedAt,
+    expiresAt,
+    retryCount,
+    nextRetryAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ChatReceiptData &&
+          other.ownerId == this.ownerId &&
+          other.messageId == this.messageId &&
+          other.incidentId == this.incidentId &&
+          other.transfer == this.transfer &&
+          other.previousKeyId == this.previousKeyId &&
+          other.receipt == this.receipt &&
+          other.state == this.state &&
+          other.receivedAt == this.receivedAt &&
+          other.expiresAt == this.expiresAt &&
+          other.retryCount == this.retryCount &&
+          other.nextRetryAt == this.nextRetryAt);
+}
+
+class ChatReceiptsCompanion extends UpdateCompanion<ChatReceiptData> {
+  final Value<String> ownerId;
+  final Value<String> messageId;
+  final Value<String> incidentId;
+  final Value<String> transfer;
+  final Value<String> previousKeyId;
+  final Value<String?> receipt;
+  final Value<String> state;
+  final Value<DateTime> receivedAt;
+  final Value<DateTime> expiresAt;
+  final Value<int> retryCount;
+  final Value<DateTime?> nextRetryAt;
+  final Value<int> rowid;
+  const ChatReceiptsCompanion({
+    this.ownerId = const Value.absent(),
+    this.messageId = const Value.absent(),
+    this.incidentId = const Value.absent(),
+    this.transfer = const Value.absent(),
+    this.previousKeyId = const Value.absent(),
+    this.receipt = const Value.absent(),
+    this.state = const Value.absent(),
+    this.receivedAt = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.nextRetryAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ChatReceiptsCompanion.insert({
+    required String ownerId,
+    required String messageId,
+    required String incidentId,
+    required String transfer,
+    required String previousKeyId,
+    this.receipt = const Value.absent(),
+    required String state,
+    required DateTime receivedAt,
+    required DateTime expiresAt,
+    this.retryCount = const Value.absent(),
+    this.nextRetryAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : ownerId = Value(ownerId),
+       messageId = Value(messageId),
+       incidentId = Value(incidentId),
+       transfer = Value(transfer),
+       previousKeyId = Value(previousKeyId),
+       state = Value(state),
+       receivedAt = Value(receivedAt),
+       expiresAt = Value(expiresAt);
+  static Insertable<ChatReceiptData> custom({
+    Expression<String>? ownerId,
+    Expression<String>? messageId,
+    Expression<String>? incidentId,
+    Expression<String>? transfer,
+    Expression<String>? previousKeyId,
+    Expression<String>? receipt,
+    Expression<String>? state,
+    Expression<DateTime>? receivedAt,
+    Expression<DateTime>? expiresAt,
+    Expression<int>? retryCount,
+    Expression<DateTime>? nextRetryAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (ownerId != null) 'owner_id': ownerId,
+      if (messageId != null) 'message_id': messageId,
+      if (incidentId != null) 'incident_id': incidentId,
+      if (transfer != null) 'transfer': transfer,
+      if (previousKeyId != null) 'previous_key_id': previousKeyId,
+      if (receipt != null) 'receipt': receipt,
+      if (state != null) 'state': state,
+      if (receivedAt != null) 'received_at': receivedAt,
+      if (expiresAt != null) 'expires_at': expiresAt,
+      if (retryCount != null) 'retry_count': retryCount,
+      if (nextRetryAt != null) 'next_retry_at': nextRetryAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ChatReceiptsCompanion copyWith({
+    Value<String>? ownerId,
+    Value<String>? messageId,
+    Value<String>? incidentId,
+    Value<String>? transfer,
+    Value<String>? previousKeyId,
+    Value<String?>? receipt,
+    Value<String>? state,
+    Value<DateTime>? receivedAt,
+    Value<DateTime>? expiresAt,
+    Value<int>? retryCount,
+    Value<DateTime?>? nextRetryAt,
+    Value<int>? rowid,
+  }) {
+    return ChatReceiptsCompanion(
+      ownerId: ownerId ?? this.ownerId,
+      messageId: messageId ?? this.messageId,
+      incidentId: incidentId ?? this.incidentId,
+      transfer: transfer ?? this.transfer,
+      previousKeyId: previousKeyId ?? this.previousKeyId,
+      receipt: receipt ?? this.receipt,
+      state: state ?? this.state,
+      receivedAt: receivedAt ?? this.receivedAt,
+      expiresAt: expiresAt ?? this.expiresAt,
+      retryCount: retryCount ?? this.retryCount,
+      nextRetryAt: nextRetryAt ?? this.nextRetryAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (ownerId.present) {
+      map['owner_id'] = Variable<String>(ownerId.value);
+    }
+    if (messageId.present) {
+      map['message_id'] = Variable<String>(messageId.value);
+    }
+    if (incidentId.present) {
+      map['incident_id'] = Variable<String>(incidentId.value);
+    }
+    if (transfer.present) {
+      map['transfer'] = Variable<String>(transfer.value);
+    }
+    if (previousKeyId.present) {
+      map['previous_key_id'] = Variable<String>(previousKeyId.value);
+    }
+    if (receipt.present) {
+      map['receipt'] = Variable<String>(receipt.value);
+    }
+    if (state.present) {
+      map['state'] = Variable<String>(state.value);
+    }
+    if (receivedAt.present) {
+      map['received_at'] = Variable<DateTime>(receivedAt.value);
+    }
+    if (expiresAt.present) {
+      map['expires_at'] = Variable<DateTime>(expiresAt.value);
+    }
+    if (retryCount.present) {
+      map['retry_count'] = Variable<int>(retryCount.value);
+    }
+    if (nextRetryAt.present) {
+      map['next_retry_at'] = Variable<DateTime>(nextRetryAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ChatReceiptsCompanion(')
+          ..write('ownerId: $ownerId, ')
+          ..write('messageId: $messageId, ')
+          ..write('incidentId: $incidentId, ')
+          ..write('transfer: $transfer, ')
+          ..write('previousKeyId: $previousKeyId, ')
+          ..write('receipt: $receipt, ')
+          ..write('state: $state, ')
+          ..write('receivedAt: $receivedAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('nextRetryAt: $nextRetryAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -12265,6 +12940,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $ChatRelayInboxTable chatRelayInbox = $ChatRelayInboxTable(this);
+  late final $ChatReceiptsTable chatReceipts = $ChatReceiptsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -12285,6 +12961,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     rescueResponseReplay,
     chatRelayOutbox,
     chatRelayInbox,
+    chatReceipts,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -18557,6 +19234,339 @@ typedef $$ChatRelayInboxTableProcessedTableManager =
       ChatRelayInboxData,
       PrefetchHooks Function()
     >;
+typedef $$ChatReceiptsTableCreateCompanionBuilder =
+    ChatReceiptsCompanion Function({
+      required String ownerId,
+      required String messageId,
+      required String incidentId,
+      required String transfer,
+      required String previousKeyId,
+      Value<String?> receipt,
+      required String state,
+      required DateTime receivedAt,
+      required DateTime expiresAt,
+      Value<int> retryCount,
+      Value<DateTime?> nextRetryAt,
+      Value<int> rowid,
+    });
+typedef $$ChatReceiptsTableUpdateCompanionBuilder =
+    ChatReceiptsCompanion Function({
+      Value<String> ownerId,
+      Value<String> messageId,
+      Value<String> incidentId,
+      Value<String> transfer,
+      Value<String> previousKeyId,
+      Value<String?> receipt,
+      Value<String> state,
+      Value<DateTime> receivedAt,
+      Value<DateTime> expiresAt,
+      Value<int> retryCount,
+      Value<DateTime?> nextRetryAt,
+      Value<int> rowid,
+    });
+
+class $$ChatReceiptsTableFilterComposer
+    extends Composer<_$AppDatabase, $ChatReceiptsTable> {
+  $$ChatReceiptsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get messageId => $composableBuilder(
+    column: $table.messageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get transfer => $composableBuilder(
+    column: $table.transfer,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get previousKeyId => $composableBuilder(
+    column: $table.previousKeyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get receipt => $composableBuilder(
+    column: $table.receipt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get nextRetryAt => $composableBuilder(
+    column: $table.nextRetryAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ChatReceiptsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ChatReceiptsTable> {
+  $$ChatReceiptsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get messageId => $composableBuilder(
+    column: $table.messageId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get transfer => $composableBuilder(
+    column: $table.transfer,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get previousKeyId => $composableBuilder(
+    column: $table.previousKeyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get receipt => $composableBuilder(
+    column: $table.receipt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get nextRetryAt => $composableBuilder(
+    column: $table.nextRetryAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ChatReceiptsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ChatReceiptsTable> {
+  $$ChatReceiptsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get ownerId =>
+      $composableBuilder(column: $table.ownerId, builder: (column) => column);
+
+  GeneratedColumn<String> get messageId =>
+      $composableBuilder(column: $table.messageId, builder: (column) => column);
+
+  GeneratedColumn<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get transfer =>
+      $composableBuilder(column: $table.transfer, builder: (column) => column);
+
+  GeneratedColumn<String> get previousKeyId => $composableBuilder(
+    column: $table.previousKeyId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get receipt =>
+      $composableBuilder(column: $table.receipt, builder: (column) => column);
+
+  GeneratedColumn<String> get state =>
+      $composableBuilder(column: $table.state, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get expiresAt =>
+      $composableBuilder(column: $table.expiresAt, builder: (column) => column);
+
+  GeneratedColumn<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get nextRetryAt => $composableBuilder(
+    column: $table.nextRetryAt,
+    builder: (column) => column,
+  );
+}
+
+class $$ChatReceiptsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ChatReceiptsTable,
+          ChatReceiptData,
+          $$ChatReceiptsTableFilterComposer,
+          $$ChatReceiptsTableOrderingComposer,
+          $$ChatReceiptsTableAnnotationComposer,
+          $$ChatReceiptsTableCreateCompanionBuilder,
+          $$ChatReceiptsTableUpdateCompanionBuilder,
+          (
+            ChatReceiptData,
+            BaseReferences<_$AppDatabase, $ChatReceiptsTable, ChatReceiptData>,
+          ),
+          ChatReceiptData,
+          PrefetchHooks Function()
+        > {
+  $$ChatReceiptsTableTableManager(_$AppDatabase db, $ChatReceiptsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ChatReceiptsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ChatReceiptsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ChatReceiptsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> ownerId = const Value.absent(),
+                Value<String> messageId = const Value.absent(),
+                Value<String> incidentId = const Value.absent(),
+                Value<String> transfer = const Value.absent(),
+                Value<String> previousKeyId = const Value.absent(),
+                Value<String?> receipt = const Value.absent(),
+                Value<String> state = const Value.absent(),
+                Value<DateTime> receivedAt = const Value.absent(),
+                Value<DateTime> expiresAt = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<DateTime?> nextRetryAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ChatReceiptsCompanion(
+                ownerId: ownerId,
+                messageId: messageId,
+                incidentId: incidentId,
+                transfer: transfer,
+                previousKeyId: previousKeyId,
+                receipt: receipt,
+                state: state,
+                receivedAt: receivedAt,
+                expiresAt: expiresAt,
+                retryCount: retryCount,
+                nextRetryAt: nextRetryAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String ownerId,
+                required String messageId,
+                required String incidentId,
+                required String transfer,
+                required String previousKeyId,
+                Value<String?> receipt = const Value.absent(),
+                required String state,
+                required DateTime receivedAt,
+                required DateTime expiresAt,
+                Value<int> retryCount = const Value.absent(),
+                Value<DateTime?> nextRetryAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ChatReceiptsCompanion.insert(
+                ownerId: ownerId,
+                messageId: messageId,
+                incidentId: incidentId,
+                transfer: transfer,
+                previousKeyId: previousKeyId,
+                receipt: receipt,
+                state: state,
+                receivedAt: receivedAt,
+                expiresAt: expiresAt,
+                retryCount: retryCount,
+                nextRetryAt: nextRetryAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ChatReceiptsTable, ChatReceiptData>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $ChatReceiptsTable,
+                    ChatReceiptData
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ChatReceiptsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ChatReceiptsTable,
+      ChatReceiptData,
+      $$ChatReceiptsTableFilterComposer,
+      $$ChatReceiptsTableOrderingComposer,
+      $$ChatReceiptsTableAnnotationComposer,
+      $$ChatReceiptsTableCreateCompanionBuilder,
+      $$ChatReceiptsTableUpdateCompanionBuilder,
+      (
+        ChatReceiptData,
+        BaseReferences<_$AppDatabase, $ChatReceiptsTable, ChatReceiptData>,
+      ),
+      ChatReceiptData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -18591,4 +19601,6 @@ class $AppDatabaseManager {
       $$ChatRelayOutboxTableTableManager(_db, _db.chatRelayOutbox);
   $$ChatRelayInboxTableTableManager get chatRelayInbox =>
       $$ChatRelayInboxTableTableManager(_db, _db.chatRelayInbox);
+  $$ChatReceiptsTableTableManager get chatReceipts =>
+      $$ChatReceiptsTableTableManager(_db, _db.chatReceipts);
 }

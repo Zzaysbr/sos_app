@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-08",
+  "source_sha256": "0dc633903e3e807d1d5f94e45bf19d1b2f51afeca6212ec035c45454462e1fae",
+  "operator_result": "Correct ICON-IOS-02 preview with default blue Flutter notification icon",
+  "host_inspection": {
+    "built_bundle_version": "2",
+    "built_primary_icon": "EmergencyIcon",
+    "built_ipad_primary_icon": "EmergencyIcon",
+    "manifest_hash_matches": [
+      "Info.plist",
+      "Assets.car",
+      "EmergencyIcon60x60@2x.png",
+      "AppIcon60x60@2x.png"
+    ],
+    "visually_inspected_source_notification_size": "Icon-App-20x20@3x.png is white E on red",
+    "native_notification_content": "Emergency title, received text body, default sound; no custom icon or communication avatar configured"
+  },
+  "limitations": [
+    "Installed device assets not read in this inspection",
+    "No runtime cache cause proven",
+    "No source/build/install/restart change",
+    "Message visibility/count after opening pending"
+  ],
+  "reference": "https://developer.apple.com/design/human-interface-guidelines/notifications"
+}

@@ -1,6 +1,6 @@
 {
   "@@locale": "th",
-  "appTitle": "Off Grid SOS",
+  "appTitle": "Emergency",
   "authStatusUnavailable": "ไม่สามารถตรวจสอบสถานะการเข้าสู่ระบบได้",
   "navNearby": "เหตุใกล้เคียง",
   "navHelping": "กำลังช่วย",
@@ -86,7 +86,7 @@
   "verificationFailed": "ส่งอีเมลยืนยันไม่ได้ โปรดลองภายหลัง",
   "genericError": "เกิดข้อผิดพลาด โปรดลองอีกครั้ง",
   "noAccountEmail": "บัญชีนี้ไม่มีอีเมลที่เชื่อมโยงอยู่",
-  "passwordResetSent": "ส่งอีเมลรีเซ็ตรหัสผ่านแล้ว โปรดตรวจสอบกล่องขาเข้า",
+  "passwordResetSent": "หากอีเมลนี้มีบัญชี ระบบจะส่งคำแนะนำการรีเซ็ตรหัสผ่านให้ โปรดตรวจสอบกล่องขาเข้า",
   "passwordResetFailed": "ส่งอีเมลรีเซ็ตรหัสผ่านไม่ได้ โปรดลองภายหลัง",
   "passwordRecoveryUnavailable": "ยังไม่ได้ตั้งค่าการกู้คืนรหัสผ่านแบบปลอดภัย โปรดติดต่อผู้ดูแล แทนการรีเซ็ตด้วยอีเมลอย่างเดียว",
   "signOutFailed": "ออกจากระบบไม่ได้ โปรดลองอีกครั้ง",
@@ -411,5 +411,23 @@
   ,"@offlineMapTooLarge": {"placeholders": {"maxTiles": {"type": "int"}}}
   ,"offlineMapDownloadInfo": "โปรดเปิดแอปค้างไว้ระหว่างดาวน์โหลด ระบบจะเก็บเฉพาะพื้นที่ที่มองเห็นภายในขอบเขต"
   ,"offlineMapStorageSummary": "จัดเก็บแล้ว: {size}"
-  ,"@offlineMapStorageSummary": {"placeholders": {"size": {"type": "String"}}}
+  ,"@offlineMapStorageSummary": {"placeholders": {"size": {"type": "String"}}},
+  "checkCurrentLocation": "ตรวจตำแหน่งปัจจุบัน",
+  "checkCurrentLocationHint": "แตะเพื่อลองอ่านตำแหน่งใหม่ โดยไม่สร้าง SOS หรือส่งพิกัด",
+  "checkingCurrentLocation": "กำลังค้นหาตำแหน่ง...",
+  "currentLocationCheckReady": "อ่านตำแหน่งปัจจุบันได้แล้ว การตรวจนี้ไม่ได้ส่งพิกัด",
+  "recentLocationCheckReady": "พบตำแหน่งล่าสุดที่เก็บไว้ การตรวจนี้ไม่ได้ส่งพิกัด",
+  "stopFollowing": "หยุดติดตามบนเครื่องนี้",
+  "stopFollowingQuestion": "หยุดติดตามเหตุนี้หรือไม่?",
+  "stopFollowingExplanation": "ย้ายเหตุออกจากหน้ากำลังช่วยบนเครื่องนี้ โดยเก็บประวัติและข้อความไว้ การทำรายการนี้ไม่ยกเลิกหรือปิด SOS ของต้นทาง",
+  "stoppedFollowing": "หยุดติดตามบนเครื่องนี้แล้ว",
+  "stopFollowingFailed": "หยุดติดตามไม่สำเร็จ กรุณาลองอีกครั้ง",
+  "receivedHistory": "ประวัติการรับเหตุ",
+  "receivedHistoryEmpty": "ยังไม่มีประวัติเหตุที่รับไว้",
+  "receivedHistoryError": "โหลดประวัติการรับเหตุไม่สำเร็จ",
+  "receivedHistoryNotice": "เหตุและข้อความที่เก็บบนเครื่องนี้ การหยุดติดตามไม่เปลี่ยนสถานะ SOS ของต้นทาง",
+  "rescueHistoryHelping": "กำลังติดตามบนเครื่องนี้",
+  "rescueHistoryCancelled": "ต้นทางยกเลิกเหตุแล้ว",
+  "rescueHistoryResolved": "ต้นทางปิดเหตุแล้ว",
+  "rescueHistoryExpired": "คำขอหมดอายุ"
 }

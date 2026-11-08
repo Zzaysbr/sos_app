@@ -1,0 +1,31 @@
+{
+  "date": "2026-11-09",
+  "affected_builds": [
+    8,
+    9
+  ],
+  "candidate_build": 10,
+  "device_evidence": {
+    "samsung": "GATT ready and direct bindings received, no received Relay capabilities or authenticated session observed",
+    "iphone_live": "10 capability_write_started, no capability_write_completed; peripheral capacity512 followed by relayCapabilityWriteFailed"
+  },
+  "verified_source_defect": {
+    "query_capacity": "CBCentral.maximumUpdateValueLength clamped20..512",
+    "send_guard_before": "hardcoded20 rejects negotiated frames above20 before updateValue",
+    "fix": "query and send guard use shared peripheralFrameCapacity(CBCentral?)"
+  },
+  "regression": {
+    "before_guard20": "FAIL as expected",
+    "after_shared_bound": "7 Swift boundaries + source query/guard consistency passed",
+    "scope": "Compiled production pure capacity expression and call-site check, not CoreBluetooth device acceptance"
+  },
+  "crypto_compression_schema": "unchanged from build9",
+  "status": "iPhone update in progress; physical Relay proof and media delivery pending",
+  "reference": "https://developer.apple.com/documentation/corebluetooth/cbcentral/maximumupdatevaluelength",
+  "focused_host_tests": {
+    "passed": 48,
+    "failed": 0,
+    "exit": 0
+  },
+  "native_build": "Configured signed iOS Profile10 PASS; standalone guard10 PASS"
+}

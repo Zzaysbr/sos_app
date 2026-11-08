@@ -1,0 +1,69 @@
+{
+  "date": "2026-11-07",
+  "timezone": "Asia/Bangkok",
+  "evidence_type": "Operator-reported UI observations plus PID-filtered Android logcat; see ANDROID_LOG_SUMMARY.json for independently read log scope.",
+  "case": "iPhone to Android signed voluntary-rescue SOS baseline",
+  "setup": {
+    "source": "iOS-1",
+    "receiver": "Android-1",
+    "iOS-2": "iPad; Bluetooth disabled to isolate pair",
+    "internet": "off on all three, operator-reported",
+    "receiver_mode": "rescue listening started, operator-reported",
+    "origin_consent": "public relay and voluntary rescuers enabled, operator-reported",
+    "receiver_relay_participation": "Nearby SOS Relay enabled, operator-reported"
+  },
+  "observations": [
+    {
+      "scope": "local SOS navigation",
+      "result": "operator reports new incident Chat opened on iPhone"
+    },
+    {
+      "scope": "SOS candidate arrival",
+      "result": "not observed on Android after operator-reported 3-minute wait"
+    },
+    {
+      "scope": "iPhone UI",
+      "result": [
+        "Location unavailable",
+        "Forwarding",
+        "No relay accepted yet"
+      ]
+    },
+    {
+      "scope": "iPhone runtime diagnostics",
+      "result": {
+        "peer": "connected, authenticated, eligible",
+        "last_skip_reason": "no_authenticated_peer",
+        "due_jobs": 1,
+        "last_forward_attempt": "Not recorded",
+        "last_durable_receipt": "Not recorded",
+        "last_scheduler": "time advances over operator-observed 15-second interval"
+      }
+    },
+    {
+      "scope": "iPhone persisted relay diagnostics, operator-reported",
+      "result": {
+        "latest_relay_job_status": "failed",
+        "relay_attempt_count": 1,
+        "last_relay_error_category": "timeout"
+      }
+    },
+    {
+      "scope": "Android persisted diagnostics, operator-reported",
+      "result": "No relay records"
+    },
+    {
+      "scope": "Android PID-filtered log capture",
+      "result": "2 inbound missing-active-proof rejections, proof timeout then later proof established, no relay_job_persisted log in captured buffer; see ANDROID_LOG_SUMMARY.json"
+    },
+    {
+      "scope": "iPhone app-process live log capture",
+      "result": "Scheduler continues and reports one due job plus eligible forwarding candidate; no timing=forwarding_started during 20-second window. Original send history unavailable; see IOS_LOG_SUMMARY.json."
+    }
+  ],
+  "status": "PARTIAL: local creation/navigation reported; end-to-end SOS reception not passed",
+  "root_cause": "Incomplete mutual session-proof readiness is a supported contributor from Android receive rejections. Existing failed-attempt retry state may explain lack of fresh sends after authentication; exact iPhone retry count and original cross-device message correlation remain unverified.",
+  "source_findings": "SosPage._startRescueListening acquires advertising but does not enable relay participation; HopRelayCoordinator._handleIncomingOffer rejects when participation disabled. Location failure path continues enqueueing a signed SOS without coordinates.",
+  "scope_limit": "Does not reproduce or validate the stale-disconnect race. Android log observations are bounded to the current process log buffer; no complete incident/attempt correlation yet.",
+  "diagnostic_source_limitation": "SOS send emits timing=forwarding_started via _timing; _log updates runtime Last forward attempt only for relay_forward_started or response_forward_started. Not recorded therefore does not establish absence of SOS transmission attempts."
+}

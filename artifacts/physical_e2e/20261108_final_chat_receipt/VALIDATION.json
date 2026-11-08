@@ -1,0 +1,34 @@
+{
+  "date": "2026-11-08",
+  "source_sha256": "ae8ba70574661e4d10739d240a8f71897fa598dcadc76be9a83b4f6d3dbec5ed",
+  "version": "0.1.0+5",
+  "schema_version": 10,
+  "validation": {
+    "default": "594 passed / 0 failed, exit 0",
+    "final_receipt_plus_explicit_contract": "8 passed / 0 failed, exit 0",
+    "explicit_original_contract": "Previously failed expectation preserved; now passes",
+    "focused_runtime_migration_protocol": "151 passed / 0 failed before final recovery/retry claim adjustments; final default covers those changes",
+    "static_analysis": "No issues found, exit 0"
+  },
+  "coverage": [
+    "Receipt loss/retry and delivered monotonicity under late forwarded/failed",
+    "Application SQLite persistence failure cannot produce receipt; recovery after failure",
+    "Digest/incident/recipient/persisted timestamp/expiry/signature tamper rejection",
+    "Tampered receipt injected through proven native-bound session rejected before sender status change",
+    "File-backed intermediary receipt restart and startup readiness during backoff",
+    "Actual maximum 8 receipt transmissions and expiry cleanup",
+    "Valid delayed receipt after original Chat transport expiry within bounded grace",
+    "v9-to-v10 migration preserves archived tracking and queued Chat; old migration/rollback tests retained",
+    "Original three-node final Chat receipt contract passes with unchanged delivered expectation"
+  ],
+  "scope": "Host simulated native boundary/real SQLite/coordinators/crypto only. Full default ran before strengthened retry-budget test assertions and comment-only change; 8 focused rerun covers strengthened assertions. No physical installation/device acceptance yet.",
+  "limitations": [
+    "Recipient durable machine persistence receipt, not read/human response",
+    "No E2EE or professional responder authority added",
+    "Mixed peers without receipt support remain sent; all updated peers needed to validate new receipt route",
+    "Grace is Chat expiresAt plus 30 minutes, not a renewal of Chat/SOS TTL",
+    "Reverse first inbound signed route; no arbitrary rerouting or global delivery guarantee",
+    "Bounded 8 retries/256 receipt-route rows per owner; quota can defer receipt acceptance",
+    "GPS timeout unresolved"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-08",
+  "build_number": 5,
+  "operator_observation": "Single MULTI-RECEIPT-A-C-01 sent; sender shows Relayed \u2014 delivery not confirmed while C Bluetooth off",
+  "matching_saved_wired_samsung": true,
+  "inspection": "Read-only DB copy; live copy not coordinated snapshot",
+  "result": {
+    "quick_check": "ok",
+    "verified_inbox_rows": 1,
+    "relay_outbox_state": "queued",
+    "hop_count": 1,
+    "retry_count": 0,
+    "reverse_receipt_route_state": "awaiting",
+    "receipt_present": false
+  },
+  "captured_crypto_revalidation": {
+    "tests_passed": 1,
+    "exit": 0,
+    "checks": [
+      "Original Chat signature at received timestamp",
+      "Origin sender and iPad recipient",
+      "Signed A-B hop and Samsung receiver identity",
+      "Transfer envelope equals verified inbox"
+    ]
+  },
+  "scope": "Chat and reverse receipt route durably at B with no final receipt yet; C reception/receipt pending."
+}

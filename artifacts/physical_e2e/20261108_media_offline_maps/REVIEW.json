@@ -1,0 +1,42 @@
+{
+  "date": "2026-11-08",
+  "source_files": 152,
+  "test_files": 75,
+  "manifest_mismatches": [],
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "9568bf5264a0bec1e6941d0e31042ae9f287a78f41c3bd386630dc8b592f00ba"
+    },
+    {
+      "path": "PROJECT_CONTEXT.md",
+      "sha256": "9839416fa9232337f132311ec23343c194a93eee40786092594b2750d6b80f34"
+    },
+    {
+      "path": "docs/MEDIA_TRANSFER_ARCHITECTURE.md",
+      "sha256": "f7a408909c115d55e3af6a45ca0ba859fd5ff5192fb5a802613a1c22eb469b3f"
+    },
+    {
+      "path": "artifacts/physical_e2e/20261108_media_offline_maps/VALIDATION.json",
+      "sha256": "c563406b503d8bb9c971624593c1da10e4f876fae9f915a4483ecf1a248f775e"
+    },
+    {
+      "path": "artifacts/physical_e2e/20261108_media_offline_maps/BUILDS.json",
+      "sha256": "896091a78563f54ef81f29b7f11653d30e0be6c4e6b707a53d92c6f3a0d7ea04"
+    },
+    {
+      "path": "artifacts/physical_e2e/20261108_media_offline_maps/source_manifest.json",
+      "sha256": "84aeb0a96db44240cfa04f5ec05dad63967063bab47663b8e1b9b97291f3672f"
+    },
+    {
+      "path": "artifacts/physical_e2e/20261108_media_offline_maps/test_manifest.json",
+      "sha256": "bd13f11d4e38288b650acfe242c7b723bccca27780820004873c896984030962"
+    },
+    {
+      "path": "artifacts/physical_e2e/20261108_media_offline_maps/PHYSICAL_ACCEPTANCE.md",
+      "sha256": "1f60e9986e8bfe586c669201675a2b6fa9d9085ad8206545cb9edd447c93de51"
+    }
+  ],
+  "physical_status": "No build6 device installations or physical acceptance; user deferred map test",
+  "private_config": "Ignored existing file used; no key values or raw logs exported"
+}

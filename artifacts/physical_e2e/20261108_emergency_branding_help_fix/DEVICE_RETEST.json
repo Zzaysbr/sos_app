@@ -1,0 +1,116 @@
+{
+  "source_sha256": "bc07b9cb814489f0c486f60b59794c03c42d0b1b0db5b3fb22a18d1ea963c7c6",
+  "status": "SESSION CLOSED ON ORIGIN; IOS NOTIFICATION ICON AND GPS WORK CONTINUES",
+  "install_policy": "Ask wired device before each update; preserve data; verify normal launch before next device.",
+  "checks": [
+    "Emergency launcher display name and red-white E icon",
+    "Pending old cancelled incident disappears from Android helping list after origin updates and same responder Session Proof; no new SOS or deletion required",
+    "New Offer Help closes sheet promptly after local signed queue, without duplicate response",
+    "Home and locked notifications show requested actual synthetic Chat text according to OS previews; exactly one visible message in same incident",
+    "Retain normal bidirectional Chat and queued Bluetooth reconnection behavior"
+  ],
+  "procedure": "One step/question at a time, wait for result; no global feature/device readiness inference.",
+  "operator_observations": [
+    {
+      "step": "all_devices_launch",
+      "result": "User confirms normal app launch on updated iPhone, Samsung and iPad",
+      "scope": "Launch only; branding/history, actual-text notification, Offer Help and historical cancellation recovery still pending"
+    },
+    {
+      "step": "launcher_branding_all_three",
+      "result": "User confirms Emergency name and red-white E icon on iPhone, Samsung and iPad",
+      "scope": "Launcher branding only; actual-text notification, Offer Help and historical cancellation recovery still pending"
+    },
+    {
+      "step": "historical_terminal_recovery_pair_ready",
+      "result": "User confirms iPhone and Android Emergency open nearby with Bluetooth on and Internet off; iPad Bluetooth remains off",
+      "scope": "Operator preconditions; historical pending cancellation receiver outcome not yet checked"
+    },
+    {
+      "step": "historical_cancelled_incident_recovered",
+      "result": "User confirms previously stale cancelled incident disappeared from Android helping list after updated pair opened nearby offline, without creating SOS, repeating Offer Help or manually deleting",
+      "scope": "One operator-confirmed historical pending terminal recovery case; exact wire/log correlation and general historical/multihop recovery not established"
+    },
+    {
+      "step": "new_offer_preview_rescue_ready",
+      "result": "User confirms Android shows listening for incidents in rescuer mode",
+      "scope": "Preparation for new synthetic incident; new Offer Help responsiveness and Chat previews not yet tested"
+    },
+    {
+      "step": "new_sos_for_offer_preview",
+      "result": "User confirms Android sees new SOS; iPhone shows Location unavailable despite user reporting location permissions enabled",
+      "scope": "SOS visibility operator-confirmed; GPS availability and app location-sharing consent not yet checked; no location root cause inferred"
+    },
+    {
+      "step": "iphone_location_consent_checked",
+      "result": "User confirms Include location in public relay switch is ON, in addition to reported system location permission enabled",
+      "scope": "Location acquisition result/root cause still unknown; no consent toggles or duplicate SOS requested"
+    },
+    {
+      "step": "offer_help_ui_responsive",
+      "result": "User confirms one Offer Help tap closed details and navigated to Helping automatically without manual page switch",
+      "scope": "One operator-confirmed UI responsiveness case; end-to-end offer and acknowledgement for this new incident not yet checked"
+    },
+    {
+      "step": "current_iphone_verified_offer",
+      "result": "User confirms Verified help offer received (1) for new current SOS",
+      "scope": "Operator UI evidence of one verified offer; Android acknowledgement and actual-text notification checks pending"
+    },
+    {
+      "step": "current_android_offer_delivered",
+      "result": "User confirms Offer delivery: delivered for new current SOS after iPhone verified offer count 1",
+      "scope": "Operator UI evidence of Help Offer round trip; actual-text notification still pending"
+    },
+    {
+      "step": "android_preview_home_ready_without_chat_open",
+      "result": "User confirms Android on Home from Helping without first opening new Chat, not force-quit/locked; iPhone current new Chat open",
+      "scope": "Operator preconditions; actual-text popup/receive readiness pending"
+    },
+    {
+      "step": "android_actual_text_notification",
+      "message_label": "PREVIEW-ANDROID-01",
+      "result": "User confirms Emergency notification with actual sent text on Android Home",
+      "scope": "One warm-process unlocked Android actual-text notification; operator reported no prior opening of new Chat after Offer Help. Stored count, iOS preview, lock/long idle not yet checked for this source"
+    },
+    {
+      "step": "android_preview_message_count",
+      "message_label": "PREVIEW-ANDROID-01",
+      "result": "User confirms one message visible after tapping notification and opening current Chat",
+      "scope": "One Android Home actual-text popup plus single visible message operator-confirmed; iOS preview and GPS issue remain pending"
+    },
+    {
+      "step": "iphone_actual_preview_home_ready",
+      "result": "User confirms iPhone on unlocked Home without force-quit and Android current new Chat open",
+      "scope": "Operator precondition report; iPhone actual-text popup pending"
+    },
+    {
+      "step": "iphone_actual_text_notification_icon_mismatch",
+      "message_label": "PREVIEW-IOS-01",
+      "result": "User confirms iPhone notification arrived with matching actual text but icon differs from expected Emergency E",
+      "scope": "Actual-text popup observed; notification icon not accepted, exact displayed icon and message count after opening pending"
+    },
+    {
+      "step": "iphone_notification_icon_identified",
+      "result": "User confirms notification icon is old Flutter logo, while launcher E previously confirmed",
+      "scope": "Icon mismatch confirmed by operator; cache/build-resource cause unproven. No cache reset/reinstall requested."
+    },
+    {
+      "step": "iphone_preview_message_count",
+      "message_label": "PREVIEW-IOS-01",
+      "result": "User confirms one message visible after opening current Chat from notification",
+      "scope": "One iPhone Home actual-text notification and one-message visibility case; notification icon still old Flutter and not accepted"
+    },
+    {
+      "step": "preview_test_incident_cancelled",
+      "result": "User confirms current synthetic SOS cancelled on iPhone and history retained",
+      "scope": "Origin cancellation report; current receiver removal not rechecked. No new SOS requested."
+    }
+  ],
+  "open_observations": [
+    "iPhone Location unavailable with reported system location permission enabled; inspect acquisition and app location consent",
+    "iPhone actual-text notification icon differs despite launcher name/E icon previously confirmed; exact icon/cache/asset cause not yet established"
+  ],
+  "planned_conditions": [
+    "Android next notification case starts from Helping after delivered Offer Help without first opening the new incident Chat; validates ordinary post-offer background receive readiness."
+  ]
+}

@@ -9,11 +9,15 @@ class RelayDiagnosticsRoute {
 
   static Route<void>? build({
     required RelayDiagnosticsDataSource dataSource,
+    RelayRuntimeDiagnosticsDataSource? runtimeDataSource,
     bool releaseMode = kReleaseMode,
   }) {
     if (releaseMode) return null;
     return MaterialPageRoute<void>(
-      builder: (_) => RelayDiagnosticsPage(dataSource: dataSource),
+      builder: (_) => RelayDiagnosticsPage(
+        dataSource: dataSource,
+        runtimeDataSource: runtimeDataSource,
+      ),
     );
   }
 }
@@ -22,10 +26,12 @@ class RelayDiagnosticsPage extends StatelessWidget {
   const RelayDiagnosticsPage({
     super.key,
     required this.dataSource,
+    this.runtimeDataSource,
     this.releaseMode = kReleaseMode,
   });
 
   final RelayDiagnosticsDataSource dataSource;
+  final RelayRuntimeDiagnosticsDataSource? runtimeDataSource;
   final bool releaseMode;
 
   @override
@@ -62,6 +68,20 @@ class RelayDiagnosticsPage extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             children: [
               const _EvidenceNotice(),
+              if (runtimeDataSource != null) ...[
+                const SizedBox(height: 12),
+                StreamBuilder<RelayRuntimeDiagnosticsSnapshot>(
+                  stream: runtimeDataSource!.watchRuntimeDiagnostics(),
+                  builder: (context, runtime) => _RuntimeCard(
+                    snapshot:
+                        runtime.data ??
+                        const RelayRuntimeDiagnosticsSnapshot(
+                          peers: <RelayPeerDiagnostic>[],
+                          events: <String>[],
+                        ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               Text(
                 context.l10n.relayMessagesStored(entries.length),
@@ -76,6 +96,92 @@ class RelayDiagnosticsPage extends StatelessWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _RuntimeCard extends StatelessWidget {
+  const _RuntimeCard({required this.snapshot});
+
+  final RelayRuntimeDiagnosticsSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Runtime relay state', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 8),
+            _DiagnosticRow(label: 'Due jobs', value: '${snapshot.dueJobs}'),
+            _DiagnosticRow(
+              label: 'Last scheduler',
+              value:
+                  snapshot.lastSchedulerExecution?.toLocal().toString() ??
+                  'Not recorded',
+            ),
+            _DiagnosticRow(
+              label: 'Last selected peer',
+              value: snapshot.lastSelectedPeer ?? 'Not recorded',
+            ),
+            _DiagnosticRow(
+              label: 'Last skip reason',
+              value: snapshot.lastSkipReason ?? 'Not recorded',
+            ),
+            _DiagnosticRow(
+              label: 'Last forward attempt',
+              value: snapshot.lastForwardAttempt ?? 'Not recorded',
+            ),
+            _DiagnosticRow(
+              label: 'Last durable receipt',
+              value: snapshot.lastDurableReceipt ?? 'Not recorded',
+            ),
+            const SizedBox(height: 8),
+            Text('Peer sessions', style: theme.textTheme.titleSmall),
+            for (final peer in snapshot.peers)
+              Text(
+                '${peer.peer} · ${peer.role} · ${peer.connected ? 'connected' : 'disconnected'} · ${peer.authenticated ? 'authenticated' : 'unauthenticated'} · ${peer.authenticated && peer.participating ? 'eligible' : 'ineligible'}',
+              ),
+            const SizedBox(height: 8),
+            Text('Recent events', style: theme.textTheme.titleSmall),
+            for (final event in snapshot.events) Text(event),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class RelayRuntimeDiagnosticsPage extends StatelessWidget {
+  const RelayRuntimeDiagnosticsPage({super.key, required this.dataSource});
+
+  final RelayRuntimeDiagnosticsDataSource dataSource;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Relay Runtime Diagnostics')),
+      body: StreamBuilder<RelayRuntimeDiagnosticsSnapshot>(
+        stream: dataSource.watchRuntimeDiagnostics(),
+        builder: (context, snapshot) => ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            const _EvidenceNotice(),
+            const SizedBox(height: 12),
+            _RuntimeCard(
+              snapshot:
+                  snapshot.data ??
+                  const RelayRuntimeDiagnosticsSnapshot(
+                    peers: <RelayPeerDiagnostic>[],
+                    events: <String>[],
+                  ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -238,7 +344,8 @@ class _MessageState extends StatelessWidget {
 }
 
 String _displayJobStatus(BuildContext context, String value) => switch (value) {
-  'storedOnRelay' => context.l10n.storedOnRelayStatus,
+  'storedOnRelay' =>
+    '${context.l10n.storedOnRelayStatus} · ${context.l10n.pending}',
   'acceptedByRelay' => context.l10n.storedByNextRelay,
   'awaitingHopReceipt' => context.l10n.awaitingHopReceipt,
   'finalDelivered' => context.l10n.finalReceiptRecorded,

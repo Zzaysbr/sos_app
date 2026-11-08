@@ -1,0 +1,139 @@
+{
+  "date": "2026-11-08",
+  "source_sha256": "ae8ba70574661e4d10739d240a8f71897fa598dcadc76be9a83b4f6d3dbec5ed",
+  "build_number": 5,
+  "status": "SCOPED BUILD 5 STAGED PHYSICAL SIGNED FINAL CHAT RECEIPT RUN COMPLETE; INCIDENT CANCELLED/HISTORY RETAINED",
+  "roles": {
+    "A": "iPhone origin",
+    "B": "Samsung relay-only, do not Offer Help",
+    "C": "iPad rescuer"
+  },
+  "procedure": "Keep Internet off and apps foreground/unlocked. Fully power Bluetooth off in Settings on one endpoint before enabling the other. Preserve each original message; inspect durable B state before handoff. No A-C direct radio overlap.",
+  "checks": [
+    {
+      "id": "SIGNED_SOS_PATH",
+      "status": "PASS IN THIS SINGLE STAGED STORE-AND-FORWARD RUN; SEE CAPTURED DB/CRYPTO AND OPERATOR LIMITS"
+    },
+    {
+      "id": "HELP_OFFER_ACK",
+      "status": "PASS IN THIS SINGLE STAGED STORE-AND-FORWARD RUN; SEE CAPTURED DB/CRYPTO AND OPERATOR LIMITS"
+    },
+    {
+      "id": "FORWARD_CHAT_RECEIPT",
+      "status": "PASS IN THIS SINGLE STAGED STORE-AND-FORWARD RUN; SEE CAPTURED DB/CRYPTO AND OPERATOR LIMITS"
+    },
+    {
+      "id": "REVERSE_CHAT_RECEIPT",
+      "status": "PASS IN THIS SINGLE STAGED STORE-AND-FORWARD RUN; SEE CAPTURED DB/CRYPTO AND OPERATOR LIMITS"
+    },
+    {
+      "id": "TERMINAL_CLEANUP",
+      "status": "PASS IN THIS SINGLE STAGED STORE-AND-FORWARD RUN; SEE CAPTURED DB/CRYPTO AND OPERATOR LIMITS"
+    }
+  ],
+  "operator_observations": [
+    {
+      "step": "build5_staged_a_b_preparation_ready",
+      "result": "User confirms iPad Bluetooth fully off in Settings; iPhone/Samsung apps/Bluetooth on, Internet off all three, Samsung Nearby SOS Relay enabled and relay-only role",
+      "scope": "Operator-confirmed preparation only; no fresh staged SOS or relay receipt yet."
+    },
+    {
+      "step": "staged_fresh_sos_a_b_db",
+      "result": "User confirms one SOS sent. Matching wired iPhone DB quick_check ok; signed origin and attempt/receipt summarized in STAGED_A_B_SOS.json.",
+      "scope": "Only A-B receipt evidence if matching count and accepted state established; no C radio activation yet."
+    },
+    {
+      "step": "build5_staged_c_sos_visible",
+      "result": "User confirms ordered iPhone Bluetooth off then iPad on, Rescue listening/relay enabled, and iPad sees latest SOS with Samsung on",
+      "scope": "Operator staged visibility only; exact C signed path/digest and B-C receipt still to inspect. No new SOS or Offer Help yet."
+    },
+    {
+      "step": "build5_staged_ipad_offer_pending",
+      "result": "User selects queued or forwarded after instructed single iPad Offer Help while iPhone Bluetooth remains off",
+      "scope": "Exact state not distinguished; Samsung durable response and B-C receipt inspection pending. No final Offer ACK or Chat receipt inferred."
+    },
+    {
+      "step": "build5_staged_b_c_receipt_c_b_offer_db_crypto",
+      "result": "Samsung DB same origin/digest, attempt acceptedByRelay/retry0 to known iPad key, one iPad signed hop receipt; one verified iPad Offer and identical queued relay outbox/retry0. Captured signature/origin-binding check passed 1 test.",
+      "scope": "B-C SOS receipt/C-B durable Offer; A/C endpoint correlation pending."
+    },
+    {
+      "step": "build5_staged_c_b_a_offer_visible",
+      "result": "User confirms ordered iPad Bluetooth off then iPhone on and iPhone Verified help offer received (1)",
+      "scope": "Origin offer UI after durable C-B evidence; final ACK return to C and staged Chat receipts pending."
+    },
+    {
+      "step": "staged_a_b_chat_no_premature_receipt",
+      "result": "User reports Relayed \u2014 delivery not confirmed with C radio off. B read-only DB quick_check ok: unique verified inbox, queued hop1/retry0 outbox, reverse route awaiting/no receipt. Captured signature/path test passed 1.",
+      "scope": "Durable A-B copy only, not final recipient receipt."
+    },
+    {
+      "step": "staged_build5_forward_chat_visible_once_at_c",
+      "result": "User confirms ordered iPhone Bluetooth off then iPad on; MULTI-RECEIPT-A-C-01 visible once in current iPad Chat",
+      "scope": "One staged receiver visibility observation after captured signed B queue. C receipt at B/A still pending inspection; no final sender confirmed storage yet."
+    },
+    {
+      "step": "staged_b_forward_receipt_reverse_chat_captured",
+      "result": "User reports reverse unconfirmed label with A off. B quick_check ok: valid iPad forward receipt queued/retry0 returning to A, forward job delivered; reverse verified inbox and queued hop1/retry0 Chat, reverse route awaiting/no receipt. Captured final signature/reverse path test passed.",
+      "scope": "B durable evidence only; A final forward receipt/reverse message and C final reverse receipt pending."
+    },
+    {
+      "step": "staged_reverse_chat_visible_once_at_a",
+      "result": "User confirms ordered iPad Bluetooth off then iPhone on and MULTI-RECEIPT-C-A-01 appears once in current iPhone Chat",
+      "scope": "One reverse endpoint visibility observation after signed C-B queue capture. Forward sender delivered label/receipt application and reverse final receipt still pending."
+    },
+    {
+      "step": "staged_a_forward_confirmed_stored_label",
+      "result": "User confirms iPhone MULTI-RECEIPT-A-C-01 shows Confirmed stored after C-off/A-on handoff",
+      "scope": "Forward delivered-label UI after captured signed C receipt at B; exact A applied receipt correlation and reverse receipt at C pending."
+    },
+    {
+      "step": "staged_a_receipts_db_crypto_correlated",
+      "result": "A DB quick_check ok/schema10: forward exact B envelope/receipt applied, reverse exact B envelope stored once and A receipt queued; one delivered local Chat row each. Captured both-recipient receipt verification passed 1 test.",
+      "scope": "Forward final receipt verified at A; reverse receipt at C pending."
+    },
+    {
+      "step": "build5_staged_origin_cancelled_history_retained",
+      "result": "User confirms current staged SOS cancelled on iPhone and history retained while C Bluetooth remains off and A/B on",
+      "scope": "Origin cancellation/history UI only. B reverse receipt/authorized terminal persistence and C final receipt/terminal delivery still pending."
+    },
+    {
+      "step": "staged_b_reverse_receipt_and_terminal_durable",
+      "result": "B quick_check ok. Reverse receipt exactly A canonical signed receipt queued/retry0/previous=C. Same current incident has one lifecycle_authorized cancellation/candidate cancelled; captured origin signature test passed.",
+      "scope": "B durable work only; final C receipt/terminal arrival not yet verified."
+    },
+    {
+      "step": "build5_staged_terminal_removed_from_c_helping",
+      "result": "User confirms ordered iPhone Bluetooth off then iPad on and latest cancelled test incident disappeared from iPad Helping",
+      "scope": "One terminal list-update UI observation after B authorized event captured. C final reverse receipt UI/DB, exact terminal and stored signed SOS path still pending."
+    },
+    {
+      "step": "build5_staged_c_reverse_confirmed_stored",
+      "result": "User confirms retained current incident Chat opened from iPad received history and MULTI-RECEIPT-C-A-01 shows Confirmed stored after final handoff",
+      "scope": "Both staged sender delivered labels now observed; final C exact receipt/ID/terminal/SOS path correlation pending, not yet full scoped completion."
+    },
+    {
+      "step": "build5_staged_c_final_db_crypto_correlation",
+      "result": "Final C quick_check ok/schema10. SOS same origin/digest/path origin+Samsung/hop1 and signatures reverified. Both exact Chat IDs/envelopes/receipts match A/B, one local delivered row each; reverse receipt applied. Offer delivered/final_ack_at present; exact B lifecycle payload authorized at C and candidate/local incident cancelled. Seven archived local candidates remain.",
+      "scope": "One complete staged physical build5 final receipt round each direction plus terminal cleanup; repeated/simultaneous/OS-kill/range not claimed."
+    }
+  ],
+  "session_summary": {
+    "supported": [
+      "A-B and B-C signed SOS hop receipts; captured C path/signatures prove origin\u2192Samsung\u2192iPad",
+      "C-B-A Help Offer and returning ACK with final C delivered/final_ack_at",
+      "Forward Chat queued at B while C off, sender unconfirmed before C reception; C receipt captured at B and exact applied at A",
+      "Reverse Chat queued at B while A off, sender unconfirmed before A reception; A receipt captured at B and exact applied at C",
+      "Both receiver local Chat rows once per exact message ID, canonical signed envelopes and receipts matched across endpoints/intermediary",
+      "Origin cancellation/history retained and exact authorized signed event at B/C, C local/candidate cancelled and Helping list removed",
+      "Seven historical iPad archives still retained"
+    ],
+    "not_claimed": [
+      "Global exactly-once, human read/acceptance or dispatch",
+      "Simultaneous-connected topology/range/repeated reliability",
+      "Long idle/OS-kill/unrestricted background",
+      "GPS timeout root cause fixed"
+    ],
+    "last_operator_settings": "iPhone Bluetooth off; Samsung/iPad app/Bluetooth on; Internet off all three; relay/listening restoration not confirmed"
+  }
+}

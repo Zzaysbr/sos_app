@@ -1,0 +1,11 @@
+{
+  "device": "Samsung SM-A536E",
+  "source_sha256": "d6d427a564f8c9fa6afe1fdf9f883ee971166161e8a31350d0c1d6f88242ebc7",
+  "install_exit": 0,
+  "update_in_place": true,
+  "launch_command_ok": true,
+  "process_present": true,
+  "launch_user_confirmed": true,
+  "history_preservation_not_yet_user_verified": true,
+  "user_observation": "App opens normally"
+}

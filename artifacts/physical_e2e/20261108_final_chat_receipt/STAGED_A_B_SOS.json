@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-08",
+  "build_number": 5,
+  "matching_saved_wired_iphone": true,
+  "inspection": "Read-only Documents copy; live copy not coordinated snapshot",
+  "result": {
+    "quick_check": "ok",
+    "active_sos_coordinates_present": false,
+    "attempts": [
+      {
+        "state": "acceptedByRelay",
+        "retry_count": 0,
+        "accepted_at_present": true,
+        "destination_is_samsung": true
+      }
+    ],
+    "samsung_matching_hop_receipts": 1
+  },
+  "scope": "Persisted production-validated hop receipt inspection, not independent signature revalidation in this step. No C reception or Chat final receipt yet."
+}

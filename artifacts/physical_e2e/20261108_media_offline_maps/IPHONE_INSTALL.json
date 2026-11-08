@@ -1,0 +1,54 @@
+{
+  "date": "2026-11-08",
+  "device_alias": "iPhone 15 Plus",
+  "known_target_identity_match": true,
+  "wired_target": true,
+  "update_in_place": true,
+  "uninstall_or_data_clear": false,
+  "before_version": 5,
+  "after_version": 6,
+  "schema_before": 10,
+  "schema_after": 10,
+  "before_and_after_quick_check": "ok",
+  "application_rows": {
+    "sos_messages": {
+      "before": 20,
+      "after": 20,
+      "all_original_rows_retained": true,
+      "all_original_row_values_unchanged": true
+    },
+    "chat_messages": {
+      "before": 56,
+      "after": 56,
+      "all_original_rows_retained": true,
+      "all_original_row_values_unchanged": true
+    }
+  },
+  "install_exit": 0,
+  "launch_command_exit": 0,
+  "visual_launch_history_confirmation": "PASS: user confirms Profile build6 opens normally from Home Screen and previous history retained",
+  "scope": "Update-in-place and Home Screen launch/history continuity passed in stated scope; no physical map/media acceptance yet",
+  "initial_debug_home_launch": "FAILED: confirmed Flutter debug-mode restriction",
+  "profile_replacement": {
+    "mode": "profile",
+    "build": 6,
+    "install_exit": 0,
+    "standalone_preflight_exit": 0,
+    "before_after_quick_check": "ok",
+    "application_rows": {
+      "sos_messages": {
+        "before": 20,
+        "after": 20,
+        "all_original_rows_retained": true,
+        "all_original_row_values_unchanged": true
+      },
+      "chat_messages": {
+        "before": 56,
+        "after": 56,
+        "all_original_rows_retained": true,
+        "all_original_row_values_unchanged": true
+      }
+    },
+    "launch_from_home": "PASS: user confirmation 2026-11-08"
+  }
+}

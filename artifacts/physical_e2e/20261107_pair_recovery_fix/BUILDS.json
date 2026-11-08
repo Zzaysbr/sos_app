@@ -1,0 +1,45 @@
+{
+  "date": "2026-11-07",
+  "source_sha256": "cdf31273254c2397e7544144dd87179272964025c3fef247e24c0ee59228e99f",
+  "android": {
+    "command": "flutter build apk --profile --no-pub --target-platform android-arm64",
+    "exit_code": 0,
+    "artifact": "build/app/outputs/flutter-apk/app-profile.apk",
+    "sha256": "d6123f56618ffd602fd4058e160f2560caaf4ebafea9667e9681e0efb26cecae",
+    "signature_verified": true,
+    "installed": "SUCCESS; update in place with adb install -r -t; no uninstall/data clear",
+    "launch": "SUCCESS; am start Status: ok and process present",
+    "device": {
+      "alias": "Android-1",
+      "model": "SM-A536E",
+      "os_version": "14"
+    },
+    "operator_ui_confirmation": "User confirmed the updated app opens normally; physical BLE retest not started."
+  },
+  "ios": {
+    "command": "flutter build ios --profile --no-pub",
+    "exit_code": 0,
+    "xcode_build_seconds": 34.6,
+    "artifact": "build/ios/iphoneos/Runner.app",
+    "binary_sha256": "da376c2c66fcc6b791f35968167d9ee31b93ee4a18021d5cff6f23cc60a9afbd",
+    "signature_verified": true,
+    "installed": "SUCCESS; iPhone and iPad updated",
+    "devices": [
+      {
+        "alias": "iOS-2",
+        "model": "iPad Air 11-inch (M2)",
+        "installed": "SUCCESS; update in place; no uninstall/data clear",
+        "launch": "SUCCESS; devicectl launch",
+        "operator_ui_confirmation": "User confirmed the updated app opens normally; physical BLE retest not started."
+      },
+      {
+        "alias": "iOS-1",
+        "model": "iPhone 15 Plus",
+        "installed": "SUCCESS; update in place; no uninstall/data clear",
+        "launch": "SUCCESS; devicectl launch",
+        "operator_ui_confirmation": "User confirmed the updated app opens normally; physical BLE retest not started."
+      }
+    ]
+  },
+  "physical_retest": "CLOSED: one SOS/Help Offer ACK round trip passed by operator report. Forward Chat received once; iPhone send button stuck loading >15s. SOS canceled; reverse Chat/reconnect/three-node not run."
+}

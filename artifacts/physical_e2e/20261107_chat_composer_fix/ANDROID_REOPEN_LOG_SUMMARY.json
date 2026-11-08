@@ -1,0 +1,16 @@
+{
+  "date": "2026-11-07",
+  "source_sha256": "aa43b891ee7d1de1b4fa547e7c556faf39bd6675baa873051646a70932595657",
+  "capture": "Bounded Android app-UID live log started before user explicitly reopened app.",
+  "event_counts_in_available_capture": {
+    "session_created": 0,
+    "session_authenticated": 0,
+    "relaySessionProofTimedOut": 0,
+    "chat_relay_received": 0,
+    "chat_relay_forwarded": 0,
+    "BLE inbound processing failed": 0,
+    "FATAL EXCEPTION": 0
+  },
+  "limits": "No proof/Chat logs in available capture does not establish events never occurred. Operator reports no original message after 3 minutes. Sender diagnostics pending.",
+  "raw_log": "Private temporary file outside repository only."
+}

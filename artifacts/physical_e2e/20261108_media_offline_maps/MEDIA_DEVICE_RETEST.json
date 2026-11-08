@@ -1,0 +1,26 @@
+{
+  "date": "2026-11-08",
+  "application_build": 7,
+  "schema": 10,
+  "status": "FIRST PHOTO NOT RECEIVED WITHIN3 MINUTES; FRAMING FIX8 IN PROGRESS",
+  "test_pair": [
+    "iPhone 15 Plus",
+    "Samsung SM-A536E"
+  ],
+  "isolation": "Request iPad Bluetooth off in Settings; pair Internet off and Bluetooth/apps foreground; Samsung Rescue listening/relay",
+  "next": "Preserve incident/message for diagnosis; do not resend/cancel until instructed; build8 verification pending",
+  "physical_cases": {
+    "iphone_camera_photo": "NOT PASSED: no receiver photo at3 minutes, sender Relayed; manifests/file intact,0/121 chunks at capture. See ../20261108_media_frame_recovery/DIAGNOSIS.json",
+    "iphone_library_photo": "NOT TESTED",
+    "iphone_camera_video": "NOT TESTED",
+    "iphone_library_video": "NOT TESTED",
+    "samsung_camera_photo": "NOT TESTED",
+    "samsung_library_photo": "NOT TESTED",
+    "samsung_camera_video": "NOT TESTED",
+    "samsung_library_video": "NOT TESTED"
+  },
+  "scope": "Preparation only; no media delivery/picker/playback or physical throughput inference",
+  "preparation_confirmation": "User confirms instructed iPad Bluetooth off in Settings; iPhone/Samsung Internet off, Bluetooth on, apps foreground/unlocked and Samsung Rescue/relay ready on 2026-11-08",
+  "fresh_sos_visibility": "User reports Samsung sees newly requested iPhone test SOS on 2026-11-08; no exact incident/path or coordinate inspection in this step",
+  "offer_confirmation": "User reports iPhone Verified help offer received(1) and Samsung Offer delivery delivered after instructed single offer on 2026-11-08"
+}

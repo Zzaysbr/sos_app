@@ -16,3 +16,8 @@ Regenerate a snapshot only from the source revision that originally owned
 that schema version. Never recreate an old version by manually transcribing
 DDL from the current schema.
 
+
+- `drift_schema_v10.json` was generated from the current source on 8 November
+  2026 for additive durable Chat receipt/reverse-route storage. Version 9
+  snapshots remain unchanged; migration tests preserve queued Chat and local
+  archived tracking rows from v9.

@@ -23,6 +23,9 @@ import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
+import android.content.BroadcastReceiver
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -51,6 +54,8 @@ class BleTransportBridge(
         val CCCD: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
     }
 
+    var activity: Activity? = null
+
     private val methods = MethodChannel(messenger, "sos_ble_transport/methods")
     private val eventChannel = EventChannel(messenger, "sos_ble_transport/events")
     private val manager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
@@ -68,6 +73,9 @@ class BleTransportBridge(
     private var advertiseCallback: AdvertiseCallback? = null
     private val clients = mutableMapOf<String, BluetoothGatt>()
     private val readyClients = mutableSetOf<String>()
+    private val centralMtus = mutableMapOf<String, Int>()
+    private val peripheralMtus = mutableMapOf<String, Int>()
+    private val mtuSetupTimeouts = mutableMapOf<String, Runnable>()
     private data class PendingGattWrite(val value: ByteArray, val result: MethodChannel.Result)
     private val writeQueues = mutableMapOf<String, ArrayDeque<PendingGattWrite>>()
     private val writeInFlight = mutableMapOf<String, PendingGattWrite>()
@@ -76,13 +84,17 @@ class BleTransportBridge(
     private val notificationClients = mutableSetOf<String>()
     private val serverClients = mutableSetOf<String>()
     private val disconnectReasons = mutableMapOf<String, String>()
+    private val connectionTimeouts = mutableMapOf<String, Runnable>()
     private val setupTimeouts = mutableMapOf<String, Runnable>()
     private val connectionAttempts = mutableMapOf<String, Long>()
     private var nextConnectionAttempt = 0L
+    private val gattConnectionTimeoutMs = 15_000L
     private val gattSetupTimeoutMs = 15_000L
     private data class PendingNotification(val value: ByteArray, val result: MethodChannel.Result)
     private val notificationQueues = mutableMapOf<String, ArrayDeque<PendingNotification>>()
     private val notificationInFlight = mutableSetOf<String>()
+    private val notificationTimeouts = mutableMapOf<String, Runnable>()
+    private val notificationCallbackTimeoutMs = 5_000L
     private val maxPendingNotifications = 32
     // onNotificationSent only confirms that Android's local stack accepted a
     // notification. Sending the next frame immediately can overrun an iOS
@@ -96,7 +108,29 @@ class BleTransportBridge(
     private val lastScanEmitMs = mutableMapOf<String, Long>()
     private val scanEmitIntervalMs = 500L
 
+    private var receiverRegistered = false
+    private val adapterReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action != BluetoothAdapter.ACTION_STATE_CHANGED || disposed) return
+            when (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)) {
+                BluetoothAdapter.STATE_TURNING_OFF, BluetoothAdapter.STATE_OFF -> {
+                    // Retire native GATT objects and callbacks, keeping the
+                    // Dart consumer's saved radio leases and durable queues.
+                    dispose()
+                    disposed = false
+                    emit(mapOf("type" to "state", "state" to "poweredOff"))
+                }
+                BluetoothAdapter.STATE_ON -> emit(mapOf("type" to "state", "state" to "poweredOn"))
+            }
+        }
+    }
+
     fun register() {
+        if (!receiverRegistered) {
+            ContextCompat.registerReceiver(context, adapterReceiver,
+                IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED), ContextCompat.RECEIVER_EXPORTED)
+            receiverRegistered = true
+        }
         // A Flutter hot restart can replace the Dart channel while the
         // Android permission dialog is still open. Do not leave the old
         // MethodChannel result blocking the new Dart isolate.
@@ -116,7 +150,7 @@ class BleTransportBridge(
         disposed = true
         generation += 1
         stopDiscovery()
-        try { advertiser?.stopAdvertising(advertiseCallback) } catch (_: SecurityException) { }
+        try { advertiseCallback?.let { advertiser?.stopAdvertising(it) } } catch (_: Exception) { }
         advertiser = null
         advertiseCallback = null
         advertisingActive = false
@@ -131,6 +165,10 @@ class BleTransportBridge(
         failAllGattWrites("disposed", "BLE transport was disposed")
         clients.clear()
         readyClients.clear()
+        centralMtus.clear()
+        peripheralMtus.clear()
+        mtuSetupTimeouts.values.forEach(mainHandler::removeCallbacks)
+        mtuSetupTimeouts.clear()
         notificationClients.clear()
         serverClients.clear()
         notificationQueues.values.flatten().forEach {
@@ -138,7 +176,11 @@ class BleTransportBridge(
         }
         notificationQueues.clear()
         notificationInFlight.clear()
+        notificationTimeouts.values.forEach(mainHandler::removeCallbacks)
+        notificationTimeouts.clear()
         disconnectReasons.clear()
+        connectionTimeouts.values.forEach(mainHandler::removeCallbacks)
+        connectionTimeouts.clear()
         setupTimeouts.values.forEach(mainHandler::removeCallbacks)
         setupTimeouts.clear()
         connectionAttempts.clear()
@@ -213,6 +255,16 @@ class BleTransportBridge(
                 "connect" -> connect(call.argument<String>("deviceId"), result)
                 "disconnect" -> disconnect(call.argument<String>("deviceId"), result)
                 "send" -> send(call, result)
+                "maxFrameBytes" -> {
+                    val id = call.argument<String>("deviceId")
+                    val role = call.argument<String>("role")
+                    val mtu = if (role == "peripheral" && notificationClients.contains(id)) {
+                        peripheralMtus[id] ?: 23
+                    } else if (role != "peripheral" && readyClients.contains(id)) {
+                        centralMtus[id] ?: 23
+                    } else 23
+                    result.success((mtu - 3).coerceIn(20, 512))
+                }
                 "dispose" -> {
                     dispose()
                     result.success(null)
@@ -247,7 +299,7 @@ class BleTransportBridge(
             result.error("busy", "A Bluetooth permission request is already in progress", null)
             return
         }
-        val activity = context as? Activity
+        val activity = activity ?: context as? Activity
         if (activity == null) {
             result.error("permission_unavailable", "Bluetooth permissions require an active Android activity", null)
             emitError("Bluetooth permission request requires an active activity")
@@ -318,7 +370,7 @@ class BleTransportBridge(
         if (adapter == null) return "unsupported"
         if (!hasPermissionFor("initialize")) return "unauthorized"
         return try {
-            if (adapter.isEnabled) "idle" else "poweredOff"
+            if (adapter.isEnabled) "poweredOn" else "poweredOff"
         } catch (_: SecurityException) {
             "unauthorized"
         }
@@ -373,7 +425,7 @@ class BleTransportBridge(
     }
 
     private fun stopAdvertising(result: MethodChannel.Result) {
-        advertiser?.stopAdvertising(advertiseCallback)
+        advertiseCallback?.let { advertiser?.stopAdvertising(it) }
         advertiseCallback = null
         advertisingActive = false
         advertisingResult?.error("cancelled", "Advertising was stopped before it started", null)
@@ -407,9 +459,14 @@ class BleTransportBridge(
                     .setIncludeDeviceName(false)
                     .addServiceUuid(ParcelUuid(SERVICE))
                     .build(),
-                AdvertiseData.Builder()
-                    .setIncludeDeviceName(true)
-                    .build(),
+                // Do not put the device name in the scan response. Some
+                // Android adapters account for the local-name overhead
+                // differently and reject this otherwise valid 128-bit UUID
+                // advertisement with ADVERTISE_FAILED_DATA_TOO_LARGE.
+                // Discovery is filtered by SERVICE, so the name is optional
+                // and can still be supplied by the native device record when
+                // available.
+                AdvertiseData.Builder().build(),
                 callback,
             )
         } catch (error: Exception) {
@@ -429,7 +486,7 @@ class BleTransportBridge(
             emitError("BLE scanning is unavailable")
             return
         }
-        scanner?.stopScan(scanCallback)
+        scanCallback?.let { scanner?.stopScan(it) }
         scanner = current
         val session = ++scanSession
         lastScanEmitMs.clear()
@@ -450,7 +507,7 @@ class BleTransportBridge(
     }
 
     private fun stopDiscovery() {
-        try { scanner?.stopScan(scanCallback) } catch (_: Exception) { }
+        try { scanCallback?.let { scanner?.stopScan(it) } } catch (_: Exception) { }
         scanner = null
         scanCallback = null
         scanSession += 1
@@ -481,6 +538,7 @@ class BleTransportBridge(
         val attempt = ++nextConnectionAttempt
         connectionAttempts[id] = attempt
         clients[id] = gatt
+        scheduleConnectionTimeout(id, gatt, attempt)
         logDebug("connect attempt=$attempt id=$id")
         emit(mapOf("type" to "connecting", "device" to device(remote), "role" to "central", "attempt" to attempt))
         result.success(null)
@@ -493,14 +551,26 @@ class BleTransportBridge(
         }
         disconnectReasons[id] = "flutter disconnect()"
         clients[id]?.let {
+            val attempt = connectionAttempts[id]
             logDebug("disconnect requested id=$id")
             failGattWrites(id, "disconnected", "BLE connection was disconnected")
-            it.disconnect()
-            // Wait for onConnectionStateChange before closing this object.
+            try { it.disconnect() } catch (_: SecurityException) { }
+            // Do not depend on a vendor callback to release the GATT object.
+            // A late callback is rejected by isCurrentGatt and cannot clear a
+            // newer retry for the same address.
+            cleanupCentral(id, it)
+            emit(
+                mapOf(
+                    "type" to "disconnected",
+                    "device" to device(it.device),
+                    "error" to "local_disconnect",
+                    "role" to "central",
+                    "attempt" to attempt,
+                ),
+            )
         }
         readyClients.remove(id)
         notificationClients.remove(id)
-        cancelSetupTimeout(id)
         result.success(null)
     }
 
@@ -547,15 +617,11 @@ class BleTransportBridge(
         }
 
         writeInFlight[id] = pending
+        val attempt = connectionAttempts[id]
         val timeout = Runnable {
-            completeGattWrite(
-                id,
-                BluetoothGatt.GATT_FAILURE,
-                "GATT write timed out for $id",
-                continueQueue = false,
-            )
-            failGattWrites(id, "timeout", "GATT write queue timed out for $id")
-            clients[id]?.disconnect()
+            if (!isCurrentGatt(gatt) || writeInFlight[id] !== pending) return@Runnable
+            logError("GATT write callback timeout id=$id attempt=${attempt ?: "unknown"}")
+            terminateTimedOutConnection(id, gatt, attempt, "GATT write timed out for $id")
         }
         writeTimeouts[id] = timeout
         mainHandler.postDelayed(timeout, gattWriteTimeoutMs)
@@ -603,8 +669,12 @@ class BleTransportBridge(
 
     private fun failGattWrites(id: String, code: String, message: String) {
         writeTimeouts.remove(id)?.let(mainHandler::removeCallbacks)
-        writeInFlight.remove(id)?.result?.error(code, message, null)
-        writeQueues.remove(id)?.forEach { it.result.error(code, message, null) }
+        val active = writeInFlight.remove(id)
+        val queued = writeQueues.remove(id)
+        // The active write remains at the queue head until its callback.
+        // Detach everything first and complete each MethodChannel result once.
+        active?.result?.error(code, message, null)
+        queued?.forEach { if (it !== active) it.result.error(code, message, null) }
     }
 
     private fun failAllGattWrites(code: String, message: String) {
@@ -669,6 +739,22 @@ class BleTransportBridge(
             return
         }
         notificationInFlight.add(id)
+        // A successful API return is not a completed notification. Some
+        // stacks omit onNotificationSent; fail and retire that session rather
+        // than leave every subsequent proof/relay write waiting forever.
+        val timeout = Runnable {
+            if (notificationQueues[id] !== queue || queue.firstOrNull() !== pending ||
+                !notificationInFlight.contains(id)) return@Runnable
+            logError("notification callback timeout id=$id")
+            serverClients.remove(id)
+            notificationClients.remove(id)
+            clearNotificationSession(id, "Notification callback timed out")
+            try { currentServer.cancelConnection(device) } catch (_: SecurityException) { }
+            emit(mapOf("type" to "error", "device" to device(device), "role" to "peripheral", "error" to "notification_callback_timeout"))
+            emit(mapOf("type" to "disconnected", "device" to device(device), "role" to "peripheral", "error" to "notification_callback_timeout"))
+        }
+        notificationTimeouts[id] = timeout
+        mainHandler.postDelayed(timeout, notificationCallbackTimeoutMs)
     }
 
     private fun device(value: BluetoothDevice, rssi: Int? = null) = mapOf(
@@ -813,7 +899,10 @@ class BleTransportBridge(
 
         override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
             onMain {
+                if (!isCurrentGatt(gatt)) return@onMain
                 logDebug("onMtuChanged id=${gatt.device.address} mtu=$mtu status=$status")
+                if (status == BluetoothGatt.GATT_SUCCESS && mtu >= 23) centralMtus[gatt.device.address] = mtu
+                if (mtuSetupTimeouts.containsKey(gatt.device.address)) completeMtuSetup(gatt)
             }
         }
     }
@@ -835,11 +924,12 @@ class BleTransportBridge(
         }
         val reason = disconnectReasons[id] ?: "remote_or_stack"
         logDebug("onConnectionStateChange attempt=${attempt ?: "unknown"} id=$id status=$status newState=$newState reason=$reason")
+        cancelConnectionTimeout(id)
         if (status != BluetoothGatt.GATT_SUCCESS) {
             failGattWrites(id, "disconnected", "GATT connection failed for $id (status $status)")
             cleanupCentral(id, gatt)
-            emit(mapOf("type" to "error", "error" to "GATT connection failed for $id (status $status)", "device" to device(gatt.device), "role" to "central"))
-            emit(mapOf("type" to "disconnected", "device" to device(gatt.device), "error" to "status $status", "role" to "central"))
+            emit(mapOf("type" to "error", "error" to "GATT connection failed for $id (status $status)", "device" to device(gatt.device), "role" to "central", "attempt" to attempt))
+            emit(mapOf("type" to "disconnected", "device" to device(gatt.device), "error" to "status $status", "role" to "central", "attempt" to attempt))
             return
         }
         if (newState == BluetoothProfile.STATE_CONNECTED) {
@@ -853,7 +943,7 @@ class BleTransportBridge(
         } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
             failGattWrites(id, "disconnected", "GATT disconnected for $id")
             cleanupCentral(id, gatt)
-            emit(mapOf("type" to "disconnected", "device" to device(gatt.device), "role" to "central"))
+            emit(mapOf("type" to "disconnected", "device" to device(gatt.device), "role" to "central", "attempt" to attempt))
         }
     }
 
@@ -918,10 +1008,15 @@ class BleTransportBridge(
         logDebug("onDescriptorWrite id=$id uuid=${descriptor.uuid} status=$status")
         if (descriptor.uuid != CCCD) return
         if (status == BluetoothGatt.GATT_SUCCESS) {
-            cancelSetupTimeout(id)
-            readyClients.add(id)
-            logDebug("transport ready id=$id")
-            emit(mapOf("type" to "connected", "device" to device(gatt.device), "role" to "central", "attempt" to connectionAttempts[id]))
+            if (readyClients.contains(id) || mtuSetupTimeouts.containsKey(id)) return
+            val timeout = Runnable { if (isCurrentGatt(gatt)) completeMtuSetup(gatt) }
+            mtuSetupTimeouts[id] = timeout
+            mainHandler.postDelayed(timeout, 3_000L)
+            // Negotiate after CCCD completion, before exposing readiness to
+            // Dart; do not race MTU negotiation with application GATT writes.
+            try {
+                if (!gatt.requestMtu(247)) completeMtuSetup(gatt)
+            } catch (_: Exception) { completeMtuSetup(gatt) }
         } else {
             readyClients.remove(id)
             emitError("TX notification setup failed for $id (status $status)")
@@ -931,14 +1026,28 @@ class BleTransportBridge(
 
     private fun isCurrentGatt(gatt: BluetoothGatt): Boolean = clients[gatt.device.address] === gatt
 
+    private fun completeMtuSetup(gatt: BluetoothGatt) {
+        val id = gatt.device.address
+        mtuSetupTimeouts.remove(id)?.let(mainHandler::removeCallbacks)
+        if (!isCurrentGatt(gatt) || readyClients.contains(id)) return
+        cancelSetupTimeout(id)
+        readyClients.add(id)
+        emit(mapOf("type" to "connected", "device" to device(gatt.device), "role" to "central", "attempt" to connectionAttempts[id]))
+    }
+
     private fun scheduleSetupTimeout(id: String, gatt: BluetoothGatt) {
         cancelSetupTimeout(id)
         val timeout = Runnable {
             if (isCurrentGatt(gatt) && !readyClients.contains(id)) {
-                logError("GATT setup timeout id=$id attempt=${connectionAttempts[id] ?: "unknown"}")
-                emitError("GATT setup timed out for $id")
+                val attempt = connectionAttempts[id]
+                logError("GATT setup timeout id=$id attempt=${attempt ?: "unknown"}")
                 disconnectReasons[id] = "GATT setup timeout"
-                gatt.disconnect()
+                terminateTimedOutConnection(
+                    id,
+                    gatt,
+                    attempt,
+                    "GATT setup timed out for $id",
+                )
             }
         }
         setupTimeouts[id] = timeout
@@ -949,7 +1058,62 @@ class BleTransportBridge(
         setupTimeouts.remove(id)?.let(mainHandler::removeCallbacks)
     }
 
+    private fun scheduleConnectionTimeout(id: String, gatt: BluetoothGatt, attempt: Long) {
+        cancelConnectionTimeout(id)
+        val timeout = Runnable {
+            if (isCurrentGatt(gatt) && !readyClients.contains(id)) {
+                logError("GATT connection callback timeout id=$id attempt=$attempt")
+                disconnectReasons[id] = "GATT connection callback timeout"
+                terminateTimedOutConnection(
+                    id,
+                    gatt,
+                    attempt,
+                    "GATT connection timed out before the first native callback for $id",
+                )
+            }
+        }
+        connectionTimeouts[id] = timeout
+        mainHandler.postDelayed(timeout, gattConnectionTimeoutMs)
+    }
+
+    private fun cancelConnectionTimeout(id: String) {
+        connectionTimeouts.remove(id)?.let(mainHandler::removeCallbacks)
+    }
+
+    private fun terminateTimedOutConnection(
+        id: String,
+        gatt: BluetoothGatt,
+        attempt: Long?,
+        message: String,
+    ) {
+        if (!isCurrentGatt(gatt)) return
+        failGattWrites(id, "timeout", message)
+        try { gatt.disconnect() } catch (_: SecurityException) { }
+        cleanupCentral(id, gatt)
+        emit(
+            mapOf(
+                "type" to "error",
+                "error" to message,
+                "device" to device(gatt.device),
+                "role" to "central",
+                "attempt" to attempt,
+            ),
+        )
+        emit(
+            mapOf(
+                "type" to "disconnected",
+                "device" to device(gatt.device),
+                "error" to "timeout",
+                "role" to "central",
+                "attempt" to attempt,
+            ),
+        )
+    }
+
     private fun cleanupCentral(id: String, gatt: BluetoothGatt) {
+        mtuSetupTimeouts.remove(id)?.let(mainHandler::removeCallbacks)
+        centralMtus.remove(id)
+        cancelConnectionTimeout(id)
         cancelSetupTimeout(id)
         readyClients.remove(id)
         if (clients[id] === gatt) clients.remove(id)
@@ -960,6 +1124,13 @@ class BleTransportBridge(
     }
 
     private fun serverCallback(session: Int) = object : BluetoothGattServerCallback() {
+        override fun onMtuChanged(device: BluetoothDevice, mtu: Int) {
+            onMain {
+                if (!disposed && session == generation && serverClients.contains(device.address) && mtu >= 23) {
+                    peripheralMtus[device.address] = mtu
+                }
+            }
+        }
         override fun onServiceAdded(status: Int, service: BluetoothGattService) {
             onMain {
                 if (disposed || session != generation) return@onMain
@@ -1060,11 +1231,13 @@ class BleTransportBridge(
                 if (newState == BluetoothProfile.STATE_CONNECTED && status == BluetoothGatt.GATT_SUCCESS) {
                     serverClients.add(device.address)
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                    peripheralMtus.remove(device.address)
                     serverClients.remove(device.address)
                     notificationClients.remove(device.address)
                     clearNotificationSession(device.address, "Peripheral peer disconnected")
                     emit(mapOf("type" to "disconnected", "device" to device(device), "error" to if (status == BluetoothGatt.GATT_SUCCESS) null else "status $status", "role" to "peripheral"))
                 } else if (status != BluetoothGatt.GATT_SUCCESS) {
+                    peripheralMtus.remove(device.address)
                     serverClients.remove(device.address)
                     notificationClients.remove(device.address)
                     clearNotificationSession(device.address, "GATT server connection failed (status $status)")
@@ -1079,6 +1252,11 @@ class BleTransportBridge(
                 logDebug("onNotificationSent id=${device.address} status=$status subscribed=${notificationClients.contains(device.address)}")
                 val id = device.address
                 val queue = notificationQueues[id]
+                if (!notificationInFlight.contains(id) || queue == null || queue.isEmpty()) {
+                    logDebug("Ignoring notification callback without an active write id=$id")
+                    return@onMain
+                }
+                notificationTimeouts.remove(id)?.let(mainHandler::removeCallbacks)
                 val pending = if (queue != null && !queue.isEmpty()) queue.removeFirst() else null
                 if (pending != null) {
                     if (status == BluetoothGatt.GATT_SUCCESS) {
@@ -1089,6 +1267,7 @@ class BleTransportBridge(
                         // send it until CoreBluetooth has breathing room.
                         mainHandler.postDelayed({
                             if (disposed || session != generation) return@postDelayed
+                            if (notificationQueues[id] !== queue) return@postDelayed
                             notificationInFlight.remove(id)
                             flushPeripheralNotifications(id)
                         }, notificationInterFrameDelayMs)
@@ -1104,6 +1283,7 @@ class BleTransportBridge(
     }
 
     private fun clearNotificationSession(id: String, message: String) {
+        notificationTimeouts.remove(id)?.let(mainHandler::removeCallbacks)
         notificationInFlight.remove(id)
         notificationQueues.remove(id)?.forEach {
             it.result.error("disconnected", message, null)

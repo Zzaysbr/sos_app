@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-08",
+  "build_number": 3,
+  "device_alias": "A iPhone",
+  "matching_saved_wired_target": true,
+  "inspection": "Read-only Documents DB copy; quick_check ok; live copy not coordinated snapshot",
+  "reverse_chat": {
+    "same_private_message_id_as_B": true,
+    "same_incident": true,
+    "relay_inbox_rows": 1,
+    "canonical_payload_equals_B": true,
+    "inbox_state": "verified",
+    "local_chat_rows_by_message_or_remote_id": 1,
+    "actual_text_not_exported": true
+  },
+  "forward_chat": {
+    "origin_outbox_rows": 1,
+    "canonical_envelope_equals_B_inbox": true
+  },
+  "help_offer": {
+    "verified_inbox_count": 1,
+    "origin_ack_outbox_kind": "rescue.offer_ack",
+    "origin_ack_outbox_state": "forwarded"
+  },
+  "incident_status": "active",
+  "scope": "Endpoint correlation supports one staged reverse Chat delivery via intermediary with prior radio exclusivity and signed B snapshot. C forward endpoint and final Offer ACK persistence still to copy. No signed final Chat receipt or general exactly-once guarantee."
+}

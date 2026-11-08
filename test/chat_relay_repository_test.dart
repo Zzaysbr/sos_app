@@ -9,6 +9,7 @@ import 'package:sos_app/features/nearby_ble/domain/chat_relay_envelope.dart';
 import 'package:sos_app/features/nearby_ble/domain/relay_envelope.dart';
 
 void main() {
+  final now = DateTime.utc(2026, 11, 4, 2);
   late AppDatabase database;
   late ChatRelayRepository repository;
 
@@ -21,11 +22,11 @@ void main() {
 
   test('outbox and inbox are owner-scoped and idempotent', () async {
     final envelope = await _envelope();
-    final first = await repository.enqueue(envelope);
-    final second = await repository.enqueue(envelope);
+    final first = await repository.enqueue(envelope, now: now);
+    final second = await repository.enqueue(envelope, now: now);
     expect(second.messageId, first.messageId);
-    expect(await repository.persistIncoming(envelope), isTrue);
-    expect(await repository.persistIncoming(envelope), isFalse);
+    expect(await repository.persistIncoming(envelope, now: now), isTrue);
+    expect(await repository.persistIncoming(envelope, now: now), isFalse);
     final other = ChatRelayRepository(database, ownerId: 'owner-b');
     expect(await other.findOutbox(envelope.body.messageId), isNull);
   });
@@ -34,11 +35,17 @@ void main() {
     'due rows expire by envelope validation and retain queued state',
     () async {
       final envelope = await _envelope();
-      await repository.enqueue(envelope);
-      final rows = await repository.due(now: DateTime.utc(2026, 11, 4, 2));
+      await repository.enqueue(envelope, now: now);
+      final rows = await repository.due(now: now);
       expect(rows, hasLength(1));
       expect(rows.single.state, ChatRelayDeliveryState.queued.name);
       expect(rows.single.hopCount, 0);
+
+      expect(await repository.due(now: envelope.body.expiresAt), isEmpty);
+      expect(
+        (await repository.findOutbox(envelope.body.messageId))!.state,
+        ChatRelayDeliveryState.expired.name,
+      );
     },
   );
 

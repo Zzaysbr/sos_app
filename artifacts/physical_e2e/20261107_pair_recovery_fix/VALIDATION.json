@@ -1,0 +1,57 @@
+{
+  "date": "2026-11-07",
+  "timezone": "Asia/Bangkok",
+  "source_sha256": "cdf31273254c2397e7544144dd87179272964025c3fef247e24c0ee59228e99f",
+  "device_verification": "NOT RUN for this snapshot; prior device failures remain historical evidence.",
+  "runs": [
+    {
+      "command": "flutter test --no-pub test/relay_handshake_recovery_test.dart test/hop_relay_coordinator_test.dart test/rescue_response_envelope_test.dart --reporter expanded",
+      "passed": 44,
+      "failed": 0,
+      "exit_code": 0,
+      "completion": "00:05 +44: All tests passed!",
+      "scope": "Before final send guard and diagnostic assertion; full production source subsequently tested."
+    },
+    {
+      "command": "flutter test --no-pub --reporter expanded",
+      "passed": 549,
+      "failed": 0,
+      "exit_code": 0,
+      "completion": "00:32 +549: All tests passed!",
+      "scope": "Final production source; diagnostic assertion added afterward and tested below."
+    },
+    {
+      "command": "flutter test --no-pub test/relay_handshake_recovery_test.dart test/stage2_chat_security_test.dart --reporter expanded",
+      "passed": 21,
+      "failed": 0,
+      "exit_code": 0,
+      "completion": "00:05 +21: All tests passed!",
+      "scope": "Final recovery/diagnostic assertions and security boundary tests."
+    },
+    {
+      "command": "dart analyze lib test regression",
+      "passed": null,
+      "failed": null,
+      "exit_code": 0,
+      "completion": "No issues found!",
+      "scope": "Final source and tests; no issues found."
+    },
+    {
+      "command": "flutter test --no-pub regression/stage2_remaining_contract_test.dart --reporter expanded",
+      "passed": 0,
+      "failed": 1,
+      "exit_code": 1,
+      "completion": "00:00 +0 -1: Some tests failed.",
+      "scope": "Deferred signed final Chat receipt still fails; unchanged contract."
+    }
+  ],
+  "reproductions_before_fix": [
+    "Concurrent capability handling issued two signed nonce challenges.",
+    "Late forwarded callback downgraded delivered.",
+    "Response retries had no durable deadline/bounded attempt budget.",
+    "One-sided inactive/resume over retained GATT did not converge to Help Offer ACK delivery."
+  ],
+  "simulation_boundary": "Production coordinators, signatures, authorization and SQLite; fake BLE and virtual timer. Not OS/radio/physical latency evidence.",
+  "remaining": "Signed final Chat receipt unimplemented; three-node and physical recovery acceptance not run.",
+  "raw_logs": "Temporary outside repository; only sanitized completion evidence retained here."
+}

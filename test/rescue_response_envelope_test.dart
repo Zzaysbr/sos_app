@@ -210,23 +210,29 @@ void main() {
     final (origin, originKey, crypto) = await _origin();
     final responder = await Ed25519().newKeyPair();
     final response = await _signedResponse(origin, responder, crypto);
+    final now = DateTime.utc(2026, 11, 4, 10, 2);
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     final ownerA = RescueResponseRepository(database, ownerId: 'owner-a');
     final ownerB = RescueResponseRepository(database, ownerId: 'owner-b');
     addTearDown(database.close);
 
-    final first = await ownerA.enqueueOffer(envelope: response, origin: origin);
+    final first = await ownerA.enqueueOffer(
+      envelope: response,
+      origin: origin,
+      now: now,
+    );
     final second = await ownerA.enqueueOffer(
       envelope: response,
       origin: origin,
+      now: now,
     );
     expect(first.messageId, second.messageId);
     expect(
-      await ownerA.recordIncoming(envelope: response, origin: origin),
+      await ownerA.recordIncoming(envelope: response, origin: origin, now: now),
       isTrue,
     );
     expect(
-      await ownerA.recordIncoming(envelope: response, origin: origin),
+      await ownerA.recordIncoming(envelope: response, origin: origin, now: now),
       isFalse,
     );
     expect(
@@ -234,6 +240,7 @@ void main() {
         messageId: response.body.messageId,
         immutableDigest: response.body.originDigest,
         expiresAt: response.body.expiresAt,
+        now: now,
       ),
       isTrue,
     );
@@ -242,6 +249,7 @@ void main() {
         messageId: response.body.messageId,
         immutableDigest: response.body.originDigest,
         expiresAt: response.body.expiresAt,
+        now: now,
       ),
       isFalse,
     );
@@ -266,14 +274,64 @@ void main() {
       signature: await crypto.signRescueResponseAck(ackBody, originKey),
     );
     expect(
-      await ownerA.applyFinalAck(ack: ack, response: response, origin: origin),
+      await ownerA.applyFinalAck(
+        ack: ack,
+        response: response,
+        origin: origin,
+        now: now,
+      ),
       isTrue,
     );
     expect(
       (await ownerA.findOutbox(response.body.messageId))!.state,
       RescueResponseDeliveryState.delivered.name,
     );
+    // The recipient ACK may arrive before the final native write callback.
+    await ownerA.markState(
+      response.body.messageId,
+      RescueResponseDeliveryState.forwarded,
+      now: now,
+    );
+    expect(
+      (await ownerA.findOutbox(response.body.messageId))!.state,
+      RescueResponseDeliveryState.delivered.name,
+    );
   });
+
+  test(
+    'response retries use durable deadlines and a bounded attempt budget',
+    () async {
+      final (origin, _, crypto) = await _origin();
+      final responder = await Ed25519().newKeyPair();
+      final response = await _signedResponse(origin, responder, crypto);
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
+      final repo = RescueResponseRepository(db, ownerId: 'retry-owner');
+      var now = DateTime.utc(2026, 11, 4, 10, 2);
+      await repo.enqueueOffer(envelope: response, origin: origin, now: now);
+      for (var i = 0; i < 5; i++) {
+        expect(await repo.listDueOutbox(now: now), hasLength(1));
+        await repo.queueAttempt(
+          messageId: response.body.messageId,
+          nextHopKeyId: origin.originKeyId,
+          nextHopDeviceId: 'peer',
+          sessionBinding: 'current-proof-binding',
+          now: now,
+        );
+        await repo.markState(
+          response.body.messageId,
+          RescueResponseDeliveryState.forwarded,
+          now: now,
+        );
+        expect(await repo.listDueOutbox(now: now), isEmpty);
+        final row = (await repo.findOutbox(response.body.messageId))!;
+        expect(row.retryCount, i + 1);
+        expect(row.nextRetryAt, isNotNull);
+        now = row.nextRetryAt!;
+      }
+      expect(await repo.listDueOutbox(now: now), isEmpty);
+    },
+  );
 
   test(
     'BLE response transfer round-trips without changing the signed payload',

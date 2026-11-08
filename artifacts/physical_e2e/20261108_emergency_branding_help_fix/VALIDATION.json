@@ -1,0 +1,55 @@
+{
+  "source_sha256": "bc07b9cb814489f0c486f60b59794c03c42d0b1b0db5b3fb22a18d1ea963c7c6",
+  "date": "2026-11-08",
+  "default_suite": {
+    "command": "flutter test --no-pub --reporter expanded",
+    "passed": 576,
+    "failed": 0,
+    "exit": 0
+  },
+  "analysis": {
+    "command": "flutter analyze --no-pub lib test regression",
+    "issues": 0,
+    "exit": 0
+  },
+  "explicit_deferred_contract": {
+    "command": "flutter test --no-pub regression/stage2_remaining_contract_test.dart --reporter expanded",
+    "passed": 0,
+    "failed": 1,
+    "exit": 1,
+    "status": "Existing unimplemented signed final Chat receipt, not skipped"
+  },
+  "new_regressions": [
+    "Notification preview preserves actual requested text and bounds Unicode scalar values without splitting emoji",
+    "Offer Help closes after one durable signed enqueue while scheduler processing stays blocked; duplicate taps do not enqueue twice",
+    "Startup resumes pending terminal recovery without changing relay participation",
+    "Terminal message rebinds retired native address only after same responder completes real Session Proof; works with relay participation off and expired Help Offer delivery TTL; retains payload/message ID",
+    "Recovery rejects another owner response",
+    "Recovery rejects forged Help Offer signature",
+    "Recovery rejects superseded terminal status"
+  ],
+  "native_asset_validation": {
+    "ios_dimensions_all_match_contents_json": true,
+    "ios_icons_opaque_RGB": true,
+    "android_legacy_adaptive_and_themed_icon_sources_present": true,
+    "both_built_display_names": "Emergency",
+    "package_bundle_ids_unchanged": true,
+    "codesign_and_apksigner_passed": true
+  },
+  "physical_status": "NOT INSTALLED/NOT RETESTED for this source",
+  "scope_limits": [
+    "Previous notification/reconnect device results belong to source d6d427a5",
+    "Historical incident recovery is for pending queued/failed terminal jobs below existing retry budget and same verified direct responder; not arbitrary peer rebroadcast or expired outbox resurrection",
+    "No protocol/schema/TTL/cryptographic-validation weakening",
+    "No final lifecycle ACK or signed final Chat receipt added",
+    "OS notification preview settings control actual lock-screen text visibility",
+    "Cold process restoration, long idle and three-node acceptance not established"
+  ],
+  "evidence": [
+    "ANDROID_STALE_INCIDENTS.json",
+    "IOS_STALE_INCIDENT_COMPARISON.json",
+    "BUILDS.json",
+    "source_manifest.json",
+    "test_manifest.json"
+  ]
+}

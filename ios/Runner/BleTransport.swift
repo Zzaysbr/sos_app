@@ -100,6 +100,20 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     case "connect": connect(call, result: result)
     case "disconnect": disconnect(call, result: result)
     case "send": send(call, result: result)
+    case "maxFrameBytes":
+      guard let args = call.arguments as? [String: Any],
+            let id = args["deviceId"] as? String, let uuid = UUID(uuidString: id) else {
+        result(20); return
+      }
+      let role = args["role"] as? String
+      if role == "peripheral" {
+        result(peripheralFrameCapacity(subscribedCentrals[uuid]))
+      } else if let peer = connected[uuid], ready.contains(uuid) {
+        // The with-response limit may allow long/prepared writes, which the
+        // Android server deliberately rejects. Use the single-packet bound
+        // while retaining acknowledged .withResponse writes.
+        result(max(20, min(512, peer.maximumWriteValueLength(for: .withoutResponse))))
+      } else { result(20) }
     case "dispose": dispose(); result(nil)
     default: result(FlutterMethodNotImplemented)
     }
@@ -157,9 +171,11 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
       rxCharacteristics.removeValue(forKey: id)
       txCharacteristics.removeValue(forKey: id)
       disconnectReasons.removeValue(forKey: id)
-      connectionAttempts.removeValue(forKey: id)
+      let attempt = connectionAttempts.removeValue(forKey: id)
       if let peripheral = discovered[id] {
-        emit(["type": "disconnected", "device": device(peripheral), "error": reason, "role": "central"])
+        var event: [String: Any] = ["type": "disconnected", "device": device(peripheral), "error": reason, "role": "central"]
+        if let attempt { event["attempt"] = attempt }
+        emit(event)
       }
     }
     discovered.removeAll()
@@ -246,13 +262,25 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
 
   private func disconnect(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard let id = (call.arguments as? [String: Any])?["deviceId"] as? String,
-          let uuid = UUID(uuidString: id), let p = connected[uuid] ?? discovered[uuid] else {
-      result(nil)
-      return
+          let uuid = UUID(uuidString: id) else { result(nil); return }
+    // A Dart write deadline may be the only indication of a lost callback.
+    // Retire local write readiness now; a late callback cannot send the rest
+    // of the logical message or complete a fresh connection's write.
+    ready.remove(uuid)
+    if let results = writeResults.removeValue(forKey: uuid) {
+      results.forEach { $0(FlutterError(code: "disconnected", message: "BLE write session retired", details: nil)) }
     }
-    disconnectReasons[uuid] = "flutter disconnect()"
-    trace("disconnect requested id=\(uuid.uuidString)")
-    central.cancelPeripheralConnection(p)
+    pendingPeripheralSends.removeValue(forKey: uuid)?.forEach {
+      $0.result(FlutterError(code: "disconnected", message: "BLE write session retired", details: nil))
+    }
+    pacedPeripheralSends.remove(uuid)
+    if subscribedCentrals.removeValue(forKey: uuid) != nil {
+      emit(["type": "disconnected", "device": ["id": uuid.uuidString], "role": "peripheral"])
+    }
+    if let p = connected[uuid] ?? discovered[uuid] {
+      disconnectReasons[uuid] = "flutter disconnect()"
+      central.cancelPeripheralConnection(p)
+    }
     result(nil)
   }
 
@@ -280,6 +308,10 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     p.writeValue(data.data, for: characteristic, type: .withResponse)
   }
 
+  private func peripheralFrameCapacity(_ central: CBCentral?) -> Int {
+    max(20, min(512, central?.maximumUpdateValueLength ?? 20))
+  }
+
   private func sendPeripheral(_ data: Data, to uuid: UUID, result: @escaping FlutterResult) {
     guard subscribedCentrals[uuid] != nil, advertisedTx != nil else {
       result(FlutterError(code: "not_ready", message: "Peripheral notification session is not ready", details: nil))
@@ -303,9 +335,9 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
           !queue.isEmpty else { return }
     while !queue.isEmpty {
       let pending = queue[0]
-      // The protocol intentionally uses the unnegotiated ATT payload size;
-      // CBPeripheralManager has no API for a per-central maximum here.
-      let maximum = 20
+      // Match the capacity advertised to Dart. A larger frame must never be
+      // rejected here solely because the old unnegotiated fallback was20.
+      let maximum = peripheralFrameCapacity(central)
       trace("TX notification bytes=\(pending.data.count) maximum=\(maximum) peer=\(uuid.uuidString)")
       guard pending.data.count <= maximum else {
         queue.removeFirst()
@@ -390,6 +422,15 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     guard !disposed, peripheral === self.peripheral else { return }
     completeInitializationIfReady()
     trace("peripheralManagerDidUpdateState state=\(peripheralState())")
+    if peripheral.state != .poweredOn && peripheral.state != .unknown {
+      advertisingActive = false
+      subscribedCentrals.removeAll()
+      pacedPeripheralSends.removeAll()
+      for queue in pendingPeripheralSends.values {
+        queue.forEach { $0.result(FlutterError(code: "bluetooth_unavailable", message: "Bluetooth peripheral state changed", details: nil)) }
+      }
+      pendingPeripheralSends.removeAll()
+    }
     emit(["type": "peripheralState", "state": peripheralState()])
   }
 
@@ -456,14 +497,16 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     cancelSetupTimeout(for: p.identifier)
     connecting.remove(p.identifier)
     connected.removeValue(forKey: p.identifier)
-    connectionAttempts.removeValue(forKey: p.identifier)
+    let attempt = connectionAttempts.removeValue(forKey: p.identifier)
     services.removeValue(forKey: p.identifier)
     notificationPending.remove(p.identifier)
     ready.remove(p.identifier)
     let message = "iOS failed to connect to \(p.identifier.uuidString): \(error?.localizedDescription ?? "unknown error")"
     trace("didFailToConnect id=\(p.identifier.uuidString) error=\(error?.localizedDescription ?? "none")")
     emitError(message)
-      emit(["type": "disconnected", "device": device(p), "error": message, "role": "central"])
+    var event: [String: Any] = ["type": "disconnected", "device": device(p), "error": message, "role": "central"]
+    if let attempt { event["attempt"] = attempt }
+    emit(event)
   }
 
   func centralManager(_ central: CBCentralManager, didDisconnectPeripheral p: CBPeripheral, error: Error?) {
@@ -475,7 +518,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     }
     cancelSetupTimeout(for: p.identifier)
     connecting.remove(p.identifier); connected.removeValue(forKey: p.identifier); ready.remove(p.identifier)
-    connectionAttempts.removeValue(forKey: p.identifier)
+    let attempt = connectionAttempts.removeValue(forKey: p.identifier)
     services.removeValue(forKey: p.identifier)
     notificationPending.remove(p.identifier)
     rxCharacteristics.removeValue(forKey: p.identifier); txCharacteristics.removeValue(forKey: p.identifier)
@@ -486,6 +529,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
       results.forEach { $0(FlutterError(code: "disconnected", message: message ?? "Peripheral disconnected", details: nil)) }
     }
     var event: [String: Any] = ["type": "disconnected", "device": device(p), "role": "central"]
+    if let attempt { event["attempt"] = attempt }
     if let message { event["error"] = message }
     emit(event)
   }

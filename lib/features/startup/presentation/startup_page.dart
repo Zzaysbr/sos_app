@@ -69,14 +69,18 @@ class _StartupPageState extends State<StartupPage>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.shield_outlined,
-                  size: 76,
-                  color: Theme.of(context).colorScheme.primary,
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: Image.asset(
+                    'assets/branding/emergency-icon.png',
+                    width: 76,
+                    height: 76,
+                    semanticLabel: 'Emergency',
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Off Grid SOS',
+                  'Emergency',
                   style: Theme.of(context).textTheme.headlineSmall
                       ?.copyWith(fontWeight: FontWeight.w700),
                 ),

@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-08",
+  "build_number": 3,
+  "inspection": "Matching saved wired Samsung read-only DB copy; quick_check ok",
+  "operator_observation": "User confirms one instructed iPad reply sent and composer usable, while iPhone Bluetooth off",
+  "message_identification": "Actual reply text differs from instructed STAGED-C-A-01; uniquely identified one current-incident iPad-sender/origin-recipient inbox row; use private message ID and canonical envelope for endpoint comparison, do not export actual text",
+  "durable_intermediary": {
+    "verified_inbox_rows_for_reverse_pair": 1,
+    "relay_outbox_rows_for_same_id": 1,
+    "outbox_state": "queued",
+    "hop_count": 1,
+    "retry_count": 0,
+    "incoming_signed_hops": 1
+  },
+  "captured_crypto_revalidation": {
+    "tests_passed": 1,
+    "exit": 0,
+    "checks": [
+      "Chat origin signature at captured receive time",
+      "Sender iPad and recipient SOS origin",
+      "Signed C-B incoming transfer path and Samsung intended local identity"
+    ]
+  },
+  "scope": "Reverse signed Chat stored at Samsung; A reception and final endpoint correlation pending; no signed final Chat receipt."
+}

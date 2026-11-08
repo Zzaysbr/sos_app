@@ -1,0 +1,40 @@
+{
+  "date": "2026-11-08",
+  "build_number": 5,
+  "matching_saved_wired_iphone": true,
+  "inspection": "Read-only Documents copy; live copy not coordinated cross-device snapshot",
+  "result": {
+    "quick_check": "ok",
+    "schema_version": 10,
+    "messages": [
+      {
+        "direction": "forward",
+        "same_id_incident_and_canonical_envelope_as_B": true,
+        "local_chat_count": 1,
+        "local_chat_status": "delivered",
+        "relay_state": "delivered",
+        "receipt_state": "applied",
+        "same_canonical_receipt_as_B": true
+      },
+      {
+        "direction": "reverse",
+        "same_id_incident_and_canonical_envelope_as_B": true,
+        "local_chat_count": 1,
+        "local_chat_status": "delivered",
+        "relay_state": "verified",
+        "receipt_state": "queued"
+      }
+    ],
+    "local_incident_status": "active"
+  },
+  "captured_crypto_revalidation": {
+    "tests_passed": 1,
+    "exit": 0,
+    "checks": [
+      "Applied forward receipt exact same as B and signed by C",
+      "Generated reverse receipt signed by A",
+      "Both original Chat signatures/digests/IDs/incident/recipient binding at receipt persistence time"
+    ]
+  },
+  "scope": "Forward staged final receipt applied at A and reverse recipient receipt generated at A; C applied reverse receipt/SOS signed route/final cleanup pending."
+}

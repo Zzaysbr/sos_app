@@ -1,0 +1,38 @@
+{
+  "date": "2026-11-07",
+  "android_source_sha256": "bea922bfea98f20bcb9676a977eb441f41cfe07d3e38d0d6252474618837e6db",
+  "iphone_source_sha256": "4f920365e88ea36e3ac2dc46dff0d4573794aa35a6d8ce30ff52fc8379b11f6e",
+  "scope": "Read-only current-process logcat, process/foreground/awake checks, scoped preference inspection and copied app SQLite quick_check. No restart/install/clear/resend.",
+  "process_present": true,
+  "sos_activity_resumed": true,
+  "screen_awake": true,
+  "saved_role": "rescue",
+  "saved_relay_participation": true,
+  "db_copy_integrity": "ok; live copy is not coordinated snapshot",
+  "normalized_test_counts": {
+    "TEST-RETENTION-01": 1,
+    "TEST-RETENTION-REPLY-01": 1,
+    "TEST-BT-01": 1,
+    "TEST-AFTER-30-01": 0
+  },
+  "baseline_and_bt_same_incident": true,
+  "expected_local_incident_status": "active",
+  "signed_origin_still_present": true,
+  "origin_expires_utc": "2026-11-07T14:23:18+00:00",
+  "rescue_offer_outbox_states": [
+    "delivered"
+  ],
+  "current_process_log_counts": {
+    "session_created": 2,
+    "session_failed": 1,
+    "session_authenticated": 0,
+    "FATAL EXCEPTION": 0
+  },
+  "handshake_summary": "Two peripheral sessions at device times 21:58:27 and 21:58:30; first logs write_cancelled, native connections subsequently disconnect normally. No session_authenticated found in available process buffer.",
+  "limits": [
+    "Absence from available log is not proof an event never occurred.",
+    "Android signed-origin retention at inspection is evidenced; iPhone queue/retention and disconnect cause still unknown.",
+    "No exact latency or final signed Chat receipt established."
+  ],
+  "raw_data": "Private temporary files outside repository; no identifiers or message payloads exported."
+}

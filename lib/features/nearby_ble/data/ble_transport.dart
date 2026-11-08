@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 
 import '../domain/ble_models.dart';
+import '../domain/ble_connection_events.dart';
 
 abstract interface class BleTransportClient {
   Stream<BleEvent> get events;
@@ -16,6 +17,33 @@ abstract interface class BleTransportClient {
   Future<void> disconnect(String deviceId);
   Future<void> send(String deviceId, List<int> frame, {BleSessionRole? role});
   Future<void> dispose();
+}
+
+/// Optional native capability, deliberately absent from simulated transports.
+abstract interface class BleBackgroundExecution {
+  bool get backgroundExecutionEnabled;
+  Future<void> setBackgroundExecution(bool enabled);
+}
+
+/// Negotiated single-ATT-packet capacity, not an assumed requested MTU.
+abstract interface class BleFrameCapacity {
+  Future<int> maxFrameBytes(String deviceId, BleSessionRole role);
+}
+
+Future<int> negotiatedBleFrameBytes(
+  BleTransportClient transport,
+  String peer,
+  BleSessionRole role,
+) async {
+  if (transport is! BleFrameCapacity) return 20;
+  try {
+    final value = await (transport as BleFrameCapacity)
+        .maxFrameBytes(peer, role)
+        .timeout(const Duration(seconds: 2));
+    return value < 20 ? 20 : value.clamp(20, 512);
+  } on Object {
+    return 20;
+  }
 }
 
 /// Owns the process-wide native scan and advertising state for one transport.
@@ -118,8 +146,26 @@ class BlePresenceManager {
   }
 
   Future<void> _reconcile() async {
-    final shouldDiscover = _foreground && wantsDiscovery;
-    final shouldAdvertise = _foreground && wantsAdvertising;
+    final runtime = _transport is BleBackgroundExecution
+        ? _transport as BleBackgroundExecution
+        : null;
+    if (runtime != null) {
+      final wanted = wantsDiscovery || wantsAdvertising;
+      // Start Android foreground service while a foreground activity exists.
+      // A background callback may retain existing authorization, never create it.
+      if (!wanted || _foreground || runtime.backgroundExecutionEnabled) {
+        try {
+          await runtime.setBackgroundExecution(wanted);
+        } on Object {
+          // OS refusal leaves foreground BLE available, without a false claim
+          // that the process is protected in background.
+        }
+      }
+    }
+    final canRun =
+        _foreground || (runtime?.backgroundExecutionEnabled ?? false);
+    final shouldDiscover = canRun && wantsDiscovery;
+    final shouldAdvertise = canRun && wantsAdvertising;
 
     if (shouldDiscover && !_nativeDiscovering) {
       await _transport.startDiscovery();
@@ -156,7 +202,8 @@ class BleMessageWriteQueue {
       _shared[transport] ??= BleMessageWriteQueue._(transport);
 
   final BleTransportClient _transport;
-  final Map<String, Future<void>> _tails = <String, Future<void>>{};
+  final _pending = <String, List<_BleFrameWrite>>{};
+  final _draining = <String>{};
 
   /// Returns false when [canSend] cancels the message before all frames are
   /// written. Native write completion is deliberately not an application ACK.
@@ -165,43 +212,130 @@ class BleMessageWriteQueue {
     Iterable<List<int>> frames, {
     required BleSessionRole role,
     bool Function()? canSend,
-  }) async {
-    final immutableFrames = frames
-        .map((frame) => List<int>.unmodifiable(frame))
-        .toList(growable: false);
-    final previous = _tails[deviceId] ?? Future<void>.value();
-    final current = previous.then((_) async {
-      for (final frame in immutableFrames) {
-        if (canSend != null && !canSend()) return false;
-        await _transport.send(deviceId, frame, role: role);
-      }
-      return true;
-    });
-    final tail = current.then<void>((_) {}, onError: (_) {});
-    _tails[deviceId] = tail;
+    bool control = false,
+    Duration writeTimeout = const Duration(seconds: 10),
+  }) {
+    if (writeTimeout <= Duration.zero) throw ArgumentError.value(writeTimeout);
+    final write = _BleFrameWrite(
+      frames.map((f) => List<int>.unmodifiable(f)).toList(growable: false),
+      role,
+      canSend,
+      control,
+      writeTimeout,
+    );
+    _pending.putIfAbsent(deviceId, () => []).add(write);
+    if (_draining.add(deviceId)) unawaited(_drain(deviceId));
+    return write.completed.future;
+  }
+
+  Future<void> _drain(String deviceId) async {
+    final queue = _pending[deviceId]!;
     try {
-      return await current;
+      while (queue.isNotEmpty) {
+        // Authentication and storage receipts must not wait behind a large
+        // backlog. Preempt only between completed native writes. Codec
+        // assemblers already isolate interleaved messages by message ID.
+        final controlIndex = queue.indexWhere((w) => w.control);
+        final write = queue[controlIndex < 0 ? 0 : controlIndex];
+        try {
+          if (write.canSend != null && !write.canSend!()) {
+            queue.remove(write);
+            write.completed.complete(false);
+          } else if (write.index == write.frames.length) {
+            queue.remove(write);
+            write.completed.complete(true);
+          } else {
+            await _transport
+                .send(deviceId, write.frames[write.index], role: write.role)
+                .timeout(write.timeout);
+            write.index++;
+          }
+        } on TimeoutException catch (error, stack) {
+          // A missing native callback leaves the connection ambiguous. Fail
+          // every queued message on it before disconnecting; never mix fresh
+          // frames with an old in-flight write. Durable callers retain retry.
+          for (final pending in queue.toList()) {
+            pending.completed.completeError(error, stack);
+          }
+          queue.clear();
+          try {
+            await _transport.disconnect(deviceId).timeout(write.timeout);
+          } on Object {
+            // Native recovery is best effort and must also be bounded.
+          }
+        } catch (error, stack) {
+          queue.remove(write);
+          write.completed.completeError(error, stack);
+        }
+      }
     } finally {
-      if (identical(_tails[deviceId], tail)) _tails.remove(deviceId);
+      _pending.remove(deviceId);
+      _draining.remove(deviceId);
     }
   }
 }
 
-class BleTransport implements BleTransportClient {
-  BleTransport({MethodChannel? methods, EventChannel? events})
-    : _methods = methods ?? const MethodChannel('sos_ble_transport/methods'),
-      _events = events ?? const EventChannel('sos_ble_transport/events');
+class _BleFrameWrite {
+  _BleFrameWrite(
+    this.frames,
+    this.role,
+    this.canSend,
+    this.control,
+    this.timeout,
+  );
+  final Duration timeout;
+  final List<List<int>> frames;
+  final BleSessionRole role;
+  final bool Function()? canSend;
+  final bool control;
+  final completed = Completer<bool>();
+  int index = 0;
+}
+
+class BleTransport
+    implements BleTransportClient, BleBackgroundExecution, BleFrameCapacity {
+  bool _backgroundEnabled = false;
+  @override
+  bool get backgroundExecutionEnabled => _backgroundEnabled;
+  @override
+  Future<void> setBackgroundExecution(bool enabled) async {
+    if (_backgroundEnabled == enabled) return;
+    _backgroundEnabled =
+        await const MethodChannel('sos_app/background')
+            .invokeMethod<bool>('setBleBackground', enabled)
+            .timeout(const Duration(seconds: 5)) ??
+        false;
+  }
+
+  BleTransport({
+    MethodChannel? methods,
+    EventChannel? events,
+    this.nativeCallTimeout = const Duration(seconds: 8),
+  }) : _methods = methods ?? const MethodChannel('sos_ble_transport/methods'),
+       _events = events ?? const EventChannel('sos_ble_transport/events');
+  final Duration nativeCallTimeout;
   final MethodChannel _methods;
   final EventChannel _events;
   Stream<BleEvent>? _stream;
   StreamSubscription<BleEvent>? _nativeSubscription;
   StreamController<BleEvent>? _eventController;
   final _connections = <String, BleEvent>{};
+  final _connectionEvents = BleConnectionEvents();
   Future<void>? _initializeFuture;
   Future<void>? _disposeFuture;
   Completer<void>? _idleCompleter;
   int _activeCalls = 0;
   bool _disposed = false;
+
+  @override
+  Future<int> maxFrameBytes(String deviceId, BleSessionRole role) async {
+    if (_disposed) return 20;
+    return await _methods.invokeMethod<int>('maxFrameBytes', {
+          'deviceId': deviceId,
+          'role': role.wireValue,
+        }) ??
+        20;
+  }
 
   @override
   Stream<BleEvent> get events {
@@ -213,22 +347,25 @@ class BleTransport implements BleTransportClient {
     _eventController = source;
     _nativeSubscription = _events
         .receiveBroadcastStream()
-        .map((value) {
+        .expand((value) {
           final event = BleEvent.fromMap(
             Map<Object?, Object?>.from(value as Map),
           );
-          final peer = event.device?.id;
-          if (peer != null && !_disposed) {
-            final key = '$peer|${event.role?.wireValue ?? 'central'}';
-            if (event.type == 'connected') _connections[key] = event;
-            if (event.type == 'disconnected') {
-              _connections.removeWhere(
-                (k, _) =>
-                    event.role == null ? k.startsWith('$peer|') : k == key,
-              );
+          final accepted = _connectionEvents.accept(event);
+          for (final event in accepted) {
+            final peer = event.device?.id;
+            if (peer != null && !_disposed) {
+              final key = '$peer|${event.role?.wireValue ?? 'central'}';
+              if (event.type == 'connected') _connections[key] = event;
+              if (event.type == 'disconnected') {
+                _connections.removeWhere(
+                  (k, _) =>
+                      event.role == null ? k.startsWith('$peer|') : k == key,
+                );
+              }
             }
           }
-          return event;
+          return accepted;
         })
         .listen((event) {
           if (!_disposed) source.add(event);
@@ -310,11 +447,13 @@ class BleTransport implements BleTransportClient {
   Future<void> _dispose() async {
     await _nativeSubscription?.cancel();
     _nativeSubscription = null;
+    _connectionEvents.clear();
+    _connections.clear();
     unawaited(_eventController?.close());
     final idle = _idleCompleter?.future;
     if (idle != null) await idle;
     try {
-      await _methods.invokeMethod<void>('dispose');
+      await _methods.invokeMethod<void>('dispose').timeout(nativeCallTimeout);
     } on PlatformException catch (e) {
       throw BleTransportException(e.message ?? e.code);
     }
@@ -333,7 +472,12 @@ class BleTransport implements BleTransportClient {
       _idleCompleter ??= Completer<void>();
     }
     try {
-      await _methods.invokeMethod<void>(method, args);
+      final timeout = method == 'requestPermissions'
+          ? const Duration(minutes: 2)
+          : (method == 'initialize' || method == 'startAdvertising')
+          ? const Duration(seconds: 20)
+          : nativeCallTimeout;
+      await _methods.invokeMethod<void>(method, args).timeout(timeout);
     } on PlatformException catch (e) {
       throw BleTransportException(e.message ?? e.code);
     } finally {

@@ -10,7 +10,7 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'Off Grid SOS';
+  String get appTitle => 'Emergency';
 
   @override
   String get authStatusUnavailable => 'Unable to check authentication status.';
@@ -285,7 +285,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get passwordResetSent =>
-      'Password reset email sent. Check your inbox.';
+      'If an account exists for this email, password reset instructions were sent.';
 
   @override
   String get passwordResetFailed =>
@@ -1415,4 +1415,64 @@ class AppLocalizationsEn extends AppLocalizations {
   String offlineMapStorageSummary(String size) {
     return 'Stored: $size';
   }
+
+  @override
+  String get checkCurrentLocation => 'Check current location';
+
+  @override
+  String get checkCurrentLocationHint =>
+      'Tap to try again without creating an SOS or sharing coordinates.';
+
+  @override
+  String get checkingCurrentLocation => 'Finding your location...';
+
+  @override
+  String get currentLocationCheckReady =>
+      'Current location found. This check did not share coordinates.';
+
+  @override
+  String get recentLocationCheckReady =>
+      'A recent saved location is available. This check did not share coordinates.';
+
+  @override
+  String get stopFollowing => 'Stop following on this device';
+
+  @override
+  String get stopFollowingQuestion => 'Stop following this incident?';
+
+  @override
+  String get stopFollowingExplanation =>
+      'Moves this incident out of Helping on this device. History and messages stay available. This does not cancel or resolve the SOS for anyone else.';
+
+  @override
+  String get stoppedFollowing => 'Stopped following on this device';
+
+  @override
+  String get stopFollowingFailed => 'Could not stop following. Try again.';
+
+  @override
+  String get receivedHistory => 'Received incident history';
+
+  @override
+  String get receivedHistoryEmpty => 'No received incidents saved yet.';
+
+  @override
+  String get receivedHistoryError =>
+      'Could not load received incident history.';
+
+  @override
+  String get receivedHistoryNotice =>
+      'Incidents and messages saved on this device. Stopping following does not change the origin\'s SOS status.';
+
+  @override
+  String get rescueHistoryHelping => 'Following on this device';
+
+  @override
+  String get rescueHistoryCancelled => 'Cancelled by the origin';
+
+  @override
+  String get rescueHistoryResolved => 'Resolved by the origin';
+
+  @override
+  String get rescueHistoryExpired => 'Offer expired';
 }

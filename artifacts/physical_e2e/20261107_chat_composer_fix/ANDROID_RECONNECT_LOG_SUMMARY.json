@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-07",
+  "source_sha256": "aa43b891ee7d1de1b4fa547e7c556faf39bd6675baa873051646a70932595657",
+  "capture": "Read-only app-UID logcat including app process lifetimes; no restart/install/clear.",
+  "app_process_present_at_inspection": false,
+  "sos_app_resumed_at_inspection": false,
+  "current_date_event_counts": {
+    "session_created": 0,
+    "session_authenticated": 0,
+    "relaySessionProofTimedOut": 0,
+    "chat_relay_received": 0,
+    "chat_relay_forwarded": 0,
+    "BLE inbound processing failed": 0,
+    "FATAL EXCEPTION": 0,
+    "MainActivity.onDestroy": 1,
+    "dispose requested": 1
+  },
+  "last_activity_destroy_device_time": "2026-11-07 19:41:47.670 +0700",
+  "last_bridge_dispose_device_time": "2026-11-07 19:41:47.670 +0700",
+  "process_exit_info": "Recent exit records include remove task; exact exit record/time correlation pending. Do not infer who/what removed the task.",
+  "historical_crash_excluded": "App-UID crash buffer includes 2026-11-04 callback-cannot-be-null teardown crash; excluded from current reconnect causal claims.",
+  "limits": [
+    "App process absent at log inspection does not establish whether it exited before or after the full 3-minute wait.",
+    "No current process-level proof/Chat events found in available buffer; absence is not proof the events never occurred.",
+    "No new send, restart, data clear or installation performed."
+  ],
+  "raw_logs": "Private temporary files outside repository only."
+}

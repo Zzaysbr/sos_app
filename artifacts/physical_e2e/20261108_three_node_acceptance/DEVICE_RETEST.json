@@ -1,0 +1,130 @@
+{
+  "date": "2026-11-08",
+  "status": "SESSION CLOSED: NEARBY IPHONE/IPAD INTEROPERABILITY CONFIRMED IN STATED SCOPE; DIRECT SOS ROUTE IDENTIFIED; SAMSUNG MULTIHOP NOT VERIFIED",
+  "source_sha256": "0dc633903e3e807d1d5f94e45bf19d1b2f51afeca6212ec035c45454462e1fae",
+  "source_manifest_mismatches": [],
+  "installed_build_basis": "Previous operator-confirmed build 2 on all three devices; no new install this session",
+  "roles": {
+    "A": "iPhone origin",
+    "B": "Samsung relay only; do not Offer Help",
+    "C": "iPad rescuer"
+  },
+  "procedure": "One structured question at a time; synthetic incident only; preserve history. Physical placement feasibility first. Keep Internet off and foreground/unlocked for baseline. Validate B-off endpoint negative control and B-on path evidence before claiming multihop. Endpoint nonreceipt alone does not prove RF isolation. Correlate persisted signed paths/IDs privately and export sanitized summaries. A-B and B-C links must be evidenced; do not add production peer bypasses.",
+  "planned_checks": [
+    {
+      "id": "TOPOLOGY",
+      "status": "BLOCKED FOR ENFORCED A-C ISOLATION IN CURRENT SPACE; PATH INSPECTION NOT RUN",
+      "expected": "Nearby run may identify an actual Samsung hop from persisted signed path evidence; cannot claim enforced A-C isolation or repeatable multihop acceptance"
+    },
+    {
+      "id": "SOS",
+      "status": "DIRECT A-C SOS ROUTE IDENTIFIED; SAMSUNG-FORWARDED SOS NOT VERIFIED",
+      "expected": "One current synthetic SOS forwarded A-B-C and persisted at C"
+    },
+    {
+      "id": "HELP_OFFER",
+      "status": "PARTIAL: VERIFIED OFFER AND DELIVERED UI CONFIRMED; SAMSUNG REVERSE ROUTE NOT VERIFIED",
+      "expected": "Verified C offer returns to A through B; C Offer delivery delivered"
+    },
+    {
+      "id": "CHAT",
+      "status": "ENDPOINT BIDIRECTIONAL UI/DB VISIBILITY CONFIRMED; ACTUAL CHAT HOP CHAIN NOT RETAINED AT FINAL INBOX; MULTIHOP NOT VERIFIED",
+      "expected": "Distinct synthetic texts each direction, receiver single-message visibility and correlated relay path evidence; do not require unimplemented final Chat receipt"
+    },
+    {
+      "id": "CANCELLATION",
+      "status": "NEARBY ORIGIN CANCELLATION/HISTORY AND IPAD HELPING LIST UPDATE OPERATOR-CONFIRMED; MULTIHOP TERMINAL PATH NOT VERIFIED",
+      "expected": "Origin cancellation reaches receiver, Helping list updates, history retained; multihop terminal path not yet established"
+    }
+  ],
+  "limitations": [
+    "Signed final multi-hop Chat receipt remains unimplemented; no delivered Chat claim",
+    "Physical separation alone does not prove endpoints cannot communicate",
+    "Terminal forwarding protocol differs from signed Chat path; test separately",
+    "Operator has limited space; all three devices nearby. Direct iPhone-iPad bypass remains possible. No software peer-blocking bypass added."
+  ],
+  "operator_observations": [
+    {
+      "step": "physical_placement_constraint",
+      "result": "User reports limited space; all three devices must remain nearby",
+      "scope": "Cannot enforce physical A-C isolation in this setup; three-device visibility is not multihop evidence."
+    },
+    {
+      "step": "nearby_three_device_preparation_ready",
+      "result": "User confirms all three devices prepared nearby with Emergency foreground/unlocked, Wi-Fi/mobile data off, Bluetooth on; Samsung Nearby SOS Relay enabled; iPad Rescue listening and Nearby SOS Relay enabled",
+      "scope": "Operator-confirmed preparation only; no fresh SOS reception or actual path observed. A-C direct bypass remains possible."
+    },
+    {
+      "step": "ipad_relay_preparation_correction",
+      "result": "User corrects earlier readiness report: Nearby SOS Relay on iPad had not been enabled and requests retry",
+      "scope": "Earlier all-ready report superseded for iPad relay. Whether iPhone SOS was already created is not yet confirmed; no reception failure or retry result inferred. Preserve any existing incident; avoid duplicate SOS."
+    },
+    {
+      "step": "ipad_existing_sos_visible_after_relay_enabled",
+      "result": "User confirms iPhone SOS had already been sent and iPad now sees that same incident after enabling relay",
+      "scope": "Operator-confirmed nearby iPhone-to-iPad incident visibility after correcting iPad relay precondition. No duplicate SOS requested. Actual path and Samsung forwarding not established; no precise latency claim."
+    },
+    {
+      "step": "iphone_verified_offer_after_ipad_offer_help",
+      "result": "User confirms iPhone current incident Chat displays Verified help offer received (1) after instructed single iPad Offer Help",
+      "scope": "One nearby iPad-to-iPhone verified offer UI observation; iPad final Offer ACK pending. Actual route/Samsung forwarding not established."
+    },
+    {
+      "step": "ipad_help_offer_delivery_ack",
+      "result": "User confirms iPad current incident Offer delivery is delivered after iPhone verified offer count 1",
+      "scope": "One nearby iPad/iPhone Help Offer round-trip UI case operator-confirmed. Actual route/Samsung forwarding and signed final Chat receipt not established."
+    },
+    {
+      "step": "iphone_to_ipad_chat_single_message",
+      "result": "User confirms THREE-A-C-01 sent once from iPhone appears once in iPad current incident Chat",
+      "scope": "One nearby foreground iPhone-to-iPad Chat visibility case. Reverse Chat, actual route/Samsung forwarding and signed final Chat receipt not established."
+    },
+    {
+      "step": "ipad_to_iphone_chat_single_message",
+      "result": "User confirms THREE-C-A-01 sent once from iPad appears once in iPhone current incident Chat",
+      "scope": "One nearby foreground reverse Chat visibility case; together with THREE-A-C-01 one message each direction observed. Actual route/Samsung forwarding and signed final Chat receipt remain unverified."
+    },
+    {
+      "step": "samsung_wired_route_inspection",
+      "result": "Authorized wired Samsung read-only DB/log inspection completed; quick_check ok; two normalized test Chat markers absent from relay inbox/outbox; sole stored SOS next-hop attempt failed after 3 retries without accepted_at",
+      "scope": "Snapshot-specific, not proof of no prior forwarding. Current incident correlation and actual path need iPad DB comparison. See ANDROID_ROUTE_INSPECTION.json."
+    },
+    {
+      "step": "ipad_wired_route_inspection",
+      "result": "Matched wired iPad read-only Documents DB quick_check ok. Same SOS origin/digest as Samsung; hop_count=0, origin-only path and previous hop equals origin. One Chat row each marker, forward verified inbox, reverse forwarded outbox, same incident and reversed participant pair; Help Offer outbox delivered.",
+      "scope": "SOS stored metadata identifies direct iPhone-iPad route. Final Chat inbox omits full received hop chain; exact Chat route unproven. No multihop PASS. See IPAD_ROUTE_INSPECTION.json."
+    },
+    {
+      "step": "iphone_three_device_test_cancelled_history_retained",
+      "result": "User confirms current synthetic SOS cancelled on iPhone and history retained",
+      "scope": "Origin cancellation/history UI observation only; iPad Helping-list update pending. Does not establish terminal receipt or multihop propagation."
+    },
+    {
+      "step": "ipad_cancelled_incident_removed_from_helping",
+      "result": "User confirms incident cancelled on iPhone disappeared from iPad Helping list",
+      "scope": "One nearby endpoint cancellation/list-update UI observation; history retained on iPhone as previously confirmed. No signed lifecycle final ACK or multihop propagation claim."
+    }
+  ],
+  "current_scope": "Nearby three-device interoperability with roles A origin/B relay-only/C rescuer. Inspect actual routes if evidence available; enforced physical multihop acceptance remains unverified. No new SOS yet.",
+  "session_summary": {
+    "operator_and_db_supported": [
+      "Current SOS visible on iPad after enabling its relay",
+      "iPhone verified iPad Help Offer count 1; iPad Offer delivery delivered, matched outbox state",
+      "THREE-A-C-01 and THREE-C-A-01 each visible once at receiver; iPad DB contains one Chat row each in same incident",
+      "iPhone cancellation/history retention and iPad Helping-list removal operator-confirmed"
+    ],
+    "route_findings": [
+      "Correlated origin ID/digest matches across Samsung/iPad",
+      "iPad SOS metadata shows direct origin reception: hop_count=0, origin-only path, previous hop equals origin",
+      "Samsung stored SOS next-hop attempt timed out after 3 retries without accepted_at/receipt",
+      "No matching test Chat relay rows in Samsung snapshot; iPad final-recipient inbox does not retain incoming full signed hop chain"
+    ],
+    "not_verified": [
+      "Enforced A-C isolation/multihop SOS, Help Offer, Chat or cancellation through Samsung",
+      "Exact Chat radio route and root cause of Samsung SOS forward timeout",
+      "Repeated reliability, background/OS-kill or signed final Chat receipt",
+      "Restoration of network/relay/listening settings"
+    ],
+    "changes": "Evidence and project context only; no source/build/install changes or device DB mutation"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "date": "2026-11-08",
+  "build_number": 5,
+  "matching_saved_wired_iphone": true,
+  "inspection": "Read-only Documents DB copy; quick_check ok; live copy not coordinated snapshot",
+  "operator_sequence": [
+    "Samsung Bluetooth fully off in Settings",
+    "Single outage message from iPhone displayed Queued/Pending",
+    "Samsung Bluetooth restored; original message visible once without resend",
+    "iPhone original message Confirmed stored"
+  ],
+  "sender_db": {
+    "exact_test_marker_matches": 1,
+    "relay_outbox_state": "delivered",
+    "receipt_state": "applied",
+    "local_chat_rows": 1,
+    "local_chat_status": "delivered",
+    "same_incident_and_participants_as_baseline_pair": true
+  },
+  "captured_crypto_revalidation": {
+    "tests_passed": 1,
+    "exit": 0,
+    "checks": [
+      "Signed original Chat envelope",
+      "Final recipient Samsung signature/key-ID binding",
+      "Exact message/incident/digest/parties and receipt timestamps at signed persistence time"
+    ]
+  },
+  "scope": "One foreground Bluetooth outage recovery and signed final receipt at sender. Receiver single-message observation operator-confirmed; no new Samsung DB copy in this step. No exact latency, receipt-loss injection, process-kill or multihop claim."
+}

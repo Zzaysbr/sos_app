@@ -1,0 +1,120 @@
+{
+  "date": "2026-11-07",
+  "timezone": "Asia/Bangkok",
+  "source_sha256": "4f920365e88ea36e3ac2dc46dff0d4573794aa35a6d8ce30ff52fc8379b11f6e",
+  "status": "Original TEST-BT-01 recovered once after participation/listening restored; fixing implicit role switch on Chat banner",
+  "installation_ui": "User confirmed updated app opens normally on all three devices.",
+  "topology": "iPhone-Android pair; user confirmed iPad Bluetooth off in system settings",
+  "scope": "New incident required; do not reconstruct previously deleted signed origins or reuse expired Chat as delivery test.",
+  "results": [
+    {
+      "step": 1,
+      "observation": "User confirmed iPad Bluetooth off in system settings.",
+      "scope": "Pair isolation setup only; no new SOS sent."
+    },
+    {
+      "step": 2,
+      "observation": "User confirmed iPhone and Android Wi-Fi/mobile data off, Bluetooth on, and both apps open in foreground.",
+      "scope": "Operator-reported setup only; no new SOS sent."
+    },
+    {
+      "step": 3,
+      "observation": "User confirmed Android rescue mode shows listening for incidents.",
+      "scope": "Listening UI only; relay participation and reception not yet verified."
+    },
+    {
+      "step": 4,
+      "observation": "User confirmed Android Nearby SOS Relay is enabled and returned to rescue listening.",
+      "scope": "Participation setup only; no new SOS or reception verified."
+    },
+    {
+      "step": 5,
+      "observation": "User confirmed iPhone automatic public SOS forwarding and voluntary rescuer sharing enabled; SOS button visible.",
+      "scope": "Consent/setup confirmed; no new SOS sent yet."
+    },
+    {
+      "step": "SOS reception",
+      "observation": "User confirmed Android sees the new SOS after one send from iPhone.",
+      "scope": "Operator-confirmed reception of one incident; exact latency and retention behavior not yet verified."
+    },
+    {
+      "step": "Offer Help submitted",
+      "observation": "User selected Help offered locally / helping incident page on Android after one Offer Help action.",
+      "scope": "Local submission UI only; iPhone verified offer and Android final ACK pending."
+    },
+    {
+      "step": "iPhone verified offer UI",
+      "observation": "User confirmed Verified help offer received (1) in Chat for the current test SOS on iPhone.",
+      "scope": "One verified offer shown; Android final ACK status still pending."
+    },
+    {
+      "step": "Offer final ACK UI",
+      "observation": "User confirmed Android Offer delivery reads delivered for the current test incident.",
+      "scope": "Operator-confirmed one Help Offer round trip with iPhone verified offer count 1; Chat and origin-retention behavior pending."
+    },
+    {
+      "step": "Android Chat ready",
+      "observation": "User confirmed Android opened incident Chat for the new test SOS.",
+      "scope": "Navigation only; no Chat sent in this retest yet."
+    },
+    {
+      "step": "Baseline iPhone to Android Chat",
+      "observation": "User confirmed TEST-RETENTION-01 appears once on Android after one send from iPhone.",
+      "scope": "Operator-confirmed one forward Chat; reverse direction and aged-origin retention not yet verified.",
+      "confirmation_received_utc": "2026-11-07T13:58:50.607546+00:00"
+    },
+    {
+      "step": "Baseline Android to iPhone Chat",
+      "observation": "User confirmed TEST-RETENTION-REPLY-01 appears once on iPhone after one send from Android.",
+      "scope": "Operator-confirmed bidirectional baseline in one incident; aged-origin retention not yet verified.",
+      "confirmation_received_utc": "2026-11-07T14:00:47.081534+00:00"
+    },
+    {
+      "step": "Dedicated aged-test wait declined",
+      "observation": "User does not want to wait for the aged-origin test boundary.",
+      "scope": "Do not mark aged-origin retention physically verified. Continue immediately actionable tests; do not change device clocks or signed lifetimes.",
+      "recorded_utc": "2026-11-07T14:12:39.802574+00:00"
+    },
+    {
+      "step": "Bluetooth outage setup",
+      "observation": "User confirmed Android Bluetooth off and both devices in the same incident Chat; iPhone instructed not to lock screen.",
+      "scope": "Operator-confirmed setup only; no outage test message sent yet.",
+      "recorded_utc": "2026-11-07T14:13:38.589568+00:00"
+    },
+    {
+      "step": "Queued Chat during Bluetooth outage",
+      "observation": "User confirmed TEST-BT-01 shows Queued on iPhone and send button is usable while Android Bluetooth remains off.",
+      "scope": "Queue UI and composer only; receiver arrival not yet tested.",
+      "recorded_utc": "2026-11-07T14:14:18.871721+00:00"
+    },
+    {
+      "step": "Bluetooth recovery original message observation",
+      "observation": "User reports TEST-BT-01 absent after the full 3-minute window following Android Bluetooth restore; instructed to keep both Chats foreground/unlocked with no resend.",
+      "scope": "Operator-reported non-arrival under instructed foreground conditions; OS app/process, reconnect and proof state not inspected yet. Not an approved latency SLA.",
+      "confirmation_received_utc": "2026-11-07T14:18:32.491356+00:00"
+    },
+    {
+      "step": "Rescue-role/navigation clarification",
+      "observation": "User reports leaving incident Chat while in helper mode switches to need-help role unexpectedly and listening seems to stop; re-enabling listening made peers appear again. Current reported peer status authenticated/ineligible. User also reports closing the app during the earlier wait before continuing tests.",
+      "scope": "Operator report; unexpected role transition/listening impact not yet reproduced. Bluetooth-only recovery setup not isolated; do not attribute non-arrival solely to native adapter recovery or claim missing peer persists.",
+      "recorded_utc": "2026-11-07T14:30:42.514064+00:00"
+    },
+    {
+      "step": "Current relay participation clarification",
+      "observation": "User confirmed authenticated/ineligible was read on iPhone; Android Nearby SOS Relay was off and user re-enabled it.",
+      "scope": "Current peer participation false agrees with ineligible UI. No proof that this alone caused non-arrival; direct final-recipient Chat has separate routing rules."
+    },
+    {
+      "step": "Original queued Chat follow-up",
+      "observation": "After user re-enabled listening/relay, TEST-BT-01 original appeared once on Android with no resend reported.",
+      "scope": "Recovery after configuration/listening restoration, not isolated Bluetooth-only or exact-latency acceptance; actual origin/device timestamps not inspected for aged retention."
+    }
+  ],
+  "sos_send_instruction_issued_utc": "2026-11-07T13:53:06.948326+00:00",
+  "timing_scope": "Instruction/confirmation timestamps bound interaction only; actual device SOS creation time not yet inspected.",
+  "sos_reception_confirmation_received_utc": "2026-11-07T13:54:30.997103+00:00",
+  "aged_test_not_before_utc": "2026-11-07T14:25:30.997103+00:00",
+  "aged_test_timing_basis": "31 minutes after SOS-reception confirmation, a conservative bound after instructed SOS send; actual device origin timestamps still to be inspected.",
+  "aged_wait_declined": true,
+  "bluetooth_restore_instruction_issued_utc": "2026-11-07T14:14:18.871878+00:00"
+}

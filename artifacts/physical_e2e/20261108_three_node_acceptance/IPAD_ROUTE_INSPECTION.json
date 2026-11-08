@@ -1,0 +1,46 @@
+{
+  "date": "2026-11-08",
+  "device_alias": "C iPad",
+  "target_checks": {
+    "unique_paired_wired_connected_ipad": true,
+    "model": "iPad Air 11-inch (M2)",
+    "product_type_matches_expected": true
+  },
+  "inspection": "Read-only Documents copy through devicectl appDataContainer; no install/restart/remote mutation",
+  "sqlite_quick_check": "ok",
+  "snapshot_limit": "Live copy, not coordinated snapshot; no independent signature revalidation performed in this inspection",
+  "correlation": {
+    "same_origin_message_and_immutable_digest_as_samsung": true,
+    "both_chat_markers_same_incident": true,
+    "forward_sender_matches_sos_origin": true,
+    "reverse_sender_recipient_pair_matches_forward": true,
+    "rescue_candidate_matches_origin_digest": true
+  },
+  "sos_route": {
+    "incoming_hop_count": 0,
+    "incoming_path_length": 1,
+    "incoming_path_is_origin_only": true,
+    "previous_hop_equals_origin": true,
+    "conclusion": "Stored route metadata identifies direct iPhone-to-iPad reception, not a Samsung hop"
+  },
+  "chat": {
+    "THREE-A-C-01": {
+      "chat_rows": 1,
+      "relay_inbox_rows": 1,
+      "inbox_state": "verified"
+    },
+    "THREE-C-A-01": {
+      "chat_rows": 1,
+      "relay_outbox_rows": 1,
+      "outbox_state": "forwarded",
+      "hop_count": 0
+    },
+    "endpoint_incoming_full_signed_hop_chain_retained": false,
+    "conclusion": "Endpoint Chat stored once each, but exact receive path cannot be reconstructed from final-recipient inbox payload alone. Samsung snapshot has no correlated Chat relay rows; do not claim Samsung hop or definitive direct Chat path."
+  },
+  "help_offer": {
+    "same_incident_outbox_state": "delivered"
+  },
+  "result": "Nearby iPhone/iPad interoperability supported; enforced three-node multihop NOT VERIFIED. SOS route observed direct. Preserve earlier Samsung timeout finding.",
+  "next": "Close synthetic incident with origin history retained and check iPad Helping list; no duplicate SOS."
+}

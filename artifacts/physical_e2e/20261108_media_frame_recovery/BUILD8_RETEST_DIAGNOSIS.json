@@ -1,0 +1,29 @@
+{
+  "date": "2026-11-08",
+  "build": 8,
+  "physical_camera_retest": "FAIL: user reports no photo after3minutes",
+  "receiver_progress_capture": {
+    "file_bytes": 371348,
+    "complete": false,
+    "request_missing_index": 1,
+    "at_least_one_verified_chunk_stored": true
+  },
+  "actual_negotiated_transport": {
+    "android_callback_mtu": 517,
+    "observed_incoming_frame_bytes": 512,
+    "media_chunk_frames": 13
+  },
+  "cpu_sample": {
+    "mode": "android debug",
+    "requested_window_seconds": 12,
+    "samples": 4365,
+    "ed25519_verify_inclusive_samples": 4131,
+    "fraction_of_collected_samples": 0.9464,
+    "function": "package:cryptography/src/dart/ed25519.dart DartEd25519.verify",
+    "scope": "Sample distribution of collected CPU samples, not wall-time percentage or sole-cause proof",
+    "profiler_restored_disabled": true
+  },
+  "next": "Same-source Android Profile8 AOT build and preserved-data update for controlled performance comparison; no security/expiry/retry changes",
+  "physical_success": "NOT VERIFIED",
+  "reference": "https://docs.flutter.dev/perf/ui-performance"
+}

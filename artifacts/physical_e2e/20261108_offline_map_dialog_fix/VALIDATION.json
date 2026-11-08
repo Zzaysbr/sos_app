@@ -1,0 +1,24 @@
+{
+  "date": "2026-11-08",
+  "version": "0.1.0+7",
+  "source_sha256": "54876b110e355ab7bdc484952a4d1a698a3786d8df4b7098571636f2adda67ef",
+  "map_tests": {
+    "passed": 38,
+    "failed": 0,
+    "exit": 0
+  },
+  "static_analysis": "No issues found; exit0",
+  "whitespace_check": "Passed exit0",
+  "full_suite_scope": "Not rerun for isolated dialog fix; previous build6 full suite601 passed, current38 map tests include2 failing-before/passing-after focused regressions",
+  "native_builds": "Configured Android debug and signed iOS Profile7 passed; APK signature, iOS standalone guard verified",
+  "physical_status": "All3 build7 update/visual launch/history confirmed; iPad archives retained. Samsung/iPhone scoped offline-region reopen cases passed; iPad map not accepted. Required physical media checks pending.",
+  "samsung_download_retest": {
+    "result": "PASS OPERATOR REPORT",
+    "region_alias": "OFFLINE-TEST-01",
+    "history_normal": true,
+    "red_screen": false,
+    "scope": "One actual download report; no DB/tile-file correlation yet and no offline/cold-start acceptance inferred"
+  },
+  "samsung_cold_offline": "PASS in scope: sole stored region24 tiles/174840bytes, fresh process, no active default Internet network; user confirms both network toggles off and base tiles/marker/in-area pan at zoom16",
+  "iphone_offline_reopen": "PASS in stated operator/file evidence scope; visual zoom16 only"
+}

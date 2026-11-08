@@ -48,6 +48,46 @@ void main() {
 
   tearDown(() => database.close());
 
+  test('notification side effect follows durable incoming commit and cannot roll it back', () async {
+    var calls = 0;
+    repository = PersistentChatRepository(
+      database: database,
+      ownerId: 'owner-a',
+      onIncomingPersisted: (message) async {
+        calls++;
+        final saved = await repository.loadMessages('sos-a');
+        expect(saved.single.id, message.id);
+        throw StateError('OS permission denied');
+      },
+    );
+    Future<void> receive({String text = 'incoming'}) async {
+      await repository.insertIncomingMessage(
+        messageId: 'incoming-1',
+        sosId: 'sos-a',
+        senderId: 'remote',
+        text: text,
+        createdAt: DateTime.utc(2026),
+      );
+    }
+
+    await receive();
+    expect(calls, 1);
+    expect(
+      (await repository.loadMessages('sos-a')).single.status,
+      ChatDeliveryStatus.delivered,
+    );
+    await receive(); // A replay may retry notification; native stable-ID dedupes it.
+    expect(calls, 2);
+    expect(await repository.loadMessages('sos-a'), hasLength(1));
+    await expectLater(
+      receive(text: 'conflict'),
+      throwsA(isA<ChatRepositoryException>()),
+    );
+    expect(calls, 2);
+    await repository.insertMessage(sosId: 'sos-a', text: 'outgoing');
+    expect(calls, 2);
+  });
+
   test('persists messages, preserves order, and updates status', () async {
     final first = await repository.insertMessage(
       sosId: 'sos-a',

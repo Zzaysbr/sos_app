@@ -1,0 +1,58 @@
+{
+  "date": "2026-11-08",
+  "build_number": 5,
+  "matching_saved_wired_ipad": true,
+  "inspection": "Read-only Documents DB copy; live copies not coordinated snapshots",
+  "result": {
+    "quick_check": "ok",
+    "schema_version": 10,
+    "sos": {
+      "same_origin_id_digest_incident_as_A_B": true,
+      "incoming_hop_count": 1,
+      "path_origin_then_samsung": true,
+      "previous_hop_samsung": true
+    },
+    "messages": [
+      {
+        "direction": "forward",
+        "exact_canonical_envelope_id_and_incident_match_B_A": true,
+        "exact_canonical_receipt_matches_B_A": true,
+        "local_chat_count": 1,
+        "local_chat_status": "delivered",
+        "relay_state": "verified",
+        "receipt_state": "queued"
+      },
+      {
+        "direction": "reverse",
+        "exact_canonical_envelope_id_and_incident_match_B_A": true,
+        "exact_canonical_receipt_matches_B_A": true,
+        "local_chat_count": 1,
+        "local_chat_status": "delivered",
+        "relay_state": "delivered",
+        "receipt_state": "applied"
+      }
+    ],
+    "offer": {
+      "outbox_state": "delivered",
+      "final_ack_at_present": true
+    },
+    "terminal": {
+      "same_canonical_payload_as_B": true,
+      "authorized_rows": 1,
+      "candidate_state": "cancelled",
+      "local_incident_status": "cancelled"
+    },
+    "archived_locally_candidate_count": 7
+  },
+  "captured_sos_crypto_revalidation": {
+    "tests_passed": 1,
+    "exit": 0,
+    "checks": [
+      "Origin signature/key-ID/digest",
+      "Samsung hop signature/key-ID",
+      "Exactly one forwarded hop and expected origin/Samsung path at captured C receive time"
+    ]
+  },
+  "receipt_crypto_provenance": "Exact C envelopes and canonical receipts equal previously independently verified A/B captured data",
+  "scope": "One staged physical store-and-forward signed SOS/Offer-ACK/bidirectional Chat and final receipts/terminal run with operator endpoint Bluetooth exclusivity. Not simultaneous topology/range/repeated/general background/OS-kill/exactly-once guarantee."
+}

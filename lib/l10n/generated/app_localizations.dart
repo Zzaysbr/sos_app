@@ -101,7 +101,7 @@ abstract class AppLocalizations {
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:
-  /// **'Off Grid SOS'**
+  /// **'Emergency'**
   String get appTitle;
 
   /// No description provided for @authStatusUnavailable.
@@ -617,7 +617,7 @@ abstract class AppLocalizations {
   /// No description provided for @passwordResetSent.
   ///
   /// In en, this message translates to:
-  /// **'Password reset email sent. Check your inbox.'**
+  /// **'If an account exists for this email, password reset instructions were sent.'**
   String get passwordResetSent;
 
   /// No description provided for @passwordResetFailed.
@@ -2533,6 +2533,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Stored: {size}'**
   String offlineMapStorageSummary(String size);
+
+  /// No description provided for @checkCurrentLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Check current location'**
+  String get checkCurrentLocation;
+
+  /// No description provided for @checkCurrentLocationHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to try again without creating an SOS or sharing coordinates.'**
+  String get checkCurrentLocationHint;
+
+  /// No description provided for @checkingCurrentLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Finding your location...'**
+  String get checkingCurrentLocation;
+
+  /// No description provided for @currentLocationCheckReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Current location found. This check did not share coordinates.'**
+  String get currentLocationCheckReady;
+
+  /// No description provided for @recentLocationCheckReady.
+  ///
+  /// In en, this message translates to:
+  /// **'A recent saved location is available. This check did not share coordinates.'**
+  String get recentLocationCheckReady;
+
+  /// No description provided for @stopFollowing.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop following on this device'**
+  String get stopFollowing;
+
+  /// No description provided for @stopFollowingQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop following this incident?'**
+  String get stopFollowingQuestion;
+
+  /// No description provided for @stopFollowingExplanation.
+  ///
+  /// In en, this message translates to:
+  /// **'Moves this incident out of Helping on this device. History and messages stay available. This does not cancel or resolve the SOS for anyone else.'**
+  String get stopFollowingExplanation;
+
+  /// No description provided for @stoppedFollowing.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopped following on this device'**
+  String get stoppedFollowing;
+
+  /// No description provided for @stopFollowingFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not stop following. Try again.'**
+  String get stopFollowingFailed;
+
+  /// No description provided for @receivedHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Received incident history'**
+  String get receivedHistory;
+
+  /// No description provided for @receivedHistoryEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No received incidents saved yet.'**
+  String get receivedHistoryEmpty;
+
+  /// No description provided for @receivedHistoryError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load received incident history.'**
+  String get receivedHistoryError;
+
+  /// No description provided for @receivedHistoryNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Incidents and messages saved on this device. Stopping following does not change the origin\'s SOS status.'**
+  String get receivedHistoryNotice;
+
+  /// No description provided for @rescueHistoryHelping.
+  ///
+  /// In en, this message translates to:
+  /// **'Following on this device'**
+  String get rescueHistoryHelping;
+
+  /// No description provided for @rescueHistoryCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled by the origin'**
+  String get rescueHistoryCancelled;
+
+  /// No description provided for @rescueHistoryResolved.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolved by the origin'**
+  String get rescueHistoryResolved;
+
+  /// No description provided for @rescueHistoryExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Offer expired'**
+  String get rescueHistoryExpired;
 }
 
 class _AppLocalizationsDelegate

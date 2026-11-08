@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-07",
+  "device_alias": "Android-1",
+  "source": "PID-filtered adb logcat; no restart/install/clear performed",
+  "raw_log_sha256": "847b89d7fd5e3c47208bb779fda6205edcedb849352d9b27c6bedebf895b726c",
+  "observations": {
+    "ack_transfers_received": 30,
+    "ack_session_binding_rejections": 30,
+    "all_binding_rejections": 30,
+    "rejection_message_ids_contain_test_response_id": 2,
+    "rescue_ack_verified_events": 0,
+    "rescue_offer_delivered_events": 0,
+    "response_forward_started_events": 101,
+    "response_transfer_completed_events": 100
+  },
+  "operator_android_status": "forwarded after 30-second observation",
+  "finding": "ACKs reach the receiver but are rejected at current transport-session-binding validation before final acknowledgement application. Exact origin of binding divergence is not yet established.",
+  "limits": [
+    "No claim that delivered was applied then overwritten; no delivered/verified ACK event in this capture.",
+    "Random transfer IDs cannot all be cross-correlated to the test response without packet payload; only positive ID containment count is reported.",
+    "No native packet payloads, device/incident/message IDs or user content included in this summary."
+  ]
+}

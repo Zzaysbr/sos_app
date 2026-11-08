@@ -1,0 +1,175 @@
+{
+  "date": "2026-11-07",
+  "timezone": "Asia/Bangkok",
+  "source_sha256": "aa43b891ee7d1de1b4fa547e7c556faf39bd6675baa873051646a70932595657",
+  "status": "CLOSED with history retained; pending origin-evidence retention fix before new-incident retest",
+  "installation_ui": "User confirmed updated app opens normally on all three devices.",
+  "topology": "iPhone-Android pair; user confirmed iPad Bluetooth off in system settings",
+  "results": [
+    {
+      "step": 1,
+      "observation": "User confirmed iPad Bluetooth off in system settings.",
+      "scope": "Pair isolation setup; no new SOS sent."
+    },
+    {
+      "step": 2,
+      "observation": "User confirmed iPhone and Android Wi-Fi/mobile data off, Bluetooth on, and both apps open in foreground.",
+      "scope": "Operator-reported setup only; no new SOS sent."
+    },
+    {
+      "step": 3,
+      "observation": "User confirmed Android rescue mode shows listening for incidents.",
+      "scope": "Listening UI only; relay participation and reception not yet verified."
+    },
+    {
+      "step": 4,
+      "observation": "User confirmed Android Nearby SOS Relay is enabled and returned to rescue listening.",
+      "scope": "Participation setup only; no new SOS or reception verified."
+    },
+    {
+      "step": 5,
+      "observation": "User confirmed iPhone automatic public SOS forwarding and voluntary rescuer sharing enabled; SOS button visible.",
+      "scope": "Consent/setup confirmed; no new SOS sent yet."
+    },
+    {
+      "step": "SOS reception",
+      "observation": "User confirmed Android sees the new SOS after one send from iPhone.",
+      "scope": "Operator-confirmed reception of one incident; exact latency, Offer ACK and Chat not verified in this retest."
+    },
+    {
+      "step": "Offer Help submitted",
+      "observation": "User selected Help offered locally / helping incident page on Android after one Offer Help action.",
+      "scope": "Local submission UI only; iPhone verified offer and Android final ACK pending."
+    },
+    {
+      "step": "iPhone verified offer UI",
+      "observation": "User confirmed Verified help offer received (1) in Chat for the current test SOS on iPhone.",
+      "scope": "One verified offer shown; Android final ACK status still pending."
+    },
+    {
+      "step": "Offer final ACK UI",
+      "observation": "User confirmed Android Offer delivery reads delivered for the current test incident.",
+      "scope": "Operator-confirmed one Help Offer round trip with iPhone verified offer count 1; composer/Chat still pending."
+    },
+    {
+      "step": "Android Chat ready",
+      "observation": "User confirmed Android opened incident Chat for the new test SOS.",
+      "scope": "Navigation only; no Chat sent in this retest yet."
+    },
+    {
+      "step": "iPhone composer recovery",
+      "observation": "After sending TEST-CHAT-03 once, user confirmed loading disappears and send button becomes usable within the 15-second observation window.",
+      "scope": "Single operator-confirmed sender UI recovery. Android receipt, second send, reverse Chat and recovery cases still pending."
+    },
+    {
+      "step": "TEST-CHAT-03 receiver confirmation",
+      "observation": "User confirmed TEST-CHAT-03 is visible once in the current incident Chat on Android.",
+      "scope": "One operator-confirmed iPhone-to-Android arrival plus sender composer recovery; not final signed Chat receipt or repeated reliability."
+    },
+    {
+      "step": "Sequential iPhone send composer",
+      "observation": "User confirmed TEST-CHAT-04 could be sent once in the same Chat without reopening/restarting; loading disappeared and send button became usable within the 15-second observation window.",
+      "scope": "Second sender composer completion confirmed; Android receipt of TEST-CHAT-04 not yet confirmed."
+    },
+    {
+      "step": "TEST-CHAT-04 receiver confirmation",
+      "observation": "User confirmed TEST-CHAT-04 is visible once on Android.",
+      "scope": "Two sequential iPhone messages each shown once on Android with iPhone composer recovery; reverse direction/reconnect and signed final Chat receipt not verified."
+    },
+    {
+      "step": "Android to iPhone Chat",
+      "observation": "User confirmed TEST-REPLY-03 appears once on iPhone after one send from Android.",
+      "scope": "Operator-confirmed bidirectional Chat in one incident: two forward texts and one reverse text. Android composer state/recovery/repeated incidents/three-node and signed final Chat receipt remain unverified."
+    },
+    {
+      "step": "Android composer recovery",
+      "observation": "User confirmed Android loading disappears and send button becomes usable after TEST-REPLY-03.",
+      "scope": "Composer completion confirmed on both platforms; no recovery transition tested yet."
+    },
+    {
+      "step": "iPhone one-sided background/resume navigation",
+      "observation": "User confirmed returning to the same incident Chat with history retained after going Home without force-closing and waiting 10 seconds; Android instructed to remain in foreground Chat.",
+      "scope": "Navigation/history confirmed only; post-resume delivery, proof renewal and native link retention not yet verified."
+    },
+    {
+      "step": "Post-resume iPhone to Android Chat",
+      "observation": "User confirmed TEST-RESUME-01 appears once on Android after one send from the resumed iPhone.",
+      "scope": "One operator-confirmed forward message after iPhone background/resume; post-resume reverse direction and actual proof/native-link details not yet verified."
+    },
+    {
+      "step": "Post-resume Android to iPhone Chat",
+      "observation": "User confirmed TEST-RESUME-REPLY-01 appears once on iPhone after one send from Android.",
+      "scope": "Operator-confirmed Chat in both directions after one iPhone Home/10-second/resume cycle. Does not establish retained GATT, proof renewal details, repeated reliability or final signed Chat receipt."
+    },
+    {
+      "step": "Android one-sided background/resume navigation",
+      "observation": "User confirmed Android returned to the same incident Chat with history retained after going Home without force-closing and waiting 10 seconds; iPhone instructed to remain in foreground Chat.",
+      "scope": "Navigation/history only; post-Android-resume delivery not yet verified."
+    },
+    {
+      "step": "Post-Android-resume iPhone to Android Chat",
+      "observation": "User confirmed TEST-ANDROID-RESUME-01 appears once on Android after one send from iPhone.",
+      "scope": "One operator-confirmed arrival after Android Home/10-second/resume cycle; reverse direction pending."
+    },
+    {
+      "step": "Post-Android-resume Android to iPhone Chat",
+      "observation": "User confirmed TEST-ANDROID-REPLY-01 appears once on iPhone after one send from Android.",
+      "scope": "Operator-confirmed bidirectional Chat after one Android Home/10-second/resume cycle. Both one-sided resume cycles passed their observed messages; no proof/native-link logs or repeated reliability claim."
+    },
+    {
+      "step": "Bluetooth outage setup",
+      "observation": "User confirmed Android Bluetooth off in system settings and returned to the same incident Chat; iPhone instructed to remain in Chat.",
+      "scope": "Operator-confirmed outage setup only; no outage test message sent yet."
+    },
+    {
+      "step": "Queued Chat during Bluetooth outage",
+      "observation": "User confirmed TEST-RECONNECT-01 shows Queued on iPhone and send button is usable while Android Bluetooth remains off.",
+      "scope": "Operator-confirmed queue UI and non-blocking composer; recovery and receiver arrival not yet tested."
+    },
+    {
+      "step": "Bluetooth reconnect queued Chat observation",
+      "observation": "User reported no TEST-RECONNECT-01 on Android after Bluetooth restored and the full 3-minute observation window, with no resend instructed.",
+      "scope": "Queued-message arrival failed within this operator observation window, not an approved latency SLA. Native reconnect, active-session proof, sender expiry/retry state and eventual late arrival unknown; cause not established."
+    },
+    {
+      "step": "Android reconnect diagnostic inspection",
+      "observation": "Expected wired Samsung verified. App process absent and SOS activity not resumed at inspection. App-UID log records activity destroy/bridge dispose at 19:41:47.670 device time; causal timing relative to outage/wait unknown.",
+      "scope": "Read-only capture, no restart or install. Historical Nov 4 crash excluded from current failure diagnosis; awaiting user current-screen confirmation."
+    },
+    {
+      "step": "Android current screen clarification",
+      "observation": "User selected screen off or locked when asked current Android screen.",
+      "scope": "Current lock state only; does not establish lock duration, process-exit cause or timing relative to Bluetooth recovery observation."
+    },
+    {
+      "step": "Android screen after unlock",
+      "observation": "User confirmed Home screen after unlocking, without manually opening SOS.",
+      "scope": "App was not foreground at current inspection and process absent earlier. Original 3-minute non-arrival remains observed; pure foreground Bluetooth-recovery conditions not established. Subsequent app relaunch will be a distinct recovery condition."
+    },
+    {
+      "step": "Android explicit app reopen",
+      "observation": "User confirmed reopening SOS and entering the same incident Chat with history retained.",
+      "scope": "Explicit app relaunch after Home/no-process inspection; subsequent message arrival must be attributed to this separate recovery condition, not Bluetooth-only recovery."
+    },
+    {
+      "step": "Original queued message after Android app reopen",
+      "observation": "User reported TEST-RECONNECT-01 still absent after the full 3-minute observation following explicit Android app reopen into the same Chat, without resend.",
+      "scope": "Second non-arrival window under a distinct app-reopen condition. Does not establish sender queue status, expiry, active proof or underlying cause."
+    },
+    {
+      "step": "Sender status and observation continuity clarification",
+      "observation": "User says results were not recorded continuously and current TEST-RECONNECT-01 status is relayed - delivery not confirmed.",
+      "scope": "Current sender UI status only, not receiver persistence or signed final delivery. Earlier reported 3-minute windows remain operator reports; no continuous end-to-end timing or exact latency established. Need sender queue age/expiry/retries and current readiness before causal conclusions."
+    },
+    {
+      "step": "iPhone durable queue inspection",
+      "observation": "Unique normalized synthetic reconnect message matched owner/message scoped row. Chat status sent, relay outbox expired, retry count 7, last error matches static source Verified SOS origin unavailable. Signed SOS origin row absent.",
+      "scope": "At inspection message age about 63 minutes, transport lifetime 30 minutes elapsed. Does not establish receiver arrival or original outage timing. Sender authorization retention defect confirmed in source; original unavailable origin cannot be recreated from unsigned SOS history."
+    },
+    {
+      "step": "Close aged reconnect incident",
+      "observation": "User confirmed SOS canceled on iPhone and retained in history.",
+      "scope": "Aged message expired and original signed origin already unavailable; no synthetic replacement origin generated."
+    }
+  ]
+}

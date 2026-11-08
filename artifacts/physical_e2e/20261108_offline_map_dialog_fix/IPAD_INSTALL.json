@@ -1,0 +1,36 @@
+{
+  "date": "2026-11-08",
+  "device_alias": "iPad Air",
+  "known_wired_identity_match": true,
+  "before_version": 6,
+  "after_version": 7,
+  "mode": "profile",
+  "standalone_preflight_exit": 0,
+  "artifact_hashes_valid": true,
+  "install_exit": 0,
+  "update_in_place": true,
+  "uninstall_or_data_clear": false,
+  "before_after_quick_check": "ok",
+  "schema": 10,
+  "application_rows": {
+    "sos_messages": {
+      "before": 3,
+      "after": 3,
+      "all_original_rows_unchanged": true
+    },
+    "chat_messages": {
+      "before": 15,
+      "after": 15,
+      "all_original_rows_unchanged": true
+    },
+    "rescue_inbox": {
+      "before": 13,
+      "after": 13,
+      "all_original_rows_unchanged": true
+    }
+  },
+  "archives_before": 7,
+  "archives_after": 7,
+  "visual_home_launch_history_archive": "PASS: user confirms normal Home launch, retained history and stopped-following incidents not returned to Helping on 2026-11-08",
+  "scope": "Update/read-only history comparison only; no iPad offline-map or media acceptance"
+}

@@ -12,6 +12,7 @@ import 'package:sos_app/core/database/app_database.dart';
 import 'package:sos_app/core/localization/localization.dart';
 import 'package:sos_app/features/sos/presentation/incident_map_page.dart';
 import 'package:sos_app/features/sos/presentation/map_tile_provider.dart';
+import 'package:sos_app/features/sos/data/offline_map_repository.dart';
 import 'package:sos_app/features/nearby_ble/domain/location_ble_envelope.dart';
 
 SosMessage _incident({double? latitude = 13.7, double? longitude = 100.5}) =>
@@ -45,6 +46,39 @@ Position _position({DateTime? timestamp}) => Position(
 
 class _FailedTile extends Mock implements TileImage {}
 
+class _DialogMapRepository extends OfflineMapRepository {
+  _DialogMapRepository() : super(rootDirectory: Directory.systemTemp);
+  OfflineMapDownloadRequest? requested;
+  final saved = <OfflineMapRegion>[];
+  @override
+  Future<void> initialize() async {}
+  @override
+  List<OfflineMapRegion> get regions => List.unmodifiable(saved);
+  @override
+  int estimateTileCount(OfflineMapBounds bounds, int minZoom, int maxZoom) => 4;
+  @override
+  Future<OfflineMapRegion> downloadRegion(
+    OfflineMapDownloadRequest request, {
+    required OfflineMapCancellation cancellation,
+    ValueChanged<OfflineMapProgress>? onProgress,
+  }) async {
+    requested = request;
+    final region = OfflineMapRegion(
+      id: 'region-1',
+      name: request.name,
+      providerKey: request.providerKey,
+      bounds: request.bounds,
+      minZoom: request.minZoom,
+      maxZoom: request.maxZoom,
+      tileCount: 4,
+      sizeBytes: 400,
+      createdAt: DateTime.utc(2026),
+    );
+    saved.add(region);
+    return region;
+  }
+}
+
 Widget _app({required Widget home, Locale locale = const Locale('en')}) =>
     MaterialApp(
       locale: locale,
@@ -64,6 +98,51 @@ void main() {
     binding.platformDispatcher.localeTestValue = const Locale('en');
   });
   tearDown(binding.platformDispatcher.clearLocaleTestValue);
+
+  for (final confirm in [true, false]) {
+    testWidgets(
+      'focused offline download dialog closes safely; confirm=$confirm',
+      (tester) async {
+        final repository = _DialogMapRepository();
+        const provider = MapTileProviderConfig(
+          urlTemplate: 'https://maps.geoapify.com/v1/tile/test/{z}/{x}/{y}.png?apiKey=synthetic-test-key',
+          attribution: 'Geoapify / OpenStreetMap contributors',
+          userAgentPackageName: 'com.n1cxltine.sosapp',
+          isDevelopmentFallback: false,
+        );
+        await tester.pumpWidget(
+          _app(
+            home: IncidentMapPage(
+              incident: _incident(),
+              tileProvider: provider,
+              offlineMapRepository: repository,
+              locationLoader: () async => null,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Download visible area'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), 'OFFLINE-TEST-01');
+        await tester.tap(
+          find.widgetWithText(
+            confirm ? FilledButton : TextButton,
+            confirm ? 'Download' : 'Cancel',
+          ),
+        );
+        // Check the still-mounted reverse-transition frames, not only the final
+        // page after route removal. The focused EditableText still owns listeners.
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(tester.takeException(), isNull);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(repository.requested?.name, confirm ? 'OFFLINE-TEST-01' : null);
+        expect(find.byType(AlertDialog), findsNothing);
+      },
+    );
+  }
 
   testWidgets('shows incident map and unavailable current location', (
     tester,

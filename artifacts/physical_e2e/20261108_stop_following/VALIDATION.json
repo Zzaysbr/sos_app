@@ -1,0 +1,38 @@
+{
+  "date": "2026-11-08",
+  "source_sha256": "352eb0fe60d2a098eb1f4fac85821e34f21e03c80d4e457fa32f4b2ba9e04394",
+  "version": "0.1.0+4",
+  "request": "Explicit local stop-following action with history and messages retained",
+  "implementation": {
+    "candidate_state": "archivedLocally",
+    "scope": "Owner-scoped rescue candidate only, conditional on locallyAccepted; repeat/stale calls cannot reopen or overwrite terminal state",
+    "ui": "Per-incident Helping menu and confirmation; Received incident history toolbar action; history opens details and retained Chat",
+    "history": "All owner-scoped received candidates retained, including legacy entries without materialized SOS; legitimate later terminal evidence still applies",
+    "database_schema": 9,
+    "new_migration": false,
+    "wire_or_lifecycle_changes": false,
+    "cloud_or_transport_enqueue_on_archive": false,
+    "localization": [
+      "English",
+      "Thai"
+    ]
+  },
+  "validation": {
+    "focused": "53 passed / 0 failed, exit 0",
+    "default": "586 passed / 0 failed, exit 0",
+    "analysis": "No issues found, exit 0",
+    "deferred_final_chat_receipt": "0 passed / 1 failed, exit 1, unchanged/not skipped"
+  },
+  "new_tests": [
+    "Local archive of expired legacy entry survives DB reopen, preserves SOS/Chat and isolates owners",
+    "Terminal/unaccepted candidate states not overwritten",
+    "Widget confirmation cancel/confirm, hidden Helping item, history entry and retained Chat accessible, no cloud/BLE queue",
+    "Repeated signed SOS does not reopen archive; legitimate authorized terminal event still applies"
+  ],
+  "limits": [
+    "Not installed or physically tested yet",
+    "Historical incidents not deleted or changed on devices",
+    "No new final Chat receipt or GPS fix",
+    "First widget test required advancing a zero-duration Drift query-cancel cleanup timer after disposing; final focused/full results use corrected cleanup"
+  ]
+}

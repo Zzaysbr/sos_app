@@ -1,0 +1,38 @@
+{
+  "local_status": "sent",
+  "mime": "video/mp4",
+  "queue": {
+    "state": "forwarded",
+    "retry_count": 7,
+    "last_error": null,
+    "expires_at": 1794163620
+  },
+  "receipt": null,
+  "file": {
+    "bytes": 340644,
+    "complete": true,
+    "targets": 1
+  },
+  "date": "2026-11-09",
+  "user_result": "Camera video prepared/sent, iPhone not visible; Samsung Relayed/not confirmed",
+  "request_progress": "Receiver requested indices0..83 inclusive in captured log; not proof all chunks committed",
+  "native_probe_with_mp4_extension": {
+    "duration_seconds": 2.8448,
+    "tracks": [
+      {
+        "width": 0,
+        "height": 0,
+        "codec_fourcc": "aac ",
+        "kind": "soun"
+      },
+      {
+        "width": 480,
+        "height": 270,
+        "codec_fourcc": "avc1",
+        "kind": "vide"
+      }
+    ]
+  },
+  "native_probe_extensionless": "Same content path without extension reports no tracks/duration0 in macOS AVFoundation probe; not yet independently confirmed iPhone cause",
+  "status": "Android short export now confirmed in captured file; receiver playback/final receipt not accepted"
+}

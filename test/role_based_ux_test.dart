@@ -1,6 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:cryptography/cryptography.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'package:drift/native.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -10,6 +15,11 @@ import 'package:sos_app/core/database/app_database.dart';
 import 'package:sos_app/core/localization/localization.dart';
 import 'package:sos_app/core/theme/app_theme.dart';
 import 'package:sos_app/features/nearby_ble/data/ble_delivery_repository.dart';
+import 'package:sos_app/features/nearby_ble/data/ble_transport.dart';
+import 'package:sos_app/features/nearby_ble/data/relay_repository.dart';
+import 'package:sos_app/features/nearby_ble/data/rescue_inbox_repository.dart';
+import 'package:sos_app/features/nearby_ble/domain/relay_envelope.dart';
+import 'package:sos_app/features/nearby_ble/domain/ble_models.dart';
 import 'package:sos_app/features/nearby_ble/data/emergency_consent_store.dart';
 import 'package:sos_app/features/nearby_ble/data/relay_preference_store.dart';
 import 'package:sos_app/features/nearby_ble/data/sos_ble_coordinator.dart';
@@ -30,6 +40,44 @@ class _Cloud extends Mock implements SosCloudService {}
 class _Repository extends Mock implements SosRepository {}
 
 class _BleCoordinator extends Mock implements SosBleCoordinator {}
+
+class _ListeningTransport implements BleTransportClient {
+  final controller = StreamController<BleEvent>.broadcast();
+  int advertisingStarts = 0;
+  int advertisingStops = 0;
+  @override
+  Stream<BleEvent> get events => controller.stream;
+  @override
+  Future<void> initialize() async {}
+  @override
+  Future<void> requestPermissions() async {}
+  @override
+  Future<void> startAdvertising({String? name}) async {
+    advertisingStarts++;
+  }
+
+  @override
+  Future<void> stopAdvertising() async {
+    advertisingStops++;
+  }
+
+  @override
+  Future<void> startDiscovery() async {}
+  @override
+  Future<void> stopDiscovery() async {}
+  @override
+  Future<void> connect(String deviceId) async {}
+  @override
+  Future<void> disconnect(String deviceId) async {}
+  @override
+  Future<void> send(
+    String deviceId,
+    List<int> frame, {
+    BleSessionRole? role,
+  }) async {}
+  @override
+  Future<void> dispose() => controller.close();
+}
 
 class _FailingRelayPreferenceStore implements RelayPreferenceStore {
   _FailingRelayPreferenceStore({this.failRead = false, this.failWrite = false});
@@ -73,6 +121,243 @@ void main() {
 
   tearDown(() async => database.close());
 
+  testWidgets(
+    'stop following preserves legacy history and Chat without a remote cancellation',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final old = DateTime.utc(2026, 1, 1);
+      await database
+          .into(database.rescueInbox)
+          .insert(
+            RescueInboxCompanion.insert(
+              ownerId: guestDeviceOwnerId,
+              originMessageId: 'legacy-origin',
+              incidentId: 'legacy-incident',
+              originKeyId: 'old-key',
+              immutableDigest: 'old-digest',
+              emergencyType: 'emergency',
+              emergencyMessage: 'Legacy saved SOS',
+              includeLocation: false,
+              incomingHopCount: 0,
+              incomingPath: '["old-key"]',
+              createdAt: old,
+              expiresAt: old.add(const Duration(minutes: 30)),
+              receivedAt: old,
+              state: 'locallyAccepted',
+            ),
+          );
+      await database
+          .into(database.chatMessages)
+          .insert(
+            ChatMessagesCompanion.insert(
+              messageId: 'legacy-chat',
+              sosId: 'legacy-incident',
+              ownerId: guestDeviceOwnerId,
+              senderId: 'old-key',
+              messageType: 'text',
+              textContent: const Value('Retained Chat message'),
+              createdAt: old,
+              deliveryStatus: 'delivered',
+            ),
+          );
+      final chat = PersistentChatRepository(
+        database: database,
+        ownerId: guestDeviceOwnerId,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: SosPage(
+            repository: repository,
+            isGuest: true,
+            chatRepository: chat,
+            rolePreferenceStore: MemoryRolePreferenceStore(AppRole.rescue),
+            relayPreferenceStore: MemoryRelayPreferenceStore(),
+            emergencyConsentStore: MemoryEmergencyConsentStore(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.assignment_outlined).last);
+      await tester.pumpAndSettle();
+      final menu = find.byKey(
+        const ValueKey('stop-following-menu-legacy-origin'),
+      );
+      await tester.ensureVisible(menu);
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Stop following on this device'));
+      await tester.pumpAndSettle();
+      // Dismissing the confirmation must leave the incident tracked.
+      await tester.tap(find.widgetWithText(TextButton, 'Back'));
+      await tester.pumpAndSettle();
+      expect(
+        (await RescueInboxRepository(
+          database,
+          ownerId: guestDeviceOwnerId,
+        ).find('legacy-origin'))!.state,
+        'locallyAccepted',
+      );
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Stop following on this device'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Stop following on this device'),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('accepted-rescue-candidate-legacy-origin')),
+        findsNothing,
+      );
+      expect(await database.select(database.sosMessages).get(), isEmpty);
+      expect(await database.select(database.bleOutbox).get(), isEmpty);
+      expect(await database.select(database.sosSyncQueue).get(), isEmpty);
+      await tester.tap(find.byTooltip('Received incident history'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('rescue-history-legacy-origin')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('rescue-history-legacy-origin')),
+      );
+      await tester.pumpAndSettle();
+      final offerButton = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Offer Help'),
+      );
+      expect(offerButton.onPressed, isNull);
+      await tester.tap(find.text('Open incident chat'));
+      await tester.pumpAndSettle();
+      expect(find.text('Retained Chat message'), findsOneWidget);
+      expect((await database.select(database.chatMessages).get()).length, 1);
+      expect(await database.select(database.bleOutbox).get(), isEmpty);
+      expect(await database.select(database.sosSyncQueue).get(), isEmpty);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    },
+  );
+
+  testWidgets(
+    'Offer Help closes sheet after durable enqueue while radio processing is blocked',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      FlutterSecureStorage.setMockInitialValues({
+        'ed25519-origin-seed-v1': base64UrlEncode(List<int>.filled(32, 23)),
+      });
+      final now = DateTime.now().toUtc();
+      final key = await Ed25519().newKeyPairFromSeed(List<int>.filled(32, 42));
+      final public = (await key.extractPublicKey()).bytes;
+      final crypto = RelayCryptography();
+      final keyId = await crypto.publicKeyId(public);
+      final body = RelayOriginBody(
+        originMessageId: 'relay:offer-ui',
+        incidentId: 'offer-ui',
+        originKeyId: keyId,
+        originPublicKey: base64UrlEncode(public),
+        emergencyType: 'emergency',
+        emergencyMessage: 'Widget test SOS',
+        includeLocation: false,
+        scope: RelayAuthorizationScope.voluntaryRescue,
+        createdAt: now,
+        expiresAt: now.add(const Duration(minutes: 30)),
+      );
+      final offer = RelayOfferEnvelope(
+        body: body,
+        originSignature: await crypto.signOriginBody(body, key),
+        hopCount: 0,
+        pathKeyIds: [keyId],
+        immediateSenderKeyId: keyId,
+      );
+      await RelayRepository(database: database)
+          .persistOriginOffer(offer, now: now);
+      await RescueInboxRepository(
+        database,
+        ownerId: guestDeviceOwnerId,
+      ).insertCandidate(
+        offer,
+        immutableDigest: await crypto.immutableDigest(body),
+        now: now,
+      );
+      final processing = Completer<void>();
+      final coordinator = _BleCoordinator();
+      when(() => coordinator.hasPendingPublicRelay())
+          .thenAnswer((_) async => false);
+      when(() => coordinator.setRelayParticipationEnabled(any()))
+          .thenAnswer((_) async {});
+      when(() => coordinator.processDue()).thenAnswer((_) => processing.future);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: SosPage(
+            repository: repository,
+            isGuest: true,
+            rolePreferenceStore: MemoryRolePreferenceStore(AppRole.rescue),
+            relayPreferenceStore: MemoryRelayPreferenceStore(),
+            emergencyConsentStore: MemoryEmergencyConsentStore(),
+            bleCoordinator: coordinator,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final candidate = find.byKey(
+        const ValueKey('received-rescue-candidate-offer-ui'),
+      );
+      await tester.ensureVisible(candidate);
+      await tester.tap(candidate);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Offer Help'));
+      await tester.tap(
+        find.text('Offer Help'),
+      ); // old widget callback cannot double-queue
+      await tester.pumpAndSettle();
+      expect(processing.isCompleted, isFalse);
+      expect(find.text('Incoming SOS candidate'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('accepted-rescue-candidate-relay:offer-ui')),
+        findsOneWidget,
+      );
+      final queued = await database.select(database.rescueResponseOutbox).get();
+      expect(queued, hasLength(1));
+      expect(queued.single.state, 'queued');
+      verify(() => coordinator.processDue()).called(1);
+      processing.complete();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    },
+  );
+
+  testWidgets(
+    'saved terminal recovery starts BLE without enabling public relay',
+    (tester) async {
+      var starts = 0;
+      final store = MemoryRelayPreferenceStore();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: SosPage(
+            repository: repository,
+            isGuest: true,
+            rolePreferenceStore: MemoryRolePreferenceStore(AppRole.needHelp),
+            relayPreferenceStore: store,
+            emergencyConsentStore: MemoryEmergencyConsentStore(),
+            pendingBleWorkCheck: () async => true,
+            onBleStartRequested: () async {
+              starts++;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(starts, 1);
+      expect(await store.loadParticipationEnabled(), isFalse);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    },
+  );
+
   test('SOS failed status only promises a retry when one is scheduled', () {
     final now = DateTime.utc(2026, 1, 1);
     BleOutboxData failed({DateTime? nextRetryAt}) => BleOutboxData(
@@ -101,25 +386,32 @@ void main() {
     );
   });
 
-  Widget app(RolePreferenceStore store, {ThemeMode mode = ThemeMode.light}) =>
-      MaterialApp(
-        locale: const Locale('th'),
-        supportedLocales: AppLocalizations.supportedLocales,
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        theme: AppTheme.light,
-        darkTheme: AppTheme.dark,
-        themeMode: mode,
-        home: SosPage(
-          repository: repository,
-          isGuest: true,
-          rolePreferenceStore: store,
-        ),
-      );
+  Widget app(
+    RolePreferenceStore store, {
+    ThemeMode mode = ThemeMode.light,
+    BleTransportClient? bleTransport,
+  }) => MaterialApp(
+    locale: const Locale('th'),
+    supportedLocales: AppLocalizations.supportedLocales,
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    theme: AppTheme.light,
+    darkTheme: AppTheme.dark,
+    themeMode: mode,
+    home: SosPage(
+      repository: repository,
+      isGuest: true,
+      rolePreferenceStore: store,
+      bleTransport: bleTransport,
+      relayPreferenceStore: bleTransport == null
+          ? null
+          : MemoryRelayPreferenceStore(),
+    ),
+  );
 
   testWidgets('first run defaults to victim mode and rescue opt-in persists', (
     tester,
@@ -146,6 +438,61 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
   });
+
+  for (final received in [false, true]) {
+    testWidgets(
+      'Chat banner and Back preserve rescue role and listening; received=$received',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 1200));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        if (received) {
+          await repository.ensureReceivedIncident(
+            id: 'role-incident',
+            type: 'emergency',
+            message: 'received signed incident fixture',
+            createdAt: DateTime.now().toUtc(),
+          );
+        } else {
+          await repository.create(id: 'role-incident', type: 'emergency');
+        }
+        final store = MemoryRolePreferenceStore(AppRole.rescue);
+        final transport = _ListeningTransport();
+        addTearDown(transport.dispose);
+        await tester.pumpWidget(app(store, bleTransport: transport));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('เริ่มเปิดรับเหตุ'));
+        await tester.pumpAndSettle();
+        expect(transport.advertisingStarts, 1);
+        expect(transport.advertisingStops, 0);
+        expect(find.text('กำลังเปิดรับเหตุ'), findsOneWidget);
+        await tester.tap(
+          find.byKey(const ValueKey('active-sos-chat-banner-role-incident')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
+        expect(store.value, AppRole.rescue);
+        expect(transport.advertisingStops, 0);
+        await tester.tap(find.byType(BackButton));
+        await tester.pumpAndSettle();
+        expect(store.value, AppRole.rescue);
+        expect(find.text('ศูนย์ช่วยเหลือใกล้ตัว'), findsOneWidget);
+        expect(find.text('กำลังเปิดรับเหตุ'), findsOneWidget);
+        expect(transport.advertisingStarts, 1);
+        expect(transport.advertisingStops, 0);
+        expect((await repository.findById('role-incident'))!.status, 'active');
+        // Only the explicit role switch releases the listening lease.
+        await tester.tap(find.byTooltip('สลับไปโหมดขอความช่วยเหลือ'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('สลับโหมด'));
+        await tester.pumpAndSettle();
+        expect(store.value, AppRole.needHelp);
+        expect(transport.advertisingStops, 1);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump(const Duration(milliseconds: 1));
+        expect(transport.advertisingStops, 1);
+      },
+    );
+  }
 
   testWidgets('switching modes warns and preserves an active incident', (
     tester,
@@ -211,7 +558,8 @@ void main() {
       find.byKey(const ValueKey('active-sos-chat-banner-active-own')),
     );
     await tester.pumpAndSettle();
-    expect(store.value, AppRole.needHelp);
+    // Opening Chat is navigation, not an implicit role-switch action.
+    expect(store.value, AppRole.rescue);
     expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
     expect(find.text('Incident active-own'), findsOneWidget);
     expect(await database.select(database.sosMessages).getSingle(), before);
@@ -227,6 +575,10 @@ void main() {
       ),
       outboxBefore.map((row) => (row.messageId, row.state, row.destinationId)),
     );
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(store.value, AppRole.rescue);
+    expect(find.text('ศูนย์ช่วยเหลือใกล้ตัว'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
   });

@@ -1,0 +1,27 @@
+{
+  "version": "0.1.0+11",
+  "date": "2026-11-09",
+  "reported_failure": "Samsung gallery video received once/confirmed at origin but play control below viewport; playback not tested",
+  "root_cause": "Unconstrained-height AspectRatio in non-flex Column takes width-derived portrait height plus controls beyond available body",
+  "fix": "Expanded video area fits width AND height, fixed visible48px seek area and min48px play target, SafeArea bottom; playback icon observes controller, confirmation dialog scrollable",
+  "regression_before": "Original unbounded layout0passed/3failed across320x568,640x240,360x640",
+  "regression_after": "3 layout cases and2 picker cases passed; broader final checks in progress",
+  "scope": "Media viewer and attachment confirmation; not a claim every app screen/button audited",
+  "status": "Scoped Samsung playback/layout physical retest passed",
+  "final_ui_tests": {
+    "passed": 30,
+    "failed": 0,
+    "exit": 0,
+    "scope": "Video viewport/control regression, picker, SOS accessibility layout and emergency navigation"
+  },
+  "application_analysis": "No issues found",
+  "git_diff_check": "PASS",
+  "physical_retest": {
+    "device": "Samsung Profile11",
+    "play_seek_controls_usable": true,
+    "video_audio_playback": true,
+    "landscape_rotation": true,
+    "source": "User reports existing gallery clip opens/plays normally after update",
+    "scope": "One existing clip, not every button/screen"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "date": "2026-11-06",
+  "timezone": "Asia/Bangkok",
+  "head": "841add485e96836058576e619c13963a7c4bf628",
+  "baseline": {
+    "pass": 523,
+    "fail": 8,
+    "exit_code": 1,
+    "analyze_issues": 12
+  },
+  "full_tests": {
+    "pass": 529,
+    "fail": 8,
+    "exit_code": 1,
+    "new_default_suite_failures": 0
+  },
+  "focused_tests": {
+    "pass": 65,
+    "fail": 0,
+    "exit_code": 0
+  },
+  "stage2_subset": {
+    "pass": 38,
+    "fail": 0
+  },
+  "analyze_lib_test": {
+    "exit_code": 0,
+    "issues": 0
+  },
+  "analyze_regression": {
+    "exit_code": 0,
+    "issues": 0
+  },
+  "git_diff_check": {
+    "exit_code": 0
+  },
+  "deferred_contracts": {
+    "pass": 0,
+    "fail": 2,
+    "exit_code": 1,
+    "separate_from_default_test_discovery": true
+  },
+  "physical_tests": "NOT TESTED / REQUIRES PHYSICAL DEVICE",
+  "deployment": "NOT PERFORMED",
+  "media": "DESIGN ONLY / NOT TESTED"
+}

@@ -1,0 +1,20 @@
+{
+  "version": "0.1.0+13",
+  "schema": 10,
+  "source_sha256": "e847884843157de16da256a7150710009b7f42bb236dd22386046c120d861ca9",
+  "android_profile": {
+    "mode": "profile",
+    "build_exit": 0,
+    "version_code": 13,
+    "signature_valid": true,
+    "same_signing_certificate": true,
+    "aot_libapp_present": true,
+    "debug_kernel_absent": true,
+    "apk_sha256": "cbef69a14cc262eb5253996a2c96b44ecd7e6f5f176bdfb46d2f0e17430e5892",
+    "installed": true,
+    "installed_device_aliases": [
+      "Samsung SM-A536E"
+    ]
+  },
+  "ios": "Not rebuilt13; iPhone Profile11 retained, Apple compression code unchanged"
+}

@@ -17,7 +17,10 @@ class _Backend implements PasswordRecoveryBackend {
   String? lastAccount;
 
   @override
-  Future<void> begin({required String transactionId, required String email}) async {
+  Future<void> begin({
+    required String transactionId,
+    required String email,
+  }) async {
     beginCount++;
     lastTransaction = transactionId;
   }
@@ -33,12 +36,13 @@ class _Backend implements PasswordRecoveryBackend {
         (factor == RecoveryFactor.secondFactor && rejectSecondFactor)) {
       throw const RecoveryException('Verification failed.');
     }
-    return foreignProof ?? RecoveryFactorProof(
-      transactionId: transactionId,
-      accountBinding: 'account-binding',
-      factor: factor,
-      proofId: '$transactionId-${factor.name}',
-    );
+    return foreignProof ??
+        RecoveryFactorProof(
+          transactionId: transactionId,
+          accountBinding: 'account-binding',
+          factor: factor,
+          proofId: '$transactionId-${factor.name}',
+        );
   }
 
   @override
@@ -269,24 +273,57 @@ void main() {
     expect(backend.beginCount, 2);
   });
 
-  test('unavailable backend fails closed without claiming email delivery', () async {
-    final unavailable = PasswordRecoveryCoordinator(
-      backend: const UnavailablePasswordRecoveryBackend(),
-    );
-    await expectLater(
-      unavailable.start(email: 'person@example.com'),
-      throwsA(isA<RecoveryUnavailableException>()),
-    );
-  });
+  test(
+    'unavailable backend fails closed without claiming email delivery',
+    () async {
+      final unavailable = PasswordRecoveryCoordinator(
+        backend: const UnavailablePasswordRecoveryBackend(),
+      );
+      await expectLater(
+        unavailable.start(email: 'person@example.com'),
+        throwsA(isA<RecoveryUnavailableException>()),
+      );
+    },
+  );
 
-  test('AuthService blocks the legacy email-only Firebase reset path', () async {
+  test('AuthService delegates password reset to Firebase without exposing account state', () async {
     final auth = _Auth();
+    when(() => auth.sendPasswordResetEmail(email: any(named: 'email')))
+        .thenAnswer((_) async {});
     final service = AuthService(firebaseAuth: auth);
 
-    await expectLater(
-      service.resetPassword(email: 'person@example.com'),
-      throwsA(isA<AuthException>()),
-    );
-    verifyNever(() => auth.sendPasswordResetEmail(email: any(named: 'email')));
+    await service.resetPassword(email: 'person@example.com');
+    verify(() => auth.sendPasswordResetEmail(email: 'person@example.com'))
+        .called(1);
   });
+
+  test('unknown email is treated as a neutral success', () async {
+    final auth = _Auth();
+    when(() => auth.sendPasswordResetEmail(email: any(named: 'email')))
+        .thenThrow(FirebaseAuthException(code: 'user-not-found'));
+
+    await AuthService(firebaseAuth: auth)
+        .resetPassword(email: 'unknown@example.com');
+  });
+
+  test(
+    'network failure is surfaced without exposing provider details',
+    () async {
+      final auth = _Auth();
+      when(() => auth.sendPasswordResetEmail(email: any(named: 'email')))
+          .thenThrow(FirebaseAuthException(code: 'network-request-failed'));
+
+      await expectLater(
+        AuthService(firebaseAuth: auth)
+            .resetPassword(email: 'person@example.com'),
+        throwsA(
+          isA<AuthException>().having(
+            (error) => error.message,
+            'message',
+            'Network error. Check your connection.',
+          ),
+        ),
+      );
+    },
+  );
 }

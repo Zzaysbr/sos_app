@@ -31,6 +31,69 @@ List<int> _withCount(List<int> frame, int count) {
 }
 
 void main() {
+  test('partial media survives a long active control-message preemption', () {
+    final assembler = BleMessageAssembler();
+    final media = BleMessageCodec.encode(
+      _message(id: 'media', payload: 'x' * 600),
+      maxFrameBytes: 64,
+    );
+    final start = DateTime.utc(2026);
+    expect(assembler.accept(media.first, now: start), isNull);
+    for (var i = 1; i <= 32; i++) {
+      final control = BleMessageCodec.encode(
+        _message(id: 'control-$i'),
+        maxFrameBytes: 512,
+      );
+      expect(
+        assembler.accept(
+          control.single,
+          now: start.add(Duration(seconds: i * 5)),
+        ),
+        isNotNull,
+      );
+    }
+    BleMessage? result;
+    for (final frame in media.skip(1)) {
+      result =
+          assembler.accept(
+            frame,
+            now: start.add(const Duration(seconds: 161)),
+          ) ??
+          result;
+    }
+    expect(result?.id, 'media');
+  });
+  test('active control traffic cannot retain a partial message beyond its hard age', () {
+    final assembler = BleMessageAssembler(
+      maxAssemblyAge: const Duration(seconds: 20),
+    );
+    final media = BleMessageCodec.encode(
+      _message(id: 'media', payload: 'x' * 600),
+      maxFrameBytes: 64,
+    );
+    final start = DateTime.utc(2026);
+    assembler.accept(media.first, now: start);
+    for (var i = 1; i <= 16; i++) {
+      final control = BleMessageCodec.encode(
+        _message(id: 'control-$i'),
+        maxFrameBytes: 512,
+      );
+      assembler.accept(
+        control.single,
+        now: start.add(Duration(seconds: i * 2)),
+      );
+    }
+    BleMessage? result;
+    for (final frame in media.skip(1)) {
+      result =
+          assembler.accept(
+            frame,
+            now: start.add(const Duration(seconds: 33)),
+          ) ??
+          result;
+    }
+    expect(result, isNull);
+  });
   test('bounds delivered-message deduplication and expires old IDs', () {
     final assembler = BleMessageAssembler(
       timeout: const Duration(seconds: 5),

@@ -1,0 +1,56 @@
+{
+  "date": "2026-11-07",
+  "timezone": "Asia/Bangkok",
+  "case": "iPhone to Android SOS with both session proofs established before creation",
+  "setup": {
+    "source": "iOS-1",
+    "receiver": "Android-1",
+    "iOS-2": "Bluetooth off, per earlier operator report",
+    "prior_test_sos": "cancelled with history retained, operator-reported",
+    "android_peer": "connected/authenticated, operator-reported via BLE Test runtime diagnostics",
+    "iphone_peer": "connected/authenticated/eligible, operator-reported via BLE Test runtime diagnostics",
+    "app_restart_or_reinstall": "none during setup"
+  },
+  "status": "PASS for one adjacent-peer signed SOS receive/storage-receipt round after both session proofs established; repeated and startup reliability not established",
+  "scope_limit": "Single-hop signed Relay v2 only, with prior peer proofs established. Sender log confirms persistReceipt returned and relayStoredOnNextHop emitted. No Android database inspection, repeated reliability, help response, Chat, forced A-B-C topology or stale-callback verification in this case. Does not fully prove earlier failure root cause.",
+  "observations": {
+    "operator": "Android shows new SOS",
+    "sender_log": {
+      "raw_sha256": "4fdff7cf5099cd47bd8bbd255f7d0f6984e9294e3ee7d035f9b69c29a5a0e897",
+      "events": [
+        {
+          "event": "sos_create_started",
+          "time_as_logged": "10:05:11"
+        },
+        {
+          "event": "sos_local_persisted",
+          "time_as_logged": "10:05:11",
+          "elapsed_ms_since_origin_timer": 20
+        },
+        {
+          "event": "timing=forwarding_started",
+          "time_as_logged": "10:05:27",
+          "elapsed_ms_since_origin_timer": 891
+        },
+        {
+          "event": "timing=transfer_completed",
+          "time_as_logged": "10:05:43",
+          "elapsed_ms_since_origin_timer": 16509
+        },
+        {
+          "event": "relayOfferWrittenAwaitingHopReceipt",
+          "time_as_logged": "10:05:43"
+        },
+        {
+          "event": "relayStoredOnNextHop",
+          "time_as_logged": "10:05:47"
+        }
+      ],
+      "forwarding_started_count": 1,
+      "transfer_completed_count": 1,
+      "stored_on_next_hop_count": 1,
+      "assembly_rejection_count": 0,
+      "inbound_processing_error_count": 0
+    }
+  }
+}

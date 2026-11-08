@@ -1,0 +1,35 @@
+{
+  "date": "2026-11-08",
+  "device_alias": "Samsung SM-A536E",
+  "build": 7,
+  "region_files": [
+    {
+      "requested_test_name_match": false,
+      "manifest_tile_count": 24,
+      "stored_tile_files": 24,
+      "manifest_size_bytes": 174840,
+      "stored_tile_bytes": 174840,
+      "min_zoom": 16,
+      "max_zoom": 16
+    }
+  ],
+  "region_correlation": "Sole completed region after before-fix snapshot had none; actual name differs from requested alias, raw name/bounds not exported",
+  "network_controls_before": {
+    "wifi": "1",
+    "mobile_data": "1"
+  },
+  "network_after": {
+    "wifi_global_setting": "0",
+    "legacy_mobile_data_setting": "1",
+    "wifi_disable_command_exit": 0,
+    "data_disable_command_exit": 0,
+    "active_default_network": "none",
+    "mobile_data_ui_confirmation": "PASS: user confirms Wi-Fi and mobile data both off"
+  },
+  "app_force_stopped_confirmed": true,
+  "process_absent_after_stop_then_present_after_launch": true,
+  "data_clear_or_uninstall": false,
+  "launch_exit": 0,
+  "visual_offline_map": "PASS: user confirms base map, incident marker and small pan within stored area at unchanged zoom16 after fresh process",
+  "scope": "One Samsung region cold offline render case supported by manifest/file counts, no active default network, force-stop/new process evidence and user-confirmed both toggles off/render/pan. No other zooms/regions/devices inferred."
+}

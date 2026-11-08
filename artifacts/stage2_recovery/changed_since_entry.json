@@ -1,0 +1,62 @@
+[
+  {
+    "path": "docs/BLE_PERFORMANCE_INVESTIGATION.md",
+    "status": "added",
+    "sha256": "efcd74b4560c72d23d42ba8d69776255cd0973a9d3af89f3c241d55fde8daf62"
+  },
+  {
+    "path": "docs/MEDIA_TRANSFER_ARCHITECTURE.md",
+    "status": "added",
+    "sha256": "502bec6c3f331be06aca816520a39dcb5ea9917a2073e443d9cb3f9299e34a53"
+  },
+  {
+    "path": "docs/STAGE_2_CHAT_RELAY_RECOVERY.md",
+    "status": "added",
+    "sha256": "b3d2f2dd10a7aaf95fd71b03df4438a664170aa8347106142fd77e9a7ff25632"
+  },
+  {
+    "path": "docs/THREE_NODE_SIMULATION_TEST_PLAN.md",
+    "status": "added",
+    "sha256": "ed6b87417538cea964c725010a2befa2a254c1e5ef9f4678bf601e4a1b09a26e"
+  },
+  {
+    "path": "regression/stage2_remaining_contract_test.dart",
+    "status": "added",
+    "sha256": "dfea99d6f84a1a408bfe7d6df246175908532a1820e7443e73565e2541fb8b58"
+  },
+  {
+    "path": "test/stage2_chat_runtime_test.dart",
+    "status": "modified",
+    "sha256": "5fcb88330910d2dfa627e5b37fd6de662946c3c33dcc94fe1d4cea388e1a682f"
+  },
+  {
+    "path": "test/stage2_chat_security_test.dart",
+    "status": "modified",
+    "sha256": "f63805bb83013792d1795488eff994b93b4c1be1a0ba635bf7c9416705272e77"
+  },
+  {
+    "path": "test/stage2_simulation_metrics_test.dart",
+    "status": "added",
+    "sha256": "59ed0ab39699c05d41d421a424c16f47c21db2c77860ccdc7afe20c616c986d1"
+  },
+  {
+    "path": "test/support/three_node_ble_simulation.dart",
+    "status": "modified",
+    "sha256": "6cf6507ca65d2636ef0c9faabf7019d6a00090cdd4053d9bb8d4b7efde8a25e0"
+  },
+  {
+    "path": "lib/features/nearby_ble/data/hop_relay_coordinator.dart",
+    "status": "modified",
+    "sha256": "fbb3682a879b529cb8db8ad0e978876a1de901bbf5028acf4447e2761f319174"
+  },
+  {
+    "path": "lib/features/nearby_ble/data/sos_ble_coordinator.dart",
+    "status": "modified",
+    "sha256": "4824130241cfdb79dae9daee045560846275a15e8fc608a4e2d626a97d0676a9"
+  },
+  {
+    "path": "lib/features/sos/data/chat_repository.dart",
+    "status": "modified",
+    "sha256": "6859fb975cc25361ca47e54990718708acf7ee243f01bed766e899506ff1a6db"
+  }
+]

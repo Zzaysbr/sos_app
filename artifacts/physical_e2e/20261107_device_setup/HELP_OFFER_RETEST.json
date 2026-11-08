@@ -1,0 +1,26 @@
+{
+  "date": "2026-11-07",
+  "case": "Android voluntary Help Offer back to iPhone for preauthenticated SOS retest",
+  "operator_android_result": "Help offered locally / helping screen reported",
+  "sender_alias": "Android-1",
+  "receiver_alias": "iOS-1",
+  "iphone_log": {
+    "raw_log_sha256": "d0ad102bd790f68332ba3e1bc51fec8fe0bb644cc1514d93ac8a424945b76c87",
+    "verified_response_events": 17,
+    "unique_verified_incident_response_pairs": 1,
+    "verified_for_new_test_incident": true,
+    "duplicate_response_events": 16,
+    "response_origin_persisted_events": 17,
+    "ack_enqueued_events": 18,
+    "inbound_inactive_session_rejections": 1
+  },
+  "status": "PARTIAL: signed Help Offer reached/persisted at iPhone with one visible offer; final ACK round trip FAIL in observed run due Android transport-session-binding rejection",
+  "limits": [
+    "iPhone UI shows one offer despite duplicate wire deliveries; no duplicate domain row inferred.",
+    "One inactive-session inbound rejection also occurred in capture; no claim of uninterrupted reliability.",
+    "Does not verify Chat or multi-hop delivery; raw log kept outside repository only."
+  ],
+  "operator_iphone_result": "Verified help offer received (1)",
+  "operator_android_delivery_status": "forwarded, still forwarded after 30-second observation",
+  "android_ack_log_summary": "ANDROID_HELP_ACK_LOG_SUMMARY.json"
+}

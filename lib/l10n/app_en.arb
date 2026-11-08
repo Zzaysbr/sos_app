@@ -1,6 +1,6 @@
 {
   "@@locale": "en",
-  "appTitle": "Off Grid SOS",
+  "appTitle": "Emergency",
   "authStatusUnavailable": "Unable to check authentication status.",
   "navNearby": "Nearby",
   "navHelping": "Helping",
@@ -88,7 +88,7 @@
   "verificationFailed": "Unable to send verification email. Try again later.",
   "genericError": "Something went wrong. Please try again.",
   "noAccountEmail": "No email address is associated with this account.",
-  "passwordResetSent": "Password reset email sent. Check your inbox.",
+  "passwordResetSent": "If an account exists for this email, password reset instructions were sent.",
   "passwordResetFailed": "Unable to send password reset email. Please try again later.",
   "passwordRecoveryUnavailable": "Secure password recovery is not configured yet. Contact support instead of using an email-only reset.",
   "signOutFailed": "Unable to sign out. Please try again.",
@@ -441,5 +441,23 @@
   ,"@offlineMapTooLarge": {"placeholders": {"maxTiles": {"type": "int"}}}
   ,"offlineMapDownloadInfo": "Keep this app open during download. Only the visible bounded area is stored."
   ,"offlineMapStorageSummary": "Stored: {size}"
-  ,"@offlineMapStorageSummary": {"placeholders": {"size": {"type": "String"}}}
+  ,"@offlineMapStorageSummary": {"placeholders": {"size": {"type": "String"}}},
+  "checkCurrentLocation": "Check current location",
+  "checkCurrentLocationHint": "Tap to try again without creating an SOS or sharing coordinates.",
+  "checkingCurrentLocation": "Finding your location...",
+  "currentLocationCheckReady": "Current location found. This check did not share coordinates.",
+  "recentLocationCheckReady": "A recent saved location is available. This check did not share coordinates.",
+  "stopFollowing": "Stop following on this device",
+  "stopFollowingQuestion": "Stop following this incident?",
+  "stopFollowingExplanation": "Moves this incident out of Helping on this device. History and messages stay available. This does not cancel or resolve the SOS for anyone else.",
+  "stoppedFollowing": "Stopped following on this device",
+  "stopFollowingFailed": "Could not stop following. Try again.",
+  "receivedHistory": "Received incident history",
+  "receivedHistoryEmpty": "No received incidents saved yet.",
+  "receivedHistoryError": "Could not load received incident history.",
+  "receivedHistoryNotice": "Incidents and messages saved on this device. Stopping following does not change the origin's SOS status.",
+  "rescueHistoryHelping": "Following on this device",
+  "rescueHistoryCancelled": "Cancelled by the origin",
+  "rescueHistoryResolved": "Resolved by the origin",
+  "rescueHistoryExpired": "Offer expired"
 }

@@ -33,6 +33,7 @@ const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const rulesPath = path.join(currentDirectory, 'firestore.rules');
 
 const projectId = 'demo-off-grid-sos';
+const emulatorAddress = new URL(`http://${process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080'}`);
 const ownerId = 'test2';
 const otherId = 'test1';
 const sosId = 'sos-test-document';
@@ -56,8 +57,8 @@ beforeAll(async () => {
     projectId,
     firestore: {
       rules: fs.readFileSync(rulesPath, 'utf8'),
-      host: '127.0.0.1',
-      port: 8080,
+      host: emulatorAddress.hostname,
+      port: Number(emulatorAddress.port),
     },
   });
 });

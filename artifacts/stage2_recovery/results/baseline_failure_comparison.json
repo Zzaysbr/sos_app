@@ -1,0 +1,23 @@
+{
+  "same_failure_names": true,
+  "baseline": [
+    "test/chat_relay_repository_test.dart: outbox and inbox are owner-scoped and idempotent [E]",
+    "test/chat_relay_repository_test.dart: due rows expire by envelope validation and retain queued state [E]",
+    "test/rescue_response_envelope_test.dart: reverse response persistence is idempotent and owner scoped [E]",
+    "test/ble_test_page_test.dart: peripheral disconnect does not overwrite central connected [E]",
+    "test/ble_test_page_test.dart: central disconnect does not overwrite peripheral connected [E]",
+    "test/ble_test_page_test.dart: both active roles are shown without an ambiguous state [E]",
+    "test/ble_test_page_test.dart: both role disconnects produce disconnected state [E]",
+    "test/ble_test_page_test.dart: connected role snapshot restores after navigation [E]"
+  ],
+  "final": [
+    "test/chat_relay_repository_test.dart: outbox and inbox are owner-scoped and idempotent [E]",
+    "test/chat_relay_repository_test.dart: due rows expire by envelope validation and retain queued state [E]",
+    "test/rescue_response_envelope_test.dart: reverse response persistence is idempotent and owner scoped [E]",
+    "test/ble_test_page_test.dart: peripheral disconnect does not overwrite central connected [E]",
+    "test/ble_test_page_test.dart: central disconnect does not overwrite peripheral connected [E]",
+    "test/ble_test_page_test.dart: both active roles are shown without an ambiguous state [E]",
+    "test/ble_test_page_test.dart: both role disconnects produce disconnected state [E]",
+    "test/ble_test_page_test.dart: connected role snapshot restores after navigation [E]"
+  ]
+}

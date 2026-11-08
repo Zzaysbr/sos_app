@@ -1,0 +1,45 @@
+{
+  "version": "0.1.0+9",
+  "status": "IMPLEMENTED; final host/native checks passed. Samsung9 visual continuity passed; iPhone9 installed with data comparison passed, visual Home test pending. iPad7. Native compression/delivery acceptance pending.",
+  "request": "Automatic image and video compression for all four camera/gallery choices",
+  "changes": {
+    "images": "Bounded960px raster on white, JPEG quality68; retry720px55 then480px40; hard64KiB output; source EXIF/GPS not copied",
+    "video": "Native H264 MP4, <=480px long side/15fps, monoAAC32kbps, target0.30MB; retry360px/0.18MB; hard512KiB output, <=15seconds; no automatic trimming",
+    "source_limits": "Image20MiB/64MP; video128MiB/15sec/4K before compression; source never deleted",
+    "failure": "No uncompressed fallback; remove own temporary partial output; user can choose again",
+    "signing": "Only successful compressed file enters private store; manifest/hash/signature/receipt remain bound to resulting bytes",
+    "compatibility": "Wire limits unchanged so old PNG/MOV/history remain readable; schema10 unchanged",
+    "ui": "Confirmation shows outputKB and reduction relative to picked input; native compression before confirmation; composer spinner while preparing"
+  },
+  "dependencies": {
+    "flutter_image_compress": "2.5.1",
+    "compress_video": "1.0.0"
+  },
+  "host_focused_tests": {
+    "passed": 9,
+    "failed": 0,
+    "scope": "7 new compression pipeline tests use fake encoders;2 existing picker UI tests. Does not prove native codec output/phone throughput."
+  },
+  "physical_build8_profile_retry": "User reports no photo after3minutes; no delivery success claimed; original attachment TTL not renewed",
+  "references": [
+    "https://pub.dev/packages/flutter_image_compress",
+    "https://pub.dev/packages/compress_video"
+  ],
+  "full_default_host_suite": {
+    "passed": 614,
+    "failed": 0,
+    "exit": 0
+  },
+  "explicit_original_receipt_contract": {
+    "passed": 1,
+    "failed": 0,
+    "exit": 0
+  },
+  "application_static_analysis": "flutter analyze lib test regression: No issues found",
+  "whole_repository_analysis": "32 existing info/warnings in vendored flutter_nearby_connections_plus source/example/tests; not changed",
+  "native_builds": {
+    "android_profile9": "PASS final",
+    "ios_signed_profile9": "PASS final + standalone guard"
+  },
+  "git_diff_check": "PASS"
+}

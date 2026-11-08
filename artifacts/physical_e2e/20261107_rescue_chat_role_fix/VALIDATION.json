@@ -1,0 +1,53 @@
+{
+  "date": "2026-11-07",
+  "timezone": "Asia/Bangkok",
+  "source_sha256": "bea922bfea98f20bcb9676a977eb441f41cfe07d3e38d0d6252474618837e6db",
+  "runs": [
+    {
+      "command": "flutter test --no-pub test/role_based_ux_test.dart --plain-name 'Chat banner and Back preserve' --reporter expanded",
+      "passed": 0,
+      "failed": 2,
+      "exit_code": 1,
+      "completion": "00:01 +0 -2: Some tests failed.",
+      "scope": "Before production fix"
+    },
+    {
+      "command": "flutter test --no-pub test/role_based_ux_test.dart test/emergency_navigation_ux_test.dart --reporter expanded",
+      "passed": 38,
+      "failed": 0,
+      "exit_code": 0,
+      "completion": "00:04 +38: All tests passed!",
+      "scope": "Final role-fix source and tests"
+    },
+    {
+      "command": "flutter test --no-pub --reporter expanded",
+      "passed": 559,
+      "failed": 0,
+      "exit_code": 0,
+      "completion": "00:31 +559: All tests passed!",
+      "scope": "Final role-fix source and tests"
+    },
+    {
+      "command": "dart analyze lib test regression",
+      "passed": null,
+      "failed": null,
+      "exit_code": 0,
+      "completion": "No issues found!",
+      "scope": "Final role-fix source and tests"
+    },
+    {
+      "command": "flutter test --no-pub regression/stage2_remaining_contract_test.dart --reporter expanded",
+      "passed": 0,
+      "failed": 1,
+      "exit_code": 1,
+      "completion": "00:01 +0 -1: Some tests failed.",
+      "scope": "Unchanged deferred signed final Chat receipt"
+    }
+  ],
+  "behavior": "Chat navigation preserves selected role and rescue listening. Only explicit role switch changes role/stops listening. No automatic relay opt-in or background-listening promise.",
+  "regression_scope": "Actual SosPage/Drift/role preference with counting BLE transport; own and materialized received incident cases, Chat entry, Back, explicit role switch and disposal.",
+  "requirement_update": "User explicitly requires helper mode/listening to remain while navigating Chat. Old assertion expecting an implicit switch to needHelp updated; original data/outbox preservation assertions retained.",
+  "compatibility": "Only UI navigation changed versus retention source 4f92036. No schema, wire, crypto, TTL or native changes; may update helper Android first with existing iPhone retention build.",
+  "device_verification": "NOT RUN for role-fix source.",
+  "remaining": "Bluetooth-only and aged-origin physical acceptance not isolated/completed; final signed Chat receipt unimplemented."
+}

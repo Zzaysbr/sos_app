@@ -1,0 +1,1 @@
+Recovery: extract working-files.tar.gz into a separate checkout of HEAD.txt. Includes tracked and nonignored untracked files at Stage 2 entry. tracked.patch and status.txt preserve provenance. Do not extract over ongoing work.

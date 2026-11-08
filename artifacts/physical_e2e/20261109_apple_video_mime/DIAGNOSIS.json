@@ -1,0 +1,37 @@
+{
+  "date": "2026-11-09",
+  "candidate_build": 14,
+  "receiver_iphone_capture": {
+    "complete": true,
+    "bytes": 340644,
+    "sha256_matches_sender": true,
+    "local_chat_row": false,
+    "receipt": "awaiting, no signature, retry7"
+  },
+  "native_reproduction": {
+    "same_extensionless_file_default_tracks": 0,
+    "same_extensionless_file_explicit_mp4_tracks": 2,
+    "duration_seconds": 2.8448,
+    "codecs": "H264 +AAC",
+    "production_helper_regression": "PASS local MP4 option; remote not overridden; unrecognized MIME not overridden",
+    "scope": "macOS AVFoundation actual decoding regression; iPhone physical playback still pending",
+    "actual_decoding": "PASS identical captured extensionless file with production MIME helper:43 video samples +19 audio samples decoded via AVAssetReader"
+  },
+  "fix": "Versioned BSD3 video_player_avfoundation2.12.3 local override supplies AVURLAssetOverrideMIMETypeKey for file URLs only and allowlisted Content-Type video/mp4 or video/quicktime, from app MIME at validation AND viewing",
+  "compatibility": "Official API iOS17+/macOS14+; older Apple OS retains upstream behavior and remains unaccepted for extensionless playback",
+  "unchanged": "No file copy/rename, no media quota/schema/crypto/receipt/TTL/retry reset",
+  "status": "iPhone14 installed; user Home and new short video test pending",
+  "focused_host_tests": {
+    "passed": 27,
+    "failed": 0,
+    "exit": 0,
+    "scope": "Compression/picker/viewer/media transfer/final receipt; native MIME regression separately uses captured bytes"
+  },
+  "application_analysis": "No issues found",
+  "native_ios_build": "PASS configured signed Profile14 + standalone guard",
+  "original_receipt_queue_before_install": {
+    "retry_count": 8,
+    "receipt_signed": false,
+    "action": "No reset or manual mutation; retain old file, request one new camera clip after Home continuity check"
+  }
+}

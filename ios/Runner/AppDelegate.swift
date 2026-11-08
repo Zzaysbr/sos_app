@@ -1,9 +1,13 @@
 import Flutter
 import UIKit
+import UserNotifications
+import CryptoKit
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var bleTransport: BleTransport?
+  private var pendingChatNotifications = Set<String>()
+  private var notificationChannel: FlutterMethodChannel?
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -84,5 +88,64 @@ import UIKit
         }
       }
     bleTransport = BleTransport(messenger: engineBridge.applicationRegistrar.messenger())
+    notificationChannel = FlutterMethodChannel(name: "sos_app/background", binaryMessenger: engineBridge.applicationRegistrar.messenger())
+    notificationChannel?.setMethodCallHandler { [weak self] call, result in
+      switch call.method {
+      case "setBleBackground":
+        // CoreBluetooth background modes allow event-driven work. This is not
+        // an exemption from suspension or permission/force-quit restrictions.
+        result(call.arguments as? Bool == true)
+      case "requestNotifications":
+        guard UIApplication.shared.applicationState == .active else { result(false); return }
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { allowed, _ in
+          DispatchQueue.main.async { result(allowed) }
+        }
+      case "notifyChat": self?.notifyChat(call, result: result)
+      default: result(FlutterMethodNotImplemented)
+      }
+    }
+
   }
+  private func notifyChat(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard let args = call.arguments as? [String: Any],
+          let owner = args["ownerId"] as? String, !owner.isEmpty, owner.count < 512,
+          let message = args["messageId"] as? String, !message.isEmpty, message.count < 512,
+          let text = args["text"] as? String, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, text.utf16.count <= 2000 else {
+      result(FlutterError(code: "invalid_notification", message: "Invalid chat notification", details: nil)); return
+    }
+    let digest = SHA256.hash(data: Data((owner + "\0" + message).utf8)).map { String(format: "%02x", $0) }.joined()
+    let defaults = UserDefaults.standard
+    var receipts = defaults.dictionary(forKey: "sos.chatNotifications.v1") as? [String: Double] ?? [:]
+    if receipts[digest] != nil || pendingChatNotifications.contains(digest) { result(nil); return }
+    pendingChatNotifications.insert(digest)
+    let remember = {
+      self.pendingChatNotifications.remove(digest)
+      receipts = defaults.dictionary(forKey: "sos.chatNotifications.v1") as? [String: Double] ?? [:]
+      if receipts.count >= 2048 {
+        for key in receipts.sorted(by: { $0.value < $1.value }).prefix(256).map({ $0.key }) { receipts.removeValue(forKey: key) }
+      }
+      receipts[digest] = Date().timeIntervalSince1970
+      defaults.set(receipts, forKey: "sos.chatNotifications.v1")
+    }
+    // In-app Chat already observes the durable row. Only alert outside the app.
+    if UIApplication.shared.applicationState == .active { remember(); result(nil); return }
+    let center = UNUserNotificationCenter.current()
+    center.getNotificationSettings { settings in
+      guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else {
+        DispatchQueue.main.async { self.pendingChatNotifications.remove(digest); result(nil) }; return
+      }
+      let content = UNMutableNotificationContent()
+      content.title = "Emergency"
+      content.body = text
+      content.sound = .default
+      // A stable ID coalesces a retry after OS acceptance but before receipt save.
+      center.add(UNNotificationRequest(identifier: "chat-" + digest, content: content, trigger: nil)) { error in
+        DispatchQueue.main.async {
+          if error == nil { remember(); result(nil) }
+          else { self.pendingChatNotifications.remove(digest); result(FlutterError(code: "notification_failed", message: "Notification was not accepted", details: nil)) }
+        }
+      }
+    }
+  }
+
 }

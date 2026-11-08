@@ -694,113 +694,30 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
       east: visible.east.clamp(-180, 180),
       west: visible.west.clamp(-180, 180),
     );
-    var minZoom = camera.zoom.floor().clamp(1, OfflineMapRepository.maxZoom);
-    var maxZoom = (minZoom + 1).clamp(1, OfflineMapRepository.maxZoom);
-    final nameController = TextEditingController(
-      text: context.l10n.offlineMapDefaultName(
-        MaterialLocalizations.of(context).formatCompactDate(DateTime.now()),
-      ),
-    );
-    final confirmed = await showDialog<bool>(
+    final minZoom = camera.zoom.floor().clamp(1, OfflineMapRepository.maxZoom);
+    final maxZoom = (minZoom + 1).clamp(1, OfflineMapRepository.maxZoom);
+    final selection = await showDialog<_OfflineDownloadSelection>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          int tileCount;
-          try {
-            tileCount = repository.estimateTileCount(bounds, minZoom, maxZoom);
-          } on Object {
-            tileCount = OfflineMapRepository.maxTilesPerRegion + 1;
-          }
-          final estimatedMb =
-              tileCount *
-              OfflineMapRepository.estimatedBytesPerTile /
-              (1024 * 1024);
-          final tooLarge = tileCount > OfflineMapRepository.maxTilesPerRegion;
-          return AlertDialog(
-            title: Text(context.l10n.downloadVisibleArea),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    maxLength: 60,
-                    onChanged: (_) => setDialogState(() {}),
-                    decoration: InputDecoration(
-                      labelText: context.l10n.mapName,
-                    ),
-                  ),
-                  Text(context.l10n.minimumZoom(minZoom)),
-                  Slider(
-                    value: minZoom.toDouble(),
-                    min: 1,
-                    max: OfflineMapRepository.maxZoom.toDouble(),
-                    divisions: OfflineMapRepository.maxZoom - 1,
-                    onChanged: (value) => setDialogState(() {
-                      minZoom = value.round();
-                      if (maxZoom < minZoom) maxZoom = minZoom;
-                    }),
-                  ),
-                  Text(context.l10n.maximumZoom(maxZoom)),
-                  Slider(
-                    value: maxZoom.toDouble(),
-                    min: 1,
-                    max: OfflineMapRepository.maxZoom.toDouble(),
-                    divisions: OfflineMapRepository.maxZoom - 1,
-                    onChanged: (value) => setDialogState(() {
-                      maxZoom = value.round();
-                      if (minZoom > maxZoom) minZoom = maxZoom;
-                    }),
-                  ),
-                  Text(
-                    context.l10n.offlineTileEstimate(
-                      tileCount,
-                      estimatedMb.toStringAsFixed(1),
-                    ),
-                  ),
-                  if (tooLarge)
-                    Text(
-                      context.l10n.offlineMapTooLarge(
-                        OfflineMapRepository.maxTilesPerRegion,
-                      ),
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-                  Text(context.l10n.offlineMapDownloadInfo),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: Text(context.l10n.cancel),
-              ),
-              FilledButton(
-                onPressed: tooLarge || nameController.text.trim().isEmpty
-                    ? null
-                    : () => Navigator.pop(context, true),
-                child: Text(context.l10n.download),
-              ),
-            ],
-          );
-        },
+      builder: (_) => _OfflineMapDownloadDialog(
+        repository: repository,
+        bounds: bounds,
+        initialMinZoom: minZoom,
+        initialMaxZoom: maxZoom,
+        initialName: context.l10n.offlineMapDefaultName(
+          MaterialLocalizations.of(context).formatCompactDate(DateTime.now()),
+        ),
       ),
     );
-    final name = nameController.text;
-    nameController.dispose();
-    if (confirmed != true || !mounted) return;
+    if (selection == null || !mounted) return;
     await _downloadRegion(
       OfflineMapDownloadRequest(
-        name: name,
+        name: selection.name,
         providerKey: _tileProvider.offlineStorageKey,
         urlTemplate: _tileProvider.urlTemplate,
         userAgent: _tileProvider.userAgentPackageName,
         bounds: bounds,
-        minZoom: minZoom,
-        maxZoom: maxZoom,
+        minZoom: selection.minZoom,
+        maxZoom: selection.maxZoom,
       ),
     );
   }
@@ -964,4 +881,140 @@ enum _LocationFailure {
   permissionDenied,
   permissionDeniedForever,
   timedOut,
+}
+
+class _OfflineDownloadSelection {
+  const _OfflineDownloadSelection(this.name, this.minZoom, this.maxZoom);
+  final String name;
+  final int minZoom;
+  final int maxZoom;
+}
+
+/// Own the controller until the dialog route finishes its reverse transition.
+/// showDialog's future completes on pop, before its TextField is unmounted.
+class _OfflineMapDownloadDialog extends StatefulWidget {
+  const _OfflineMapDownloadDialog({
+    required this.repository,
+    required this.bounds,
+    required this.initialName,
+    required this.initialMinZoom,
+    required this.initialMaxZoom,
+  });
+  final OfflineMapRepository repository;
+  final OfflineMapBounds bounds;
+  final String initialName;
+  final int initialMinZoom;
+  final int initialMaxZoom;
+  @override
+  State<_OfflineMapDownloadDialog> createState() =>
+      _OfflineMapDownloadDialogState();
+}
+
+class _OfflineMapDownloadDialogState extends State<_OfflineMapDownloadDialog> {
+  late final TextEditingController _nameController;
+  late int _minZoom;
+  late int _maxZoom;
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.initialName);
+    _minZoom = widget.initialMinZoom;
+    _maxZoom = widget.initialMaxZoom;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    int tileCount;
+    try {
+      tileCount = widget.repository.estimateTileCount(
+        widget.bounds,
+        _minZoom,
+        _maxZoom,
+      );
+    } on Object {
+      tileCount = OfflineMapRepository.maxTilesPerRegion + 1;
+    }
+    final estimatedMb =
+        tileCount * OfflineMapRepository.estimatedBytesPerTile / (1024 * 1024);
+    final tooLarge = tileCount > OfflineMapRepository.maxTilesPerRegion;
+    return AlertDialog(
+      title: Text(context.l10n.downloadVisibleArea),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _nameController,
+              maxLength: 60,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(labelText: context.l10n.mapName),
+            ),
+            Text(context.l10n.minimumZoom(_minZoom)),
+            Slider(
+              value: _minZoom.toDouble(),
+              min: 1,
+              max: OfflineMapRepository.maxZoom.toDouble(),
+              divisions: OfflineMapRepository.maxZoom - 1,
+              onChanged: (value) => setState(() {
+                _minZoom = value.round();
+                if (_maxZoom < _minZoom) _maxZoom = _minZoom;
+              }),
+            ),
+            Text(context.l10n.maximumZoom(_maxZoom)),
+            Slider(
+              value: _maxZoom.toDouble(),
+              min: 1,
+              max: OfflineMapRepository.maxZoom.toDouble(),
+              divisions: OfflineMapRepository.maxZoom - 1,
+              onChanged: (value) => setState(() {
+                _maxZoom = value.round();
+                if (_minZoom > _maxZoom) _minZoom = _maxZoom;
+              }),
+            ),
+            Text(
+              context.l10n.offlineTileEstimate(
+                tileCount,
+                estimatedMb.toStringAsFixed(1),
+              ),
+            ),
+            if (tooLarge)
+              Text(
+                context.l10n.offlineMapTooLarge(
+                  OfflineMapRepository.maxTilesPerRegion,
+                ),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            const SizedBox(height: 8),
+            Text(context.l10n.offlineMapDownloadInfo),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(context.l10n.cancel),
+        ),
+        FilledButton(
+          onPressed: tooLarge || _nameController.text.trim().isEmpty
+              ? null
+              : () => Navigator.pop(
+                  context,
+                  _OfflineDownloadSelection(
+                    _nameController.text,
+                    _minZoom,
+                    _maxZoom,
+                  ),
+                ),
+          child: Text(context.l10n.download),
+        ),
+      ],
+    );
+  }
 }

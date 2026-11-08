@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-08",
+  "build_number": 3,
+  "matching_saved_wired_samsung": true,
+  "inspection": "Read-only app DB copy/current-process log; no install/restart/DB mutation",
+  "sqlite_quick_check": "ok",
+  "b_c_sos": {
+    "same_origin_digest": true,
+    "attempt_state": "acceptedByRelay",
+    "retry_count": 0,
+    "accepted_at_present": true,
+    "persisted_hop_receipt_signer_matches_ipad": true
+  },
+  "c_b_help_offer": {
+    "incident_origin_digest_matches_A": true,
+    "responder_matches_previously_observed_ipad_key": true,
+    "verified_inbox_count": 1,
+    "relay_outbox_payload_identical_to_verified_inbox": true,
+    "relay_outbox_state": "queued",
+    "relay_outbox_retry_count": 0,
+    "per_peer_jobs_for_response": 0,
+    "note": "Response durable outbox exists; no per-peer job yet while origin radio unavailable, not missing durable forwarding work"
+  },
+  "captured_crypto_revalidation": {
+    "tests_passed": 1,
+    "exit": 0,
+    "checks": [
+      "iPad SOS hop receipt signature/key-ID",
+      "iPad Help Offer signature and exact origin binding at Samsung received timestamp"
+    ]
+  },
+  "scope": "One physical B-C signed SOS hop receipt and durable C-B Help Offer snapshot. Origin A receipt/final Offer ACK not yet observed. Live copy not coordinated snapshot; raw IDs/payloads remain private."
+}

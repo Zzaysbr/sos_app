@@ -170,16 +170,22 @@ class BleMessageAssembler {
     this.timeout = const Duration(seconds: 10),
     this.maxDeliveredIds = 1024,
     this.dropDuplicateMessages = true,
+    this.maxAssemblyAge = const Duration(minutes: 5),
   }) : assert(maxDeliveredIds > 0);
   final Duration timeout;
+  final Duration maxAssemblyAge;
   final int maxDeliveredIds;
 
   /// Coordinators that must re-ACK durable duplicate deliveries can disable
   /// this transport-level suppression and let their idempotent repository
   /// decide how to handle the repeated logical message.
   final bool dropDuplicateMessages;
-  final _frames = <int, List<List<int>>>{};
+  final _frames = <int, Map<int, List<int>>>{};
+  final _counts = <int, int>{};
+  final _sizes = <int, int>{};
   final _updated = <int, DateTime>{};
+  final _created = <int, DateTime>{};
+  DateTime? _lastActivity;
   final _delivered = <String, DateTime>{};
 
   BleMessage? accept(List<int> frame, {DateTime? now}) {
@@ -190,13 +196,45 @@ class BleMessageAssembler {
       throw const BleProtocolException('Unsupported or malformed frame');
     }
     final token = frame.sublist(2, 10).fold(0, (v, x) => (v << 8) | x);
-    final frames = _frames.putIfAbsent(token, () => <List<int>>[]);
-    frames.add(frame);
-    _updated[token] = current;
     try {
-      final message = BleMessageCodec.decode(frames);
+      final index = (frame[10] << 8) | frame[11];
+      final count = (frame[12] << 8) | frame[13];
+      if (count == 0 ||
+          index >= count ||
+          (_counts[token] != null && _counts[token] != count)) {
+        throw const BleProtocolException('Inconsistent frame metadata');
+      }
+      if (!_frames.containsKey(token) && _frames.length >= 16) {
+        throw const BleProtocolException('Too many incomplete messages');
+      }
+      final frames = _frames.putIfAbsent(token, () => <int, List<int>>{});
+      final previous = frames[index];
+      if (previous != null) {
+        if (!BleMessageCodec._sameBytes(previous, frame)) {
+          throw const BleProtocolException('Conflicting duplicate frame');
+        }
+        return null;
+      }
+      final size =
+          (_sizes[token] ?? 0) + frame.length - BleMessageCodec.headerBytes;
+      if (size > BleMessageCodec.maxMessageBytes) {
+        throw const BleProtocolException('Message is too large');
+      }
+      frames[index] = List<int>.of(frame);
+      _created.putIfAbsent(token, () => current);
+      _lastActivity = current;
+      _counts[token] = count;
+      _sizes[token] = size;
+      _updated[token] = current;
+      // Decode/CRC only once. Previously every frame copied and decoded the
+      // entire prefix, which was quadratic for media chunks.
+      if (frames.length != count) return null;
+      final message = BleMessageCodec.decode(frames.values);
       _frames.remove(token);
+      _counts.remove(token);
+      _sizes.remove(token);
       _updated.remove(token);
+      _created.remove(token);
       final previousDelivery = _delivered[message.id];
       if (previousDelivery != null && dropDuplicateMessages) return null;
       _delivered[message.id] = current;
@@ -205,7 +243,10 @@ class BleMessageAssembler {
     } on BleProtocolException catch (error) {
       if (!error.message.contains('Incomplete')) {
         _frames.remove(token);
+        _counts.remove(token);
+        _sizes.remove(token);
         _updated.remove(token);
+        _created.remove(token);
         rethrow;
       }
       return null;
@@ -213,9 +254,20 @@ class BleMessageAssembler {
   }
 
   void _expire(DateTime now) {
+    final peerIdle =
+        _lastActivity == null || now.difference(_lastActivity!) > timeout;
     _updated.removeWhere((token, time) {
-      if (now.difference(time) <= timeout) return false;
+      // A high-priority control message can preempt media on the same peer.
+      // Active interleaving is not a broken link. Still cap absolute lifetime
+      // and the existing16-message/64KiB-per-message memory limits.
+      final tooOld = now.difference(_created[token] ?? time) > maxAssemblyAge;
+      if (!tooOld && (!peerIdle || now.difference(time) <= timeout)) {
+        return false;
+      }
       _frames.remove(token);
+      _counts.remove(token);
+      _sizes.remove(token);
+      _created.remove(token);
       return true;
     });
     _delivered.removeWhere((_, time) => now.difference(time) > timeout);

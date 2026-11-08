@@ -1,0 +1,49 @@
+{
+  "source_sha256": "0dc633903e3e807d1d5f94e45bf19d1b2f51afeca6212ec035c45454462e1fae",
+  "date": "2026-11-08",
+  "version": "0.1.0+2",
+  "default_suite": {
+    "command": "flutter test --no-pub --reporter expanded",
+    "passed": 579,
+    "failed": 0,
+    "exit": 0
+  },
+  "analysis": {
+    "command": "flutter analyze --no-pub lib test regression",
+    "issues": 0,
+    "exit": 0
+  },
+  "explicit_deferred_contract": {
+    "command": "flutter test --no-pub regression/stage2_remaining_contract_test.dart --reporter expanded",
+    "passed": 0,
+    "failed": 1,
+    "exit": 1,
+    "status": "Existing unimplemented signed final Chat receipt; unchanged/not skipped"
+  },
+  "new_regressions": [
+    "Local location check single submission/retry; no SOS, outbox or consent change",
+    "Specific location failure survives generic fallback while SOS/relay enqueue remains available",
+    "Concurrent location check and SOS share provider; local SOS/Chat opens before fix; own deadline permits relay without coordinates; late check cannot rewrite routed evidence"
+  ],
+  "native_validation": {
+    "android_signature_verified": true,
+    "ios_signature_verified": true,
+    "both_build_numbers": 2,
+    "ios_primary_icon": "EmergencyIcon",
+    "built_flat_icon_visually_verified": "white E on red",
+    "package_bundle_ids_unchanged": true
+  },
+  "physical_status": "NOT INSTALLED OR RETESTED for this source",
+  "root_cause_status": {
+    "gps": "Original failure cause unresolved; user reported indoors; previous consent enabled and coordinates absent; correction adds truthful errors and explicit local retry, not guaranteed GPS availability",
+    "notification_icon": "Original flat built icon already E; OS cache unproven; supported icon asset reference and build number changed, physical result pending"
+  },
+  "scope_limits": [
+    "No new GPS background mode, always-on claim or fabricated coordinates",
+    "No TTL/response/signature/owner checks relaxed",
+    "No automatic rewrite or re-sign of existing routed SOS after late GPS",
+    "Current native SOS position request remains 15 seconds with existing recent/accuracy fallback; explicit check 30 seconds; caller guard adds at most 5 seconds",
+    "No uninstall, private cache API or data reset",
+    "Earlier device acceptance belongs to older sources; no new physical claim from builds"
+  ]
+}

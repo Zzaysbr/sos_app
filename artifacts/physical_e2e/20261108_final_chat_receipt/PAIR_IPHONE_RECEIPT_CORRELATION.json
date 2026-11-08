@@ -1,0 +1,38 @@
+{
+  "date": "2026-11-08",
+  "build_number": 5,
+  "matching_saved_wired_iphone": true,
+  "inspection": "Read-only Documents copy; live copies not coordinated cross-device snapshots",
+  "sqlite_quick_check": "ok",
+  "schema_version_observed": 10,
+  "messages": [
+    {
+      "test_marker": "RECEIPT-A-C-01",
+      "relay_rows": 1,
+      "same_incident": true,
+      "canonical_envelope_equals_samsung": true,
+      "same_canonical_receipt_as_samsung": true,
+      "relay_state": "delivered",
+      "receipt_state": "applied",
+      "local_chat_count": 1,
+      "local_chat_statuses": [
+        "delivered"
+      ]
+    },
+    {
+      "test_marker": "RECEIPT-C-A-01",
+      "relay_rows": 1,
+      "same_incident": true,
+      "canonical_envelope_equals_samsung": true,
+      "same_canonical_receipt_as_samsung": true,
+      "relay_state": "verified",
+      "receipt_state": "queued",
+      "local_chat_count": 1,
+      "local_chat_statuses": [
+        "delivered"
+      ]
+    }
+  ],
+  "incident_status": "active",
+  "scope": "One build 5 foreground offline pair receipt case each direction; message IDs/envelopes/canonical receipts match Samsung and each local row delivered. Captured recipient signatures separately validated from Samsung copy; no broad exactly-once/outage/multihop acceptance."
+}

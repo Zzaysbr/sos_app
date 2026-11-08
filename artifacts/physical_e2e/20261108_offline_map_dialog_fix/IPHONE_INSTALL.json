@@ -1,0 +1,29 @@
+{
+  "date": "2026-11-08",
+  "device_alias": "iPhone 15 Plus",
+  "known_wired_target_match": true,
+  "before_version": 6,
+  "after_version": 7,
+  "mode": "profile",
+  "artifact_hashes_and_standalone_preflight": "PASS",
+  "install_exit": 0,
+  "before_after_quick_check": "ok",
+  "schema_before": 10,
+  "schema_after": 10,
+  "application_rows": {
+    "sos_messages": {
+      "before": 20,
+      "after": 20,
+      "all_original_rows_unchanged": true
+    },
+    "chat_messages": {
+      "before": 56,
+      "after": 56,
+      "all_original_rows_unchanged": true
+    }
+  },
+  "update_in_place": true,
+  "uninstall_or_data_clear": false,
+  "visual_home_launch_history_and_download": "PASS: user confirms normal Home launch, retained history and one region downloaded without error on 2026-11-08",
+  "scope": "Install and read-only history comparison; not physical iOS offline map acceptance"
+}

@@ -1,0 +1,54 @@
+{
+  "date": "2026-11-07",
+  "timezone": "Asia/Bangkok",
+  "source_sha256": "aa43b891ee7d1de1b4fa547e7c556faf39bd6675baa873051646a70932595657",
+  "runs": [
+    {
+      "command": "flutter test --no-pub test/emergency_navigation_ux_test.dart --plain-name 'Chat composer waits' --reporter expanded",
+      "passed": 0,
+      "failed": 2,
+      "exit_code": 1,
+      "completion": "00:01 +0 -2: Some tests failed.",
+      "scope": "Before production fix"
+    },
+    {
+      "command": "flutter test --no-pub test/emergency_navigation_ux_test.dart --reporter expanded",
+      "passed": 16,
+      "failed": 0,
+      "exit_code": 0,
+      "completion": "00:03 +16: All tests passed!",
+      "scope": "Composer-fix source"
+    },
+    {
+      "command": "flutter test --no-pub --reporter expanded",
+      "passed": 551,
+      "failed": 0,
+      "exit_code": 0,
+      "completion": "00:32 +551: All tests passed!",
+      "scope": "Composer-fix source"
+    },
+    {
+      "command": "dart analyze lib test regression",
+      "passed": null,
+      "failed": null,
+      "exit_code": 0,
+      "completion": "No issues found!",
+      "scope": "Composer-fix source"
+    },
+    {
+      "command": "flutter test --no-pub regression/stage2_remaining_contract_test.dart --reporter expanded",
+      "passed": 0,
+      "failed": 1,
+      "exit_code": 1,
+      "completion": "00:00 +0 -1: Some tests failed.",
+      "scope": "Composer-fix source; explicit deferred Chat receipt remains failing"
+    }
+  ],
+  "device_verification": "NOT RUN; built devices still have prior recovery snapshot.",
+  "behavior": "Composer awaits durable enqueue, not radio drain. Delivery statuses retain their existing evidence requirements.",
+  "regression_scope": "Real SosPage to EmergencyChatPage callback and Drift Chat persistence; coordinator enqueue/drain held at mock boundary for Direct and Relay.",
+  "test_sha256": {
+    "test/emergency_navigation_ux_test.dart": "f693b8d8999756fe3a7babddbefbb83b1b7a1abd0e658f250aee0cf5002a4b8c"
+  },
+  "remaining": "Signed final Chat receipt unimplemented. Physical composer retest and reverse Chat/recovery/three-node pending."
+}

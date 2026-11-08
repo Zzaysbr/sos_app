@@ -24,6 +24,9 @@ enum RescueResponseDeliveryState {
 class RescueResponseRepository {
   RescueResponseRepository(this.database, {required this.ownerId, this.onLog});
 
+  static const maximumAttempts = 5;
+  static const retryBase = Duration(seconds: 30);
+
   final AppDatabase database;
   final String ownerId;
   final void Function(String message)? onLog;
@@ -43,7 +46,10 @@ class RescueResponseRepository {
             (row) =>
                 row.ownerId.equals(ownerId) &
                 row.expiresAt.isBiggerThanValue(timestamp) &
-                row.state.isNotIn(const ['delivered', 'expired']),
+                row.state.isNotIn(const ['delivered', 'expired']) &
+                row.retryCount.isSmallerThanValue(maximumAttempts) &
+                (row.nextRetryAt.isNull() |
+                    row.nextRetryAt.isSmallerOrEqualValue(timestamp)),
           )
           ..orderBy([(row) => OrderingTerm.asc(row.updatedAt)]))
         .get();
@@ -222,7 +228,7 @@ class RescueResponseRepository {
     return (await findOutbox(envelope.body.messageId))!;
   }
 
-  Future<void> queueAttempt({
+  Future<bool> queueAttempt({
     required String messageId,
     required String nextHopKeyId,
     required String nextHopDeviceId,
@@ -230,26 +236,63 @@ class RescueResponseRepository {
     DateTime? now,
   }) async {
     final timestamp = (now ?? DateTime.now()).toUtc();
-    final outbox = await findOutbox(messageId);
-    if (outbox == null) {
-      throw const RelayPersistenceException('Unknown response.');
-    }
-    await database
-        .into(database.rescueResponseJobs)
-        .insert(
-          RescueResponseJobsCompanion.insert(
-            ownerId: ownerId,
-            responseMessageId: messageId,
-            nextHopKeyId: nextHopKeyId,
-            nextHopDeviceId: nextHopDeviceId,
-            sessionBinding: sessionBinding,
-            state: RescueResponseDeliveryState.queued.name,
-            createdAt: timestamp,
-            updatedAt: timestamp,
-          ),
-          mode: InsertMode.insertOrIgnore,
-        );
+    return database.transaction(() async {
+      final outbox = await findOutbox(messageId);
+      if (outbox == null) {
+        throw const RelayPersistenceException('Unknown response.');
+      }
+      if (outbox.state == 'delivered' ||
+          outbox.state == 'expired' ||
+          !outbox.expiresAt.isAfter(timestamp) ||
+          outbox.retryCount >= maximumAttempts ||
+          (outbox.nextRetryAt?.isAfter(timestamp) ?? false)) {
+        return false;
+      }
+      final claimed =
+          await (database.update(database.rescueResponseOutbox)..where(
+                (row) =>
+                    row.ownerId.equals(ownerId) &
+                    row.messageId.equals(messageId) &
+                    row.retryCount.equals(outbox.retryCount) &
+                    row.state.isNotIn(const ['delivered', 'expired']),
+              ))
+              .write(
+                RescueResponseOutboxCompanion(
+                  retryCount: Value(outbox.retryCount + 1),
+                  nextRetryAt: Value(
+                    timestamp.add(_retryDelay(outbox.retryCount + 1)),
+                  ),
+                  updatedAt: Value(timestamp),
+                ),
+              );
+      if (claimed != 1) return false;
+      await database
+          .into(database.rescueResponseJobs)
+          .insert(
+            RescueResponseJobsCompanion.insert(
+              ownerId: ownerId,
+              responseMessageId: messageId,
+              nextHopKeyId: nextHopKeyId,
+              nextHopDeviceId: nextHopDeviceId,
+              sessionBinding: sessionBinding,
+              state: RescueResponseDeliveryState.queued.name,
+              retryCount: Value(outbox.retryCount + 1),
+              nextRetryAt: Value(
+                timestamp.add(_retryDelay(outbox.retryCount + 1)),
+              ),
+              lastAttemptAt: Value(timestamp),
+              createdAt: timestamp,
+              updatedAt: timestamp,
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
+      return true;
+    });
   }
+
+  Duration _retryDelay(int attempts) => Duration(
+    seconds: retryBase.inSeconds * (1 << (attempts - 1).clamp(0, 4)),
+  );
 
   Future<bool> recordIncoming({
     required RescueResponseEnvelope envelope,
@@ -359,15 +402,24 @@ class RescueResponseRepository {
     String? error,
   }) async {
     final timestamp = (now ?? DateTime.now()).toUtc();
+    final existing = await findOutbox(messageId);
+    if (existing == null) return false;
     final updated =
         await (database.update(database.rescueResponseOutbox)..where(
               (row) =>
-                  row.ownerId.equals(ownerId) & row.messageId.equals(messageId),
+                  row.ownerId.equals(ownerId) &
+                  row.messageId.equals(messageId) &
+                  row.state.isNotIn(const ['delivered', 'expired']),
             ))
             .write(
               RescueResponseOutboxCompanion(
                 state: Value(state.name),
                 updatedAt: Value(timestamp),
+                nextRetryAt: Value(
+                  timestamp.add(
+                    _retryDelay(existing.retryCount.clamp(1, maximumAttempts)),
+                  ),
+                ),
                 lastError: Value(error),
               ),
             );

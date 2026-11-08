@@ -1,0 +1,181 @@
+{
+  "date": "2026-11-08",
+  "application_build": 5,
+  "application_schema": 10,
+  "account_host_checks": {
+    "command": "flutter test --no-pub test/guest_continuity_test.dart test/auth_session_navigator_test.dart test/local_device_history_test.dart test/sos_sync_coordinator_test.dart test/password_recovery_test.dart --reporter expanded",
+    "passed": 33,
+    "failed": 0,
+    "exit": 0,
+    "scope": "Host/mock auth/session/history/sync/recovery assertions; not live account/backend/email or physical account-switch acceptance"
+  },
+  "firestore_rules": {
+    "isolated_emulator_passed": 8,
+    "isolated_emulator_failed": 0,
+    "exit": 0,
+    "reusable_runner": "python3 scripts/test_firestore_rules.py",
+    "runner_verification_passed": 8,
+    "runner_verification_exit": 0,
+    "existing_8080_listener_not_used_or_stopped": true,
+    "demo_project_only": true,
+    "scope": "Checked-in rules in isolated local emulator only; deployed rules not inspected"
+  },
+  "test_workflow_change": "Rules fixture reads FIRESTORE_EMULATOR_HOST; new launcher selects isolated loopback ports and temporary emulator config; no production app/protocol change",
+  "files": [
+    {
+      "path": "security-tests/firestore.rules",
+      "sha256": "c060e996c5fdcf9771487693a8cc62da06b39163ddb0a4e9af78771bc23217f7"
+    },
+    {
+      "path": "security-tests/firestore.rules.test.js",
+      "sha256": "f35b02c462100986fcd687a12ebeabd4ebe38b9aeb7601f5c5cc3a34dd26707b"
+    },
+    {
+      "path": "scripts/test_firestore_rules.py",
+      "sha256": "08297c15705c624d7d5856824a774b0632101191faf20c83a55f9363f7151241"
+    },
+    {
+      "path": "README.md",
+      "sha256": "7187d2ec347635fab44c22527d3df5039496228261dc724dfad88570932f8fba"
+    }
+  ],
+  "remaining": [
+    {
+      "area": "GPS",
+      "status": "SCOPED LOCAL CHECKS PASSED; EARLIER INTERMITTENT TIMEOUT UNRESOLVED",
+      "next": "Retain current success and earlier timeout; final-build location-bearing SOS and permission-denied acceptance remain unverified. Do not claim a root-cause fix."
+    },
+    {
+      "area": "Repeat reliability",
+      "status": "PAIR/OUTAGE/STAGED AND BOUNDED LOCK-RESUME CASES PASSED IN STATED SCOPE",
+      "next": "Current test incident cleanup confirmed. Prior pair/outage/staged and two bounded2-minute lock/resume cases retained; repeated long-idle/OS-kill and locked-state delivery not verified."
+    },
+    {
+      "area": "Account/cloud",
+      "status": "HOST/EMULATOR AND SAME-ACCOUNT DEVICE UI CONTINUITY PASSED IN STATED SCOPE",
+      "next": "Retain stated limits: distinct-account isolation, deployed cloud rules/data, live recovery/email and upload acceptance unverified; no blanket backend completion claim"
+    },
+    {
+      "area": "UX/map",
+      "status": "SCOPED SAMSUNG THAI/ENLARGED-FONT/ONLINE-MAP AND IPAD ENGLISH CHECKS PASSED",
+      "next": "Keep stated limits; offline maps, all screens/scales and iPhone layout matrix not newly verified"
+    },
+    {
+      "area": "Submission",
+      "status": "HANDOVER WRITTEN; RUBRIC AND SOURCE DELIVERY FORMAT PENDING",
+      "next": "HANDOVER.md and source/test hash verification prepared; awaiting actual rubric and delivery format. No all-working-tree commit made; HEAD alone is insufficient."
+    },
+    {
+      "area": "Current status override",
+      "status": "Historical remaining entries above retain their original scope; current accepted cases and unresolved limits are in the linked 20261109 handover",
+      "next": "Submission format/rubric not specified; no new physical test requested after cleanup"
+    }
+  ],
+  "gps_local_check": {
+    "device": "iPhone",
+    "build": 5,
+    "method": "Operator local-only Check current location; no new SOS requested",
+    "result": "Location request timed out",
+    "evidence": "User confirmed exact displayed error on 2026-11-08 after instruction to check outdoors if safe",
+    "scope": "Operator report only; outdoor placement not independently confirmed; underlying cause not established",
+    "permission_settings": "User confirms system Location Services enabled, Emergency While Using the App authorization and Precise Location enabled on 2026-11-08; operator report, not independently inspected",
+    "comparison_check": "User reports Apple Maps showed current-location dot within requested comparison interval, in same place with network settings unchanged on 2026-11-08. No timestamp/accuracy or fresh-versus-cached fix independently inspected.",
+    "next_check": "No additional GPS repetition requested now; retain earlier timeout as unresolved intermittent observation; location-bearing SOS on final build not yet verified",
+    "emergency_after_maps": "User reports Current location on one local-only Emergency check after Apple Maps displayed a location, with no requested network/location changes on 2026-11-08; no coordinates exported",
+    "conclusion": "Two successful local checks reported: after Maps and Emergency-first after normal restart. Earlier timeout root cause unresolved; no production fix made and reliability not guaranteed.",
+    "emergency_first_after_restart": {
+      "result": "Current location",
+      "history_retained": true,
+      "maps_opened_before_check": false,
+      "evidence": "User confirms normal iPhone restart, Emergency-first check and retained history on 2026-11-08",
+      "scope": "One operator-reported successful local-only check after restart; no raw coordinates, accuracy or acquisition time independently inspected"
+    }
+  },
+  "lock_resume_check": {
+    "build": 5,
+    "status": "BOUNDED UI CASES COMPLETE; TEST INCIDENT CLEANED UP",
+    "preparation": "User confirms iPad Bluetooth off in Settings; iPhone/Samsung Emergency and Bluetooth on, Wi-Fi/mobile Internet off, nearby, unlocked; Samsung Rescue listening and Nearby SOS Relay on",
+    "next": "No further lock/resume action requested; retain scoped evidence and limitations",
+    "scope": "Preparation only; no background delivery or resume result yet",
+    "sos_visibility": "User reports Samsung sees the newly requested iPhone test SOS on 2026-11-08; foreground observation only; coordinate presence not inspected",
+    "offer": "User reports iPhone Verified help offer received (1) after instructed single Samsung Offer Help; Samsung final delivery label not inspected in this round",
+    "iphone_receiver": {
+      "message": "LOCK-IOS-01",
+      "reported_count": 1,
+      "procedure": "Instructed 2-minute iPhone lock without force-quit; Samsung sends once while locked; wait30 seconds then resume Chat, at most3 minutes",
+      "evidence": "User reports seeing 1 instance on 2026-11-08",
+      "limits": "No independently measured timing or DB capture; does not distinguish reception while locked from recovery after unlock; no background-notification claim"
+    },
+    "iphone_sender_receipt": "User reports original Samsung LOCK-IOS-01 shows Confirmed stored after iPhone resume on 2026-11-08; UI-only observation, no independent receipt DB/signature capture in this round",
+    "samsung_receiver": {
+      "message": "LOCK-ANDROID-01",
+      "reported_count": 1,
+      "procedure": "Instructed Samsung lock2 minutes without force-quit, single iPhone send while locked, wait30 seconds then resume; up to3 minutes in app",
+      "evidence": "User reports seeing1 instance on 2026-11-08",
+      "limits": "Operator report; no independent timing/DB inspection; locked-state reception versus post-unlock recovery not distinguished"
+    },
+    "samsung_case_sender_receipt": "User reports original iPhone LOCK-ANDROID-01 shows Confirmed stored on 2026-11-08; UI observation only, no fresh DB/signature capture",
+    "cleanup": "User confirms current iPhone SOS cancelled, history retained and same incident removed from Samsung Helping on 2026-11-08; no manual deletion requested"
+  },
+  "account_device_check": {
+    "status": "SAME TEST ACCOUNT SIGN-OUT/GUEST/SIGN-IN UI CONTINUITY PASSED",
+    "next": "No further session changes requested; Samsung signed-in and online as last reported",
+    "scope": "Host33 and rules emulator8 already passed; physical/live account acceptance not yet established",
+    "sessions": {
+      "iPhone": "Guest",
+      "Samsung": "Signed-in account",
+      "evidence": "User report on 2026-11-08; no identifiers requested or independently inspected"
+    },
+    "guest_history_screen": "User reports Samsung signed-in session opens Data on this device, displays Guest local-only/unlinked/not-uploaded explanation and existing Guest rows on 2026-11-08",
+    "limits": "Operator-reported same-account UI continuity only; no distinct second-account isolation, cloud record inspection, deployed rules verification, registration/recovery/email delivery or cloud upload assertion",
+    "guest_detail": "User reports one Samsung retained Guest detail shows Device only and no edit/cancel/delete controls on 2026-11-08; no mutation requested",
+    "test_account_readiness": "User confirms Samsung current account is a test account and can sign back in independently; no credentials collected",
+    "sign_out_to_guest": "User confirms Samsung entered Guest after sign-out and previous Guest records remain on 2026-11-08; no new SOS or deletion requested",
+    "sign_in_return": "User confirms Samsung signed back into same test account, account history normal and existing Guest records retained on 2026-11-08; Internet enabled as instructed"
+  },
+  "ui_checks": {
+    "samsung_thai_enlarged_font": {
+      "result": "PASS IN REPORTED SCOPE",
+      "screens": [
+        "Settings",
+        "History",
+        "existing Guest detail"
+      ],
+      "evidence": "User reports all3 screens readable, buttons usable and scrolling normal after Thai selection and increasing system font on 2026-11-08",
+      "limits": "Exact text scale and screenshots not captured; no claim for maximum font, all screens or all devices"
+    },
+    "next": "No more UI steps requested for this scoped round; offline maps and exhaustive accessibility remain unverified",
+    "samsung_online_map": {
+      "result": "PASS IN REPORTED SCOPE",
+      "evidence": "User reports online existing coordinate-bearing incident map displays base tiles and incident marker and supports pan/zoom on 2026-11-08",
+      "limits": "One operator-reported online view; no coordinate accuracy, cold offline tiles, offline-region download or provider production readiness verified",
+      "font_restoration": "Requested prior font setting restoration; not separately confirmed"
+    },
+    "ipad_english": {
+      "result": "PASS IN REPORTED SCOPE",
+      "screens": [
+        "Settings",
+        "Helping",
+        "received history",
+        "existing stopped-following incident detail"
+      ],
+      "evidence": "User reports layouts normal and old incidents retained only in history, not Helping, on 2026-11-08",
+      "limits": "Operator report; no screenshots, scale or all-screen/device matrix captured"
+    }
+  },
+  "mandatory_requirements": {
+    "offline_maps": "One downloaded region each on Samsung/iPhone accepted offline at documented zoom/bounds; iPad not tested",
+    "image_camera": "Scoped operator cases accepted both phone directions and Samsung to iPad",
+    "image_library": "Scoped operator cases accepted both phone directions",
+    "video_camera": "Scoped operator cases accepted both phone directions and Samsung to iPad; Samsung to iPhone required one Bluetooth reconnect",
+    "video_library": "Scoped operator cases accepted both phone directions"
+  },
+  "overall_status": "SCOPED FUNCTIONAL DEMO CASES ACCEPTED; submission format/rubric pending; reliability limitations documented",
+  "new_build_evidence": "../20261108_media_offline_maps/VALIDATION.json",
+  "installed_application_build": {
+    "iPhone": "Profile14",
+    "Samsung": "Profile13",
+    "iPad": "Profile14"
+  },
+  "current_handover": "../20261109_media_acceptance/HANDOVER.md"
+}

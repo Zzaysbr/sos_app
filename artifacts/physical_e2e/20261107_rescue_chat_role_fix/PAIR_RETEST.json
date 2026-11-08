@@ -1,0 +1,56 @@
+{
+  "date": "2026-11-07",
+  "timezone": "Asia/Bangkok",
+  "android_source_sha256": "bea922bfea98f20bcb9676a977eb441f41cfe07d3e38d0d6252474618837e6db",
+  "iphone_source_sha256": "4f920365e88ea36e3ac2dc46dff0d4573794aa35a6d8ce30ff52fc8379b11f6e",
+  "scope": "Android helper Chat navigation/Back preserves role and listening; same existing incident, no new SOS or message instructed. UI-only fix compatible with iPhone retention build.",
+  "status": "Signed origin present at both endpoints; new message queued with 0 attempts; check iPhone scheduler liveness",
+  "results": [
+    {
+      "step": "Android launch confirmation",
+      "observation": "User confirmed role-fix app opens normally.",
+      "scope": "Installation/UI launch only; no physical role-navigation acceptance yet."
+    },
+    {
+      "step": "Rescue listening before navigation",
+      "observation": "User confirmed Android is in helper mode and shows listening for incidents.",
+      "scope": "Precondition for role/listening navigation test; Chat entry/Back not yet tested."
+    },
+    {
+      "step": "Chat entry through rescue active banner",
+      "observation": "User confirmed opening the same existing incident Chat from the active SOS banner on Android helper Nearby page.",
+      "scope": "Affected navigation route exercised; Back role/listening outcome pending."
+    },
+    {
+      "step": "Back preserves role and listening",
+      "observation": "User confirmed Android remains in helper mode and still shows listening after one Back from the existing incident Chat opened through the affected active banner.",
+      "scope": "One operator-confirmed navigation cycle on Android role-fix build; not persistent listening across process restart or Bluetooth-only/aged delivery acceptance.",
+      "confirmation_received_utc": "2026-11-07T14:54:24.465137+00:00"
+    },
+    {
+      "step": "Aged conversation ready",
+      "observation": "User confirmed same incident Chat open on both devices, with no new SOS instructed.",
+      "scope": "Beyond conservative 31-minute interaction boundary after original SOS reception confirmation; actual device origin timestamps not yet inspected. Android role-fix source and iPhone retention source share unchanged retention/wire logic.",
+      "confirmation_received_utc": "2026-11-07T14:57:18.191285+00:00"
+    },
+    {
+      "step": "Aged forward message observation",
+      "observation": "User reports TEST-AFTER-30-01 absent on Android after 3 minutes and current iPhone status Queued.",
+      "scope": "Non-arrival and queued UI reported; cause/peer readiness/same-room metadata not established. Aged-origin delivery not passed.",
+      "confirmation_received_utc": "2026-11-07T15:03:36.147951+00:00"
+    },
+    {
+      "step": "Android aged Chat diagnostics",
+      "observation": "Current app running/resumed/awake, saved rescue and relay enabled; same baseline/BT incident active with delivered Offer and signed origin retained past expiry. Target fresh aged message absent from copied DB. New connections fail before authenticated in available log.",
+      "scope": "Read-only evidence; iPhone queue and native disconnect cause not yet inspected.",
+      "recorded_utc": "2026-11-07T15:10:02.245187+00:00"
+    },
+    {
+      "step": "iPhone aged Chat durable queue inspection",
+      "observation": "Same incident as Android baseline; active local incident and signed origin present. Fresh message created after origin transport expiry, still within own expiry at snapshot, queued with retry_count 0 and no last_error.",
+      "scope": "Actual sender metadata verified at live copy time. Does not prove scheduler cleanup execution, active proof or receiver delivery.",
+      "recorded_utc": "2026-11-07T15:18:50.255192+00:00"
+    }
+  ],
+  "aged_chat_send_instruction_issued_utc": "2026-11-07T14:57:18.191285+00:00"
+}

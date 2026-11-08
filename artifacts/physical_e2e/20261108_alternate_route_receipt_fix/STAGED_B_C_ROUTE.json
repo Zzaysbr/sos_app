@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-08",
+  "source_sha256": "e96ce1b5836c2c9564d5d4041b32fa95dfb3940357134862f1598bcd50de1618",
+  "build_number": 3,
+  "device_alias": "C iPad",
+  "matching_saved_wired_target": true,
+  "read_only_documents_copy_exit": 0,
+  "sqlite_quick_check": "ok",
+  "origin_correlation": {
+    "origin_message_matches_A": true,
+    "incident_matches_A": true,
+    "immutable_digest_matches_A": true
+  },
+  "stored_route": {
+    "incoming_hop_count": 1,
+    "path_length": 2,
+    "path_origin_then_saved_samsung_key": true,
+    "previous_hop_matches_samsung_key": true
+  },
+  "cryptographic_revalidation": {
+    "command": "flutter test --no-pub <private temporary route verification test> --reporter expanded",
+    "exit": 0,
+    "tests_passed": 1,
+    "checks": [
+      "Origin signature and key-ID binding",
+      "Samsung hop signature and key-ID binding",
+      "Full offer validation at recorded receiver timestamp",
+      "Origin/digest/incident match A",
+      "Exactly one hop and path origin then Samsung"
+    ]
+  },
+  "scope": "One staged physical A-B-C signed SOS forwarding case supported by captured path/signatures and operator endpoint-radio exclusivity. Samsung B-C hop receipt return not yet inspected; no Help Offer/Chat/lifecycle multihop or repeated reliability claim. Live DB copy not coordinated snapshot. Private captured payload and IDs not exported."
+}

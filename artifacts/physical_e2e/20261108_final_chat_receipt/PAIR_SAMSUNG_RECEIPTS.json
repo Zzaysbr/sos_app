@@ -1,0 +1,42 @@
+{
+  "date": "2026-11-08",
+  "build_number": 5,
+  "matching_saved_authorized_wired_samsung": true,
+  "inspection": "Read-only app DB copy; quick_check ok; live copy not coordinated snapshot",
+  "schema_version_observed": 10,
+  "messages": [
+    {
+      "test_marker": "RECEIPT-A-C-01",
+      "relay_state": "verified",
+      "receipt_state": "queued",
+      "receipt_retry_count": 7,
+      "local_chat_count": 1,
+      "local_chat_statuses": [
+        "delivered"
+      ]
+    },
+    {
+      "test_marker": "RECEIPT-C-A-01",
+      "relay_state": "delivered",
+      "receipt_state": "applied",
+      "receipt_retry_count": 0,
+      "local_chat_count": 1,
+      "local_chat_statuses": [
+        "delivered"
+      ]
+    }
+  ],
+  "same_incident": true,
+  "captured_crypto_revalidation": {
+    "exit": 0,
+    "tests_passed": 1,
+    "checks": [
+      "Both signed Chat envelopes",
+      "Both final recipient receipt signatures/key-ID binding",
+      "Exact canonical-envelope digest, message/incident and sender/recipient bindings",
+      "Receipt timestamp/expiry validity at signed persistence timestamp",
+      "Reverse participant pairing"
+    ]
+  },
+  "scope": "Physical pair Samsung snapshot and independent captured cryptographic validation; iPhone DB same-envelope/receipt comparison pending. No outage/multihop/repeated acceptance. No raw IDs/text/payloads exported."
+}

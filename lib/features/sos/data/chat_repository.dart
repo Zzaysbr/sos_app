@@ -69,10 +69,19 @@ class PersistentChatRepository implements ChatRepository {
     required this._database,
     required String ownerId,
     String? senderId,
-  }) : _ownerId = ownerId,
+    DateTime Function()? now,
+    this.onIncomingPersisted,
+  }) : _now = now ?? DateTime.now,
+       _ownerId = ownerId,
        _senderId = senderId ?? ownerId;
 
+  /// Called only after the authorized incoming row has committed. Replays may
+  /// retry this idempotent side effect; notification failures never reject Chat.
+  final Future<void> Function(EmergencyChatMessage message)?
+  onIncomingPersisted;
+
   final AppDatabase _database;
+  final DateTime Function() _now;
   final String _ownerId;
   final String _senderId;
 
@@ -106,7 +115,7 @@ class PersistentChatRepository implements ChatRepository {
     if (trimmed.isEmpty && attachmentPath == null) {
       throw const ChatRepositoryException('A chat message cannot be empty.');
     }
-    final now = DateTime.now().toUtc();
+    final now = _now().toUtc();
     final stableMessageId = messageId ?? 'chat-${now.microsecondsSinceEpoch}';
     ChatMessage? stored;
     await _database.transaction(() async {
@@ -138,6 +147,10 @@ class PersistentChatRepository implements ChatRepository {
           existing.ownerId != _ownerId ||
           existing.senderId != _senderId ||
           existing.recipientId != recipientId ||
+          existing.messageType != messageType ||
+          existing.attachmentPath != attachmentPath ||
+          existing.attachmentMimeType != attachmentMimeType ||
+          existing.attachmentName != attachmentName ||
           existing.textContent != (trimmed.isEmpty ? null : trimmed)) {
         throw const ChatRepositoryException(
           'A chat message ID is already used for different content.',
@@ -188,6 +201,9 @@ class PersistentChatRepository implements ChatRepository {
     String? recipientId,
     required String text,
     required DateTime createdAt,
+    String? attachmentPath,
+    String? attachmentMimeType,
+    String? attachmentName,
   }) async {
     await _requireAuthorizedSos(sosId);
     if (senderId.trim().isEmpty || text.trim().isEmpty) {
@@ -204,10 +220,13 @@ class PersistentChatRepository implements ChatRepository {
               ownerId: _ownerId,
               senderId: senderId,
               recipientId: Value(recipientId ?? _ownerId),
-              messageType: 'text',
+              messageType: attachmentPath == null ? 'text' : 'media',
               textContent: Value(text),
               createdAt: timestamp,
               deliveryStatus: ChatDeliveryStatus.delivered.name,
+              attachmentPath: Value(attachmentPath),
+              attachmentMimeType: Value(attachmentMimeType),
+              attachmentName: Value(attachmentName),
             ),
             mode: InsertMode.insertOrIgnore,
           );
@@ -215,9 +234,13 @@ class PersistentChatRepository implements ChatRepository {
         _database.chatMessages,
       )..where((table) => table.messageId.equals(messageId))).getSingleOrNull();
       if (row == null ||
+          row.ownerId != _ownerId ||
           row.sosId != sosId ||
           row.senderId != senderId ||
           row.recipientId != (recipientId ?? _ownerId) ||
+          row.attachmentPath != attachmentPath ||
+          row.attachmentMimeType != attachmentMimeType ||
+          row.attachmentName != attachmentName ||
           row.textContent != text) {
         throw const ChatRepositoryException(
           'A chat message ID is already used for different content.',
@@ -227,7 +250,15 @@ class PersistentChatRepository implements ChatRepository {
     final row = await (_database.select(
       _database.chatMessages,
     )..where((table) => table.messageId.equals(messageId))).getSingle();
-    return _toMessage(row);
+    final message = _toMessage(row);
+    if (!message.isMine) {
+      try {
+        await onIncomingPersisted?.call(message);
+      } on Object {
+        // The durable message and transport receipt must survive OS denial.
+      }
+    }
+    return message;
   }
 
   Future<void> _requireAuthorizedSos(String sosId) async {

@@ -1,0 +1,56 @@
+{
+  "date": "2026-11-07",
+  "case": "Android Bluetooth off/on recovery with existing queued iPhone Chat",
+  "preconditions": {
+    "same_test_incident": true,
+    "no_new_sos_or_resend": true,
+    "existing_iphone_chat": "Queued, recipient had not seen it",
+    "reverse_chat": "one reply visible at iPhone, operator-reported",
+    "internet": "off per earlier report",
+    "test_sos_age_minutes_approx_before_action": 22.7
+  },
+  "status": "PARTIAL: original queued text recovered after Bluetooth off/on with one visible bubble, but exceeded the session 3-minute observation window and included proof timeout/delayed authentication",
+  "expected": "Retain incident/history/message and eventually show the existing queued text once at Android after fresh session proof. Do not equate this with reproducing a stale native callback race.",
+  "limits": "Final capture contains one later session_authenticated and two outgoing chat_relay_forwarded logs, but no incoming Chat receive/persist log in that capture. Do not interpret Android outgoing forwarding as iPhone-to-Android receipt. Operator confirmed no arrival at 3-minute check; later UI result pending. Approximate SOS age 27.1 minutes at check; exact Chat expiry and sender retry count not inspected. Stale native callback race not reproduced.",
+  "operator_result": "Existing queued text still not visible on Android after Bluetooth off/on and 3-minute wait",
+  "android_log": {
+    "raw_log_sha256": "7b63f09cef2f87e571cc8d46d2c611ef226c1094fa2eaec8b5d1026878ca15d5",
+    "native_connected_events": 1,
+    "native_disconnected_events": 1,
+    "session_created_events": 1,
+    "session_authenticated_events": 1,
+    "proof_timeout_events": 1,
+    "chat_relay_events": 2,
+    "assembly_rejected_events": 0,
+    "reason_counts": {
+      "no_authenticated_peer": 64,
+      "write_cancelled": 1,
+      "proof_timeout": 1
+    }
+  },
+  "test_sos_age_minutes_approx_at_operator_result": 27.1,
+  "timing_as_logged": {
+    "native_disconnect": "10:29:24.300",
+    "native_connect": "10:29:51.238",
+    "proof_timeout": "10:32:02.421",
+    "session_authenticated": "10:32:33.572",
+    "android_chat_forwarded": "10:32:45.576"
+  },
+  "later_log_observation": {
+    "source": "Second PID-filtered adb logcat snapshot after initial bounded capture",
+    "raw_sha256": "0cca4eb69af40fa636080966d96c1c7330732ce815ba703ddb5a87bc04c9566d",
+    "recipient_chat_received_events": 1,
+    "received_incident_matches_test": true,
+    "time_as_logged": "10:33:45.307",
+    "approx_seconds_after_disconnect": 261,
+    "approx_seconds_after_native_connect": 234,
+    "operator_ui_confirmation": "Original queued text visible once on Android"
+  },
+  "operator_late_result": "Android now shows original queued synthetic text once, without manual resend, operator-reported",
+  "session_cleanup": {
+    "current_test_sos": "Cancelled on iPhone, operator-reported",
+    "history": "Incident remains in history, operator-reported",
+    "uninstall_or_data_clear": "None performed",
+    "network_and_relay_settings_restoration": "Not confirmed; no further device mutations performed by assistant"
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "date": "2026-11-07",
+  "timezone": "Asia/Bangkok",
+  "scope": "Device preparation only. No physical BLE/SOS/Chat acceptance performed.",
+  "source_head": "841add485e96836058576e619c13963a7c4bf628",
+  "source_sha256": "0acd384aa9d862e3f37df18590cca577368f064d1ff8d830e2a4913dad135837",
+  "source_scope": "Existing tracked and untracked files under lib/, android/app/src/main/, ios/Runner/, plus pubspec.yaml/lock, ios/Podfile/lock, ios/Runner.xcodeproj/project.pbxproj and android/app/build.gradle.kts. Working tree contains uncommitted changes.",
+  "source_file_count": 130,
+  "ios_build": {
+    "command": "flutter build ios --profile --no-pub",
+    "exit_code": 0,
+    "xcode_build_seconds": 372.4,
+    "artifact": "build/ios/iphoneos/Runner.app"
+  },
+  "devices": [
+    {
+      "alias": "iOS-1",
+      "model": "iPhone 15 Plus",
+      "os_version": "27.0.1",
+      "bundle_id": "com.n1cxltine.sosapp",
+      "version": "0.1.0",
+      "build_number": "1",
+      "mode": "profile",
+      "binary_sha256": "cee79c07bd6364fcd1bdd4de8cbc819ea63a7be5a434399a8a1d52a91c2c208f",
+      "source_sha256": "0acd384aa9d862e3f37df18590cca577368f064d1ff8d830e2a4913dad135837",
+      "signature_verified": true,
+      "installation": "success; updated existing app without uninstall",
+      "launch_command": "success",
+      "physical_ble_tests": "NOT RUN",
+      "operator_ui_confirmation": "App opens normally, reported by user; main-screen/history contents not independently inspected."
+    },
+    {
+      "alias": "Android-1",
+      "model": "SM-A536E",
+      "os_version": "14",
+      "bundle_id": "com.n1cxltine.sosapp",
+      "version": "0.1.0",
+      "build_number": "1",
+      "mode": "profile",
+      "target_platform": "android-arm64",
+      "apk_sha256": "db6b9effc67ff501236baa9e380570a3c85dd3c74b89f83c7839d142422bd096",
+      "source_sha256": "0acd384aa9d862e3f37df18590cca577368f064d1ff8d830e2a4913dad135837",
+      "signature_verified": true,
+      "installation": "success; adb install -r -t, no uninstall or data clear",
+      "launch_command": "success; am start Status: ok and app process present",
+      "physical_ble_tests": "NOT RUN",
+      "operator_ui_confirmation": "App opens normally, reported by user; main-screen/history contents not independently inspected."
+    },
+    {
+      "alias": "iOS-2",
+      "model": "iPad Air 11-inch (M2)",
+      "os_version": "27.0.1",
+      "bundle_id": "com.n1cxltine.sosapp",
+      "version": "0.1.0",
+      "build_number": "1",
+      "mode": "profile",
+      "binary_sha256": "cee79c07bd6364fcd1bdd4de8cbc819ea63a7be5a434399a8a1d52a91c2c208f",
+      "source_sha256": "0acd384aa9d862e3f37df18590cca577368f064d1ff8d830e2a4913dad135837",
+      "signature_verified": true,
+      "installation": "success; updated existing app without uninstall",
+      "launch_command": "success",
+      "physical_ble_tests": "NOT RUN",
+      "artifact_reuse": "Exact same signed profile app binary as iOS-1; iPad device family and development provisioning checked before install.",
+      "operator_ui_confirmation": "App opens normally, reported by user; main-screen/history contents not independently inspected."
+    }
+  ],
+  "private_logs": "Raw identifiers and command logs retained only outside repository under /tmp/sos-install-ios1-*, /tmp/sos-install-android-* and /tmp/sos-install-ipad-*; not included in this artifact.",
+  "android_build": {
+    "command": "flutter build apk --profile --no-pub --target-platform android-arm64",
+    "exit_code": 0,
+    "artifact": "build/app/outputs/flutter-apk/app-profile.apk"
+  },
+  "test_device_set": "iPhone 15 Plus + Samsung SM-A536E + iPad Air 11-inch (M2); iPad replaces the originally planned second iPhone."
+}

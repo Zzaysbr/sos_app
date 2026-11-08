@@ -1,0 +1,8 @@
+{
+  "lib/features/nearby_ble/data/incident_lifecycle_repository.dart": "UNCHANGED",
+  "lib/features/nearby_ble/domain/incident_lifecycle_envelope.dart": "UNCHANGED",
+  "lib/features/sos/data/sos_repository.dart": "UNCHANGED",
+  "test/incident_lifecycle_authorization_test.dart": "UNCHANGED",
+  "test/incident_lifecycle_envelope_test.dart": "UNCHANGED",
+  "lib/core/database/app_database.dart": "UNCHANGED"
+}

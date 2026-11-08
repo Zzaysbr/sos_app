@@ -1,0 +1,37 @@
+{
+  "date": "2026-11-08",
+  "build_number": 3,
+  "inspection": "Matching saved wired Samsung read-only DB snapshot; quick_check ok",
+  "operator_observation": "STAGED-A-C-01 sent once; iPhone composer usable; iPad radio kept off",
+  "chat_marker": "STAGED-A-C-01",
+  "durable_intermediary": {
+    "verified_inbox_rows": 1,
+    "relay_outbox_rows": 1,
+    "state": "queued",
+    "hop_count": 1,
+    "retry_count": 0,
+    "stored_incoming_signed_hops": 1
+  },
+  "captured_crypto_revalidation": {
+    "tests_passed": 1,
+    "exit": 0,
+    "checks": [
+      "Chat origin signature at recorded receive timestamp",
+      "Sender matches SOS origin",
+      "Signed A-to-B transfer path and intended local Samsung identity"
+    ]
+  },
+  "response_outbox_same_incident": [
+    {
+      "kind": "rescue.offer",
+      "state": "forwarded",
+      "retry_count": 3
+    },
+    {
+      "kind": "rescue.offer_ack",
+      "state": "forwarded",
+      "retry_count": 3
+    }
+  ],
+  "scope": "One signed Chat durably stored at intermediary before C radio on. Not final Chat receipt or C reception yet. ACK stored for forwarding; iPad ACK application not yet verified. Retry_count values are snapshot-specific."
+}

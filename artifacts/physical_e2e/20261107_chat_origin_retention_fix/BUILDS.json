@@ -1,0 +1,49 @@
+{
+  "date": "2026-11-07",
+  "source_sha256": "4f920365e88ea36e3ac2dc46dff0d4573794aa35a6d8ce30ff52fc8379b11f6e",
+  "android": {
+    "command": "flutter build apk --profile --no-pub --target-platform android-arm64",
+    "exit_code": 0,
+    "gradle_build_seconds": 21.9,
+    "artifact": "build/app/outputs/flutter-apk/app-profile.apk",
+    "sha256": "7e0d2a7c44de257c040f61a91cf6f9f7c049c147b5812234cfc068147d76096c",
+    "signature_verified": true,
+    "installed": "SUCCESS; update in place with adb install -r -t; no uninstall/data clear",
+    "launch": "SUCCESS; am start Status: ok and process present",
+    "device": {
+      "alias": "Android-1",
+      "model": "SM-A536E",
+      "os_version": "14"
+    },
+    "operator_ui_confirmation": "User confirmed the updated app opens normally; retention behavior not yet physically retested."
+  },
+  "ios": {
+    "command": "flutter build ios --profile --no-pub",
+    "exit_code": 0,
+    "xcode_build_seconds": 32.1,
+    "artifact": "build/ios/iphoneos/Runner.app",
+    "binary_sha256": "9d048d6e310be6d1985ed410e360e7f1a10cbfb7ce313cc18400489fcb53aba2",
+    "dart_aot_sha256": "bc0a9ffc30d180d4f38389c5c89711dba1be976996d5a2a2820e0b58275ea1b3",
+    "bundle_sha256": "d7a1bbc17efd7bf7f9a2674bd2519060ba27fcb1fb145f8b9d7411ecd8bd5d37",
+    "bundle_digest_method": "sha256 of compact sorted-key JSON file hash array sorted by bundle-relative path",
+    "signature_verified": true,
+    "installed": "SUCCESS; iPhone and iPad updated",
+    "devices": [
+      {
+        "alias": "iOS-1",
+        "model": "iPhone 15 Plus",
+        "installed": "SUCCESS; update in place, no uninstall/data clear",
+        "launch": "Automatic devicectl launch denied on two attempts; subsequent manual launch confirmed normal by user. Initial denial cause unresolved.",
+        "operator_ui_confirmation": "User confirmed updated app opens normally by tapping app icon."
+      },
+      {
+        "alias": "iOS-2",
+        "model": "iPad Air 11-inch (M2)",
+        "installed": "SUCCESS; update in place, no uninstall/data clear",
+        "launch": "SUCCESS; devicectl launch",
+        "operator_ui_confirmation": "User confirmed the updated app opens normally; retention behavior not yet physically retested."
+      }
+    ]
+  },
+  "physical_retest": "NOT RUN"
+}

@@ -1,0 +1,39 @@
+{
+  "source_sha256": "352eb0fe60d2a098eb1f4fac85821e34f21e03c80d4e457fa32f4b2ba9e04394",
+  "build_number": 4,
+  "status": "LOCAL STOP-FOLLOWING DEVICE ACCEPTANCE COMPLETE FOR SEVEN OLD IPAD ENTRIES; RECORDS/CHAT RETAINED",
+  "procedure": "One structured operator question at a time; no new SOS; first archive one old candidate, check Helping removal and retained history/Chat, then remaining entries if desired",
+  "operator_observations": [
+    {
+      "step": "ipad_build4_launch_history",
+      "result": "User confirms normal launch and prior history remains present",
+      "scope": "Launch/history only; no physical archive action yet confirmed"
+    },
+    {
+      "step": "first_old_candidate_removed_from_helping",
+      "result": "User confirms one selected old incident disappeared from iPad Helping after Stop following on this device and confirmation",
+      "scope": "One operator-observed local list-removal case; retained received history/details/Chat and persisted local state still to check. Other six entries not acted on by this instruction."
+    },
+    {
+      "step": "archived_candidate_history_details_accessible",
+      "result": "User confirms the same stopped-following incident remains visible in received incident history and its details open",
+      "scope": "One operator-confirmed history/details access case; Chat content preservation and persistence still to inspect. No new message requested."
+    },
+    {
+      "step": "archived_chat_access_and_db_preservation",
+      "result": "User confirms existing Chat opens and previous messages remain. Matching wired iPad DB snapshot shows 2 of seven old candidates archivedLocally and 5 still locallyAccepted, all seven retained, all prior Chat immutable fields preserved and no new lifecycle outbox IDs.",
+      "scope": "One operator-confirmed archive/history/Chat flow and 2 persisted archived entries; 5 old entries remain tracked; no physical restart claim."
+    },
+    {
+      "step": "all_old_entries_locally_archived",
+      "result": "User confirms all old entries removed from Helping. Final matching iPad DB quick_check ok: seven original rows retained/archivedLocally, zero still locallyAccepted, all 13 prior Chat rows preserve immutable content, no new lifecycle outbox IDs.",
+      "scope": "Targeted local archive cleanup complete; history/details/Chat access previously operator-confirmed. No physical restart claim."
+    },
+    {
+      "step": "all_build4_launch_history_confirmed",
+      "result": "User confirms iPhone normal launch/history retained; Samsung/iPad previously confirmed. All three installed build 4 in place.",
+      "scope": "Launch/history only for new Samsung/iPhone updates; seven iPad local archives already verified. No new SOS or final Chat receipt verification."
+    }
+  ],
+  "installed_scope": "All three devices build 4, launch/history operator-confirmed"
+}

@@ -1,0 +1,39 @@
+{
+  "date": "2026-11-07",
+  "case": "iPhone to Android text Chat after signed SOS and verified Help Offer",
+  "setup": {
+    "source": "iOS-1",
+    "receiver": "Android-1",
+    "android_incident_chat": "opened, operator-reported",
+    "help_offer": "verified and shown once at iPhone; final Help Offer ACK rejected on Android as session binding invalid",
+    "internet": "off, per earlier operator report",
+    "iPad": "Bluetooth off, per earlier operator report"
+  },
+  "status": "FAIL for observed iPhone-to-Android text arrival window; exact Chat transmit/reject boundary not established",
+  "scope_limit": "No completed Chat relay event observed in this bounded capture. Does not establish that Chat was rejected for the ACK binding failure; sender state and incomplete-transfer possibility remain to inspect. Raw process log retained only outside repository at /tmp/sos-pair-chat-android-logcat.txt.",
+  "operator_result": "Android did not show the synthetic Chat text after 3-minute wait",
+  "android_log": {
+    "raw_log_sha256": "ab178eee09bf0502a62a0706e66e132e7a6d1c6cffe13d626a5e030786c53f2c",
+    "lines": 35998,
+    "completed_message_events": 18,
+    "chat_relay_log_events": 0,
+    "chat_relay_wire_type_mentions": 0,
+    "assembly_rejections": 0,
+    "rescue_ack_binding_rejections": 14
+  },
+  "operator_iphone_status": "Queued for the outgoing synthetic text after receiver 3-minute observation",
+  "reverse_case": {
+    "status": "PASS for one operator-observed incoming bubble on iPhone",
+    "source": "Android-1",
+    "receiver": "iOS-1",
+    "same_incident": true,
+    "operator_result": "iPhone shows synthetic reply once",
+    "android_sender_log": {
+      "raw_sha256": "606dca282ce5b29a40b1fe61bcb9bedd4d70433d98d384827dbb65c16f8b97e2",
+      "chat_relay_forwarded_events": 8,
+      "ack_binding_rejections": 9
+    },
+    "limit": "Forwarded events include retries; no final signed Chat delivery receipt is implemented. UI count is operator reported."
+  },
+  "late_iphone_to_android_result": "Original queued text became visible once on Android after controlled Bluetooth reconnect; see RECONNECT_TEST.json. Initial 3-minute delivery check still failed."
+}

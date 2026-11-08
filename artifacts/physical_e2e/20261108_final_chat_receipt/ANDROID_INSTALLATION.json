@@ -1,0 +1,18 @@
+{
+  "device": "Samsung SM-A536E",
+  "source_sha256": "ae8ba70574661e4d10739d240a8f71897fa598dcadc76be9a83b4f6d3dbec5ed",
+  "build_number": 5,
+  "schema_version": 10,
+  "matching_saved_authorized_wired_target": true,
+  "source_apk_metadata_signature_revalidated": true,
+  "install_exit": 0,
+  "install_success": true,
+  "update_in_place": true,
+  "uninstall_or_data_clear": false,
+  "launch_user_confirmed": true,
+  "history_user_confirmed": true,
+  "launch_exit": 0,
+  "launch_status_ok": true,
+  "process_present": true,
+  "user_observation": "User confirms normal launch and prior history remains present"
+}

@@ -1,0 +1,14 @@
+{
+  "device": "iPad Air 11-inch (M2)",
+  "source_sha256": "352eb0fe60d2a098eb1f4fac85821e34f21e03c80d4e457fa32f4b2ba9e04394",
+  "build_number": 4,
+  "matching_saved_wired_target": true,
+  "source_full_bundle_signature_revalidated": true,
+  "install_exit": 0,
+  "update_in_place": true,
+  "uninstall_or_data_clear": false,
+  "launch_exit": 0,
+  "launch_user_confirmed": true,
+  "history_user_confirmed": true,
+  "user_observation": "User confirms normal launch and prior history remains present"
+}

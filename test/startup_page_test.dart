@@ -14,7 +14,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Off Grid SOS'), findsOneWidget);
+    expect(find.text('Emergency'), findsOneWidget);
     await tester.pump(const Duration(milliseconds: 700));
     expect(find.text('Home ready'), findsOneWidget);
   });

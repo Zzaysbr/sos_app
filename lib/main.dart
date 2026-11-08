@@ -9,6 +9,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 
 import 'core/database/app_database.dart';
+import 'core/notifications/chat_notifications.dart';
 import 'core/localization/locale_controller.dart';
 import 'core/localization/locale_preference_store.dart';
 import 'core/localization/localization.dart';
@@ -21,6 +22,7 @@ import 'features/sos/data/sos_cloud_service.dart';
 import 'features/sos/data/chat_repository.dart';
 import 'features/sos/data/sos_repository.dart';
 import 'features/sos/data/sos_sync_coordinator.dart';
+
 import 'features/sos/presentation/sos_page.dart';
 import 'features/startup/presentation/startup_page.dart';
 import 'firebase_options.dart';
@@ -190,6 +192,21 @@ class _AuthGateState extends State<AuthGate> {
       database: widget.database,
       ownerId: ownerId,
       senderId: widget.localDeviceId,
+      onIncomingPersisted: (message) async {
+        if (!mounted ||
+            generation != _resourceGeneration ||
+            (authenticated
+                ? widget.authService.currentUser?.uid != ownerId
+                : widget.authService.currentUser != null)) {
+          return;
+        }
+        await const ChatNotifications().received(
+          ownerId: ownerId,
+          incidentId: message.sosId,
+          messageId: message.id,
+          text: message.text,
+        );
+      },
     );
     _chatRepository = chatRepository;
     final bleCoordinator = SosBleCoordinator(
@@ -280,6 +297,7 @@ class _AuthGateState extends State<AuthGate> {
             chatRepository: _chatRepository,
             onChatMessageCreated: _bleCoordinator?.enqueueChat,
             onBleStartRequested: _startBleOnDemand,
+            pendingBleWorkCheck: _bleCoordinator?.hasPendingBleRecovery,
             localeController: widget.localeController,
             isGuest: !authenticated,
             onLoginRequested: () => Navigator.of(sessionContext).push<void>(

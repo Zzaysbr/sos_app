@@ -1,0 +1,42 @@
+{
+  "date": "2026-11-08",
+  "source_sha256": "e96ce1b5836c2c9564d5d4041b32fa95dfb3940357134862f1598bcd50de1618",
+  "physical_log_analysis": {
+    "attempt_destination_matches_ipad_signed_offer_responder": true,
+    "correlated_complete_native_transfers": 3,
+    "native_write_failure_log_count": 0,
+    "signed_receipt_missing_in_samsung_snapshot": true,
+    "persisted_error_matches_source_receipt_timeout": true,
+    "timeline_device_clock": [
+      {
+        "start": "11:54:38.209",
+        "native_transfer_complete": "11:56:19.381"
+      },
+      {
+        "start": "11:56:54.731",
+        "native_transfer_complete": "11:59:32.997"
+      },
+      {
+        "start": "12:00:09.694",
+        "native_transfer_complete": "12:02:24.551"
+      }
+    ]
+  },
+  "reproduction": {
+    "repository_before_fix": "0 passed / 2 failed: alternate authenticated route rejected as conflicting identity",
+    "production_coordinator_before_fix": "0 passed / 1 failed: receiver conflict followed by sender receipt timeout",
+    "focused_after_fix": "112 passed / 0 failed",
+    "default_after_fix": "582 passed / 0 failed",
+    "static_analysis": "No issues found",
+    "explicit_deferred_final_chat_receipt": "0 passed / 1 failed, exit 1, unchanged/not skipped"
+  },
+  "change": "Accept duplicate verified immutable signed origin across different verified routes; preserve original durable route/time/accounting and reject changed payload/invalid attestation/return to locally originated record",
+  "limitations": [
+    "Physical iPad rejection not captured in original runtime log; mechanism reproduced in host tests, original physical root cause not fully proven",
+    "No multihop physical acceptance",
+    "No signed final Chat receipt added",
+    "No schema/wire/TTL/retry-budget changes",
+    "Build 3 not installed yet"
+  ],
+  "version": "0.1.0+3"
+}

@@ -1,0 +1,12 @@
+{
+  "device": "iPad Air 11-inch (M2)",
+  "source_sha256": "0dc633903e3e807d1d5f94e45bf19d1b2f51afeca6212ec035c45454462e1fae",
+  "build_number": 2,
+  "install_exit": 0,
+  "update_in_place": true,
+  "launch_exit": 0,
+  "manual_open_required": false,
+  "launch_user_confirmed": true,
+  "history_preservation_not_yet_user_verified": true,
+  "user_observation": "App opens normally"
+}

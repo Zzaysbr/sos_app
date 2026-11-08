@@ -1,0 +1,235 @@
+{
+  "source_sha256": "d6d427a564f8c9fa6afe1fdf9f883ee971166161e8a31350d0c1d6f88242ebc7",
+  "status": "PAIR SESSION FINISHED; operator-confirmed cases recorded; older stale incidents and intermittent Offer Help UI unresolved; long-idle and three-node cases not run",
+  "topology": "iPhone and Samsung pair; iPad Bluetooth off initially",
+  "install_policy": "Ask which device is wired before each install. Update in place, preserve data. Confirm launch before next device.",
+  "cases": [
+    {
+      "id": "BASELINE",
+      "expected": "Offline SOS/Help Offer delivered; bidirectional Chat once; send controls recover."
+    },
+    {
+      "id": "ANDROID_HOME_CHAT",
+      "expected": "Samsung on Home, not force-quit; one iPhone Chat produces generic notification and one saved message."
+    },
+    {
+      "id": "IOS_HOME_CHAT",
+      "expected": "iPhone on Home, not force-quit; one Samsung Chat produces generic notification and one saved message."
+    },
+    {
+      "id": "LOCKED_CHAT",
+      "expected": "Repeat each direction with receiver locked; generic notification and one saved message."
+    },
+    {
+      "id": "RADIO_RECONNECT",
+      "expected": "Queue during Bluetooth off; turn on and recover original message once, no resend."
+    },
+    {
+      "id": "AGED_CONVERSATION",
+      "expected": "New Chat after SOS transport TTL; live scheduler and peer proof; retained authorization evidence."
+    },
+    {
+      "id": "DENIED_NOTIFICATION",
+      "expected": "Denied popup permission does not block Chat persistence or falsify delivery."
+    },
+    {
+      "id": "END",
+      "expected": "Cancel test incident, retain history; service stops when last radio demand ends; participation may independently retain it."
+    }
+  ],
+  "procedure": "One step/question at a time; wait for user result. Host tests/builds do not establish device readiness.",
+  "installation_status": "All three devices updated in place; user confirmed normal app launch on each",
+  "operator_observations": [
+    {
+      "step": "isolate_pair",
+      "result": "User confirms iPad Bluetooth disabled in system settings",
+      "scope": "operator report; no new SOS or notification test yet"
+    },
+    {
+      "step": "offline_pair_ready",
+      "result": "User confirms Wi-Fi/mobile data disabled, Bluetooth enabled, app open on iPhone and Samsung",
+      "scope": "operator report; notification and background delivery not tested"
+    },
+    {
+      "step": "android_rescue_listening",
+      "result": "User confirms Android shows listening for incidents",
+      "notification_permission": "not explicitly confirmed; do not infer permission from listening status"
+    },
+    {
+      "step": "android_relay_participation_ready",
+      "result": "User confirms Nearby SOS Relay enabled and Android returned to rescue listening",
+      "scope": "operator report; no new SOS yet"
+    },
+    {
+      "step": "iphone_sos_consent_ready",
+      "result": "User confirms automatic public SOS relay and voluntary rescuer sharing enabled; SOS button visible",
+      "scope": "operator report; new SOS not yet sent"
+    },
+    {
+      "step": "new_sos_reception",
+      "result": "User confirms Android sees new SOS sent once from iPhone",
+      "scope": "foreground offline pair, operator report; no receipt/log correlation yet; not background notification acceptance"
+    },
+    {
+      "step": "android_offer_help",
+      "result": "User pressed Offer Help; initially no navigation/visible response. After switching page and reopening, Help offered locally appeared. User says intermittent. Helping list retains old incidents reportedly cancelled/resolved on iPhone.",
+      "scope": "Do not infer new offer reached iPhone or final acknowledgement. Do not infer old terminal event reached Android.",
+      "defects": [
+        "intermittent Offer Help UI does not immediately reflect result",
+        "old helping incidents remain after origin reportedly cancelled/resolved"
+      ]
+    },
+    {
+      "step": "iphone_verified_help_offer",
+      "result": "User confirms Verified help offer received (1) in current new incident Chat",
+      "scope": "Operator UI observation of verified offer; Android offer acknowledgement not yet checked; earlier UI and stale incident defects remain open"
+    },
+    {
+      "step": "android_offer_delivery",
+      "result": "User confirms Offer delivery: delivered for current new SOS",
+      "scope": "Operator UI evidence of Help Offer ACK; does not verify final Chat receipt, Chat notifications or background behavior"
+    },
+    {
+      "step": "android_current_chat_open",
+      "result": "User confirms current new incident Chat opens on Android",
+      "scope": "Navigation only; messages and background notifications not yet tested"
+    },
+    {
+      "step": "foreground_chat_iphone_to_android",
+      "message_label": "TEST-NOTIFY-BASE-01",
+      "result": "User confirms one message visible on Android",
+      "scope": "Foreground offline pair, operator report; sender button and final Chat receipt not verified; background notifications not tested"
+    },
+    {
+      "step": "foreground_chat_android_to_iphone",
+      "message_label": "TEST-NOTIFY-REPLY-01",
+      "result": "User confirms one message visible on iPhone",
+      "scope": "Foreground offline pair; system notifications/background not yet tested; no signed final Chat receipt inference"
+    },
+    {
+      "step": "android_notification_permission",
+      "result": "User confirms Android system Allow notifications enabled for app and returned to current Chat",
+      "scope": "Operator settings observation only; popup/background reception not yet tested"
+    },
+    {
+      "step": "android_home_background_ready",
+      "result": "User confirms Android on Home, not swiped closed, screen unlocked; iPhone remains in current Chat",
+      "scope": "Operator precondition report; system popup and background message delivery still pending"
+    },
+    {
+      "step": "android_home_chat_popup",
+      "message_label": "TEST-ANDROID-BG-01",
+      "result": "User confirms Chat system popup appeared while Android on Home and iPhone sent once",
+      "scope": "Operator report of one warm-process, unlocked Home-screen notification; stored message count, exact notification content, lock-screen, long idle and iOS background not yet verified"
+    },
+    {
+      "step": "android_home_chat_persisted",
+      "message_label": "TEST-ANDROID-BG-01",
+      "result": "User confirms one message visible after tapping notification and opening current Chat",
+      "scope": "One Android warm-process unlocked Home background popup + message visibility case passed by operator report; direct-to-Chat navigation and durable DB/log correlation not independently verified; no broader background guarantee"
+    },
+    {
+      "step": "iphone_notification_permission",
+      "result": "User confirms Allow Notifications and Banners enabled for Sos App and returned to current Chat",
+      "scope": "Operator settings observation; iOS background popup not yet tested"
+    },
+    {
+      "step": "iphone_home_background_ready",
+      "result": "User confirms iPhone on Home, not swiped closed, screen unlocked; Android remains in current Chat",
+      "scope": "Operator precondition report; iOS system popup/background message pending"
+    },
+    {
+      "step": "iphone_home_chat_popup",
+      "message_label": "TEST-IOS-BG-01",
+      "result": "User confirms Chat system popup appeared while iPhone on Home and Android sent once",
+      "scope": "One warm-process unlocked iPhone Home popup, operator report; stored message count, exact content, locked/long-idle and process restoration not verified"
+    },
+    {
+      "step": "iphone_home_chat_persisted",
+      "message_label": "TEST-IOS-BG-01",
+      "result": "User confirms one message visible after notification/open-app step",
+      "scope": "One warm-process unlocked Home popup and one-message visibility per platform operator-verified; lock, long idle, OS kill and final Chat receipt remain unverified"
+    },
+    {
+      "step": "android_locked_ready",
+      "result": "User confirms Android locked after returning Home without swiping app closed; iPhone remains in current Chat",
+      "scope": "Operator precondition report; locked-screen message and notification pending"
+    },
+    {
+      "step": "android_locked_chat_notification",
+      "message_label": "TEST-ANDROID-LOCK-01",
+      "result": "User confirms new Chat notification visible on Android lock screen",
+      "scope": "One warm-process locked-screen notification, operator report; stored message count and long idle/process recovery not verified"
+    },
+    {
+      "step": "android_locked_chat_persisted",
+      "message_label": "TEST-ANDROID-LOCK-01",
+      "result": "User confirms message visible once in current Chat after unlocking Android",
+      "scope": "One immediate warm-process Android lock-screen notification plus one-message visibility; long idle/Doze/process recovery not verified"
+    },
+    {
+      "step": "iphone_locked_ready",
+      "result": "User confirms iPhone locked after returning Home without swiping app closed; Android remains in current Chat",
+      "scope": "Operator precondition report; iPhone locked-screen notification and message count pending"
+    },
+    {
+      "step": "iphone_locked_chat_notification",
+      "message_label": "TEST-IOS-LOCK-01",
+      "result": "User confirms new Chat notification visible on iPhone lock screen",
+      "scope": "One immediate warm-process locked-screen notification, operator report; stored message count and long idle/process recovery not verified"
+    },
+    {
+      "step": "iphone_locked_chat_persisted",
+      "message_label": "TEST-IOS-LOCK-01",
+      "result": "User confirms one message visible in current Chat after unlocking iPhone",
+      "scope": "One immediate warm-process locked notification and one-message visibility per platform operator-confirmed; not long idle, OS kill, exactly-once transport or final Chat receipt"
+    },
+    {
+      "step": "android_bluetooth_outage_ready",
+      "result": "User confirms Android Bluetooth disabled in system settings, both devices in same existing Chat, screens unlocked",
+      "scope": "Operator precondition report; queued send and reconnect recovery pending"
+    },
+    {
+      "step": "chat_queued_during_android_bluetooth_off",
+      "message_label": "TEST-BT-RECOVERY-02",
+      "result": "User confirms Queued status and usable send button after one send from iPhone while Android Bluetooth off",
+      "scope": "Operator queue/composer observation; reconnect delivery not yet checked"
+    },
+    {
+      "step": "queued_chat_android_bluetooth_recovery",
+      "message_label": "TEST-BT-RECOVERY-02",
+      "result": "User confirms original queued message appeared once on Android after Bluetooth restored, no resend requested",
+      "scope": "One operator-confirmed unlocked foreground radio-off/on recovery case within requested observation window; exact latency, DB/log correlation, reverse post-reconnect delivery and final Chat receipt not yet verified"
+    },
+    {
+      "step": "reverse_chat_after_bluetooth_recovery",
+      "message_label": "TEST-BT-REPLY-02",
+      "result": "User confirms one message visible on iPhone after Android sent once following reconnection",
+      "scope": "One post-reconnect reverse message, operator report; no final signed Chat receipt or broad reliability guarantee"
+    },
+    {
+      "step": "current_sos_cancelled_on_origin",
+      "result": "User confirms current test SOS cancelled on iPhone and retained in history",
+      "scope": "Origin UI only; Android receipt/state/list removal pending; do not infer cancellation propagation"
+    },
+    {
+      "step": "current_cancel_removed_android_helping",
+      "result": "User confirms latest cancelled incident disappeared from Android helping list",
+      "scope": "One current-incident cancellation propagation/list-update observation; does not resolve older stale incident report"
+    }
+  ],
+  "additional_user_requirements": [
+    {
+      "requirement": "Rename app display name to Emergency",
+      "status": "Recorded, not implemented; preserve existing package/bundle ID and data"
+    },
+    {
+      "requirement": "Replace Flutter launcher logo with a new app logo",
+      "status": "Recorded, design and implementation pending"
+    },
+    {
+      "requirement": "Show actual received Chat text in system notification instead of generic body",
+      "status": "Recorded, not implemented; explicit user preference supersedes generic-body product default, subject to OS preview/privacy settings"
+    }
+  ]
+}

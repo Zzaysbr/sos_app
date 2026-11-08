@@ -1,0 +1,19 @@
+{
+  "matching": "Unique normalized synthetic TEST-RECONNECT-01 text, owner/message join; no IDs exported.",
+  "chat_status": "sent",
+  "relay_state": "expired",
+  "retry_count": 7,
+  "chat_created_utc": "2026-11-07T11:52:10+00:00",
+  "relay_created_utc": "2026-11-07T11:52:11+00:00",
+  "relay_updated_utc": "2026-11-07T12:00:38+00:00",
+  "expires_utc": "2026-11-07T12:22:10+00:00",
+  "next_retry_utc": "2026-11-07T12:05:58+00:00",
+  "snapshot_inspection_utc": "2026-11-07T12:54:57.034824+00:00",
+  "age_minutes_at_snapshot": 62.8,
+  "expired_at_inspection": true,
+  "last_error_category": "other",
+  "last_error_static_source_match": "Verified SOS origin unavailable.",
+  "evidence_scope": "Read-only copy of app SQLite Documents/sos_app.sqlite; local quick_check passed. Live copy is not a coordinated app snapshot; metadata is evidence at copy time, not full execution history.",
+  "sos_origin_row_present": false,
+  "source_sha256": "aa43b891ee7d1de1b4fa547e7c556faf39bd6675baa873051646a70932595657"
+}

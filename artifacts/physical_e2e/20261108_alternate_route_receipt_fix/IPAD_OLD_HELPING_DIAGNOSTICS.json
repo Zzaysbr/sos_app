@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-08",
+  "status": "UNRESOLVED HISTORICAL LOCAL HELPING ENTRIES; NO DATA MODIFIED",
+  "old_locally_accepted_candidate_count": 7,
+  "created_dates": [
+    "2026-11-03",
+    "2026-11-04"
+  ],
+  "all_match_current_samsung_origin_key": true,
+  "local_materialized_incident_absent_on_ipad_count": 7,
+  "signed_origin_absent_on_ipad_count": 7,
+  "authorized_terminal_absent_on_ipad_count": 7,
+  "samsung_original_incident_missing_count": 6,
+  "samsung_original_resolved_count": 1,
+  "old_resolved_terminal_outbox_states": [
+    {
+      "state": "expired",
+      "retry_count": 15
+    }
+  ],
+  "limits": [
+    "Samsung comparison uses earlier read-only snapshot in this session, not a newly coordinated cross-device snapshot",
+    "Missing local original data does not prove cancelled/resolved",
+    "Expired old terminal jobs not resurrected",
+    "Transport TTL expiry is not incident resolution"
+  ],
+  "proposed_local_ux": "Explicit Stop following on this device/archive action preserving history, distinct from origin cancellation; preference not yet confirmed"
+}

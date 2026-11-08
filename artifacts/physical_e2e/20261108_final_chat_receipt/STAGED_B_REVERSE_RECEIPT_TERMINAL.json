@@ -1,0 +1,24 @@
+{
+  "date": "2026-11-08",
+  "build_number": 5,
+  "matching_saved_authorized_wired_samsung": true,
+  "inspection": "Read-only app DB copy; live copy not coordinated snapshot",
+  "result": {
+    "quick_check": "ok",
+    "reverse_receipt_equals_A_canonical_receipt": true,
+    "reverse_receipt_state": "queued",
+    "reverse_receipt_retry_count": 0,
+    "reverse_receipt_return_key_matches_ipad": true,
+    "authorized_terminal_rows": 1,
+    "candidate_state": "cancelled"
+  },
+  "captured_crypto_revalidation": {
+    "tests_passed": 1,
+    "exit": 0,
+    "checks": [
+      "Terminal signature/key-ID, exact trusted origin/current incident/cancelled status at receive timestamp"
+    ]
+  },
+  "receipt_verification": "Canonical reverse receipt identical to independently verified A-generated receipt; saved reverse key is C",
+  "scope": "Reverse final recipient receipt and authorized cancellation durable at B; C final application still pending."
+}

@@ -1,0 +1,38 @@
+{
+  "date": "2026-11-08",
+  "device_alias": "Samsung SM-A536E",
+  "known_usb_target_match": true,
+  "after_version": 8,
+  "artifact_hash_match": true,
+  "install_exit": 0,
+  "launch_command_exit": 0,
+  "schema": 10,
+  "application_rows": {
+    "sos_messages": {
+      "before": 24,
+      "after": 24,
+      "all_original_rows_unchanged": true
+    },
+    "chat_messages": {
+      "before": 55,
+      "after": 55,
+      "all_original_rows_unchanged": true
+    }
+  },
+  "file_retention": {
+    "media": {
+      "files_before": 0,
+      "files_after": 0,
+      "all_original_files_identical": true
+    },
+    "map": {
+      "files_before": 25,
+      "files_after": 25,
+      "all_original_files_identical": true
+    }
+  },
+  "update_in_place": true,
+  "uninstall_or_data_clear": false,
+  "visual_launch_history": "PASS: user confirms app/history normal and same incident Chat opens",
+  "physical_media_retest": "PENDING"
+}

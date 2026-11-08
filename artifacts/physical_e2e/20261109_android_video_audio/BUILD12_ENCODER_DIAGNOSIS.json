@@ -1,0 +1,26 @@
+{
+  "date": "2026-11-09",
+  "affected_build": 12,
+  "candidate_build": 13,
+  "user_result": "Samsung still unable to prepare camera video",
+  "safe_diagnostic_code": "compression_encoderUnavailable",
+  "device_capabilities": {
+    "exynos_avc_cbr_supported": false,
+    "exynos_avc_vbr_supported": true,
+    "eight_test_dimensions": "270x480,272x480,480x270,480x272,202x360,208x360,360x202,360x208",
+    "fps": 15,
+    "bitrate_bps": 1000000,
+    "format_support_cbr": "false for both Exynos hardware encoders at all8 sizes",
+    "format_support_vbr": "true for both Exynos hardware encoders at all8 sizes",
+    "software_avc": "reports both modes supported"
+  },
+  "verified_native_source": "compress_video1.0.0 TransformerEngine unconditionally requested CBR",
+  "candidate_fix": "Versioned local packages/compress_video override, MIT license retained; Android requests VBR instead; iOS source unchanged",
+  "bounds": "Actual output512KiB/duration/codec/dimensions still checked; bitrate target not a guaranteed final size",
+  "privacy": "Codec probe contains no media; temporary Dex removed; no app install/restart/data mutation during probe",
+  "status": "Build/full tests/install/export acceptance pending",
+  "actual_codec_configuration_probe": [
+    "mode=2 configure_start_stop=PASS",
+    "mode=1 configure_start_stop=PASS"
+  ]
+}

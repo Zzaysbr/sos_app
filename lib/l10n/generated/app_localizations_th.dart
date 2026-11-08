@@ -10,7 +10,7 @@ class AppLocalizationsTh extends AppLocalizations {
   AppLocalizationsTh([String locale = 'th']) : super(locale);
 
   @override
-  String get appTitle => 'Off Grid SOS';
+  String get appTitle => 'Emergency';
 
   @override
   String get authStatusUnavailable => 'ไม่สามารถตรวจสอบสถานะการเข้าสู่ระบบได้';
@@ -281,7 +281,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get passwordResetSent =>
-      'ส่งอีเมลรีเซ็ตรหัสผ่านแล้ว โปรดตรวจสอบกล่องขาเข้า';
+      'หากอีเมลนี้มีบัญชี ระบบจะส่งคำแนะนำการรีเซ็ตรหัสผ่านให้ โปรดตรวจสอบกล่องขาเข้า';
 
   @override
   String get passwordResetFailed =>
@@ -1378,4 +1378,63 @@ class AppLocalizationsTh extends AppLocalizations {
   String offlineMapStorageSummary(String size) {
     return 'จัดเก็บแล้ว: $size';
   }
+
+  @override
+  String get checkCurrentLocation => 'ตรวจตำแหน่งปัจจุบัน';
+
+  @override
+  String get checkCurrentLocationHint =>
+      'แตะเพื่อลองอ่านตำแหน่งใหม่ โดยไม่สร้าง SOS หรือส่งพิกัด';
+
+  @override
+  String get checkingCurrentLocation => 'กำลังค้นหาตำแหน่ง...';
+
+  @override
+  String get currentLocationCheckReady =>
+      'อ่านตำแหน่งปัจจุบันได้แล้ว การตรวจนี้ไม่ได้ส่งพิกัด';
+
+  @override
+  String get recentLocationCheckReady =>
+      'พบตำแหน่งล่าสุดที่เก็บไว้ การตรวจนี้ไม่ได้ส่งพิกัด';
+
+  @override
+  String get stopFollowing => 'หยุดติดตามบนเครื่องนี้';
+
+  @override
+  String get stopFollowingQuestion => 'หยุดติดตามเหตุนี้หรือไม่?';
+
+  @override
+  String get stopFollowingExplanation =>
+      'ย้ายเหตุออกจากหน้ากำลังช่วยบนเครื่องนี้ โดยเก็บประวัติและข้อความไว้ การทำรายการนี้ไม่ยกเลิกหรือปิด SOS ของต้นทาง';
+
+  @override
+  String get stoppedFollowing => 'หยุดติดตามบนเครื่องนี้แล้ว';
+
+  @override
+  String get stopFollowingFailed => 'หยุดติดตามไม่สำเร็จ กรุณาลองอีกครั้ง';
+
+  @override
+  String get receivedHistory => 'ประวัติการรับเหตุ';
+
+  @override
+  String get receivedHistoryEmpty => 'ยังไม่มีประวัติเหตุที่รับไว้';
+
+  @override
+  String get receivedHistoryError => 'โหลดประวัติการรับเหตุไม่สำเร็จ';
+
+  @override
+  String get receivedHistoryNotice =>
+      'เหตุและข้อความที่เก็บบนเครื่องนี้ การหยุดติดตามไม่เปลี่ยนสถานะ SOS ของต้นทาง';
+
+  @override
+  String get rescueHistoryHelping => 'กำลังติดตามบนเครื่องนี้';
+
+  @override
+  String get rescueHistoryCancelled => 'ต้นทางยกเลิกเหตุแล้ว';
+
+  @override
+  String get rescueHistoryResolved => 'ต้นทางปิดเหตุแล้ว';
+
+  @override
+  String get rescueHistoryExpired => 'คำขอหมดอายุ';
 }

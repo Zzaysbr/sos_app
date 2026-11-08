@@ -1,0 +1,163 @@
+{
+  "source_sha256": "0dc633903e3e807d1d5f94e45bf19d1b2f51afeca6212ec035c45454462e1fae",
+  "status": "SCOPED OPERATOR RETEST COMPLETE; POST-RESTART IPHONE NOTIFICATION ICON/PREVIEW AND SINGLE MESSAGE CONFIRMED; TEST INCIDENT CANCELLED/HISTORY RETAINED AND REMOVED FROM SAMSUNG HELPING",
+  "install_policy": "Ask wired target before each install; update in place preserving data; normal launch confirmation per device.",
+  "checks": [
+    "Settings Check current location: local acquisition result or specific failure, without new SOS or coordinate publication",
+    "If location check succeeds, verify fresh SOS captures coordinates with sharing consent; no false current claim for stale coordinates",
+    "New iPhone Emergency notification uses E icon and actual Chat preview; one message after opening",
+    "Retain normal SOS/Help Offer/Chat and terminal history behavior"
+  ],
+  "procedure": "One step/question at a time; do not infer original GPS cause or full recovery from host tests/builds.",
+  "operator_observations": [
+    {
+      "step": "iphone_build2_manual_launch",
+      "result": "User confirms normal launch after direct icon tap following automatic launch refusal",
+      "scope": "Launch only; GPS and notification icon not yet verified"
+    },
+    {
+      "step": "iphone_local_location_check",
+      "result": "User reports Current location found. This check did not share coordinates.",
+      "scope": "One successful local current-fix check on iPhone build 2; not SOS coordinate attachment, original failure cause or general indoor GPS reliability"
+    },
+    {
+      "step": "all_build2_launches",
+      "result": "User confirms normal app launch on iPhone, Samsung and iPad build 2",
+      "scope": "Launch only; one prior iPhone local current fix succeeded; SOS attachment and runtime notification icon not yet accepted"
+    },
+    {
+      "step": "build2_offline_pair_ready",
+      "result": "User confirms iPhone and Android Bluetooth/apps on nearby, Wi-Fi/mobile data off, iPad Bluetooth off",
+      "scope": "Operator preconditions; fresh SOS/location and notification icon checks pending"
+    },
+    {
+      "step": "build2_android_listening",
+      "result": "User confirms Android shows listening for incidents in rescuer mode",
+      "scope": "Preparation for fresh SOS coordinate and notification-icon checks; no new SOS yet"
+    },
+    {
+      "step": "build2_new_sos_visible",
+      "result": "User confirms Android sees new SOS sent once from iPhone",
+      "scope": "Foreground offline SOS visibility only; own/receiver coordinates and build2 notification icon not yet checked"
+    },
+    {
+      "step": "iphone_new_sos_has_coordinates",
+      "result": "User confirms coordinates displayed in iPhone details for current new SOS",
+      "scope": "One origin SOS coordinate-attachment UI observation; exact accuracy/freshness, receiver coordinates and original failure cause not established; no coordinates exported"
+    },
+    {
+      "step": "android_new_sos_has_coordinates",
+      "result": "User confirms Samsung displays coordinates for the current SOS received from iPhone",
+      "scope": "One receiver coordinate UI observation on build 2; no coordinate values exported; exact accuracy/freshness and original GPS failure cause remain unverified"
+    },
+    {
+      "step": "android_offer_help_automatic_navigation",
+      "result": "User confirms Samsung navigated automatically to Helping after Offer Help for the current SOS",
+      "scope": "One operator-observed Offer Help navigation case on build 2; iPhone offer reception and Android final Offer ACK still pending"
+    },
+    {
+      "step": "iphone_verified_help_offer_received",
+      "result": "User confirms current iPhone SOS Chat displays Verified help offer received (1)",
+      "scope": "One operator-confirmed verified offer UI observation on build 2; Samsung final Offer ACK still pending; does not verify signed final Chat receipt"
+    },
+    {
+      "step": "android_help_offer_delivery_ack",
+      "result": "User confirms Samsung current incident Offer delivery is delivered after iPhone verified offer count 1",
+      "scope": "One operator-confirmed Help Offer round-trip UI case on build 2; not repeated reliability, three-node acceptance or signed final Chat receipt"
+    },
+    {
+      "step": "iphone_home_notification_icon_preview_mismatch",
+      "result": "User reports notification arrived for the instructed single ICON-IOS-02 send, but icon or preview did not match; which component differs is awaiting clarification",
+      "scope": "One operator-reported warm-process unlocked Home notification arrival on build 2; correct icon/preview acceptance not established; stored message count pending; no cache or asset root-cause claim"
+    },
+    {
+      "step": "iphone_home_notification_preview_correct_icon_wrong",
+      "result": "User clarifies notification text ICON-IOS-02 is correct but the icon is wrong; displayed icon identity not yet specified",
+      "scope": "One operator-confirmed actual-text notification preview on build 2; runtime icon correction acceptance failed for this observation. No cache/asset cause established; message count after reopening pending"
+    },
+    {
+      "step": "iphone_wrong_notification_icon_identified",
+      "result": "User identifies notification icon as default blue Flutter logo; ICON-IOS-02 text correct",
+      "scope": "Build 2 notification icon refresh failed in this observed Home case. OS caching remains a hypothesis, not established cause."
+    },
+    {
+      "step": "iphone_icon_ios_02_single_message_visible",
+      "result": "User confirms ICON-IOS-02 appears once in current iPhone Chat after notification/open-app step",
+      "scope": "One build 2 warm-process unlocked Home actual-text notification plus single-message visibility case operator-confirmed; notification icon remains default blue Flutter. No general exactly-once or signed final Chat receipt claim."
+    },
+    {
+      "step": "iphone_current_test_sos_cancelled_history_retained",
+      "result": "User confirms current synthetic SOS cancelled on iPhone and history retained",
+      "scope": "Origin cancellation/history UI observation only; Samsung terminal propagation pending. No restart or new SOS performed by this step."
+    },
+    {
+      "step": "android_cancelled_test_incident_removed_from_helping",
+      "result": "User confirms latest test incident cancelled on iPhone disappeared from Samsung Helping list",
+      "scope": "One current-incident origin cancellation/receiver list-update UI case on build 2. Not a lifecycle final ACK or general terminal propagation guarantee."
+    },
+    {
+      "step": "iphone_controlled_restart_launch_history",
+      "result": "User confirms iPhone restarted normally, Emergency opens normally and prior history remains intact",
+      "scope": "Operator-confirmed post-restart launch/history only. Notification icon after restart not tested; no cache root cause established; no new SOS yet."
+    },
+    {
+      "step": "post_restart_offline_pair_ready",
+      "result": "User confirms iPhone/Samsung nearby with apps and Bluetooth on, Wi-Fi/mobile data off, Samsung Rescue listening and Nearby SOS Relay enabled, iPad Bluetooth off",
+      "scope": "Operator-confirmed preparation after iPhone restart; fresh SOS and post-restart notification icon not yet tested."
+    },
+    {
+      "step": "post_restart_new_sos_visible_on_samsung",
+      "result": "User confirms Samsung sees the new SOS sent once from iPhone after controlled iPhone restart",
+      "scope": "One foreground offline SOS visibility observation after restart; Help Offer/ACK and post-restart notification icon remain pending. No SOS coordinate claim for this new incident."
+    },
+    {
+      "step": "post_restart_iphone_verified_help_offer_received",
+      "result": "User confirms iPhone new incident Chat displays Verified help offer received (1) after one instructed Samsung Offer Help",
+      "scope": "One post-restart verified offer UI observation; Samsung final Offer ACK and post-restart notification icon remain pending."
+    },
+    {
+      "step": "post_restart_android_help_offer_delivery_ack",
+      "result": "User confirms Samsung new incident Offer delivery is delivered after iPhone verified offer count 1",
+      "scope": "One operator-confirmed post-restart Help Offer round-trip UI case on build 2; post-restart notification icon still pending; not a signed final Chat receipt."
+    },
+    {
+      "step": "post_restart_iphone_correct_notification_icon_preview",
+      "result": "User confirms iPhone Home notification displays white E on red and correct ICON-IOS-03 text after controlled restart and single send from Samsung in new incident",
+      "scope": "One operator-confirmed build 2 warm-process unlocked Home notification icon/preview case after restart; message count after opening pending. Earlier blue Flutter observation retained. Does not prove cache root cause or automatic icon refresh on other devices."
+    },
+    {
+      "step": "post_restart_iphone_icon_ios_03_single_message_visible",
+      "result": "User confirms ICON-IOS-03 appears once in current iPhone Chat after correct E-icon and actual-text Home notification",
+      "scope": "One operator-confirmed build 2 post-restart warm-process unlocked Home notification with correct icon/preview and single-message visibility; not general exactly-once, OS-kill recovery or signed final Chat receipt."
+    },
+    {
+      "step": "post_restart_test_sos_cancelled_history_retained",
+      "result": "User confirms current post-restart synthetic SOS cancelled on iPhone and history retained",
+      "scope": "Origin cancellation/history UI observation; Samsung terminal propagation/list update pending. Correct ICON-IOS-03 E-icon/preview and single-message visibility previously operator-confirmed."
+    },
+    {
+      "step": "post_restart_cancelled_incident_removed_from_samsung_helping",
+      "result": "User confirms latest post-restart test incident cancelled on iPhone disappeared from Samsung Helping list",
+      "scope": "One operator-confirmed current-incident receiver list-update case; iPhone history retained as previously confirmed. No final lifecycle ACK or general reliability claim."
+    }
+  ],
+  "session_summary": {
+    "operator_confirmed": [
+      "iPhone local location check succeeded",
+      "Earlier build 2 SOS coordinates displayed on origin iPhone and receiver Samsung",
+      "Offer Help automatic navigation and verified offer/delivered UI observed",
+      "Before restart: correct ICON-IOS-02 text and one Chat message, but blue Flutter notification icon",
+      "After controlled iPhone restart: app opens/history intact; new SOS/Help Offer round-trip UI observed",
+      "After restart: correct white E on red notification icon, ICON-IOS-03 preview, one Chat message",
+      "Post-restart test SOS cancelled on iPhone/history retained; removed from Samsung Helping"
+    ],
+    "remaining_limits": [
+      "Original GPS failure cause and coordinate accuracy/freshness not established",
+      "Notification cache root cause and automatic icon refresh without restart not established",
+      "No iPad runtime notification icon acceptance in this phase",
+      "Long-idle/OS-kill, repeated reliability, three-node acceptance and signed final Chat receipt not verified by this run",
+      "Network/relay settings restoration not confirmed"
+    ],
+    "source_or_install_changes_this_followup": false
+  }
+}

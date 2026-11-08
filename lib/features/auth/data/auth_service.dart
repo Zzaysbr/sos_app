@@ -1,7 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 
-import 'password_recovery.dart';
-
 class AuthService {
   AuthService({FirebaseAuth? firebaseAuth})
     : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance;
@@ -57,13 +55,16 @@ class AuthService {
   Future<void> resetPassword({required String email}) async {
     final normalizedEmail = _normalizeEmail(email);
     _validateEmail(normalizedEmail);
-
-    // Firebase's email reset endpoint verifies only email ownership. Until a
-    // trusted backend binds that proof to an independently verified second
-    // factor, fail closed instead of offering an email-only password change.
-    throw AuthException(
-      const RecoveryUnavailableException().message,
-    );
+    try {
+      // Firebase owns the reset token, expiry and email-ownership proof. The
+      // token is never handled or logged by the app.
+      await _firebaseAuth.sendPasswordResetEmail(email: normalizedEmail);
+    } on FirebaseAuthException catch (error) {
+      // Keep the UI non-enumerating even when a project has not enabled
+      // Firebase's account-enumeration protection yet.
+      if (error.code == 'user-not-found') return;
+      throw AuthException(_mapFirebaseError(error.code));
+    }
   }
 
   Future<void> logout() => _firebaseAuth.signOut();
@@ -94,6 +95,9 @@ class AuthService {
         return 'Too many attempts. Try again later.';
       case 'network-request-failed':
         return 'Network error. Check your connection.';
+      case 'operation-not-allowed':
+      case 'invalid-action-code':
+        return 'Password recovery is not enabled for this project.';
       default:
         return 'Authentication failed. Please try again.';
     }

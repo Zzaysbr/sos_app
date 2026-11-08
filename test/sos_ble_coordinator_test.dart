@@ -962,6 +962,72 @@ void main() {
     await reconnectingCoordinator.dispose();
   });
 
+  test(
+    'repeated asynchronous GATT failures consume the bounded retry budget',
+    () async {
+      await coordinator.stop();
+      var clock = DateTime.utc(2026, 1, 1, 12);
+      final retrying = SosBleCoordinator(
+        database: database,
+        ownerId: 'owner-1',
+        transport: transport,
+        chatRepository: chatRepository,
+        now: () => clock,
+        random: () => 0,
+        maxRetryAttempts: 3,
+        pollInterval: const Duration(hours: 1),
+      );
+      addTearDown(retrying.dispose);
+      await retrying.start();
+      final row = await retrying.enqueueSos(_sos(), destinationId: 'gatt-peer');
+      final repository = coordinatorFor(database);
+      for (var attempt = 1; attempt <= 3; attempt++) {
+        await retrying.processDue();
+        expect(
+          transport.connectCalls.where((id) => id == 'gatt-peer'),
+          hasLength(attempt),
+        );
+        // Native connect returns before its asynchronous failure callback.
+        transport.emit(
+          const BleEvent(
+            type: 'error',
+            device: BleDevice(id: 'gatt-peer'),
+            error: 'status 133',
+          ),
+        );
+        BleOutboxData? stored;
+        for (var turn = 0; turn < 100; turn++) {
+          await _settle();
+          stored = await repository.lookupOutbox(row.messageId);
+          if (stored?.retryCount == attempt &&
+              (stored?.state == BleOutboxState.failed.wireValue ||
+                  stored?.state == BleOutboxState.expired.wireValue)) {
+            break;
+          }
+        }
+        expect(stored!.retryCount, attempt);
+        if (attempt < 3) {
+          expect(stored.state, BleOutboxState.failed.wireValue);
+          await retrying.processDue();
+          expect(
+            transport.connectCalls.where((id) => id == 'gatt-peer'),
+            hasLength(attempt),
+          );
+          clock = stored.nextRetryAt!;
+        } else {
+          expect(stored.state, BleOutboxState.expired.wireValue);
+        }
+      }
+      clock = clock.add(const Duration(hours: 1));
+      await retrying.processDue();
+      expect(
+        transport.connectCalls.where((id) => id == 'gatt-peer'),
+        hasLength(3),
+      );
+      expect(await repository.lookupOutbox(row.messageId), isNotNull);
+    },
+  );
+
   test('disconnect clears partial assembly state before reconnect', () async {
     final delivery = SosBleEnvelope.fromSosMessage(
       _sos(),

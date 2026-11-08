@@ -1,0 +1,30 @@
+{
+  "date": "2026-11-09",
+  "versions": {
+    "iphone": "Profile10",
+    "samsung": "Profile9",
+    "ipad": "Profile7 Bluetooth off"
+  },
+  "camera_photo_iphone_to_samsung": {
+    "user_receiver_count": 1,
+    "full_image_opened": true,
+    "sender_confirmed_storage": true,
+    "performance": "User reports slow; exact send-to-completion elapsed not instrumented",
+    "scope": "ONE operator-reported camera-image delivery/openability/final-storage UI case; not gallery/video/reverse/all-device/global reliability"
+  },
+  "independent_iphone_snapshot": {
+    "jpeg_43057_bytes": "local delivered, signed outbox delivered, final receipt applied",
+    "jpeg_36522_bytes": "at capture still forwarded, no applied receipt; later operator reports latest confirmed",
+    "correlation_limit": "Do not conflate two stored media objects or imply current UI bubble matched particular bytes without final capture"
+  },
+  "next": "One short iPhone camera video, inspect compressed size, receive/playback and signed storage UI",
+  "captured_43057byte_jpeg_receipt_signature": "PASS: production ChatReceipt.verify exact media envelope/digest/signer/expiry/persisted-at binding, checked at signed persistence timestamp,1 test passed",
+  "gallery_photo_iphone_to_samsung": {
+    "user_receiver_count": 1,
+    "full_image_opened": true,
+    "sender_confirmed_storage": true,
+    "prepared_size_kb": "not reported",
+    "elapsed": "not instrumented; response to requested3minute check",
+    "scope": "One operator-reported gallery-image case on existing incident; no reverse/video acceptance"
+  }
+}

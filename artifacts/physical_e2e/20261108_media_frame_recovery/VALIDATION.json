@@ -1,0 +1,24 @@
+{
+  "version": "0.1.0+8",
+  "full_default_suite": {
+    "passed": 607,
+    "failed": 0,
+    "exit": 0
+  },
+  "original_explicit_contract": {
+    "passed": 1,
+    "failed": 0,
+    "exit": 0
+  },
+  "private_captured_photo_crypto": {
+    "passed": 1,
+    "failed": 0,
+    "exit": 0,
+    "verification_time": "signed creation time, not assertion of current freshness"
+  },
+  "static_analysis": "No issues found",
+  "git_diff_check": "PASS",
+  "android_native_build": "PASS",
+  "ios_signed_profile_native_build": "PASS",
+  "physical_media": "NOT PASSED; build7 first photo failed, build8 physical retest pending"
+}

@@ -1,0 +1,29 @@
+{
+  "date": "2026-11-08",
+  "build_number": 5,
+  "operator_observation": "Single reverse MULTI-RECEIPT-C-A-01 shows Relayed \u2014 delivery not confirmed with A Bluetooth off",
+  "matching_saved_wired_samsung": true,
+  "inspection": "Read-only app DB copy; live copy not coordinated snapshot",
+  "result": {
+    "quick_check": "ok",
+    "forward_chat_outbox_state": "delivered",
+    "forward_receipt_state": "queued",
+    "forward_receipt_retry_count": 0,
+    "forward_receipt_return_previous_is_origin": true,
+    "reverse_verified_inbox_rows": 1,
+    "reverse_outbox_state": "queued",
+    "reverse_hop_count": 1,
+    "reverse_retry_count": 0,
+    "reverse_final_receipt_present": false
+  },
+  "captured_crypto_revalidation": {
+    "tests_passed": 1,
+    "exit": 0,
+    "checks": [
+      "iPad final recipient signed forward receipt/digest/parties",
+      "B reverse receipt route targets original sender",
+      "Reverse signed Chat C-to-A parties and C-B signed path/Samsung receiver binding"
+    ]
+  },
+  "scope": "Forward receipt and reverse Chat durably stored at B; A receipt application/reverse reception and C reverse final receipt pending."
+}

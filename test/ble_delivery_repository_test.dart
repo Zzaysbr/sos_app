@@ -46,7 +46,7 @@ void main() {
 
   tearDown(() async => database.close());
 
-  test('schema 9 creates BLE, relay, rescue, response, and chat tables and preserves SOS rows', () async {
+  test('schema 10 creates BLE, relay, rescue, response, and chat tables and preserves SOS rows', () async {
     final now = DateTime.utc(2026);
     await database
         .into(database.sosMessages)
@@ -62,7 +62,7 @@ void main() {
           ),
         );
 
-    expect(database.schemaVersion, 9);
+    expect(database.schemaVersion, 10);
     expect(await database.select(database.bleOutbox).get(), isEmpty);
     expect(await database.select(database.bleInbox).get(), isEmpty);
     expect(await database.select(database.chatMessages).get(), isEmpty);
@@ -112,7 +112,7 @@ void main() {
     );
 
     final migrated = AppDatabase.forTesting(oldExecutor);
-    expect(migrated.schemaVersion, 9);
+    expect(migrated.schemaVersion, 10);
     expect(await migrated.select(migrated.bleOutbox).get(), isEmpty);
     expect(await migrated.select(migrated.bleInbox).get(), isEmpty);
     expect(await migrated.select(migrated.chatMessages).get(), isEmpty);
@@ -151,7 +151,7 @@ void main() {
     );
 
     final migrated = AppDatabase.forTesting(oldExecutor);
-    expect(migrated.schemaVersion, 9);
+    expect(migrated.schemaVersion, 10);
     expect(await migrated.select(migrated.sosSyncQueue).get(), isEmpty);
     expect(await migrated.select(migrated.bleOutbox).get(), isEmpty);
     expect(await migrated.select(migrated.bleInbox).get(), isEmpty);

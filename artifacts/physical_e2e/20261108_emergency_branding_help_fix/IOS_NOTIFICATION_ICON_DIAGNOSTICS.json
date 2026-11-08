@@ -1,0 +1,16 @@
+{
+  "built_primary_icon_visually_inspected": "AppIcon60x60@2x.png decoded via ImageIO; white E on red verified",
+  "bundle_version": "1",
+  "display_name": "Emergency",
+  "primary_icon_metadata": {
+    "CFBundlePrimaryIcon": {
+      "CFBundleIconFiles": [
+        "AppIcon60x60"
+      ],
+      "CFBundleIconName": "AppIcon"
+    }
+  },
+  "operator_observation": "Launcher E correct; notification still old Flutter",
+  "conclusion": "Built flat icon is new E. Runtime notification icon discrepancy remains unresolved; OS cache not proven. No source change or install at this step.",
+  "platform_reference": "https://developer.apple.com/design/human-interface-guidelines/notifications"
+}

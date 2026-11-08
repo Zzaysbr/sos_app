@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-08",
+  "device_alias": "Samsung SM-A536E",
+  "known_wired_identity_match": true,
+  "before_version": 5,
+  "after_version": 6,
+  "update_in_place": true,
+  "uninstall_or_data_clear": false,
+  "install_exit": 0,
+  "launch_command_exit": 0,
+  "schema_before": 10,
+  "schema_after": 10,
+  "before_after_quick_check": "ok",
+  "application_rows": {
+    "sos_messages": {
+      "before": 23,
+      "after": 23,
+      "all_original_rows_retained": true,
+      "immutable_history_unchanged": true,
+      "all_original_row_values_unchanged": true
+    },
+    "chat_messages": {
+      "before": 55,
+      "after": 55,
+      "all_original_rows_retained": true,
+      "immutable_history_unchanged": true,
+      "all_original_row_values_unchanged": true
+    }
+  },
+  "visual_launch_history_confirmation": "PASS: user confirms normal Emergency launch and previous history retained on 2026-11-08",
+  "snapshot_note": "Initial post-launch tar lacked expected DB and was excluded. Direct device listing found DB; fresh read-only capture contains it, passes quick_check and original-row comparison. No data restore or deletion performed. Cause of first incomplete capture not established.",
+  "scope": "Private read-only app-data snapshots/update/launch evidence; not physical media or offline-map acceptance"
+}

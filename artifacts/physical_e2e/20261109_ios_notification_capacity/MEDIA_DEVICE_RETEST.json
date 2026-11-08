@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-09",
+  "versions": {
+    "iphone": "Profile10",
+    "samsung": "Profile9",
+    "ipad": "Profile7 Bluetooth off"
+  },
+  "camera_video_iphone_to_samsung": {
+    "receiver_count": 1,
+    "video_playback": true,
+    "audio_playback": true,
+    "sender_confirmed_storage": true,
+    "compressed_size_kb": "not reported",
+    "elapsed": "not measured; response to requested3minute check",
+    "scope": "One operator-reported short camera-video case; exact file/codec/receipt not independently captured in this step"
+  },
+  "gallery_video_iphone_to_samsung": {
+    "receiver_count": 1,
+    "sender_confirmed_storage": true,
+    "video_audio_playback": "PASS after Samsung Profile11 viewer fix; user confirms video/audio/rotation",
+    "compressed_size_kb": "not reported",
+    "status": "Scoped operator delivery/count1/storage-confirmation and playback accepted"
+  },
+  "reverse_android_to_ios": "PENDING"
+}

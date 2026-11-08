@@ -9,6 +9,7 @@ class _PresenceTransport implements BleTransportClient {
   final sentFrames = <List<int>>[];
   Completer<void>? firstWriteStarted;
   Completer<void>? releaseFirstWrite;
+  int disconnects = 0;
   int discoveryStarts = 0;
   int discoveryStops = 0;
   int advertisingStarts = 0;
@@ -25,7 +26,10 @@ class _PresenceTransport implements BleTransportClient {
   @override
   Future<void> connect(String deviceId) async {}
   @override
-  Future<void> disconnect(String deviceId) async {}
+  Future<void> disconnect(String deviceId) async {
+    disconnects++;
+  }
+
   @override
   Future<void> send(
     String deviceId,
@@ -65,7 +69,200 @@ class _PresenceTransport implements BleTransportClient {
   }
 }
 
+class _BackgroundTransport extends _PresenceTransport
+    implements BleBackgroundExecution {
+  final backgroundRequests = <bool>[];
+  bool refuse = false;
+  @override
+  bool backgroundExecutionEnabled = false;
+  @override
+  Future<void> setBackgroundExecution(bool enabled) async {
+    backgroundRequests.add(enabled);
+    backgroundExecutionEnabled = enabled && !refuse;
+  }
+}
+
 void main() {
+  test('authorized background presence survives leaving UI and stops with last lease', () async {
+    final transport = _BackgroundTransport();
+    addTearDown(transport.dispose);
+    final presence = BlePresenceManager.sharedFor(transport);
+    final discovery = Object();
+    final advertising = Object();
+    await presence.acquireDiscovery(discovery);
+    await presence.acquireAdvertising(advertising, name: 'SOS');
+    expect(transport.backgroundExecutionEnabled, isTrue);
+    await presence.setForeground(false);
+    expect(presence.isDiscovering, isTrue);
+    expect(presence.isAdvertising, isTrue);
+    await presence.releaseDiscovery(discovery);
+    expect(transport.backgroundExecutionEnabled, isTrue);
+    await presence.releaseAdvertising(advertising);
+    expect(transport.backgroundExecutionEnabled, isFalse);
+    expect(presence.isDiscovering, isFalse);
+    expect(presence.isAdvertising, isFalse);
+  });
+
+  test(
+    'OS refusal suspends radio outside UI while preserving intent',
+    () async {
+      final transport = _BackgroundTransport()..refuse = true;
+      addTearDown(transport.dispose);
+      final presence = BlePresenceManager.sharedFor(transport);
+      await presence.acquireDiscovery(Object());
+      expect(presence.isDiscovering, isTrue);
+      await presence.setForeground(false);
+      expect(presence.isDiscovering, isFalse);
+      expect(presence.wantsDiscovery, isTrue);
+      transport.refuse = false;
+      await presence.setForeground(true);
+      expect(presence.isDiscovering, isTrue);
+      expect(transport.backgroundExecutionEnabled, isTrue);
+    },
+  );
+
+  test(
+    'background leases cannot start a new foreground service without UI',
+    () async {
+      final transport = _BackgroundTransport();
+      addTearDown(transport.dispose);
+      final presence = BlePresenceManager.sharedFor(transport);
+      await presence.setForeground(false);
+      await presence.acquireDiscovery(Object());
+      expect(presence.isDiscovering, isFalse);
+      expect(transport.backgroundRequests, everyElement(isFalse));
+      await presence.setForeground(true);
+      expect(presence.isDiscovering, isTrue);
+    },
+  );
+
+  test(
+    'missing native callback aborts stale work and allows a fresh drain',
+    () async {
+      final transport = _PresenceTransport();
+      final queue = BleMessageWriteQueue.sharedFor(transport);
+      final release = Completer<void>();
+      transport.releaseFirstWrite = release;
+      addTearDown(transport.dispose);
+      final bulk = queue.sendFrames(
+        'peer',
+        const [
+          [1],
+          [2],
+        ],
+        role: BleSessionRole.central,
+        writeTimeout: const Duration(milliseconds: 20),
+      );
+      final control = queue.sendFrames(
+        'peer',
+        const [
+          [9],
+        ],
+        role: BleSessionRole.central,
+        control: true,
+      );
+      await Future.wait([
+        expectLater(bulk, throwsA(isA<TimeoutException>())),
+        expectLater(control, throwsA(isA<TimeoutException>())),
+      ]);
+      await Future<void>.delayed(Duration.zero);
+      expect(transport.disconnects, 1);
+      release.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        await queue.sendFrames('peer', const [
+          [3],
+        ], role: BleSessionRole.central),
+        isTrue,
+      );
+      expect(transport.sentFrames, [
+        [1],
+        [3],
+      ]);
+    },
+  );
+
+  test(
+    'control frames preempt bulk only after the active native write',
+    () async {
+      final transport = _PresenceTransport();
+      final queue = BleMessageWriteQueue.sharedFor(transport);
+      final started = Completer<void>();
+      final release = Completer<void>();
+      transport.firstWriteStarted = started;
+      transport.releaseFirstWrite = release;
+      addTearDown(transport.dispose);
+      final bulk = queue.sendFrames('peer', const [
+        [1],
+        [2],
+        [3],
+      ], role: BleSessionRole.central);
+      await started.future;
+      final control = queue.sendFrames(
+        'peer',
+        const [
+          [8],
+          [9],
+        ],
+        role: BleSessionRole.peripheral,
+        control: true,
+      );
+      expect(transport.sentFrames, [
+        [1],
+      ]);
+      release.complete();
+      expect(await control, isTrue);
+      expect(await bulk, isTrue);
+      expect(transport.sentFrames, [
+        [1],
+        [8],
+        [9],
+        [2],
+        [3],
+      ]);
+    },
+  );
+
+  test(
+    'session cancellation drops paused bulk after control completes',
+    () async {
+      final transport = _PresenceTransport();
+      final queue = BleMessageWriteQueue.sharedFor(transport);
+      final started = Completer<void>();
+      final release = Completer<void>();
+      transport.firstWriteStarted = started;
+      transport.releaseFirstWrite = release;
+      addTearDown(transport.dispose);
+      var active = true;
+      final bulk = queue.sendFrames(
+        'peer',
+        const [
+          [1],
+          [2],
+        ],
+        role: BleSessionRole.central,
+        canSend: () => active,
+      );
+      await started.future;
+      final control = queue.sendFrames(
+        'peer',
+        const [
+          [8],
+        ],
+        role: BleSessionRole.central,
+        control: true,
+      );
+      active = false;
+      release.complete();
+      expect(await bulk, isFalse);
+      expect(await control, isTrue);
+      expect(transport.sentFrames, [
+        [1],
+        [8],
+      ]);
+    },
+  );
+
   test(
     'shared write queue keeps concurrent message frames contiguous',
     () async {

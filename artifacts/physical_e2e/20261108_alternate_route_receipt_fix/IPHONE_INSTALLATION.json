@@ -1,0 +1,15 @@
+{
+  "device": "iPhone 15 Plus",
+  "source_sha256": "e96ce1b5836c2c9564d5d4041b32fa95dfb3940357134862f1598bcd50de1618",
+  "build_number": 3,
+  "matching_paired_wired_target": true,
+  "source_and_full_bundle_revalidated": true,
+  "codesign_exit": 0,
+  "install_exit": 0,
+  "update_in_place": true,
+  "uninstall_or_data_clear": false,
+  "launch_exit": 1,
+  "launch_user_confirmed": true,
+  "history_user_confirmed": true,
+  "user_observation": "User confirms manual icon launch opens normally and prior history remains present"
+}

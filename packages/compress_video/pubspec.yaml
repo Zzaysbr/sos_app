@@ -1,0 +1,48 @@
+name: compress_video
+description: >-
+  Compress phone-recorded video to a smaller MP4 that plays everywhere, on Android, iOS and
+  macOS, with typed media info and thumbnails. The drop-in successor to video_compress.
+version: 1.0.0
+homepage: https://github.com/danieljamesjohnson/compress_video
+repository: https://github.com/danieljamesjohnson/compress_video
+issue_tracker: https://github.com/danieljamesjohnson/compress_video/issues
+topics:
+  - video
+  - compression
+  - transcoding
+  - media
+  - video-compression
+
+environment:
+  sdk: ^3.12.1
+  flutter: '>=3.44.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Pigeon-generated lib/src/messages.g.dart imports package:meta directly. It is only
+  # transitively available via the flutter SDK dependency otherwise, and `dart pub
+  # publish` requires every package a library file imports to be an explicit dependency.
+  meta: ^1.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  pigeon: 29.0.2
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.danjjohnson.compress_video
+        pluginClass: CompressVideoPlugin
+      ios:
+        pluginClass: CompressVideoPlugin
+        sharedDarwinSource: true
+      macos:
+        pluginClass: CompressVideoPlugin
+        sharedDarwinSource: true
+

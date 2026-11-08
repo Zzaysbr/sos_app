@@ -78,7 +78,7 @@ void main() {
     expect(find.text('Relay messages stored: 1'), findsOneWidget);
     expect(find.text('Relay-only envelope'), findsOneWidget);
     expect(find.text('Incoming hop count'), findsOneWidget);
-    expect(find.text('Stored on relay'), findsOneWidget);
+    expect(find.text('Stored on relay · Pending'), findsOneWidget);
   });
 
   test(

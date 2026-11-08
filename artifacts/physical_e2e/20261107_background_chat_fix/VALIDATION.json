@@ -1,0 +1,53 @@
+{
+  "source_sha256": "d6d427a564f8c9fa6afe1fdf9f883ee971166161e8a31350d0c1d6f88242ebc7",
+  "date": "2026-11-07",
+  "default_suite": {
+    "command": "flutter test --no-pub --reporter expanded",
+    "passed": 569,
+    "failed": 0,
+    "exit": 0
+  },
+  "static_analysis": {
+    "command": "flutter analyze --no-pub lib test regression",
+    "issues": 0,
+    "exit": 0
+  },
+  "explicit_deferred_contract": {
+    "command": "flutter test --no-pub regression/stage2_remaining_contract_test.dart --reporter expanded",
+    "passed": 0,
+    "failed": 1,
+    "exit": 1,
+    "contract": "recipient persistence eventually yields signed final Chat delivery",
+    "status": "existing unimplemented contract; unchanged, not skipped"
+  },
+  "added_regressions": [
+    "missing native callback aborts stale frame tail and queued control; fresh drain works",
+    "native call deadline releases disposal without platform callback",
+    "background radio survives leaving UI and stops at last lease",
+    "OS refusal suspends radio but preserves leases",
+    "background caller cannot start a new foreground service without UI",
+    "incoming notification sees committed row; failure cannot roll back Chat; conflict/outgoing do not notify",
+    "notification payload contains routing IDs only",
+    "optional notification permission failure does not block SOS",
+    "connection budget reopens after 30 seconds but not before",
+    "active Chat retains radio past SOS TTL; terminal incident releases it"
+  ],
+  "physical_status": "NOT RUN for this source; builds ready, not installed",
+  "observed_before_fix": {
+    "source_versions": "iPhone retention 4f920365; Samsung role fix bea922bf",
+    "last_scheduler_unchanged_after_15_seconds": "reported by user",
+    "root_cause": "native callback stall not proven in observed incident; source unbounded-wait defect addressed",
+    "test_incident_cancelled_history_retained": "user confirmed"
+  },
+  "limitations": [
+    "iOS Bluetooth background work is event driven, not guaranteed continuous timers",
+    "No iOS state restoration or headless cold-launch bootstrap",
+    "No OS kill, force-quit, reboot, permission denial or disabled-radio recovery guarantee",
+    "Android connectedDevice foreground service retained only with radio demand; START_NOT_STICKY",
+    "No APNs/FCM; notification requires actual authorized incoming Chat persistence",
+    "Banner depends on OS permission, channel and Focus settings",
+    "Bounded native notification dedup; crash save window or cache eviction can alert again",
+    "Notification tap opens app, not Chat deep link",
+    "In-app notifications list remains mock; GPS/media/final signed Chat receipt unchanged"
+  ]
+}

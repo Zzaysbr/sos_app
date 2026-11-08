@@ -1,0 +1,42 @@
+{
+  "date": "2026-11-08",
+  "device_alias": "B Samsung",
+  "target_checks": {
+    "unique_authorized_usb_model_match": true,
+    "model": "SM-A536E"
+  },
+  "inspection": "Read-only app-private DB copy and current-process log; no restart/install/DB mutation/log clear",
+  "sqlite_quick_check": "ok",
+  "snapshot_limit": "Live file copy, not coordinated snapshot; absence in this copy/log is not proof of no prior forwarding",
+  "current_stored_sos": {
+    "record_count": 1,
+    "incident_candidate_present": true,
+    "incoming_hop_count": 0,
+    "incoming_path_entries": 1,
+    "attempts": [
+      {
+        "state": "failed",
+        "outgoing_hop_count": 1,
+        "retry_count": 3,
+        "accepted_at_present": false,
+        "last_error_category": "timeout"
+      }
+    ],
+    "receipt_count": 0
+  },
+  "test_chat_markers": {
+    "THREE-A-C-01": {
+      "inbox_normalized_matches": 0,
+      "outbox_normalized_matches": 0
+    },
+    "THREE-C-A-01": {
+      "inbox_normalized_matches": 0,
+      "outbox_normalized_matches": 0
+    }
+  },
+  "same_stored_incident_chat_rows": {
+    "chat_relay_inbox": 0,
+    "chat_relay_outbox": 0
+  },
+  "conclusion": "No correlated evidence of successful Samsung forwarding of the two test Chat messages in this snapshot. Stored SOS has a failed next-hop attempt with no acceptance. Need iPad endpoint signed incoming path/message-ID comparison to establish route; direct A-C remains possible."
+}

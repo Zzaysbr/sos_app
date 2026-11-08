@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../nearby_ble/data/incident_lifecycle_repository.dart';
 import 'sos_cloud_service.dart';
 
 bool isValidSosCoordinatePair(double? latitude, double? longitude) {
@@ -204,10 +205,16 @@ class SosRepository {
     double? latitude,
     double? longitude,
     required DateTime createdAt,
-  }) async {
+  }) => _database.transaction(() async {
     final ownerId = _requireOwner();
     final existing = await findById(id);
-    if (existing != null) return existing;
+    if (existing != null) {
+      await IncidentLifecycleRepository(
+        _database,
+        ownerId: ownerId,
+      ).reconcileIncident(id, now: DateTime.now().toUtc());
+      return (await findById(id))!;
+    }
     final now = DateTime.now().toUtc();
     final location = _normalizedLocation(latitude, longitude);
     await _database
@@ -227,8 +234,12 @@ class SosRepository {
           ),
           mode: InsertMode.insertOrIgnore,
         );
+    await IncidentLifecycleRepository(
+      _database,
+      ownerId: ownerId,
+    ).reconcileIncident(id, now: now);
     return (await findById(id))!;
-  }
+  });
 
   Future<void> update({
     required String id,

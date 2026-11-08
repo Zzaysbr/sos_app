@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Sos App</string>
+	<string>Emergency</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -67,6 +67,8 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 
+	<key>UIBackgroundModes</key>
+	<array><string>bluetooth-central</string><string>bluetooth-peripheral</string></array>
 	<key>UIRequiresPersistentWiFi</key>
 	<true/>
 
@@ -85,5 +87,11 @@
 
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Location is used to include your current position with an emergency SOS.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Take a photo or video to send in your incident chat.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Record audio with a video you choose to send in incident chat.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choose a photo or video to send in your incident chat.</string>
 </dict>
 </plist>

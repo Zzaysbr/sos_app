@@ -1,0 +1,29 @@
+{
+  "date": "2026-11-08",
+  "affected_installed_build": 6,
+  "candidate_build": 7,
+  "user_report": "Samsung download action shows red error _dependents.isEmpty: is not true",
+  "device_log": "Known wired Samsung read-only log captured privately; original assertion not present in retained log buffer; not claimed as device stack trace",
+  "reproduction": {
+    "before": {
+      "passed": 0,
+      "failed": 2,
+      "exit": 1,
+      "first_error": "A TextEditingController was used after being disposed",
+      "cascade": "_FocusInheritedScope / _dependents.isEmpty",
+      "cases": [
+        "Confirm download with focused name field",
+        "Cancel with focused name field"
+      ]
+    },
+    "after": {
+      "passed": 2,
+      "failed": 0,
+      "exit": 0
+    }
+  },
+  "cause": "Parent disposes TextEditingController when showDialog future completes on pop, while reverse-transition TextField is still mounted",
+  "fix": "Dialog StatefulWidget owns/disposes controller on unmount; returns immutable name/zoom selection, no parent-owned controller disposal on pop",
+  "limits": "Host dialog boundary with fake download repository; not real provider download/offline use or complete device root-cause stack capture",
+  "state": "Focused regression passes; broader checks/builds/device retest pending"
+}

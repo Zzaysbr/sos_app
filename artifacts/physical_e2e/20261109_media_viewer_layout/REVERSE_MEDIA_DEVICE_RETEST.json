@@ -1,0 +1,48 @@
+{
+  "date": "2026-11-09",
+  "versions": {
+    "iphone": "Profile11",
+    "samsung": "Profile11"
+  },
+  "camera_photo_samsung_to_iphone": {
+    "initial_user_receiver": "No photo at check",
+    "sender_ui_status": "Confirmed stored on the selected nearby device",
+    "independent_receiver_snapshot": {
+      "mime": "image/jpeg",
+      "bytes": 40730,
+      "complete_file": true,
+      "local_chat_row": "delivered / file path retained",
+      "final_storage_receipt": "generated / queued / retry1"
+    },
+    "scope": "Receiver file+Chat+receipt exist at later read-only capture; exact user test correlation/openability/UI count/sender confirmation pending",
+    "later_user_receiver_count": 1,
+    "full_image_opened": true,
+    "status": "PASS one operator-reported camera-photo case; later receiver private snapshot corroborates complete file/local row/generated receipt"
+  },
+  "status": "Four reverse input cases accepted at scoped operator level; camera video required explicit Bluetooth link reset",
+  "gallery_photo_samsung_to_iphone": {
+    "receiver_count": 1,
+    "full_image_opened": true,
+    "sender_confirmed_storage": true,
+    "prepared_size_kb": "not reported",
+    "scope": "One operator-reported gallery photo case; no new raw file/timing capture"
+  },
+  "camera_video_samsung_to_iphone": {
+    "versions": {
+      "sender": "Profile13",
+      "receiver": "Profile14"
+    },
+    "receiver_count": 1,
+    "video_audio_playback": true,
+    "sender_confirmed_storage": true,
+    "recovery_required": "One explicit iPhone Settings BluetoothOFF5seconds/ON, same clip not resent",
+    "status": "PASS recovered case; not uninterrupted transfer acceptance"
+  },
+  "gallery_video_samsung_to_iphone": {
+    "user_receiver_count": 1,
+    "user_video_audio_playback": true,
+    "user_sender_confirmed_storage": true,
+    "independent_latest_clip_correlation": "Subsequent read-only snapshot:357134byte MP4 complete, local Chatdelivered, signed receipt queued/retry3",
+    "status": "PASS scoped operator count1/playback/final-storage UI, corroborated by later complete latest receiver file/local row/signed receipt"
+  }
+}

@@ -39,7 +39,12 @@ import 'location_sharing_panel.dart';
 import 'package:geolocator/geolocator.dart';
 
 class LocationAcquisitionException implements Exception {
-  const LocationAcquisitionException(this.message);
+  const LocationAcquisitionException(
+    this.message, {
+    this.category = 'unavailable',
+  });
+
+  final String category;
 
   final String message;
 }
@@ -72,6 +77,7 @@ class SosPage extends StatefulWidget {
     this.chatRepository,
     this.onChatMessageCreated,
     this.onBleStartRequested,
+    this.pendingBleWorkCheck,
     this.isGuest = false,
     this.onLoginRequested,
     this.rolePreferenceStore,
@@ -88,6 +94,7 @@ class SosPage extends StatefulWidget {
   final Future<void> Function(EmergencyChatMessage message)?
   onChatMessageCreated;
   final Future<void> Function()? onBleStartRequested;
+  final Future<bool> Function()? pendingBleWorkCheck;
   final bool isGuest;
   final VoidCallback? onLoginRequested;
   final RolePreferenceStore? rolePreferenceStore;
@@ -113,9 +120,13 @@ class _SosPageState extends State<SosPage> {
   bool _syncing = false;
   bool _sendingSos = false;
   bool _openingIncidentChat = false;
+  bool _checkingLocation = false;
+  String? _locationCheckMessage;
+  Future<Position?>? _locationRequest;
   bool _sosHoldActive = false;
   double _sosHoldProgress = 0;
   Timer? _sosHoldTimer;
+  final Set<String> _stoppingFollowing = <String>{};
   String _historyFilter = 'all';
   String _historySearch = '';
   bool _historyNewestFirst = true;
@@ -229,7 +240,8 @@ class _SosPageState extends State<SosPage> {
         // Relay participation and per-incident origin consent are separate.
         // Resume a durable Public Relay SOS after restart without opting this
         // device into receiving or forwarding other people's incidents.
-        if (await widget.bleCoordinator?.hasPendingPublicRelay() ?? false) {
+        if ((await widget.bleCoordinator?.hasPendingPublicRelay() ?? false) ||
+            (await widget.pendingBleWorkCheck?.call() ?? false)) {
           await widget.onBleStartRequested?.call();
         }
         await widget.bleCoordinator?.setRelayParticipationEnabled(false);
@@ -718,36 +730,57 @@ class _SosPageState extends State<SosPage> {
                           ),
                           if (ownActive.isNotEmpty) ...[
                             const SizedBox(height: 16),
-                            _activeIncidentReturnBanner(ownActive.first),
+                            _buildActiveSosChatBanner(ownActive.first),
                           ],
                           const SizedBox(height: 30),
                           StreamBuilder<List<RescueInboxData>>(
                             stream: _rescueCandidatesStream,
                             builder: (context, candidateSnapshot) {
-                              final candidates = (candidateSnapshot.data ??
-                                      const <RescueInboxData>[])
-                                  .where(
-                                    (candidate) =>
-                                        candidate.state != 'expired' &&
-                                        candidate.expiresAt.isAfter(
-                                          DateTime.now().toUtc(),
-                                        ),
-                                  )
-                                  .toList(growable: false);
+                              final candidates =
+                                  (candidateSnapshot.data ??
+                                          const <RescueInboxData>[])
+                                      .where(
+                                        (candidate) =>
+                                            candidate.state !=
+                                                'archivedLocally' &&
+                                            candidate.state != 'expired' &&
+                                            candidate.state != 'cancelled' &&
+                                            candidate.state != 'resolved' &&
+                                            candidate.expiresAt.isAfter(
+                                              DateTime.now().toUtc(),
+                                            ),
+                                      )
+                                      .toList(growable: false);
+                              final archivedIds =
+                                  (candidateSnapshot.data ??
+                                          const <RescueInboxData>[])
+                                      .where(
+                                        (candidate) =>
+                                            candidate.state ==
+                                            'archivedLocally',
+                                      )
+                                      .map((candidate) => candidate.incidentId)
+                                      .toSet();
                               final activeReceived = received
-                                  .where((sos) => sos.status == 'active')
+                                  .where(
+                                    (sos) =>
+                                        sos.status == 'active' &&
+                                        !archivedIds.contains(sos.id),
+                                  )
                                   .toList(growable: false);
                               final existingIds = activeReceived
                                   .map((sos) => sos.id)
                                   .toSet();
                               final uniqueCandidates = candidates
                                   .where(
-                                    (candidate) =>
-                                        !existingIds.contains(candidate.incidentId),
+                                    (candidate) => !existingIds.contains(
+                                      candidate.incidentId,
+                                    ),
                                   )
                                   .toList(growable: false);
                               final total =
-                                  activeReceived.length + uniqueCandidates.length;
+                                  activeReceived.length +
+                                  uniqueCandidates.length;
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -787,7 +820,8 @@ class _SosPageState extends State<SosPage> {
                                       _buildRescueIncidentCard(sos),
                                       const SizedBox(height: 12),
                                     ],
-                                    for (final candidate in uniqueCandidates) ...[
+                                    for (final candidate
+                                        in uniqueCandidates) ...[
                                       _buildIncomingCandidateCard(candidate),
                                       const SizedBox(height: 12),
                                     ],
@@ -822,10 +856,19 @@ class _SosPageState extends State<SosPage> {
                 stream: _rescueCandidatesStream,
                 builder: (context, candidateSnapshot) {
                   final inboundIds = inboundSnapshot.data ?? const <String>{};
+                  final archivedIds =
+                      (candidateSnapshot.data ?? const <RescueInboxData>[])
+                          .where(
+                            (candidate) => candidate.state == 'archivedLocally',
+                          )
+                          .map((candidate) => candidate.incidentId)
+                          .toSet();
                   final accepted = (snapshot.data ?? const <SosMessage>[])
                       .where(
                         (sos) =>
                             inboundIds.contains(sos.id) &&
+                            sos.status == 'active' &&
+                            !archivedIds.contains(sos.id) &&
                             _roleWorkflow.isAccepted(sos.id),
                       )
                       .toList();
@@ -841,6 +884,11 @@ class _SosPageState extends State<SosPage> {
                         pinned: true,
                         title: Text(l10n.helpingIncidents),
                         actions: [
+                          IconButton(
+                            tooltip: l10n.receivedHistory,
+                            icon: const Icon(Icons.history_outlined),
+                            onPressed: _openReceivedHistory,
+                          ),
                           IconButton(
                             tooltip: l10n.switchModeTooltip,
                             onPressed: _requestRoleSwitch,
@@ -915,9 +963,113 @@ class _SosPageState extends State<SosPage> {
             subtitle: Text('${candidate.emergencyMessage}\n$status'),
             isThreeLine: true,
             onTap: () => _showRescueCandidate(candidate),
-            trailing: const Icon(Icons.check_circle_outline),
+            trailing: PopupMenuButton<String>(
+              key: ValueKey('stop-following-menu-${candidate.originMessageId}'),
+              tooltip: context.l10n.stopFollowing,
+              enabled: !_stoppingFollowing.contains(candidate.originMessageId),
+              onSelected: (_) => _stopFollowing(candidate),
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'stop',
+                  child: Text(context.l10n.stopFollowing),
+                ),
+              ],
+            ),
           );
         },
+      ),
+    );
+  }
+
+  Future<void> _stopFollowing(RescueInboxData candidate) async {
+    if (!_stoppingFollowing.add(candidate.originMessageId)) return;
+    setState(() {});
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        useRootNavigator: false,
+        builder: (context) => AlertDialog(
+          title: Text(context.l10n.stopFollowingQuestion),
+          content: Text(context.l10n.stopFollowingExplanation),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(context.l10n.back),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(context.l10n.stopFollowing),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+      await _rescueInboxRepository.stopFollowing(candidate.originMessageId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.stoppedFollowing)));
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.stopFollowingFailed)),
+        );
+      }
+    } finally {
+      _stoppingFollowing.remove(candidate.originMessageId);
+      if (mounted) setState(() {});
+    }
+  }
+
+  void _openReceivedHistory() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => Scaffold(
+          appBar: AppBar(title: Text(context.l10n.receivedHistory)),
+          body: StreamBuilder<List<RescueInboxData>>(
+            stream: _rescueInboxRepository.watchCandidates(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Center(child: Text(context.l10n.receivedHistoryError));
+              }
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final candidates = snapshot.data!;
+              return ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  Text(context.l10n.receivedHistoryNotice),
+                  const SizedBox(height: 16),
+                  if (candidates.isEmpty)
+                    Text(context.l10n.receivedHistoryEmpty),
+                  for (final candidate in candidates)
+                    Card(
+                      key: ValueKey(
+                        'rescue-history-${candidate.originMessageId}',
+                      ),
+                      child: ListTile(
+                        leading: const Icon(Icons.history),
+                        title: Text(candidate.emergencyType.toUpperCase()),
+                        subtitle: Text(
+                          '${candidate.emergencyMessage}\n${switch (candidate.state) {
+                            'archivedLocally' => context.l10n.stoppedFollowing,
+                            'locallyAccepted' => context.l10n.rescueHistoryHelping,
+                            'cancelled' => context.l10n.rescueHistoryCancelled,
+                            'resolved' => context.l10n.rescueHistoryResolved,
+                            'expired' => context.l10n.rescueHistoryExpired,
+                            _ => context.l10n.storedOnThisDevice,
+                          }}',
+                        ),
+                        isThreeLine: true,
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => _showRescueCandidate(candidate),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -950,151 +1102,187 @@ class _SosPageState extends State<SosPage> {
     message: context.l10n.receivedIncidentHint,
   );
 
-  Widget _activeIncidentReturnBanner(SosMessage sos) {
-    return _buildActiveSosChatBanner(sos, returnToNeedHelp: true);
-  }
-
   Future<void> _showRescueCandidate(RescueInboxData candidate) async {
+    var submitting = false;
+    var locallyAccepted = candidate.state == 'locallyAccepted';
+    final canOffer =
+        candidate.state == 'pending' || candidate.state == 'viewed';
     final accepted = await showModalBottomSheet<bool>(
       context: context,
       showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Incoming SOS candidate',
-                style: Theme.of(sheetContext).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 12),
-              Text(candidate.emergencyType.toUpperCase()),
-              const SizedBox(height: 8),
-              Text(candidate.emergencyMessage),
-              const SizedBox(height: 8),
-              Text('Identity assurance: origin signature + relay attestations'),
-              if (candidate.includeLocation &&
-                  candidate.latitude != null &&
-                  candidate.longitude != null) ...[
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Incoming SOS candidate',
+                  style: Theme.of(sheetContext).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 12),
+                Text(candidate.emergencyType.toUpperCase()),
+                const SizedBox(height: 8),
+                Text(candidate.emergencyMessage),
                 const SizedBox(height: 8),
                 Text(
-                  'Victim location: ${candidate.latitude!.toStringAsFixed(6)}, '
-                  '${candidate.longitude!.toStringAsFixed(6)}',
+                  'Identity assurance: origin signature + relay attestations',
                 ),
-                Text(
-                  'Location timestamp: ${_formatDateTime(candidate.createdAt)}',
-                ),
+                if (candidate.includeLocation &&
+                    candidate.latitude != null &&
+                    candidate.longitude != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Victim location: ${candidate.latitude!.toStringAsFixed(6)}, '
+                    '${candidate.longitude!.toStringAsFixed(6)}',
+                  ),
+                  Text(
+                    'Location timestamp: ${_formatDateTime(candidate.createdAt)}',
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(sheetContext);
+                      Navigator.of(context).push<void>(
+                        MaterialPageRoute<void>(
+                          builder: (_) => IncidentMapPage(
+                            incident: SosMessage(
+                              id: candidate.incidentId,
+                              ownerId: candidate.ownerId,
+                              type: candidate.emergencyType,
+                              message: candidate.emergencyMessage,
+                              latitude: candidate.latitude,
+                              longitude: candidate.longitude,
+                              status: 'active',
+                              createdAt: candidate.createdAt,
+                              updatedAt: candidate.receivedAt,
+                              syncState: 'deviceOnly',
+                            ),
+                            rescueCandidate: candidate,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.map_outlined),
+                    label: const Text('View victim location'),
+                  ),
+                ] else
+                  const Text('Victim location was not included in this SOS.'),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
-                  onPressed: () {
+                  onPressed: () async {
+                    final incident = await _ensureRescueIncident(candidate);
+                    if (!sheetContext.mounted) return;
                     Navigator.pop(sheetContext);
-                    Navigator.of(context).push<void>(
-                      MaterialPageRoute<void>(
-                        builder: (_) => IncidentMapPage(
-                          incident: SosMessage(
-                            id: candidate.incidentId,
-                            ownerId: candidate.ownerId,
-                            type: candidate.emergencyType,
-                            message: candidate.emergencyMessage,
-                            latitude: candidate.latitude,
-                            longitude: candidate.longitude,
-                            status: 'active',
-                            createdAt: candidate.createdAt,
-                            updatedAt: candidate.receivedAt,
-                            syncState: 'deviceOnly',
-                          ),
-                          rescueCandidate: candidate,
-                        ),
-                      ),
-                    );
+                    if (mounted) await _openIncidentChat(incident);
                   },
-                  icon: const Icon(Icons.map_outlined),
-                  label: const Text('View victim location'),
+                  icon: const Icon(Icons.chat_bubble_outline),
+                  label: const Text('Open incident chat'),
                 ),
-              ] else
-                const Text('Victim location was not included in this SOS.'),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  final incident = await _ensureRescueIncident(candidate);
-                  if (!sheetContext.mounted) return;
-                  Navigator.pop(sheetContext);
-                  if (mounted) await _openIncidentChat(incident);
-                },
-                icon: const Icon(Icons.chat_bubble_outline),
-                label: const Text('Open incident chat'),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: candidate.state == 'locallyAccepted'
-                      ? null
-                      : () async {
-                          await _rescueInboxRepository.acceptLocally(
-                            candidate.originMessageId,
-                          );
-                          var queued = false;
-                          Object? queueError;
-                          try {
-                            final relay = RelayRepository(
-                              database: widget.repository.database,
-                            );
-                            final stored = await relay.lookupMessage(
-                              candidate.originMessageId,
-                            );
-                            if (stored == null) {
-                              throw StateError(
-                                'Signed origin envelope is not available locally.',
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: !canOffer || locallyAccepted || submitting
+                        ? null
+                        : () async {
+                            if (submitting) return;
+                            setSheetState(() => submitting = true);
+                            RescueInboxData? localAcceptance;
+                            try {
+                              localAcceptance = await _rescueInboxRepository
+                                  .acceptLocally(candidate.originMessageId);
+                            } on Object {
+                              if (sheetContext.mounted) {
+                                setSheetState(() => submitting = false);
+                                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Unable to save help offer. Please try again.',
+                                    ),
+                                  ),
+                                );
+                              }
+                              return;
+                            }
+                            if (localAcceptance?.state != 'locallyAccepted') {
+                              if (sheetContext.mounted) {
+                                Navigator.pop(sheetContext);
+                              }
+                              return;
+                            }
+                            if (sheetContext.mounted) {
+                              setSheetState(() => locallyAccepted = true);
+                            }
+                            var queued = false;
+                            Object? queueError;
+                            try {
+                              final relay = RelayRepository(
+                                database: widget.repository.database,
+                              );
+                              final stored = await relay.lookupMessage(
+                                candidate.originMessageId,
+                              );
+                              if (stored == null) {
+                                throw StateError(
+                                  'Signed origin envelope is not available locally.',
+                                );
+                              }
+                              final origin =
+                                  RelayOfferEnvelope.fromCanonicalWire(
+                                    stored.wireEnvelope,
+                                  ).body;
+                              final identity = await RelayIdentityService(
+                                keyStore: PlatformRelayPrivateKeyStore(),
+                              ).loadOrCreate(allowCreate: true);
+                              final digest = await RelayCryptography()
+                                  .immutableDigest(origin);
+                              await _rescueResponseRepository.signAndEnqueueOffer(
+                                origin: origin,
+                                responder: identity,
+                                sessionBinding:
+                                    'incident-binding:${origin.originMessageId}:$digest',
+                              );
+                              queued = true;
+                              // The signed outbox is durable. Native radio work
+                              // must not keep the sheet/navigation waiting.
+                              unawaited(_processQueuedHelpOffer());
+                            } catch (error) {
+                              queueError = error;
+                            }
+                            if (sheetContext.mounted) {
+                              Navigator.pop(sheetContext, true);
+                            }
+                            if (mounted && !queued) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Help saved locally; delivery queued failed: $queueError',
+                                  ),
+                                ),
                               );
                             }
-                            final origin = RelayOfferEnvelope.fromCanonicalWire(
-                              stored.wireEnvelope,
-                            ).body;
-                            final identity = await RelayIdentityService(
-                              keyStore: PlatformRelayPrivateKeyStore(),
-                            ).loadOrCreate(allowCreate: true);
-                            final digest = await RelayCryptography()
-                                .immutableDigest(origin);
-                            await _rescueResponseRepository.signAndEnqueueOffer(
-                              origin: origin,
-                              responder: identity,
-                              sessionBinding:
-                                  'incident-binding:${origin.originMessageId}:$digest',
-                            );
-                            await widget.bleCoordinator?.processDue();
-                            queued = true;
-                          } catch (error) {
-                            queueError = error;
-                          }
-                          if (sheetContext.mounted) {
-                            Navigator.pop(sheetContext, true);
-                          }
-                          if (mounted && !queued) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Help saved locally; delivery queued failed: $queueError',
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                  icon: const Icon(Icons.volunteer_activism),
-                  label: Text(
-                    candidate.state == 'locallyAccepted'
-                        ? 'Help offered locally'
-                        : 'Offer Help',
+                          },
+                    icon: submitting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.volunteer_activism),
+                    label: Text(
+                      locallyAccepted ? 'Help offered locally' : 'Offer Help',
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'This records local intent only. The origin has not been notified.',
-              ),
-            ],
+                const SizedBox(height: 8),
+                const Text(
+                  'Saving an offer records your intent. Offer delivery shows whether the origin confirmed it.',
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1106,6 +1294,15 @@ class _SosPageState extends State<SosPage> {
           content: Text('Help offered locally and saved on this device.'),
         ),
       );
+    }
+  }
+
+  Future<void> _processQueuedHelpOffer() async {
+    try {
+      await widget.bleCoordinator?.processDue();
+    } on Object {
+      // Keep the durably queued offer; scheduler retries are independent of UI.
+      debugPrint('Help offer processing deferred; saved offer retained.');
     }
   }
 
@@ -1245,7 +1442,7 @@ class _SosPageState extends State<SosPage> {
       final presence = _blePresence ?? BlePresenceManager.sharedFor(transport);
       await presence.acquireAdvertising(
         _rescueAdvertisingLease,
-        name: 'Off Grid SOS Rescue',
+        name: 'Emergency Rescue',
       );
       if (!mounted) return;
       setState(() => _rescueListening = true);
@@ -1522,10 +1719,7 @@ class _SosPageState extends State<SosPage> {
     );
   }
 
-  Widget _buildActiveSosChatBanner(
-    SosMessage sos, {
-    bool returnToNeedHelp = false,
-  }) {
+  Widget _buildActiveSosChatBanner(SosMessage sos) {
     final colors = Theme.of(context).colorScheme;
     final l10n = context.l10n;
     return Semantics(
@@ -1539,8 +1733,7 @@ class _SosPageState extends State<SosPage> {
         borderRadius: BorderRadius.circular(18),
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
-          onTap: () =>
-              _openIncidentChat(sos, returnToNeedHelp: returnToNeedHelp),
+          onTap: () => _openIncidentChat(sos),
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 72),
             child: Padding(
@@ -2192,22 +2385,20 @@ class _SosPageState extends State<SosPage> {
 
   Future<void> _openIncidentChat(
     SosMessage sos, {
-    bool returnToNeedHelp = false,
     ValueListenable<String?>? locationFeedback,
   }) async {
     if (_openingIncidentChat) return;
     _openingIncidentChat = true;
     try {
-      if (returnToNeedHelp && _role != AppRole.needHelp) {
-        await _selectRole(AppRole.needHelp);
-        if (!mounted) return;
-      }
       await Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
           builder: (_) => EmergencyChatPage(
             sosId: sos.id,
             contactName: 'Incident ${sos.id}',
             repository: widget.chatRepository,
+            attachmentStore: widget.bleCoordinator?.mediaStore,
+            canAttach: () async =>
+                await widget.bleCoordinator?.canSendMedia(sos.id) == true,
             onMessageCreatedWithDestination: _enqueueChat,
             sosDeliveryStream: widget.bleCoordinator?.watchDeliveryForSos(
               sos.id,
@@ -2234,20 +2425,26 @@ class _SosPageState extends State<SosPage> {
       // Otherwise the message is durable but can remain queued until an
       // unrelated lifecycle event starts the transport.
       await widget.onBleStartRequested?.call();
+      // Both enqueue paths schedule delivery after their durable queue write.
+      // Completing the composer must not wait for the shared BLE drain, which
+      // can include slow writes or retries for other queued work.
       final participant = await coordinator.resolveVerifiedChatParticipant(
         message.sosId,
       );
+      if (message.attachmentPath != null && participant == null) {
+        throw const ChatRepositoryException(
+          'A verified helper is required for media',
+        );
+      }
       if (participant != null) {
         await coordinator.enqueueChatThroughRelay(
           chat: message,
           recipientKeyId: participant.keyId,
           recipientPublicKey: participant.publicKey,
         );
-        await coordinator.processDue();
         return;
       }
       await coordinator.enqueueChat(message, destinationId: destinationId);
-      await coordinator.processDue();
       return;
     }
     await widget.onChatMessageCreated?.call(message);
@@ -2300,6 +2497,12 @@ class _SosPageState extends State<SosPage> {
                                   builder: (_) => EmergencyChatPage(
                                     sosId: sosId,
                                     repository: widget.chatRepository,
+                                    attachmentStore:
+                                        widget.bleCoordinator?.mediaStore,
+                                    canAttach: () async =>
+                                        await widget.bleCoordinator
+                                            ?.canSendMedia(sosId) ==
+                                        true,
                                     onMessageCreatedWithDestination:
                                         _enqueueChat,
                                     sosDeliveryStream: widget.bleCoordinator
@@ -2409,6 +2612,28 @@ class _SosPageState extends State<SosPage> {
                               _emergencyConsent.copyWith(shareLocation: value),
                             ),
                     ),
+                    ListTile(
+                      key: const ValueKey('emergency-location-check'),
+                      leading: const Icon(Icons.my_location),
+                      title: Text(l10n.checkCurrentLocation),
+                      subtitle: Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          _checkingLocation
+                              ? l10n.checkingCurrentLocation
+                              : (_locationCheckMessage ??
+                                    l10n.checkCurrentLocationHint),
+                        ),
+                      ),
+                      trailing: _checkingLocation
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.refresh),
+                      onTap: _checkingLocation ? null : _checkCurrentLocation,
+                    ),
                     const Divider(height: 1, indent: 56),
                     SwitchListTile(
                       contentPadding: const EdgeInsets.symmetric(
@@ -2445,6 +2670,9 @@ class _SosPageState extends State<SosPage> {
                             dataSource: widget
                                 .bleCoordinator!
                                 .relayDiagnosticsDataSource,
+                            runtimeDataSource: widget
+                                .bleCoordinator!
+                                .relayRuntimeDiagnosticsDataSource,
                           );
                           if (route != null) {
                             Navigator.of(context).push<void>(route);
@@ -2466,8 +2694,12 @@ class _SosPageState extends State<SosPage> {
                           if (!mounted) return;
                           await Navigator.of(context).push<void>(
                             MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  BleTestPage(transport: widget.bleTransport),
+                              builder: (_) => BleTestPage(
+                                transport: widget.bleTransport,
+                                runtimeDiagnostics: widget
+                                    .bleCoordinator
+                                    ?.relayRuntimeDiagnosticsDataSource,
+                              ),
                             ),
                           );
                         },
@@ -2486,7 +2718,7 @@ class _SosPageState extends State<SosPage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Off Grid SOS',
+                        'Emergency',
                         style: Theme.of(context).textTheme.labelLarge,
                       ),
                       const SizedBox(height: 4),
@@ -2677,12 +2909,105 @@ class _SosPageState extends State<SosPage> {
     );
   }
 
-  Future<Position?> _getCurrentLocation() async {
+  Future<void> _checkCurrentLocation() async {
+    if (_checkingLocation) return;
+    final l10n = context.l10n;
+    setState(() => _checkingLocation = true);
+    final clock = Stopwatch()..start();
+    debugPrint('[SOS location] check_started');
+    try {
+      final position = await _readLocation(
+        timeout: const Duration(seconds: 30),
+      );
+      if (position == null ||
+          !isValidSosCoordinatePair(position.latitude, position.longitude)) {
+        throw LocationAcquisitionException(
+          l10n.currentLocationUnavailable,
+          category: 'invalid_fix',
+        );
+      }
+      if (!mounted) return;
+      final age = DateTime.now()
+          .toUtc()
+          .difference(position.timestamp.toUtc())
+          .abs();
+      setState(
+        () => _locationCheckMessage = age > const Duration(seconds: 30)
+            ? l10n.recentLocationCheckReady
+            : l10n.currentLocationCheckReady,
+      );
+      debugPrint(
+        '[SOS location] check_succeeded elapsedMs=${clock.elapsedMilliseconds}',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(
+        () => _locationCheckMessage = error is LocationAcquisitionException
+            ? error.message
+            : l10n.currentLocationUnavailable,
+      );
+      debugPrint(
+        '[SOS location] check_failed category=${_locationErrorCategory(error)} elapsedMs=${clock.elapsedMilliseconds}',
+      );
+    } finally {
+      if (mounted) setState(() => _checkingLocation = false);
+    }
+  }
+
+  String _locationErrorCategory(Object error) =>
+      error is LocationAcquisitionException
+      ? error.category
+      : error is TimeoutException
+      ? 'timed_out'
+      : 'provider_error';
+
+  Future<Position?> _readLocation({
+    Duration timeout = const Duration(seconds: 15),
+  }) {
+    // CoreLocation uses a one-shot request handler. Share a check already in
+    // progress instead of overwriting it when SOS is pressed during the check.
+    final l10n = context.l10n;
+    var request = _locationRequest;
+    if (request == null) {
+      request = Future<Position?>.sync(
+        () =>
+            widget.locationProvider?.call() ??
+            _getCurrentLocation(timeout: timeout),
+      );
+      _locationRequest = request;
+      final current = request;
+      void clear() {
+        if (identical(_locationRequest, current)) _locationRequest = null;
+      }
+
+      unawaited(
+        request.then<void>(
+          (_) => clear(),
+          onError: (Object _, StackTrace _) => clear(),
+        ),
+      );
+    }
+    // Keep a stalled platform result bounded, including last-known fallback.
+    return request.timeout(
+      timeout + const Duration(seconds: 5),
+      onTimeout: () => throw LocationAcquisitionException(
+        l10n.locationTimedOut,
+        category: 'timed_out',
+      ),
+    );
+  }
+
+  Future<Position?> _getCurrentLocation({
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
     final l10n = context.l10n;
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
     if (!serviceEnabled) {
-      throw LocationAcquisitionException(l10n.locationServicesDisabled);
+      throw LocationAcquisitionException(
+        l10n.locationServicesDisabled,
+        category: 'services_disabled',
+      );
     }
 
     var permission = await Geolocator.checkPermission();
@@ -2692,24 +3017,33 @@ class _SosPageState extends State<SosPage> {
     }
 
     if (permission == LocationPermission.denied) {
-      throw LocationAcquisitionException(l10n.locationPermissionRequired);
+      throw LocationAcquisitionException(
+        l10n.locationPermissionRequired,
+        category: 'permission_denied',
+      );
     }
 
     if (permission == LocationPermission.deniedForever) {
-      throw LocationAcquisitionException(l10n.locationPermissionDeniedForever);
+      throw LocationAcquisitionException(
+        l10n.locationPermissionDeniedForever,
+        category: 'permission_denied_forever',
+      );
     }
 
     try {
       return await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
+        locationSettings: LocationSettings(
           accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
+          timeLimit: timeout,
         ),
       );
     } on TimeoutException {
       final recent = await _recentUsableLastKnownPosition();
       if (recent != null) return recent;
-      throw LocationAcquisitionException(l10n.locationTimedOut);
+      throw LocationAcquisitionException(
+        l10n.locationTimedOut,
+        category: 'timed_out',
+      );
     } catch (_) {
       final recent = await _recentUsableLastKnownPosition();
       if (recent != null) return recent;
@@ -2794,6 +3128,7 @@ class _SosPageState extends State<SosPage> {
     ValueNotifier<String?> locationFeedback,
   ) async {
     final l10n = context.l10n;
+    final routingClock = Stopwatch()..start();
     try {
       var routedSos = sos;
       var includeLocation = false;
@@ -2802,14 +3137,17 @@ class _SosPageState extends State<SosPage> {
         // Chat navigation. A slow GPS, denied permission, or offline device
         // must never prevent the emergency record from being created.
         Position? position;
+        var acquisitionFailed = false;
+        final locationClock = Stopwatch()..start();
+        debugPrint('[SOS location] acquisition_started');
         try {
-          position =
-              await (widget.locationProvider?.call() ?? _getCurrentLocation());
+          position = await _readLocation();
         } catch (error) {
           // A failed location attempt must not cancel BLE routing or change
           // the already-persisted SOS into a failed creation.
+          acquisitionFailed = true;
           debugPrint(
-            '[SOS location] acquisition failed type=${error.runtimeType}',
+            '[SOS location] acquisition_failed category=${_locationErrorCategory(error)} elapsedMs=${locationClock.elapsedMilliseconds}',
           );
           locationFeedback.value = _locationFailureMessage(error, l10n);
         }
@@ -2826,12 +3164,16 @@ class _SosPageState extends State<SosPage> {
             );
             routedSos = await widget.repository.findById(sos.id) ?? sos;
             includeLocation = true;
+            debugPrint(
+              '[SOS timing] sos_location_ready incident=${sos.id} '
+              'elapsedMs=${routingClock.elapsedMilliseconds}',
+            );
           } catch (error) {
             debugPrint(
               '[SOS location] update failed type=${error.runtimeType}',
             );
           }
-        } else {
+        } else if (!acquisitionFailed) {
           locationFeedback.value = _locationFailureMessage(
             LocationAcquisitionException(l10n.currentLocationUnavailable),
             l10n,
@@ -2852,6 +3194,10 @@ class _SosPageState extends State<SosPage> {
               ? RelayAuthorizationScope.voluntaryRescue
               : RelayAuthorizationScope.publicEmergencyRelay,
         );
+        debugPrint(
+          '[SOS timing] sos_relay_enqueued incident=${sos.id} '
+          'elapsedMs=${routingClock.elapsedMilliseconds}',
+        );
       }
       await widget.onBleStartRequested?.call();
     } catch (error) {
@@ -2871,6 +3217,8 @@ class _SosPageState extends State<SosPage> {
     if (_sendingSos) {
       return;
     }
+    final creationClock = Stopwatch()..start();
+    debugPrint('[SOS timing] sos_create_started');
     setState(() {
       _sendingSos = true;
     });
@@ -2914,6 +3262,10 @@ class _SosPageState extends State<SosPage> {
         // capability-gated discovery below.
         destinationId: null,
       );
+      debugPrint(
+        '[SOS timing] sos_local_persisted incident=$id '
+        'elapsedMs=${creationClock.elapsedMilliseconds}',
+      );
 
       final created = await widget.repository.findById(id);
       if (created == null) {
@@ -2942,6 +3294,10 @@ class _SosPageState extends State<SosPage> {
         ),
       );
       await _openIncidentChat(created, locationFeedback: locationFeedback);
+      debugPrint(
+        '[SOS timing] sos_chat_opened incident=$id '
+        'elapsedMs=${creationClock.elapsedMilliseconds}',
+      );
     } catch (error) {
       if (!mounted) {
         return;
@@ -3178,6 +3534,13 @@ class _SosPageState extends State<SosPage> {
                               builder: (_) => EmergencyChatPage(
                                 sosId: sos.id,
                                 repository: widget.chatRepository,
+                                attachmentStore:
+                                    widget.bleCoordinator?.mediaStore,
+                                canAttach: () async =>
+                                    await widget.bleCoordinator?.canSendMedia(
+                                      sos.id,
+                                    ) ==
+                                    true,
                                 onMessageCreatedWithDestination: _enqueueChat,
                                 sosDeliveryStream: widget.bleCoordinator
                                     ?.watchDeliveryForSos(sos.id),
@@ -3438,6 +3801,10 @@ class _SosPageState extends State<SosPage> {
         message: sos.message,
         latitude: sos.latitude,
         longitude: sos.longitude,
+        status: status,
+      );
+      await widget.bleCoordinator?.enqueueIncidentLifecycle(
+        sosId: sos.id,
         status: status,
       );
       await widget.bleCoordinator?.cancelPublicRelay(sos.id);

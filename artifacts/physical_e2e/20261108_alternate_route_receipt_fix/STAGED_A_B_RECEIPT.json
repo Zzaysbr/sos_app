@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-08",
+  "device_alias": "A iPhone",
+  "source_sha256": "e96ce1b5836c2c9564d5d4041b32fa95dfb3940357134862f1598bcd50de1618",
+  "build_number": 3,
+  "inspection": "Read-only Documents DB copy from matching saved wired iPhone; quick_check ok; live copy not coordinated snapshot",
+  "operator_observation": "User reports one SOS sent and Location request timed out",
+  "origin": {
+    "active": true,
+    "coordinates_present": false,
+    "signed_origin_present": true
+  },
+  "a_b_receipt": {
+    "attempt_state": "acceptedByRelay",
+    "retry_count": 0,
+    "accepted_at_present": true,
+    "receipt_type": "sos.relay.hop_ack.v2",
+    "receipt_state": "persisted",
+    "signer_matches_previously_observed_samsung_installation_key": true,
+    "attempt_destination_matches_samsung": true,
+    "attempt_and_correlation_match": true,
+    "immutable_digest_matches": true
+  },
+  "scope": "Persisted validated signed hop receipt supports Samsung durable SOS acceptance for this incident. Not iPad reception, final recipient/human acceptance or GPS root cause; signature not independently reverified in this script."
+}

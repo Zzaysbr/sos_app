@@ -4,7 +4,7 @@ description: "A new Flutter project."
 
 publish_to: 'none'
 
-version: 0.1.0+1
+version: 0.1.0+14
 
 environment:
   sdk: ^3.13.5
@@ -42,6 +42,10 @@ dependencies:
   # on either service at runtime.
   cryptography: ^2.9.0
   flutter_secure_storage: ^11.2.0
+  image_picker: ^1.2.4
+  video_player: ^2.14.1
+  flutter_image_compress: ^2.5.1
+  compress_video: ^1.0.0
 
 dev_dependencies:
   flutter_test:
@@ -53,11 +57,18 @@ dev_dependencies:
   drift_dev: ^2.35.1
   build_runner: ^2.16.2
   mocktail: ^1.0.5
+  path_provider_platform_interface: ^2.1.2
 
 dependency_overrides:
+  video_player_avfoundation:
+    path: packages/video_player_avfoundation
+  compress_video:
+    path: packages/compress_video
   flutter_nearby_connections_plus:
     path: packages/flutter_nearby_connections_plus
 
 flutter:
   generate: true
   uses-material-design: true
+  assets:
+    - assets/branding/emergency-icon.png

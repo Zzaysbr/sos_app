@@ -1,0 +1,22 @@
+{
+  "chat_status": "pending",
+  "same_incident_as_android_baseline": true,
+  "incident_status": "active",
+  "signed_origin_still_present": true,
+  "origin_expires_utc": "2026-11-07T14:23:18+00:00",
+  "message_created_utc": "2026-11-07T14:58:22+00:00",
+  "snapshot_utc": "2026-11-07T15:12:42.783328+00:00",
+  "relay": {
+    "state": "queued",
+    "retry_count": 0,
+    "next_retry_at": null,
+    "expires_at": "2026-11-07T15:28:22+00:00",
+    "created_at": "2026-11-07T14:58:22+00:00",
+    "updated_at": "2026-11-07T14:58:22+00:00"
+  },
+  "last_error_static_source_matches": [],
+  "last_error_present": false,
+  "date": "2026-11-07",
+  "scope": "Read-only app SQLite copy, quick_check passed; live copy not coordinated snapshot. Unique normalized synthetic message joined by owner/message; no IDs or content exported.",
+  "interpretation": "Same incident as Android baseline; active incident, signed origin still present, fresh message queued with 0 attempts and no stored error. Sender dispatch/auth readiness still unknown; not final delivery evidence."
+}

@@ -1,0 +1,20 @@
+{
+  "version": "0.1.0+12",
+  "schema": 10,
+  "source_sha256": "00e7c6b3c39ca1177b035459f87e537536b8f0c852a23f40d10eac4485f37d61",
+  "android_profile": {
+    "mode": "profile",
+    "build_exit": 0,
+    "version_code": 12,
+    "signature_valid": true,
+    "same_signing_certificate": true,
+    "aot_libapp_present": true,
+    "debug_kernel_absent": true,
+    "apk_sha256": "5a96b03618289307c518337b0b8f54b6599384a0e470b694fbd3e463bf641a87",
+    "installed": true,
+    "installed_device_aliases": [
+      "Samsung SM-A536E"
+    ]
+  },
+  "ios": "Not rebuilt12; unchanged iOS audio policy, current iPhone Profile11 retained"
+}

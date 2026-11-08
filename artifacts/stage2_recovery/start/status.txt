@@ -1,0 +1,38 @@
+ M WEEK_5_BUG_LOG.md
+ M android/app/src/main/kotlin/com/n1cxltine/sosapp/BleTransportBridge.kt
+ M lib/features/auth/data/auth_service.dart
+ M lib/features/nearby_ble/data/ble_delivery_repository.dart
+ M lib/features/nearby_ble/data/ble_transport.dart
+ M lib/features/nearby_ble/data/chat_relay_repository.dart
+ M lib/features/nearby_ble/data/hop_relay_coordinator.dart
+ M lib/features/nearby_ble/data/relay_diagnostics_repository.dart
+ M lib/features/nearby_ble/data/rescue_inbox_repository.dart
+ M lib/features/nearby_ble/data/sos_ble_coordinator.dart
+ M lib/features/nearby_ble/domain/chat_relay_envelope.dart
+ M lib/features/nearby_ble/presentation/ble_test_page.dart
+ M lib/features/nearby_ble/presentation/relay_diagnostics_page.dart
+ M lib/features/sos/data/sos_repository.dart
+ M lib/features/sos/presentation/sos_page.dart
+ M lib/l10n/app_en.arb
+ M lib/l10n/app_th.arb
+ M lib/l10n/generated/app_localizations.dart
+ M lib/l10n/generated/app_localizations_en.dart
+ M lib/l10n/generated/app_localizations_th.dart
+ M lib/main.dart
+ M test/ble_presence_manager_test.dart
+ M test/hop_relay_coordinator_test.dart
+ M test/password_recovery_test.dart
+ M test/q709_chat_integration_test.dart
+ M test/relay_diagnostics_page_test.dart
+ M test/relay_platform_security_test.dart
+ M test/sos_ble_coordinator_test.dart
+?? artifacts/physical_e2e/20261104_android_auth/
+?? artifacts/stage2_recovery/
+?? lib/features/nearby_ble/data/chat_relay_authorization.dart
+?? lib/features/nearby_ble/data/incident_lifecycle_repository.dart
+?? lib/features/nearby_ble/domain/incident_lifecycle_envelope.dart
+?? test/incident_lifecycle_authorization_test.dart
+?? test/incident_lifecycle_envelope_test.dart
+?? test/stage2_chat_runtime_test.dart
+?? test/stage2_chat_security_test.dart
+?? test/support/

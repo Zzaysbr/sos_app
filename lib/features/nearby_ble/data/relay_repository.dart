@@ -145,8 +145,14 @@ class RelayRepository {
       }
       final existing = await lookupMessage(offer.body.originMessageId);
       if (existing != null) {
-        if (existing.wireEnvelope != wireEnvelope ||
-            existing.incomingPeerId != source) {
+        // An already verified origin can arrive through another authenticated
+        // route. Deduplicate the immutable signed origin, not its mutable hop
+        // envelope/native address; retain the first durable route unchanged.
+        // Locally originated records still reject returning relay loops.
+        if (existing.incomingPeerId == localOriginPeerId ||
+            existing.immutablePayload != immutablePayload ||
+            existing.immutableDigest != immutableDigest ||
+            existing.originSignature != offer.originSignature) {
           throw const RelayPersistenceException(
             'Conflicting relay offer reuses a stored identity.',
           );
@@ -861,9 +867,12 @@ class RelayRepository {
     await cleanupExpired(now: timestamp);
     final rows =
         await (database.select(database.bleRelayMessages)..where(
-              (table) => table.processingState.equals(
-                RelayMessageState.queued.wireValue,
-              ),
+              (table) =>
+                  table.processingState.equals(
+                    RelayMessageState.queued.wireValue,
+                  ) &
+                  table.retentionDeadline.isBiggerThanValue(timestamp) &
+                  table.expiresAt.isBiggerThanValue(timestamp),
             ))
             .get();
     final verified = <BleRelayMessage>[];
@@ -1168,12 +1177,22 @@ class RelayRepository {
     final rows = await database.select(database.bleRelayMessages).get();
     var deleted = 0;
     for (final row in rows) {
-      // An expired relay record is no longer eligible to be displayed or
-      // forwarded. Delete it before reconstructing its signed envelope so a
-      // record written by an older accounting implementation cannot prevent
-      // relay startup forever. This remains fail-closed: only rows whose
-      // persisted retention deadline has already elapsed take this path.
+      // Transport-expired records normally disappear without reconstruction,
+      // so corrupt legacy accounting cannot prevent startup forever. A live
+      // Chat reference may retain verified authorization evidence below;
+      // it never changes the signed lifetime or the forwarding deadline.
       if (!row.retentionDeadline.toUtc().isAfter(timestamp)) {
+        // Transport expiry must not erase the signed authorization needed by
+        // an established conversation or a still-live Chat job. Retained rows
+        // keep their original deadlines/accounting and cannot be forwarded.
+        if (await _hasChatReference(row, timestamp)) {
+          try {
+            await _loadVerifiedOffer(row, timestamp, allowExpired: true);
+            continue;
+          } on RelayPersistenceException {
+            // Expired, corrupt evidence is still purged fail-closed.
+          }
+        }
         deleted +=
             await (database.delete(database.bleRelayMessages)..where(
                   (table) => table.originMessageId.equals(row.originMessageId),
@@ -1199,6 +1218,60 @@ class RelayRepository {
       }
     }
     return deleted;
+  }
+
+  Future<bool> _hasChatReference(BleRelayMessage origin, DateTime now) async {
+    final pending =
+        await (database.select(database.chatRelayOutbox)
+              ..where(
+                (r) =>
+                    r.incidentId.equals(origin.incidentId) &
+                    r.expiresAt.isBiggerThanValue(now) &
+                    r.state.isNotIn(const ['delivered', 'expired']),
+              )
+              ..limit(1))
+            .getSingleOrNull();
+    if (pending != null) return true;
+    final receiptRoute =
+        await (database.select(database.chatReceipts)
+              ..where(
+                (r) =>
+                    r.incidentId.equals(origin.incidentId) &
+                    r.expiresAt.isBiggerThanValue(now),
+              )
+              ..limit(1))
+            .getSingleOrNull();
+    if (receiptRoute != null) return true;
+
+    final active =
+        await (database.select(database.sosMessages)..where(
+              (r) => r.id.equals(origin.incidentId) & r.status.equals('active'),
+            ))
+            .get();
+    for (final incident in active) {
+      final incoming =
+          await (database.select(database.rescueResponseInbox)
+                ..where(
+                  (r) =>
+                      r.ownerId.equals(incident.ownerId) &
+                      r.originMessageId.equals(origin.originMessageId) &
+                      r.state.equals('verified'),
+                )
+                ..limit(1))
+              .getSingleOrNull();
+      if (incoming != null) return true;
+      final outgoing =
+          await (database.select(database.rescueResponseOutbox)
+                ..where(
+                  (r) =>
+                      r.ownerId.equals(incident.ownerId) &
+                      r.originMessageId.equals(origin.originMessageId),
+                )
+                ..limit(1))
+              .getSingleOrNull();
+      if (outgoing != null) return true;
+    }
+    return false;
   }
 
   Future<void> _enforceGlobalQuota({required int deltaBytes}) async {

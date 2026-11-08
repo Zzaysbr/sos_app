@@ -1,0 +1,62 @@
+{
+  "date": "2026-11-09",
+  "user_new_clip_result": "Samsung sends; receiver not yet visible/confirmed",
+  "receiver_capture": [
+    {
+      "bytes": 340644,
+      "complete": true,
+      "chunk_files": 0,
+      "request": {
+        "index": 83,
+        "count": 1,
+        "due": "2026-11-08T18:23:13.478959Z"
+      },
+      "chat": null,
+      "receipt": {
+        "state": "awaiting",
+        "retry_count": 8,
+        "signed": 0,
+        "next_retry_at": 1794163123
+      }
+    },
+    {
+      "bytes": 326721,
+      "complete": false,
+      "chunk_files": 3,
+      "request": {
+        "index": 3,
+        "count": 1,
+        "due": "2026-11-08T18:43:09.738191Z"
+      },
+      "chat": null,
+      "receipt": {
+        "state": "awaiting",
+        "retry_count": 0,
+        "signed": 0,
+        "next_retry_at": null
+      }
+    }
+  ],
+  "scope": "Original340644-byte clip complete but retry8 exhausted; new326721-byte clip3chunks/80, incomplete, receiptawaiting/retry0. Do not conflate.",
+  "status": "Camera recovered case and gallery-video scoped playback/receipt cases accepted; unbroken/repeated reliability not accepted",
+  "new_clip_recovery": {
+    "action": "User Settings Bluetooth iPhone OFF5seconds thenON, same clip retained, no resend",
+    "receiver_count": 1,
+    "video_playback": true,
+    "audio_playback": true,
+    "sender_confirmed_storage": true,
+    "scope": "One operator-reported recovered camera-video case after explicit link reset; not uninterrupted/repeated reliability/latency acceptance"
+  },
+  "gallery_video_latest_capture": {
+    "bytes": 357134,
+    "complete": true,
+    "local_chat": "delivered",
+    "signed_receipt": true,
+    "receipt_state": "queued",
+    "retry_count": 3,
+    "user_count": 1,
+    "user_video_audio_playback": true,
+    "user_sender_confirmed_storage": true
+  },
+  "independent_receipt_crypto": "3 captured inbound receipts verified with production verifier at signed persistence timestamps (2JPEG +cameraMP4), exit0; gallery receipt captured later"
+}

@@ -1,0 +1,150 @@
+{
+  "source_sha256": "ae8ba70574661e4d10739d240a8f71897fa598dcadc76be9a83b4f6d3dbec5ed",
+  "build_number": 5,
+  "schema_version": 10,
+  "status": "SCOPED BUILD 5 RECEIPT ACCEPTANCE COMPLETE: PAIR BOTH DIRECTIONS, ONE OUTAGE RECOVERY, STAGED MULTIHOP BOTH DIRECTIONS AND INCIDENT CLEANUP",
+  "install_policy": "Select wired target before each install; verify source/binary/signature, update same package in place, confirm launch/history; no uninstall/data clear. Schema additive v9\u2192v10, host migration validated.",
+  "checks": [
+    {
+      "id": "PAIR_RECEIPT",
+      "status": "PASS IN THIS FOREGROUND OFFLINE PAIR RUN; SEE CORRELATED DB/CRYPTO EVIDENCE",
+      "expected": "After one synthetic signed Chat each direction on established pair, original sender delivered only after captured verified recipient receipt; receiver exactly one row/ID; retain messages/history"
+    },
+    {
+      "id": "OUTAGE_PENDING",
+      "status": "PASS IN THIS FOREGROUND RADIO-OUTAGE RUN; SEE SIGNED SENDER RECEIPT AND OPERATOR SEQUENCE",
+      "expected": "Receiver radio unavailable leaves sender pending/sent; restore and verify same message/receipt delivered without resend, with persisted IDs/digests"
+    },
+    {
+      "id": "STAGED_MULTIHOP_RECEIPT",
+      "status": "PASS IN ONE STAGED ENDPOINT-EXCLUSIVE STORE-AND-FORWARD RUN; SEE STAGED_DEVICE_RETEST.json",
+      "expected": "Use exclusive endpoint Bluetooth stages through Samsung; capture signed Chat/receipt at B, delivered after receipt reaches origin, one receiver Chat row. Repeat reverse direction within signed TTL/grace"
+    },
+    {
+      "id": "CLOSE",
+      "status": "ORIGIN CANCELLED/HISTORY RETAINED AND RECEIVER LIST/DB TERMINAL CONFIRMED; OS NETWORK/RADIO/RELAY RESTORATION NOT CONFIRMED",
+      "expected": "Origin cancellation/history and receiver list update; save pending queues/settings; explicit operator cleanup"
+    }
+  ],
+  "limits": [
+    "No production ACK suppression/spoof harness; host tests cover deterministic loss/tamper",
+    "No claim of continuous background/OS-kill/general exactly-once",
+    "Mixed old peers lack receipt support; all peers updated before new tests",
+    "Do not resend message to hide timeout; inspect queues before changing incident",
+    "GPS timeout unresolved; location absence must not be called send failure"
+  ],
+  "operator_observations": [
+    {
+      "step": "samsung_build5_launch_history",
+      "result": "User confirms Samsung normal launch and prior history retained after update in place",
+      "scope": "Launch/history only; physical final Chat receipt and exact schema inspection not yet verified. iPhone/iPad remain build 4."
+    },
+    {
+      "step": "iphone_build5_launch_history",
+      "result": "User confirms normal iPhone launch and prior history retained after update in place",
+      "scope": "Launch/history only; exact schema inspection and physical signed final Chat receipt not verified. iPad remains build 4."
+    },
+    {
+      "step": "all_build5_launch_history_and_ipad_archive_confirmed",
+      "result": "User confirms iPad normal launch/history and old archived entries remain hidden. Samsung/iPhone launches/history previously confirmed. All three build 5.",
+      "scope": "Operator-confirmed launch/history/archive UI only; exact schema and physical final Chat receipt acceptance pending."
+    },
+    {
+      "step": "build5_offline_pair_ready",
+      "result": "User confirms iPad Bluetooth fully off in Settings; iPhone/Samsung apps foreground/unlocked with Bluetooth on and Wi-Fi/mobile data off; Samsung Rescue listening and Nearby SOS Relay enabled",
+      "scope": "Operator preparation only; no new SOS/reception/final receipt yet."
+    },
+    {
+      "step": "build5_pair_new_sos_visible",
+      "result": "User confirms Samsung sees new SOS sent once from iPhone",
+      "scope": "One foreground offline SOS visibility observation on build 5; Help Offer and signed final Chat receipt not yet checked. No coordinate/precise latency claim."
+    },
+    {
+      "step": "build5_pair_iphone_verified_help_offer",
+      "result": "User confirms current iPhone Chat shows Verified help offer received (1) after instructed single Samsung Offer Help",
+      "scope": "One verified offer UI observation; Samsung final Offer ACK and signed final Chat receipt remain pending."
+    },
+    {
+      "step": "build5_pair_samsung_offer_delivered",
+      "result": "User confirms Samsung current incident Offer delivery is delivered after iPhone verified offer count 1",
+      "scope": "One build 5 Help Offer round-trip UI case; distinct from signed final Chat receipt, still to test."
+    },
+    {
+      "step": "build5_pair_forward_chat_visible_once",
+      "result": "User confirms RECEIPT-A-C-01 sent once from iPhone appears once in Samsung current Chat",
+      "scope": "One receiver visibility observation only; sender delivered status and captured signed final receipt not yet confirmed."
+    },
+    {
+      "step": "build5_iphone_forward_chat_confirmed_stored_label",
+      "result": "User reports timestamp and Confirmed stored on the selected nearby device for sent RECEIPT-A-C-01. Source EmergencyChatPage._statusLabel maps ChatDeliveryStatus.delivered to this text.",
+      "scope": "One source-interpreted sender delivered UI report with prior Samsung single-message visibility; captured signed receipt/digest/participant DB comparison still pending. Earlier assistant suggestion this label might be SOS-only was corrected after source inspection."
+    },
+    {
+      "step": "build5_reverse_chat_visible_once_at_iphone",
+      "result": "User confirms RECEIPT-C-A-01 sent once from Samsung appears once in current iPhone Chat",
+      "scope": "One reverse receiver visibility observation; Samsung sender delivered label and captured signed receipt comparison pending."
+    },
+    {
+      "step": "build5_samsung_reverse_confirmed_stored_label",
+      "result": "User confirms Samsung RECEIPT-C-A-01 sender label shows Confirmed stored; source maps this Chat label to delivered",
+      "scope": "One operator-confirmed delivered label per sender and one receiver message each direction; captured receipt signatures/IDs/digests/participants remain to inspect."
+    },
+    {
+      "step": "pair_samsung_receipt_db_crypto",
+      "result": "Samsung read-only DB quick_check ok/schema10; one local Chat row per marker delivered. Forward receiver receipt queued, reverse sender receipt applied/outbox delivered. Captured pair receipt signatures/digest/parties test passed.",
+      "scope": "Samsung physical DB and crypto evidence; iPhone same-envelope/receipt correlation pending."
+    },
+    {
+      "step": "pair_iphone_receipt_db_correlation",
+      "result": "iPhone matching wired read-only DB quick_check ok/schema10. Both exact message IDs/incident/envelopes and canonical receipts match Samsung; one local delivered Chat row each. Sender forward receipt applied, generated reverse receipt queued.",
+      "scope": "One physical pair signed final receipt round each direction with independent prior crypto validation; outage/multihop pending."
+    },
+    {
+      "step": "pair_outage_samsung_radio_off",
+      "result": "User confirms Samsung Bluetooth fully off in system Settings, with iPhone app/Bluetooth on and iPad Bluetooth off as instructed",
+      "scope": "Outage preparation only; no outage test message sent/observed yet. Not ACK suppression or process-kill test."
+    },
+    {
+      "step": "pair_outage_message_pending_before_reconnect",
+      "result": "User confirms single RECEIPT-OUTAGE-01 send from iPhone displays Queued/Pending while Samsung Bluetooth remains off",
+      "scope": "One operator-observed pending UI case before reconnect, no false confirmed-storage label observed. Receiver recovery and signed receipt still pending."
+    },
+    {
+      "step": "pair_outage_original_message_recovered_once",
+      "result": "User confirms Samsung sees original RECEIPT-OUTAGE-01 once after restoring Bluetooth, without resend, within instructed observation window",
+      "scope": "One foreground radio-outage recovery/visibility case; no measured latency, sender delivered/receipt verification still pending."
+    },
+    {
+      "step": "pair_outage_sender_receipt_db_crypto",
+      "result": "User confirms Confirmed stored on original outage message; iPhone read-only DB quick_check ok, one delivered Chat row, outbox delivered, receipt applied. Captured final-recipient receipt verification passed 1 test, same baseline incident/parties.",
+      "scope": "One foreground outage recovery/receipt case; no measured latency/process-kill/multihop guarantee."
+    },
+    {
+      "step": "build5_pair_origin_cancelled_history_retained",
+      "result": "User confirms current pair test SOS cancelled on iPhone and history retained",
+      "scope": "Origin cancellation/history UI only; Samsung Helping-list update pending. Pair signed Chat receipt/outage evidence already captured; no new SOS."
+    },
+    {
+      "step": "build5_pair_cancelled_incident_removed_from_samsung_helping",
+      "result": "User confirms latest pair test incident cancelled on iPhone disappeared from Samsung Helping list",
+      "scope": "One current-incident receiver list-update UI case; origin history retained previously. No signed lifecycle final ACK claim."
+    },
+    {
+      "step": "build5_staged_receipt_acceptance_closed",
+      "result": "See final staged C DB/signature correlation and scoped complete session summary",
+      "scope": "Feature acceptance evidence limited to explicitly recorded pair/outage/staged runs; GPS and broader release matrix remain open."
+    }
+  ],
+  "pair_session_summary": {
+    "supported": [
+      "Foreground offline signed final Chat receipt each direction with matched endpoint IDs/envelopes/receipts and captured crypto revalidation",
+      "One original queued Chat recovered after Samsung Bluetooth off/on without resend, receiver once, signed recipient receipt applied at sender",
+      "Origin cancellation/history retained and Samsung Helping-list removal operator-confirmed"
+    ],
+    "pending": [
+      "Staged physical multihop signed receipt",
+      "No repeated/long-idle/OS-kill/exact latency claims"
+    ],
+    "last_operator_radio_state": "iPhone/Samsung on; iPad off; Internet off; listening/relay settings not restored"
+  }
+}

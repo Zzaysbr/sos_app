@@ -1,0 +1,8 @@
+{
+  "source_sha256": "0dc633903e3e807d1d5f94e45bf19d1b2f51afeca6212ec035c45454462e1fae",
+  "build_number": 2,
+  "operator_result": "Current location found. This check did not share coordinates.",
+  "coordinates_exported": false,
+  "new_sos_created_by_check": false,
+  "scope": "Successful current-location check only; no claim about original physical failure cause or SOS propagation"
+}

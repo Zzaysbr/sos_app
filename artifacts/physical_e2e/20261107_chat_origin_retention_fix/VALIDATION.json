@@ -1,0 +1,52 @@
+{
+  "date": "2026-11-07",
+  "timezone": "Asia/Bangkok",
+  "source_sha256": "4f920365e88ea36e3ac2dc46dff0d4573794aa35a6d8ce30ff52fc8379b11f6e",
+  "runs": [
+    {
+      "command": "flutter test --no-pub test/chat_origin_retention_test.dart --reporter expanded",
+      "passed": 0,
+      "failed": 3,
+      "exit_code": 1,
+      "completion": "00:01 +0 -3: Some tests failed.",
+      "scope": "Three initial core scenarios before production fix."
+    },
+    {
+      "command": "flutter test --no-pub test/chat_origin_retention_test.dart test/relay_repository_test.dart test/stage2_chat_security_test.dart --reporter expanded",
+      "passed": 72,
+      "failed": 0,
+      "exit_code": 0,
+      "completion": "00:05 +72: All tests passed!",
+      "scope": "Final six retention scenarios, including outgoing-offer/resolver assertions; repository and security tests."
+    },
+    {
+      "command": "flutter test --no-pub --reporter expanded",
+      "passed": 557,
+      "failed": 0,
+      "exit_code": 0,
+      "completion": "00:33 +557: All tests passed!",
+      "scope": "Final production source; before final outgoing-offer/resolver test assertions, subsequently covered by focused rerun."
+    },
+    {
+      "command": "dart analyze lib test regression",
+      "passed": null,
+      "failed": null,
+      "exit_code": 0,
+      "completion": "No issues found!",
+      "scope": "Final source and tests."
+    },
+    {
+      "command": "flutter test --no-pub regression/stage2_remaining_contract_test.dart --reporter expanded",
+      "passed": 0,
+      "failed": 1,
+      "exit_code": 1,
+      "completion": "00:01 +0 -1: Some tests failed.",
+      "scope": "Unchanged deferred signed final Chat receipt remains failing."
+    }
+  ],
+  "device_verification": "NOT RUN for retention-fix source. Prior device observations refer to composer source aa43b89.",
+  "behavior": "Retain verified SOS origin as historical authorization only while live Chat references exist. Preserve original signed expiry/forwarding deadline and existing byte/count quotas. Release expired evidence after references end; purge corrupt expired origins.",
+  "security": "No signature, participant, session, expiry, path, owner or replay validation bypass; no schema/wire changes.",
+  "simulation_boundary": "Real production coordinators/crypto/SQLite with fake BLE, virtual time and already-verified SOS/Help Offer fixture boundaries; not physical timing evidence.",
+  "remaining": "Cannot recover previously deleted signed origins from unsigned history. Chat transport lifetime stays 30 minutes. Signed final Chat receipt remains unimplemented."
+}

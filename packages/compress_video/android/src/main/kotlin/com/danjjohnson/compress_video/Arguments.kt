@@ -1,0 +1,295 @@
+package com.danjjohnson.compress_video
+
+import java.io.File
+
+/**
+ * Pure argument validation for a path about to be handed to a native file API.
+ *
+ * No file API beyond [File] itself is touched until this passes -- [Probe] calls this first,
+ * on every request.
+ */
+object Arguments {
+    /**
+     * Resolves [path] to its canonical form and returns it as an existing, readable,
+     * non-empty regular [File], or throws a [CompressVideoError] naming the specific
+     * rejection reason.
+     *
+     * Canonicalising the path before use means a relative or traversing path cannot reach
+     * outside what the caller's own process could already read -- the plugin runs inside the
+     * host app's own sandbox, so this control cannot grant access the caller did not already
+     * have. It exists to turn a traversal attempt into a typed [CompressVideoError] instead of
+     * an unexpected native failure.
+     */
+    fun requireReadableMediaFile(path: String): File {
+        if (path.isBlank()) {
+            throw CompressVideoError(
+                "unsupportedInput",
+                "path must not be empty or whitespace-only",
+            )
+        }
+
+        val canonical =
+            try {
+                File(path).canonicalFile
+            } catch (e: Exception) {
+                throw CompressVideoError("fileNotFound", "Could not resolve path", e.message)
+            }
+
+        if (!canonical.exists() || !canonical.isFile) {
+            throw CompressVideoError("fileNotFound", "No readable file at the given path")
+        }
+        if (!canonical.canRead()) {
+            throw CompressVideoError("fileNotFound", "File exists but is not readable")
+        }
+        if (canonical.length() == 0L) {
+            throw CompressVideoError("unsupportedInput", "File is empty")
+        }
+
+        return canonical
+    }
+
+    /**
+     * Resolves [outputPath] to its canonical form and requires its parent directory to already
+     * exist and be writable, throwing a [CompressVideoError] with reason `"io"` if either
+     * requirement fails -- before any bytes are written. This is the [T-01-11] traversal
+     * mitigation: a canonicalised path cannot resolve outside what the caller's own process
+     * could already write, and turning a bad destination into a typed error here means the
+     * caller never sees a partial file or an unexpected native failure.
+     */
+    fun requireWritableOutputParent(outputPath: String): File {
+        val canonical =
+            try {
+                File(outputPath).canonicalFile
+            } catch (e: Exception) {
+                throw CompressVideoError("io", "Could not resolve outputPath", e.message)
+            }
+
+        // CR-01 parity with darwin's Arguments.swift: reject an outputPath that already names
+        // an existing directory here, before any encode is attempted, rather than only
+        // discovering it when PluginFiles.moveIntoPlace's File.renameTo fails at the very end
+        // of a (wasted) full encode.
+        if (canonical.isDirectory) {
+            throw CompressVideoError("io", "outputPath already exists as a directory")
+        }
+
+        val parent = canonical.parentFile
+        if (parent == null || !parent.exists() || !parent.isDirectory) {
+            throw CompressVideoError("io", "outputPath's parent directory does not exist")
+        }
+        if (!parent.canWrite()) {
+            throw CompressVideoError("io", "outputPath's parent directory is not writable")
+        }
+
+        return canonical
+    }
+
+    /**
+     * Returns `"unsupportedInput"` if `positionMs` is negative, or `null` if it is valid.
+     *
+     * There is no frame before the start of a clip, so a negative position is a caller bug --
+     * this is deliberately an error rather than a silent clamp to `0`, which would hide it.
+     */
+    fun validatePositionMs(positionMs: Long): String? = if (positionMs < 0) "unsupportedInput" else null
+
+    /**
+     * Returns `"unsupportedInput"` if `quality` is outside 1 to 100 inclusive (the JPEG
+     * quality range the option name promises), or `null` if it is valid.
+     */
+    fun validateQuality(quality: Long): String? =
+        if (quality < 1 || quality > 100) "unsupportedInput" else null
+
+    /**
+     * Returns `"unsupportedInput"` if `maxDimensionPx` is given and not positive, or `null` if
+     * it is valid (including when it is `null`, meaning "no cap").
+     */
+    fun validateMaxDimensionPx(maxDimensionPx: Long?): String? =
+        if (maxDimensionPx != null && maxDimensionPx <= 0) "unsupportedInput" else null
+
+    /**
+     * Returns `"unsupportedInput"` if `outputPath` is given and blank, or `null` if it is
+     * valid (including when it is `null`, meaning "use the default cache location").
+     */
+    fun validateOutputPath(outputPath: String?): String? =
+        if (outputPath != null && outputPath.isBlank()) "unsupportedInput" else null
+
+    /**
+     * Runs every thumbnail argument check and throws a [CompressVideoError] naming the first
+     * violated reason, or returns normally if all four are valid.
+     *
+     * These mirror the Dart-side checks in `CompressVideo` deliberately: the Dart side gives a
+     * fast local failure without crossing the channel, while this is the authority for any
+     * caller that reaches the channel another way (for example, a different language binding
+     * calling the generated host API directly).
+     */
+    fun requireValidThumbnailArgs(
+        positionMs: Long,
+        quality: Long,
+        maxDimensionPx: Long?,
+        outputPath: String?,
+    ) {
+        val violatedReason =
+            validatePositionMs(positionMs)
+                ?: validateQuality(quality)
+                ?: validateMaxDimensionPx(maxDimensionPx)
+                ?: validateOutputPath(outputPath)
+        if (violatedReason != null) {
+            throw CompressVideoError(violatedReason, "Invalid thumbnail argument")
+        }
+    }
+
+    /**
+     * Returns `"unsupportedInput"` if `maxFps` is not positive, or `null` if it is valid.
+     */
+    fun validateMaxFps(maxFps: Long): String? = if (maxFps <= 0) "unsupportedInput" else null
+
+    /**
+     * Returns `"unsupportedInput"` if `maxLongSidePx` is given and below `16` -- the
+     * emulator's own H.264 encoder's advertised minimum frame dimension (02-RESEARCH.md
+     * Pitfall 3) -- or `null` if it is valid (including `16` itself, and including `null`,
+     * meaning "use the preset's own value").
+     */
+    fun validateMaxLongSidePx(maxLongSidePx: Long?): String? =
+        if (maxLongSidePx != null && maxLongSidePx < 16) "unsupportedInput" else null
+
+    /**
+     * Returns `"unsupportedInput"` if `videoBitrateBps` is given and not positive, or `null`
+     * if it is valid (including `null`, meaning "resolve it from the preset or targetSizeMb").
+     */
+    fun validateVideoBitrateBps(videoBitrateBps: Long?): String? =
+        if (videoBitrateBps != null && videoBitrateBps <= 0) "unsupportedInput" else null
+
+    /**
+     * Returns `"unsupportedInput"` if `targetSizeMb` is given and is not a finite, positive
+     * number, or `null` if it is valid (including `null`, meaning "no target size requested").
+     */
+    fun validateTargetSizeMb(targetSizeMb: Double?): String? =
+        if (targetSizeMb != null && (!targetSizeMb.isFinite() || targetSizeMb <= 0)) {
+            "unsupportedInput"
+        } else {
+            null
+        }
+
+    /**
+     * Returns `"unsupportedInput"` if `targetSizeMb` and `videoBitrateBps` are both given --
+     * contradictory targets for the same output size -- or `null` otherwise.
+     */
+    fun validateSizeTargetsNotContradictory(
+        targetSizeMb: Double?,
+        videoBitrateBps: Long?,
+    ): String? = if (targetSizeMb != null && videoBitrateBps != null) "unsupportedInput" else null
+
+    /**
+     * Returns `"unsupportedInput"` if `trimStartMs` is negative, or if `trimEndMs` is given
+     * and not strictly greater than `trimStartMs` (defaulting to `0` when `trimStartMs` is
+     * `null`), or `null` if the trim range is valid.
+     */
+    fun validateTrimRange(
+        trimStartMs: Long?,
+        trimEndMs: Long?,
+    ): String? {
+        if (trimStartMs != null && trimStartMs < 0) {
+            return "unsupportedInput"
+        }
+        if (trimEndMs != null && trimEndMs <= (trimStartMs ?: 0L)) {
+            return "unsupportedInput"
+        }
+        return null
+    }
+
+    /**
+     * Returns `"unsupportedInput"` if `videoCodec` is anything other than `"h264"` or
+     * `"hevc"`, or `null` if it is valid. This validator only checks the STRING is one of the
+     * two known tokens -- it says nothing about whether HEVC is actually achievable on this
+     * device. HEVC is honoured only when [CodecCapabilities.hasHardwareEncoder] finds a
+     * hardware HEVC encoder (CDEC-01); otherwise the engine falls back to H.264 and the result
+     * reports `hevcFallback: true`.
+     */
+    fun validateVideoCodec(videoCodec: String): String? =
+        if (videoCodec != "h264" && videoCodec != "hevc") "unsupportedInput" else null
+
+    /**
+     * Returns `"unsupportedInput"` if `hdrMode` is anything other than `"toneMapToSdr"` or
+     * `"keepHdr"`, or `null` if it is valid. This validator only checks the STRING is one of
+     * the two known tokens -- it says nothing about whether keep-HDR is actually achievable on
+     * this device. Keep-HDR is honoured only when [CodecCapabilities.supportsHdrEditing] finds
+     * a hardware HEVC encoder that can keep the source's own transfer function (CDEC-03);
+     * otherwise the engine falls back to tone-mapped SDR H.264 and the result reports both
+     * `toneMapped: true` and `hevcFallback: true`.
+     */
+    fun validateHdrMode(hdrMode: String): String? =
+        if (hdrMode != "toneMapToSdr" && hdrMode != "keepHdr") "unsupportedInput" else null
+
+    /**
+     * Returns `"unsupportedInput"` when `audioMode` is [AudioModeMessage.REENCODE] and either
+     * `audioBitrateBps` is not positive or `audioChannels` is outside `1` to `2` inclusive, or
+     * `null` if the combination is valid (including any other [audioMode], where these two
+     * fields are not required to be set at all).
+     */
+    fun validateAudioReencode(
+        audioMode: AudioModeMessage,
+        audioBitrateBps: Long?,
+        audioChannels: Long?,
+    ): String? {
+        if (audioMode != AudioModeMessage.REENCODE) {
+            return null
+        }
+        if (audioBitrateBps == null || audioBitrateBps <= 0) {
+            return "unsupportedInput"
+        }
+        if (audioChannels == null || audioChannels < 1 || audioChannels > 2) {
+            return "unsupportedInput"
+        }
+        return null
+    }
+
+    /**
+     * Returns `"unsupportedInput"` if `androidForegroundService` is given and its title or
+     * text is blank, or `null` if it is valid (including `null`, meaning "did not opt in").
+     *
+     * Mirrors `CompressOptions.validate()`'s Dart-side check deliberately: this is the
+     * authority for any caller that reaches the generated host API another way.
+     */
+    fun validateAndroidForegroundService(
+        androidForegroundService: AndroidForegroundServiceOptionsMessage?,
+    ): String? {
+        val options = androidForegroundService ?: return null
+        if (options.notificationTitle.isBlank()) {
+            return "unsupportedInput"
+        }
+        if (options.notificationText.isBlank()) {
+            return "unsupportedInput"
+        }
+        return null
+    }
+
+    /**
+     * Runs every compress-request argument check, in the same order as
+     * `CompressOptions.validate()`, and throws a [CompressVideoError] naming the first
+     * violated reason -- or returns normally if [request] is entirely valid.
+     *
+     * Mirrors the Dart-side checks deliberately: the Dart side gives a fast local failure
+     * without crossing the channel (T-02-11's primary mitigation), while this is the
+     * authority for any caller that reaches the generated host API another way.
+     */
+    fun requireValidCompressRequest(request: CompressRequestMessage) {
+        val violatedReason =
+            validateMaxFps(request.maxFps)
+                ?: validateMaxLongSidePx(request.maxLongSidePx)
+                ?: validateVideoBitrateBps(request.videoBitrateBps)
+                ?: validateTargetSizeMb(request.targetSizeMb)
+                ?: validateSizeTargetsNotContradictory(request.targetSizeMb, request.videoBitrateBps)
+                ?: validateTrimRange(request.trimStartMs, request.trimEndMs)
+                ?: validateOutputPath(request.outputPath)
+                ?: validateVideoCodec(request.videoCodec)
+                ?: validateHdrMode(request.hdrMode)
+                ?: validateAudioReencode(
+                    request.audioMode,
+                    request.audioBitrateBps,
+                    request.audioChannels,
+                )
+                ?: validateAndroidForegroundService(request.androidForegroundService)
+        if (violatedReason != null) {
+            throw CompressVideoError(violatedReason, "Invalid compress request argument")
+        }
+    }
+}

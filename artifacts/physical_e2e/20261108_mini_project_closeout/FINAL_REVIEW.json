@@ -1,0 +1,49 @@
+{
+  "date": "2026-11-08",
+  "version": "0.1.0+5",
+  "schema": 10,
+  "manifest_checks": [
+    {
+      "manifest": "artifacts/physical_e2e/20261108_final_chat_receipt/source_manifest.json",
+      "entries": 148,
+      "mismatches": []
+    },
+    {
+      "manifest": "artifacts/physical_e2e/20261108_final_chat_receipt/test_manifest.json",
+      "entries": 73,
+      "mismatches": []
+    }
+  ],
+  "documentation_files": [
+    {
+      "path": "README.md",
+      "sha256": "7187d2ec347635fab44c22527d3df5039496228261dc724dfad88570932f8fba"
+    },
+    {
+      "path": "PROJECT_CONTEXT.md",
+      "sha256": "16bac9e1dad0fcf81f1a15bb529146c29d1b105a0eeb2f9d864ecc9de813294d"
+    },
+    {
+      "path": "scripts/test_firestore_rules.py",
+      "sha256": "08297c15705c624d7d5856824a774b0632101191faf20c83a55f9363f7151241"
+    },
+    {
+      "path": "security-tests/firestore.rules.test.js",
+      "sha256": "f35b02c462100986fcd687a12ebeabd4ebe38b9aeb7601f5c5cc3a34dd26707b"
+    },
+    {
+      "path": "security-tests/firestore.rules",
+      "sha256": "c060e996c5fdcf9771487693a8cc62da06b39163ddb0a4e9af78771bc23217f7"
+    },
+    {
+      "path": "artifacts/physical_e2e/20261108_mini_project_closeout/HANDOVER.md",
+      "sha256": "b3454f4e068a0c1d7bd66a4f39c5419509925a2923b43b0ed1590f3f1a868057"
+    },
+    {
+      "path": "artifacts/physical_e2e/20261108_mini_project_closeout/CHECKLIST.json",
+      "sha256": "adb8af79e343c5d3dde2e8cb11257a86aaa70fe20c857c4b1494508503932aa7"
+    }
+  ],
+  "scope": "Review of file hashes and documented evidence, no app changes, no full suite rerun, no blanket mini-project or production release approval",
+  "delivery_limit": "Existing uncommitted working tree; no source archive or commit generated; rubric/delivery format pending"
+}

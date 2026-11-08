@@ -1,0 +1,24 @@
+{
+  "date": "2026-11-07",
+  "source_sha256": "cdf31273254c2397e7544144dd87179272964025c3fef247e24c0ee59228e99f",
+  "topology": "iPhone-Android; offline, foreground; iPad Bluetooth off",
+  "pass_operator_reported": [
+    "New SOS received on Android once.",
+    "iPhone verified Help Offer count 1.",
+    "Android Offer delivery delivered.",
+    "TEST-CHAT-02 visible once on Android."
+  ],
+  "fail_operator_reported": [
+    "iPhone send button remains loading/disabled after another 15 seconds."
+  ],
+  "not_run": [
+    "Reverse Chat",
+    "Bluetooth reconnect/one-sided resume acceptance",
+    "Repeated reliability",
+    "Three-node routing",
+    "Signed final Chat receipt (unimplemented)"
+  ],
+  "closure": "User canceled test SOS; history retained. Network/relay settings restoration not confirmed.",
+  "interpretation": "Receiver arrival does not validate sender composer or signed final Chat receipt. Do not claim pair baseline fully passed.",
+  "next": "Fix SosPage callback waiting for full BLE drain; host regression then new builds and stepwise device installation."
+}

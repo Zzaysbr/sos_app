@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-08",
+  "device_alias": "Samsung SM-A536E",
+  "known_wired_target": true,
+  "before_version": 6,
+  "after_version": 7,
+  "install_exit": 0,
+  "launch_command_exit": 0,
+  "update_in_place": true,
+  "uninstall_or_data_clear": false,
+  "before_after_quick_check": "ok",
+  "schema": 10,
+  "application_rows": {
+    "sos_messages": {
+      "before": 23,
+      "after": 23,
+      "all_original_rows_retained": true,
+      "immutable_history_unchanged": true
+    },
+    "chat_messages": {
+      "before": 55,
+      "after": 55,
+      "all_original_rows_retained": true,
+      "immutable_history_unchanged": true
+    }
+  },
+  "physical_retest": "PASS: user reports history normal and OFFLINE-TEST-01 download completed without red screen on 2026-11-08"
+}

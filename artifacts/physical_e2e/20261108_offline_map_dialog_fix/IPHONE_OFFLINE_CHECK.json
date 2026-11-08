@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-08",
+  "device_alias": "iPhone 15 Plus",
+  "build": 7,
+  "online_download_user_report": "PASS: app/history normal; region downloaded without error",
+  "stored_files_copy_exit": 0,
+  "stored_region_summaries": [
+    {
+      "requested_alias_match": false,
+      "manifest_tiles": 42,
+      "actual_tile_files": 42,
+      "manifest_bytes": 363177,
+      "actual_tile_bytes": 363177,
+      "min_zoom": 15,
+      "max_zoom": 16
+    }
+  ],
+  "offline_cold_reopen": "PASS OPERATOR REPORT: user confirms both Wi-Fi/mobile data off, instructed App Switcher close/reopen and base tiles/incident marker/small in-area pan visible at unchanged zoom16",
+  "scope": "One iPhone stored-region offline render case supported by user-confirmed network off/close-reopen/render and private copied42 tiles/363177bytes matching manifest (stored zoom15-16; visual check16 only). No independent radio/process instrumentation or other areas/zooms inferred."
+}

@@ -12,7 +12,31 @@ void main() {
     verifier = SchemaVerifier(GeneratedHelper());
   });
 
-  test('authoritative v5 schema migrates to v9 without data loss', () async {
+  test('v9 upgrades preserving archived candidates and queued Chat', () async {
+    final schema = await verifier.schemaAt(9);
+    addTearDown(schema.close);
+    schema.rawDatabase.execute(
+      "INSERT INTO chat_relay_outbox VALUES ('owner','message','incident','sender','recipient','payload','queued',1,2,NULL,1000,100,101,NULL)",
+    );
+    schema.rawDatabase.execute(
+      "INSERT INTO rescue_inbox VALUES ('owner','origin','incident','key','digest','emergency','saved',0,NULL,NULL,0,'[]',100,1000,100,'archivedLocally',NULL,NULL)",
+    );
+    final db = AppDatabase.forTesting(schema.newConnection());
+    addTearDown(db.close);
+    await verifier.migrateAndValidate(
+      db,
+      10,
+      options: const ValidationOptions(validateDropped: true),
+    );
+    expect(
+      (await db.select(db.rescueInbox).getSingle()).state,
+      'archivedLocally',
+    );
+    expect((await db.select(db.chatRelayOutbox).getSingle()).retryCount, 2);
+    expect(await db.select(db.chatReceipts).get(), isEmpty);
+  });
+
+  test('authoritative v5 schema migrates to v10 without data loss', () async {
     final schema = await verifier.schemaAt(5);
     addTearDown(schema.close);
     final raw = schema.rawDatabase;
@@ -47,7 +71,7 @@ void main() {
     addTearDown(migrated.close);
     await verifier.migrateAndValidate(
       migrated,
-      9,
+      10,
       options: const ValidationOptions(validateDropped: true),
     );
 
@@ -106,14 +130,14 @@ void main() {
     expect(await migrated.select(migrated.bleRelayReceipts).get(), isEmpty);
   });
 
-  test('authoritative v7 schema upgrades to v9 and validates', () async {
+  test('authoritative v7 schema upgrades to v10 and validates', () async {
     final connection = await verifier.startAt(7);
     final database = AppDatabase.forTesting(connection);
     addTearDown(database.close);
 
     await verifier.migrateAndValidate(
       database,
-      9,
+      10,
       options: const ValidationOptions(validateDropped: true),
     );
     expect(await database.select(database.sosMessages).get(), isEmpty);
@@ -133,7 +157,7 @@ void main() {
     ''');
       final database = _FailingMigrationDatabase(schema.newConnection());
       await expectLater(
-        verifier.migrateAndValidate(database, 9),
+        verifier.migrateAndValidate(database, 10),
         throwsA(anything),
       );
       await database.close();

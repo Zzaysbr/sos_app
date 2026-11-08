@@ -1,0 +1,304 @@
+{
+  "files": [
+    {
+      "path": "drift_schemas/drift_schema_v10.json",
+      "sha256": "f9a385d4282269f70b60e3349c84c9a3e69def91d28b7f5f14536dad86753d77"
+    },
+    {
+      "path": "drift_schemas/drift_schema_v5.json",
+      "sha256": "50108c6a5ca8b042cabd0c28596d94481296cc7b1445d60bc68aa34c3b72f929"
+    },
+    {
+      "path": "drift_schemas/drift_schema_v6.json",
+      "sha256": "416d7478bc6c0b84ff29f82ce720b6afa9eee014cfba13cc00d5c4cfa63c64fa"
+    },
+    {
+      "path": "drift_schemas/drift_schema_v7.json",
+      "sha256": "47d96ee7649b3432f8e1257e36fee67c09d6e2e5e3d0ea7aaa704ee50cede676"
+    },
+    {
+      "path": "drift_schemas/drift_schema_v8.json",
+      "sha256": "58f7ee3becfde8f66e5f3347f58ac1958ecb6946882896c3773afc07b6beafe6"
+    },
+    {
+      "path": "drift_schemas/drift_schema_v9.json",
+      "sha256": "c4a613d3a9f6145afab1fa59cf88b48acc1b0dba1abf5f86fa152d447a873076"
+    },
+    {
+      "path": "regression/stage2_remaining_contract_test.dart",
+      "sha256": "0a2c19b342fcc1170ad8e248215f00598ad9d7ee88f24e6c4c25a132510120b7"
+    },
+    {
+      "path": "test/auth_page_test.dart",
+      "sha256": "9e75d50e5f5c4f81728143859c6655e6d6c7fdf374c1b38a03d90fd5792e101d"
+    },
+    {
+      "path": "test/auth_session_navigator_test.dart",
+      "sha256": "3f0d7e05d0b176e3b459e148d6170650e54bbb340e0b00234c61bec3a8bddc21"
+    },
+    {
+      "path": "test/ble_connection_events_test.dart",
+      "sha256": "2dc3b68e1d3830de0b20ea55c65dc65536e593a11f3cebfcb1c42b1d30ee98af"
+    },
+    {
+      "path": "test/ble_connection_generation_test.dart",
+      "sha256": "d982eb4a273460c8d91bc326b35f91c26cb34c1795744e51f3c304f4f83f1d78"
+    },
+    {
+      "path": "test/ble_delivery_repository_test.dart",
+      "sha256": "e0e2206bfad66de03e58b5edef0751ddbb060ef671ca5f35597f7b8f357ea394"
+    },
+    {
+      "path": "test/ble_identity_release_gate_test.dart",
+      "sha256": "28cc07487361929d7644d46d0ea86b03746ed94ba19f08b91157b41780b15b36"
+    },
+    {
+      "path": "test/ble_models_test.dart",
+      "sha256": "58e31f4e755726c7aa5d8e36ec85979597c49959254102ece9661a610601e1ad"
+    },
+    {
+      "path": "test/ble_presence_manager_test.dart",
+      "sha256": "cf1805d1758fe265eb88a778c3ef2b21aaff539578b2baa1b78715742f5f7883"
+    },
+    {
+      "path": "test/ble_protocol_test.dart",
+      "sha256": "5a252818e17ac7afbec8ed36097e5069f4e281db682a2c90599e65a986f5bc0e"
+    },
+    {
+      "path": "test/ble_range_diagnostic_test.dart",
+      "sha256": "4c991efde132ea247e69604bab0c05eb02d0f51ff76e568ebcf8d9a7b52ae4f3"
+    },
+    {
+      "path": "test/ble_session_lifecycle_test.dart",
+      "sha256": "c73c1e17e5d599c0c6e018622db17886a774e7aed2d43d09f115ac78e3e26231"
+    },
+    {
+      "path": "test/ble_start_order_test.dart",
+      "sha256": "2d888863ee59a66a06868689000ef164a05e1a691dd601362e21d171497853d0"
+    },
+    {
+      "path": "test/ble_test_page_test.dart",
+      "sha256": "6dd221e43ecec73b9512f910d7ac3500445e507fdd90d9ab9e588541c66eeaa6"
+    },
+    {
+      "path": "test/ble_transport_test.dart",
+      "sha256": "4b1f7c96554936ac70edcaf29eeb4269b14f38faedad73504be5045d5b34d33e"
+    },
+    {
+      "path": "test/chat_final_receipt_test.dart",
+      "sha256": "045273950bea63ffb85ed29a4fbd7649f850517ebd2759b1e0c5fecd44c2df6c"
+    },
+    {
+      "path": "test/chat_media_picker_test.dart",
+      "sha256": "c07450449178d6d0c9341a6f374413ff641af44d2499bb4468f95b1a1bf1f0b7"
+    },
+    {
+      "path": "test/chat_notifications_test.dart",
+      "sha256": "500d3590b9e64e99b0ca25c58790d87e598fc5377988696483639f56744df138"
+    },
+    {
+      "path": "test/chat_origin_retention_test.dart",
+      "sha256": "ad04bad57ec354b27d54ab55e36faf4e788d3ee1f9fde1264c6ea0baf371c47d"
+    },
+    {
+      "path": "test/chat_relay_envelope_test.dart",
+      "sha256": "af508370ef03d61e78d138204759d882dc40591dbdc9db0b9ffead5d2ee9d2ba"
+    },
+    {
+      "path": "test/chat_relay_repository_test.dart",
+      "sha256": "4ca7f378cfae70360d48cdd88f3dc571099e52611d378cc71d404b249d85731a"
+    },
+    {
+      "path": "test/chat_reply_routing_test.dart",
+      "sha256": "06ac4fdd0050cf43f340063f7ba864ec62158528e130b8ebeed762567c2b4f81"
+    },
+    {
+      "path": "test/chat_repository_test.dart",
+      "sha256": "7838aca0c95ed3302423bbdc95b4ab803c60d94ec81c2dd0eecae6f9c098b0af"
+    },
+    {
+      "path": "test/database_migration_test.dart",
+      "sha256": "4118ade2cc4faef6434b59aeed025839060d987d682dd99fe65a90cafcae9df6"
+    },
+    {
+      "path": "test/emergency_navigation_ux_test.dart",
+      "sha256": "d4c5d5e263c01e2696d498f05a00dabf3e9b2a449c5ca6a830f9722e4cfe17ab"
+    },
+    {
+      "path": "test/generated_migrations.dart",
+      "sha256": "1e1ace941c72599d07dcdddd67e51a228f9498969dc4e8a93ff74f4f1bee66ef"
+    },
+    {
+      "path": "test/generated_schema.dart/schema.dart",
+      "sha256": "5a93f04fc190af2e1b67a946bbc14d0b459f6e7a657e5c67767f73a356385254"
+    },
+    {
+      "path": "test/generated_schema.dart/schema_v10.dart",
+      "sha256": "d656513c3e73a0dd7cec42101f4b08d77f47c76ad866114ec94192e6f93a0467"
+    },
+    {
+      "path": "test/generated_schema.dart/schema_v5.dart",
+      "sha256": "6530ee704eeb21f1196c0fa0a56f1fc9c213eb31c11f56a62486856271018d27"
+    },
+    {
+      "path": "test/generated_schema.dart/schema_v6.dart",
+      "sha256": "a49f1354a3cd34d7e6507191808262636f107572a3f0d1e30539b5ff3af42629"
+    },
+    {
+      "path": "test/generated_schema.dart/schema_v7.dart",
+      "sha256": "68ff07dabd34abb50fe2d31fa3badd0e4e01732422d9223b0687f63349bfae5d"
+    },
+    {
+      "path": "test/generated_schema.dart/schema_v8.dart",
+      "sha256": "797f522a12b3eba2af05d153ab8d8805aa42c9a742946e3aa43cf41d6adb73c6"
+    },
+    {
+      "path": "test/generated_schema.dart/schema_v9.dart",
+      "sha256": "47e961141c74807159741c2eec24a5b7c07f219161ca831d46a36789f1757b5a"
+    },
+    {
+      "path": "test/guest_continuity_test.dart",
+      "sha256": "2a2cd693c9ca1fc0593d27b7b50b2388a71291311b2e36fd92e23c7f1e6989df"
+    },
+    {
+      "path": "test/hop_relay_coordinator_test.dart",
+      "sha256": "3ff885f9a36f7f3eb866e0d05a7f20c64c3b4547c62553251f3f7efe1773900b"
+    },
+    {
+      "path": "test/incident_lifecycle_authorization_test.dart",
+      "sha256": "094e77dfde7e263f7b05634a763a041b8eda7060b08c0480c4d6f2f0f6780ddf"
+    },
+    {
+      "path": "test/incident_lifecycle_envelope_test.dart",
+      "sha256": "be3e3b304d3b66ba797dfe5ec80a82f270624350e0e2b109adde155c928309ec"
+    },
+    {
+      "path": "test/incident_map_page_test.dart",
+      "sha256": "809ef0f2588c73192e98e24070d6d38b93f6892227c41fa7a6287d00165d7641"
+    },
+    {
+      "path": "test/lifecycle_route_recovery_test.dart",
+      "sha256": "b0fd93e69e115621f835addc204168555f64d4a5aeae292c986665d21af49e95"
+    },
+    {
+      "path": "test/local_device_history_test.dart",
+      "sha256": "beec450c6bfea82d8ad3d983dfa074b8edb77de08351d6364f0fdfd1d7196d63"
+    },
+    {
+      "path": "test/localization_test.dart",
+      "sha256": "e3773b62aaed2777802c6aaf19725346116f86522d0c7749cca54e04b3966152"
+    },
+    {
+      "path": "test/location_sharing_panel_test.dart",
+      "sha256": "95a9affcc289bffe717704e02d31853e2004588f2e8fb045dbda26133ccc965c"
+    },
+    {
+      "path": "test/location_sharing_test.dart",
+      "sha256": "79736eb25786b834ec5bd7e175286329e0a9cd341b6587d6351a435ca001f18b"
+    },
+    {
+      "path": "test/map_tile_provider_test.dart",
+      "sha256": "fbabb56eca71c8aafd547aa9904512c63590ab8403c7b08d73485b3c62e27a56"
+    },
+    {
+      "path": "test/media_transfer_test.dart",
+      "sha256": "c9e76774b61d467ee96ae38eb89f0b74bf875501dd74d4abc314f4f98626933c"
+    },
+    {
+      "path": "test/offline_map_repository_test.dart",
+      "sha256": "b69072bec662f4063f23696de574a3aa9122c3cee42de4506dfe8d99c29f578b"
+    },
+    {
+      "path": "test/password_recovery_test.dart",
+      "sha256": "01ce71dc87b3eb755cbe86831a41cdc0ceed525a808bbe217db911b980e2c74a"
+    },
+    {
+      "path": "test/q709_chat_integration_test.dart",
+      "sha256": "2a0fa7859b20276268d496741db7c73ceded28071f23e348bb39b18c67e65375"
+    },
+    {
+      "path": "test/q709_three_node_integration_test.dart",
+      "sha256": "b3418556aecdcda3ade5aa29e5b452fb18682b08fe63fe358e46205deceab5bc"
+    },
+    {
+      "path": "test/relay_diagnostics_page_test.dart",
+      "sha256": "b5a6a963d951c5fbff92fd5da76fb9c16e6a448e9d1dec839d5ee5f0cf1ebe82"
+    },
+    {
+      "path": "test/relay_envelope_test.dart",
+      "sha256": "44fde4b36dbde276de44f57aad5c2bb23954b775fa6211023230a5d33c7ed044"
+    },
+    {
+      "path": "test/relay_handshake_recovery_test.dart",
+      "sha256": "66f6fda77782657c3797fe5e79371c4a8f29363feee917761dc77b17d2840081"
+    },
+    {
+      "path": "test/relay_platform_security_test.dart",
+      "sha256": "cf7979e73ced93b61797abafe45f96c25a5c42a44f2699cb0f4485e6865c0f20"
+    },
+    {
+      "path": "test/relay_preference_store_test.dart",
+      "sha256": "5157f7b73c7fa81a26a8862a757175e0dc54edc29b70de4b0db97a1ffed9a066"
+    },
+    {
+      "path": "test/relay_repository_test.dart",
+      "sha256": "d523fce3028734a7a09df7e7725330f5d230a8b8453b1ca493c022e3816e5e3c"
+    },
+    {
+      "path": "test/rescue_response_envelope_test.dart",
+      "sha256": "61743eceb2af14ebedf78b00622f74f67e42fc4dc36472f6d0253d158f680fe5"
+    },
+    {
+      "path": "test/rescue_stop_following_test.dart",
+      "sha256": "f322f741d905b0fd39e2d50edcafbb6c3a6b62ffad64953273d327a853c9b30a"
+    },
+    {
+      "path": "test/role_based_ux_test.dart",
+      "sha256": "d593eec491f415b0d1a396c11244979a5332d72d9bf39c908e516de98640a67e"
+    },
+    {
+      "path": "test/sos_accessibility_layout_test.dart",
+      "sha256": "cdb21154aaf453cc739158878b91f7d37923ee080660c1a9669a2be8ded61086"
+    },
+    {
+      "path": "test/sos_ble_coordinator_test.dart",
+      "sha256": "c2ea591df7f724434fb33ba232479a6c4b6c1808bce3907066681c9e29274d2c"
+    },
+    {
+      "path": "test/sos_ble_envelope_test.dart",
+      "sha256": "2c98c18aa09b713648061725e8878b41c82c49f85e586d635c2668a97947fd6b"
+    },
+    {
+      "path": "test/sos_repository_test.dart",
+      "sha256": "ff33ba5f41a559c267306f3ff96d09ae830d1a754eb0ef786990a69721cae1f6"
+    },
+    {
+      "path": "test/sos_sync_coordinator_test.dart",
+      "sha256": "7c71932d70af798f76b0ae0fda97fb416d08ed57b32952a333e31fc49a229a31"
+    },
+    {
+      "path": "test/stage2_chat_runtime_test.dart",
+      "sha256": "df98db2053b9eca15b12a925a1144b3a80a0dddfdb8f5653dadf4a84853a0ffe"
+    },
+    {
+      "path": "test/stage2_chat_security_test.dart",
+      "sha256": "2c985a835ddc7cce1433555b212fb5b9bf3354010974fe7cdaf14a9d3d5a41ff"
+    },
+    {
+      "path": "test/stage2_simulation_metrics_test.dart",
+      "sha256": "59ed0ab39699c05d41d421a424c16f47c21db2c77860ccdc7afe20c616c986d1"
+    },
+    {
+      "path": "test/startup_page_test.dart",
+      "sha256": "0ee4d38ca72916127860cc07fd75c0f423e75eb14d5f42001b01cc9bf2a9d63e"
+    },
+    {
+      "path": "test/support/three_node_ble_simulation.dart",
+      "sha256": "e90c5a7a4fbfd346831029b94ebb3ff8cba4c8833490766f6d2cd9d2e388c4e5"
+    },
+    {
+      "path": "test/week4_ui_test.dart",
+      "sha256": "dfbdda2c729de3458d8e9389346787d744dd87276e695b0c7c268e4b2448e1ed"
+    }
+  ]
+}

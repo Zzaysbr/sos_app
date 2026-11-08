@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-09",
+  "affected_build": 12,
+  "candidate_build": 13,
+  "hardware_regression": {
+    "library": "Production installed Media3 1.11.1 DefaultEncoderFactory.resolveVideoEncoderConfiguration via default EncoderSelector",
+    "same_input_format": "H264480x270,15fps,1Mbps",
+    "before_cbr": "NONE",
+    "after_vbr": "SUPPORTED",
+    "scope": "Real codec-selection code on physical Samsung, not full media export",
+    "direct_mediacodec_configuration": "Both CBR/VBR configure/start/stop succeeded; Media3 capability-based selection is the reproduced rejection boundary, not proof raw MediaCodec always rejectsCBR"
+  },
+  "fix": "Local MIT-licensed compress_video1.0.0 native override requests VBR instead ofCBR; actual output size guard unchanged",
+  "full_host_tests": {
+    "passed": 619,
+    "failed": 0,
+    "exit": 0
+  },
+  "application_analysis": "No issues found",
+  "native_android_profile_build": "PASS",
+  "physical_export_delivery": "PENDING",
+  "references": [
+    "https://raw.githubusercontent.com/androidx/media/1.11.1/libraries/transformer/src/main/java/androidx/media3/transformer/DefaultEncoderFactory.java"
+  ]
+}

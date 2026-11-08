@@ -7,6 +7,7 @@ import '../domain/ble_delivery_state.dart';
 import 'ble_protocol.dart';
 import '../domain/sos_ble_envelope.dart';
 import '../domain/location_ble_envelope.dart';
+import '../domain/incident_lifecycle_envelope.dart';
 
 class BlePeerMismatchException extends BleDeliveryStateException {
   const BlePeerMismatchException()
@@ -56,6 +57,55 @@ class BleDeliveryRepository {
       if (row.payload != payload || row.sosId != envelope.sosId) {
         throw const BleDeliveryStateException(
           'messageId is already used for a different SOS payload.',
+        );
+      }
+      return row;
+    });
+  }
+
+  /// Enqueues an additive signed application message using the same durable
+  /// retry/outbox state as Direct SOS. The caller owns validation of the
+  /// message-specific signature and bindings.
+  Future<BleOutboxData> enqueueRaw(
+    BleMessage message, {
+    required String sosId,
+    String? destinationId,
+    DateTime? now,
+  }) async {
+    if (message.id.trim().isEmpty || message.type.trim().isEmpty) {
+      throw const BleDeliveryStateException(
+        'BLE message identity is required.',
+      );
+    }
+    if (message.type != IncidentLifecycleEnvelope.wireKind) {
+      throw const BleDeliveryStateException('Unsupported raw BLE message.');
+    }
+    final payload = jsonEncode(message.payload);
+    final timestamp = (now ?? DateTime.now()).toUtc();
+    return _database.transaction(() async {
+      await _database
+          .into(_database.bleOutbox)
+          .insert(
+            BleOutboxCompanion.insert(
+              messageId: message.id,
+              sosId: sosId,
+              destinationId: Value(
+                destinationId?.trim().isEmpty == true
+                    ? null
+                    : destinationId?.trim(),
+              ),
+              schemaVersion: IncidentLifecycleEnvelope.schemaVersion,
+              payload: payload,
+              state: BleOutboxState.queued.wireValue,
+              createdAt: timestamp,
+              updatedAt: timestamp,
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+      final row = await lookupOutbox(message.id);
+      if (row == null || row.payload != payload || row.sosId != sosId) {
+        throw const BleDeliveryStateException(
+          'BLE raw message identity conflict.',
         );
       }
       return row;

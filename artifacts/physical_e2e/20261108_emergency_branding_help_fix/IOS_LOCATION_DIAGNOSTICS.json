@@ -1,0 +1,51 @@
+{
+  "db_quick_check": "ok",
+  "active_incident_count": 2,
+  "latest_active": {
+    "created_utc": "2026-11-08 02:38:56",
+    "latitude_present": false,
+    "longitude_present": false
+  },
+  "signed_relay": {
+    "record_present": true,
+    "body_keys": [
+      "createdAt",
+      "emergencyMessage",
+      "emergencyType",
+      "expiresAt",
+      "incidentId",
+      "includeLocation",
+      "maxHops",
+      "originKeyId",
+      "originMessageId",
+      "originPublicKey",
+      "schemaVersion",
+      "scope"
+    ],
+    "include_location": false,
+    "latitude_present": false,
+    "longitude_present": false
+  },
+  "saved_consent": {
+    "sos.emergencyConsentConfigured.v1": true,
+    "sos.emergencyPublicRelay.v1": true,
+    "sos.emergencyRelayLocation.v1": true,
+    "sos.emergencyVoluntaryRescue.v1": true
+  },
+  "app_log_capture": {
+    "duration_seconds": 20,
+    "lines": 29,
+    "marker_counts": {
+      "[SOS location]": 0,
+      "acquisition failed": 0,
+      "sos_location_ready": 0,
+      "sos_relay_enqueued": 0,
+      "kCLError": 0,
+      "locationTimedOut": 0,
+      "LocationAcquisitionException": 0,
+      "PlatformException": 0
+    },
+    "scope": "Live current-process capture, not complete historical acquisition evidence"
+  },
+  "interpretation": "Saved location consent enabled; latest active SOS and signed relay have no coordinates/includeLocation=false. Current-process live capture contains no acquisition event; physical root cause not established. No new SOS or restart."
+}

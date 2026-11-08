@@ -1,0 +1,21 @@
+{
+  "date": "2026-11-07",
+  "source_sha256": "aa43b891ee7d1de1b4fa547e7c556faf39bd6675baa873051646a70932595657",
+  "pass_operator_observed": [
+    "New SOS reception on Android.",
+    "Verified Help Offer count 1 on iPhone and Android Offer delivery delivered.",
+    "Two consecutive iPhone messages received once each on Android; iPhone composer reusable after each.",
+    "Android reply received once on iPhone; Android composer reusable.",
+    "One iPhone Home/10-second/resume cycle with subsequent messages received once in both directions.",
+    "One Android Home/10-second/resume cycle with subsequent messages received once in both directions.",
+    "Queued-message UI during Android Bluetooth off; sender composer remained usable."
+  ],
+  "unresolved": [
+    "No original reconnect message observed in reported windows; exact latency not established because observation not continuous.",
+    "Pure foreground Bluetooth-only recovery not established; Android app absent/locked/Home at later inspection.",
+    "No final signed Chat receipt or three-node/repeated-incident acceptance."
+  ],
+  "sender_db_inspection": "One normalized synthetic reconnect message: sent UI, expired relay job, 7 attempts, stored error Verified SOS origin unavailable.; original signed origin missing. See IOS_QUEUE_INSPECTION.json.",
+  "closure": "User confirmed SOS canceled and history retained; no re-signing/reconstruction of lost original proof.",
+  "next": "Deploy and physically retest separate origin-retention fix with a fresh incident."
+}

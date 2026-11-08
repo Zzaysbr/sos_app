@@ -1,0 +1,12 @@
+{
+  "date": "2026-11-08",
+  "operator_report": "Many older helping incidents visible on iPad, attributed by operator to older patches",
+  "snapshot": "Previously captured iPad B-C snapshot before latest Offer Help and radio swap; not current UI inspection",
+  "rescue_candidate_state_counts_in_snapshot": {
+    "cancelled": 2,
+    "locallyAccepted": 7,
+    "pending": 2
+  },
+  "status": "UNRESOLVED; compare local incident status/authorized terminal evidence before classifying stale entries",
+  "actions": "No DB mutation/deletion; retain history; continue current incident and inspect old entries after staged path checks"
+}

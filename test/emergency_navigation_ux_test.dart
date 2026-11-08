@@ -17,6 +17,7 @@ import 'package:sos_app/features/nearby_ble/data/sos_ble_coordinator.dart';
 import 'package:sos_app/features/role/data/role_preference_store.dart';
 import 'package:sos_app/features/role/domain/app_role.dart';
 import 'package:sos_app/features/sos/data/chat_repository.dart';
+import 'package:sos_app/features/sos/data/media_attachment_store.dart';
 import 'package:sos_app/features/sos/data/sos_cloud_service.dart';
 import 'package:sos_app/features/sos/data/sos_repository.dart';
 import 'package:sos_app/features/sos/presentation/emergency_chat_page.dart';
@@ -28,11 +29,18 @@ class _Cloud extends Mock implements SosCloudService {}
 
 class _FailingRepository extends Mock implements SosRepository {}
 
-class _BleCoordinator extends Mock implements SosBleCoordinator {}
+class _BleCoordinator extends Mock implements SosBleCoordinator {
+  @override
+  final mediaStore = MediaAttachmentStore(ownerId: 'test');
+}
 
 class _Transport extends Mock implements BleTransportClient {}
 
 class _SosMessageFake extends Fake implements SosMessage {}
+
+class _ChatMessageFake extends Fake implements EmergencyChatMessage {}
+
+class _OutboxFake extends Fake implements BleOutboxData {}
 
 class _StaticChatRepository extends MockEmergencyChatRepository {
   _StaticChatRepository(this.messages);
@@ -63,9 +71,11 @@ void main() {
     BleTransportClient? bleTransport,
     Future<void> Function()? onBleStartRequested,
     Future<Position?> Function()? locationProvider,
+    ChatRepository? chatRepository,
   }) {
     final child = SosPage(
       repository: source,
+      chatRepository: chatRepository,
       isGuest: true,
       rolePreferenceStore: MemoryRolePreferenceStore(AppRole.needHelp),
       relayPreferenceStore: MemoryRelayPreferenceStore(),
@@ -97,6 +107,7 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(_SosMessageFake());
+    registerFallbackValue(_ChatMessageFake());
   });
 
   setUp(() {
@@ -293,6 +304,117 @@ void main() {
     );
     await disposeTree(tester);
   });
+
+  for (final relay in [true, false]) {
+    testWidgets(
+      'Chat composer waits for durable enqueue, not radio drain; relay=$relay',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 1200));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final coordinator = _BleCoordinator();
+        final enqueueGate = Completer<void>();
+        final radioGate = Completer<void>();
+        addTearDown(() {
+          if (!enqueueGate.isCompleted) enqueueGate.complete();
+          if (!radioGate.isCompleted) radioGate.complete();
+        });
+        var queued = 0;
+        when(() => coordinator.watchDeliveryForSos(any()))
+            .thenAnswer((_) => const Stream.empty());
+        when(() => coordinator.watchRelayStatus(any()))
+            .thenAnswer((_) => const Stream.empty());
+        when(
+          () => coordinator.resolveVerifiedChatParticipant(any()),
+        ).thenAnswer(
+          (_) async => relay
+              ? (keyId: 'verified-recipient', publicKey: 'verified-public-key')
+              : null,
+        );
+        when(() => coordinator.processDue())
+            .thenAnswer((_) => radioGate.future);
+        when(
+          () => coordinator.enqueueChatThroughRelay(
+            chat: any(named: 'chat'),
+            recipientKeyId: any(named: 'recipientKeyId'),
+            recipientPublicKey: any(named: 'recipientPublicKey'),
+          ),
+        ).thenAnswer((_) async {
+          queued++;
+          await enqueueGate.future;
+        });
+        when(
+          () => coordinator.enqueueChat(
+            any(),
+            destinationId: any(named: 'destinationId'),
+          ),
+        ).thenAnswer((_) async {
+          queued++;
+          await enqueueGate.future;
+          return _OutboxFake();
+        });
+        final chat = PersistentChatRepository(
+          database: database,
+          ownerId: guestDeviceOwnerId,
+        );
+        await tester.pumpWidget(
+          app(
+            repository,
+            bleCoordinator: coordinator,
+            chatRepository: chat,
+            onBleStartRequested: () async {},
+          ),
+        );
+        await tester.pumpAndSettle();
+        await completeSosHold(tester);
+        final incident = (await repository.listActiveIncidents()).single;
+        await tester.pump(const Duration(seconds: 5));
+        await tester.pumpAndSettle();
+        final send = find.widgetWithIcon(IconButton, Icons.send);
+        await tester.enterText(find.byType(TextField), 'first durable message');
+        await tester.tap(send);
+        for (var i = 0; i < 20; i++) {
+          await tester.pump(const Duration(milliseconds: 10));
+        }
+        expect(queued, 1);
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+        expect(await chat.loadMessages(incident.id), hasLength(1));
+        // A second tap cannot duplicate a message while its queue write is pending.
+        await tester.enterText(
+          find.byType(TextField),
+          'second durable message',
+        );
+        final button = find
+            .byType(IconButton)
+            .evaluate()
+            .map((e) => e.widget)
+            .cast<IconButton>()
+            .where((w) => w.icon is SizedBox)
+            .single;
+        expect(button.onPressed, isNull);
+        enqueueGate.complete();
+        for (var i = 0; i < 20; i++) {
+          await tester.pump(const Duration(milliseconds: 10));
+        }
+        expect(radioGate.isCompleted, isFalse);
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        expect(tester.widget<IconButton>(send).onPressed, isNotNull);
+        await tester.tap(send);
+        await tester.pumpAndSettle();
+        expect(queued, 2);
+        final messages = await chat.loadMessages(incident.id);
+        expect(messages.map((m) => m.text), [
+          'first durable message',
+          'second durable message',
+        ]);
+        expect(
+          messages.every((m) => m.status == ChatDeliveryStatus.pending),
+          isTrue,
+        );
+        expect(radioGate.isCompleted, isFalse);
+        await disposeTree(tester);
+      },
+    );
+  }
 
   testWidgets('successful SOS creation opens chat and Back does not resubmit', (
     tester,
@@ -501,6 +623,157 @@ void main() {
     },
   );
 
+  testWidgets(
+    'location check retries locally without creating SOS or changing consent',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final pending = Completer<Position?>();
+      var reads = 0;
+      final consent = MemoryEmergencyConsentStore();
+      await tester.pumpWidget(
+        app(
+          repository,
+          emergencyConsentStore: consent,
+          locationProvider: () {
+            reads++;
+            if (reads == 1) return pending.future;
+            throw const LocationAcquisitionException(
+              'Specific GPS timeout',
+              category: 'timed_out',
+            );
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ตั้งค่า'));
+      await tester.pumpAndSettle();
+      final check = find.byKey(const ValueKey('emergency-location-check'));
+      await tester.ensureVisible(check);
+      await tester.tap(check);
+      await tester.tap(check);
+      await tester.pump();
+      expect(reads, 1);
+      pending.complete(
+        Position(
+          longitude: 100.5,
+          latitude: 13.7,
+          timestamp: DateTime.now().toUtc(),
+          accuracy: 8,
+          altitude: 0,
+          altitudeAccuracy: 1,
+          heading: 0,
+          headingAccuracy: 1,
+          speed: 0,
+          speedAccuracy: 1,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'Current location found. This check did not share coordinates.',
+        ),
+        findsOneWidget,
+      );
+      expect(await repository.listActiveIncidents(), isEmpty);
+      expect(await database.select(database.bleOutbox).get(), isEmpty);
+      expect(consent.consent.shareLocation, isFalse);
+      expect(consent.consent.allowPublicRelay, isFalse);
+      await tester.tap(check);
+      await tester.pumpAndSettle();
+      expect(reads, 2);
+      expect(find.text('Specific GPS timeout'), findsOneWidget);
+      expect(await repository.listActiveIncidents(), isEmpty);
+      await disposeTree(tester);
+    },
+  );
+
+  testWidgets(
+    'SOS shares a pending location check but its own deadline keeps relay moving',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final pending = Completer<Position?>();
+      var reads = 0;
+      final routed = <bool>[];
+      final coordinator = _BleCoordinator();
+      when(
+        () => coordinator.enqueuePublicRelay(
+          any(),
+          includeLocation: any(named: 'includeLocation'),
+        ),
+      ).thenAnswer((call) async {
+        routed.add(call.namedArguments[#includeLocation] as bool);
+      });
+      when(() => coordinator.watchDeliveryForSos(any()))
+          .thenAnswer((_) => Stream.value(null));
+      when(() => coordinator.watchRelayStatus(any()))
+          .thenAnswer((_) => const Stream<RelayStatusSnapshot>.empty());
+      await tester.pumpWidget(
+        app(
+          repository,
+          bleCoordinator: coordinator,
+          emergencyConsentStore: MemoryEmergencyConsentStore(
+            consent: const EmergencyConsent(
+              configured: true,
+              allowPublicRelay: true,
+              shareLocation: true,
+            ),
+          ),
+          locationProvider: () {
+            reads++;
+            return pending.future;
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ตั้งค่า'));
+      await tester.pumpAndSettle();
+      final check = find.byKey(const ValueKey('emergency-location-check'));
+      await tester.ensureVisible(check);
+      await tester.tap(check);
+      await tester.pump();
+      expect(reads, 1);
+      await tester.tap(find.byType(NavigationDestination).first);
+      await tester.pumpAndSettle();
+      await completeSosHold(tester);
+      expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
+      expect(await repository.listActiveIncidents(), hasLength(1));
+      expect(reads, 1);
+      expect(routed, isEmpty);
+      await tester.pump(const Duration(seconds: 21));
+      await tester.pumpAndSettle();
+      expect(routed, [false]);
+      expect(
+        find.textContaining('Location request timed out.'),
+        findsOneWidget,
+      );
+      pending.complete(
+        Position(
+          longitude: 100.5,
+          latitude: 13.7,
+          timestamp: DateTime.now().toUtc(),
+          accuracy: 8,
+          altitude: 0,
+          altitudeAccuracy: 1,
+          heading: 0,
+          headingAccuracy: 1,
+          speed: 0,
+          speedAccuracy: 1,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect((await repository.listActiveIncidents()).single.latitude, isNull);
+      expect(
+        routed,
+        [false],
+        reason:
+            'A later local check must not rewrite already routed SOS evidence.',
+      );
+      await disposeTree(tester);
+    },
+  );
+
   testWidgets('location failure keeps SOS and relay routing alive', (
     tester,
   ) async {
@@ -539,7 +812,9 @@ void main() {
 
     expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
     expect(
-      find.textContaining('Location unavailable — SOS was saved without coordinates'),
+      find.textContaining(
+        'Location unavailable — SOS was saved without coordinates',
+      ),
       findsOneWidget,
     );
     expect(
@@ -551,6 +826,61 @@ void main() {
         .called(1);
     await disposeTree(tester);
   });
+  testWidgets(
+    'specific location failure is preserved while SOS and relay remain available',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final coordinator = _BleCoordinator();
+      when(
+        () => coordinator.enqueuePublicRelay(
+          any(),
+          includeLocation: any(named: 'includeLocation'),
+        ),
+      ).thenAnswer((_) async {});
+      when(() => coordinator.watchDeliveryForSos(any()))
+          .thenAnswer((_) => Stream.value(null));
+      when(() => coordinator.watchRelayStatus(any()))
+          .thenAnswer((_) => const Stream<RelayStatusSnapshot>.empty());
+
+      await tester.pumpWidget(
+        app(
+          repository,
+          emergencyConsentStore: MemoryEmergencyConsentStore(
+            consent: const EmergencyConsent(
+              configured: true,
+              allowPublicRelay: true,
+              shareLocation: true,
+            ),
+          ),
+          bleCoordinator: coordinator,
+          bleTransport: _Transport(),
+          locationProvider: () async =>
+              throw const LocationAcquisitionException(
+                'Specific GPS timeout',
+                category: 'timed_out',
+              ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await completeSosHold(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
+      expect(
+        find.textContaining(
+          'Location unavailable — SOS was saved without coordinates',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Specific GPS timeout'), findsOneWidget);
+      expect(await repository.listActiveIncidents(), hasLength(1));
+      verify(
+        () => coordinator.enqueuePublicRelay(any(), includeLocation: false),
+      ).called(1);
+      await disposeTree(tester);
+    },
+  );
 
   testWidgets('late location failure after Chat is closed is ignored safely', (
     tester,

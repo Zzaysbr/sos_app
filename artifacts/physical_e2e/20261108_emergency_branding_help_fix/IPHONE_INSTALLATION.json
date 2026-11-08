@@ -1,0 +1,13 @@
+{
+  "device": "iPhone 15 Plus",
+  "source_sha256": "bc07b9cb814489f0c486f60b59794c03c42d0b1b0db5b3fb22a18d1ea963c7c6",
+  "install_exit": 0,
+  "update_in_place": true,
+  "launch_exit": 0,
+  "manual_open_required": false,
+  "launch_user_confirmed": true,
+  "branding_user_verified": true,
+  "history_preservation_not_yet_user_verified": true,
+  "user_observation": "App opens normally",
+  "branding_observation": "Emergency display name and white E on red launcher icon confirmed by user"
+}

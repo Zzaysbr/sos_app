@@ -1,0 +1,35 @@
+{
+  "date": "2026-11-08",
+  "build_number": 3,
+  "matching_saved_wired_ipad": true,
+  "inspection": "Read-only Documents copy; quick_check ok; live copy not coordinated snapshot",
+  "correlation": {
+    "forward": {
+      "inbox_rows": 1,
+      "payload_equals_B": true,
+      "verified": true,
+      "local_chat_rows": 1
+    },
+    "reverse": {
+      "origin_outbox_rows": 1,
+      "payload_equals_B_inbox": true
+    },
+    "offer_outbox": [
+      {
+        "state": "delivered",
+        "final_ack_at_present": true
+      }
+    ],
+    "terminal": {
+      "same_payload_rows": 1,
+      "authorized_same_payload_rows": 1,
+      "candidate_states": [
+        "cancelled"
+      ],
+      "local_sos_states": [
+        "cancelled"
+      ]
+    }
+  },
+  "scope": "Captured C forward Chat envelope/ID equals B and one local row; reverse origin envelope equals B; final Help Offer ACK persisted delivered; exact B cancellation payload authorized at C and local/candidate cancelled. One staged physical run, not final Chat receipt or repeated/general background reliability."
+}

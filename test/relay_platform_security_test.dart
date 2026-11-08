@@ -71,6 +71,99 @@ void main() {
     );
   });
 
+  test('Android central connection attempts have bounded native cleanup', () {
+    final source = File(
+      'android/app/src/main/kotlin/com/n1cxltine/sosapp/'
+      'BleTransportBridge.kt',
+    ).readAsStringSync();
+
+    expect(source, contains('gattConnectionTimeoutMs = 15_000L'));
+    expect(
+      RegExp(
+        r'clients\[id\] = gatt[\s\S]*?'
+        r'scheduleConnectionTimeout\(id, gatt, attempt\)',
+      ).hasMatch(source),
+      isTrue,
+    );
+    expect(
+      RegExp(
+        r'GATT connection callback timeout[\s\S]*?'
+        r'terminateTimedOutConnection\(',
+      ).hasMatch(source),
+      isTrue,
+    );
+    expect(
+      RegExp(
+        r'private fun terminateTimedOutConnection\([\s\S]*?'
+        r'cleanupCentral\(id, gatt\)[\s\S]*?'
+        r'"type" to "disconnected"',
+      ).hasMatch(source),
+      isTrue,
+    );
+    expect(
+      RegExp(
+        r'private fun cleanupCentral\([\s\S]*?'
+        r'cancelConnectionTimeout\(id\)[\s\S]*?'
+        r'cancelSetupTimeout\(id\)[\s\S]*?gatt\.close\(\)',
+      ).hasMatch(source),
+      isTrue,
+    );
+    expect(source, contains('if (clients[id] !== gatt)'));
+  });
+
+  test('Android missing notification callback retires the blocked session', () {
+    final source = File(
+      'android/app/src/main/kotlin/com/n1cxltine/sosapp/'
+      'BleTransportBridge.kt',
+    ).readAsStringSync();
+    expect(source, contains('notificationCallbackTimeoutMs = 5_000L'));
+    expect(source, contains('queue.firstOrNull() !== pending'));
+    expect(
+      source,
+      contains(
+        'clearNotificationSession(id, "Notification callback timed out")',
+      ),
+    );
+    expect(source, contains('currentServer.cancelConnection(device)'));
+    expect(source, contains('"error" to "notification_callback_timeout"'));
+    expect(
+      source,
+      contains(
+        'notificationTimeouts.remove(id)?.let(mainHandler::removeCallbacks)',
+      ),
+    );
+    expect(
+      source,
+      contains('if (notificationQueues[id] !== queue) return@postDelayed'),
+    );
+  });
+
+  test(
+    'Android write timeout retires only its current GATT and completes once',
+    () {
+      final source = File(
+        'android/app/src/main/kotlin/com/n1cxltine/sosapp/'
+        'BleTransportBridge.kt',
+      ).readAsStringSync();
+      expect(
+        source,
+        contains('!isCurrentGatt(gatt) || writeInFlight[id] !== pending'),
+      );
+      expect(
+        source,
+        contains(
+          'terminateTimedOutConnection(id, gatt, attempt, "GATT write timed out for \$id")',
+        ),
+      );
+      expect(source, contains('val active = writeInFlight.remove(id)'));
+      expect(source, contains('val queued = writeQueues.remove(id)'));
+      expect(
+        source,
+        contains('if (it !== active) it.result.error(code, message, null)'),
+      );
+    },
+  );
+
   test('iOS peripheral relay frames retain receiver-safe pacing', () {
     final source = File('ios/Runner/BleTransport.swift').readAsStringSync();
 
