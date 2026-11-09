@@ -147,6 +147,13 @@ class _ProvenRoute {
   final _RelayPeer peer;
 }
 
+class _MediaProgress {
+  _MediaProgress(this.index, this.changedAt);
+  int index;
+  DateTime changedAt;
+  int proofRefreshes = 0;
+}
+
 class _ActiveInstallationSession {
   const _ActiveInstallationSession({required this.peer, required this.session});
 
@@ -275,6 +282,22 @@ class HopRelayCoordinator {
 
   bool get participationEnabled => _participating;
 
+  /// Read-only UI identity lookup. Viewing history must never create a key.
+  Future<String?> existingSigningKeyId() async {
+    if (_identity != null) return _identity!.keyId;
+    try {
+      // Keep a missing-key read out of the authorized creator's single-flight
+      // cache, so opening a page cannot make a simultaneous first SOS fail.
+      final reader = RelayIdentityService(
+        keyStore: _identityService.keyStore,
+        cryptography: _cryptography,
+      );
+      return (await reader.loadOrCreate(allowCreate: false)).keyId;
+    } on RelayKeyStoreException {
+      return null;
+    }
+  }
+
   /// Shared installation identity for additive, origin-authenticated
   /// application messages. It is the same identity used by Relay v2.
   Future<RelaySigningIdentity> signingIdentity() => _ensureIdentity();
@@ -310,6 +333,8 @@ class HopRelayCoordinator {
     _connecting.clear();
     _connectionAttempts.clear();
     _connectionAttemptWindows.clear();
+    _mediaProgress.clear();
+    _mediaProofRefreshAt.clear();
     await _processing;
   }
 
@@ -1324,7 +1349,15 @@ class HopRelayCoordinator {
     final store = mediaStore;
     if (store == null || !_started || !_foreground) return;
     final identity = await _ensureIdentity();
-    for (final media in await store.pending(now)) {
+    final pending = await store.pending(now);
+    final pendingIds = pending.map((m) => m.id).toSet();
+    _mediaProgress.removeWhere((id, _) => !pendingIds.contains(id));
+    _mediaProofRefreshAt.removeWhere(
+      (key, at) =>
+          !_sessions.containsKey(key) ||
+          now.difference(at) >= const Duration(minutes: 3),
+    );
+    for (final media in pending) {
       try {
         final envelope = ChatRelayEnvelope.fromCanonicalWire(media.envelope!);
         final localRecipient = envelope.body.recipientKeyId == identity.keyId;
@@ -1347,6 +1380,15 @@ class HopRelayCoordinator {
         );
         if (routes.isEmpty) continue;
         final route = routes.first;
+        if (await _refreshStalledMediaProof(
+          media.id,
+          index,
+          route.key,
+          route.value.role,
+          now,
+        )) {
+          continue;
+        }
         final session = _requireProvenSession(route.key, route.value.role);
         if (!await store.claimRequest(media.id, index, now)) continue;
         await _sendMessage(
@@ -1480,6 +1522,51 @@ class HopRelayCoordinator {
   }
 
   final Set<String> _mediaReplies = {};
+  final _mediaProgress = <String, _MediaProgress>{};
+  final _mediaProofRefreshAt = <String, DateTime>{};
+
+  // A successful native write does not prove the peer still accepts this
+  // application's binding. Refresh only after no verified chunk progress;
+  // never extend durable request budgets, expiry, or manufacture a receipt.
+  Future<bool> _refreshStalledMediaProof(
+    String id,
+    int index,
+    String peer,
+    BleSessionRole role,
+    DateTime now,
+  ) async {
+    final progress = _mediaProgress.putIfAbsent(
+      id,
+      () => _MediaProgress(index, now),
+    );
+    if (progress.index != index) {
+      progress.index = index;
+      progress.changedAt = now;
+      return false;
+    }
+    const interval = Duration(seconds: 90);
+    if (progress.proofRefreshes >= 2 ||
+        now.difference(progress.changedAt) < interval) {
+      return false;
+    }
+    final key = _sessionKey(peer, role);
+    final last = _mediaProofRefreshAt[key];
+    if (last != null && now.difference(last) < interval) return false;
+    final old = _requireProvenSession(peer, role);
+    final declared = old.declaredPeer;
+    final verifiedGeneration = old.verifiedPeerGeneration;
+    progress.proofRefreshes++;
+    progress.changedAt = now;
+    _mediaProofRefreshAt[key] = now;
+    _replaceSession(peer, role, nativeAttempt: old.nativeAttempt);
+    final fresh = _requireSession(peer, role)
+      ..declaredPeer = declared
+      ..verifiedPeerGeneration = verifiedGeneration;
+    _log('relayMediaStallProofRefresh attempt=${progress.proofRefreshes}');
+    await _sendCapabilities(peer, role);
+    await _issueSessionChallenge(peer, fresh);
+    return true;
+  }
 
   Future<void> _prepareRecipientReceipt(ChatRelayEnvelope envelope) async {
     if (onChatRelayReceived == null) return;

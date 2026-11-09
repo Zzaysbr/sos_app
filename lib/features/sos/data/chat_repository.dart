@@ -1,5 +1,7 @@
 import 'package:drift/drift.dart';
 
+import 'media_attachment_store.dart';
+
 import '../../../core/database/app_database.dart';
 
 enum ChatDeliveryStatus { pending, sent, delivered, failed }
@@ -71,7 +73,9 @@ class PersistentChatRepository implements ChatRepository {
     String? senderId,
     DateTime Function()? now,
     this.onIncomingPersisted,
-  }) : _now = now ?? DateTime.now,
+    MediaAttachmentStore? attachmentStore,
+  }) : _attachments = attachmentStore ?? MediaAttachmentStore(ownerId: ownerId),
+       _now = now ?? DateTime.now,
        _ownerId = ownerId,
        _senderId = senderId ?? ownerId;
 
@@ -81,6 +85,7 @@ class PersistentChatRepository implements ChatRepository {
   onIncomingPersisted;
 
   final AppDatabase _database;
+  final MediaAttachmentStore _attachments;
   final DateTime Function() _now;
   final String _ownerId;
   final String _senderId;
@@ -117,6 +122,12 @@ class PersistentChatRepository implements ChatRepository {
     }
     final now = _now().toUtc();
     final stableMessageId = messageId ?? 'chat-${now.microsecondsSinceEpoch}';
+    final storedPath = await _attachments.canonicalChatPath(
+      id: stableMessageId,
+      incident: sosId,
+      mime: attachmentMimeType,
+      path: attachmentPath,
+    );
     ChatMessage? stored;
     await _database.transaction(() async {
       await _database
@@ -132,7 +143,7 @@ class PersistentChatRepository implements ChatRepository {
               textContent: Value(trimmed.isEmpty ? null : trimmed),
               createdAt: now,
               deliveryStatus: ChatDeliveryStatus.pending.name,
-              attachmentPath: Value(attachmentPath),
+              attachmentPath: Value(storedPath),
               attachmentMimeType: Value(attachmentMimeType),
               attachmentName: Value(attachmentName),
             ),
@@ -148,7 +159,13 @@ class PersistentChatRepository implements ChatRepository {
           existing.senderId != _senderId ||
           existing.recipientId != recipientId ||
           existing.messageType != messageType ||
-          existing.attachmentPath != attachmentPath ||
+          await _attachments.canonicalChatPath(
+                id: existing.messageId,
+                incident: existing.sosId,
+                mime: existing.attachmentMimeType,
+                path: existing.attachmentPath,
+              ) !=
+              storedPath ||
           existing.attachmentMimeType != attachmentMimeType ||
           existing.attachmentName != attachmentName ||
           existing.textContent != (trimmed.isEmpty ? null : trimmed)) {
@@ -210,6 +227,12 @@ class PersistentChatRepository implements ChatRepository {
       throw const ChatRepositoryException('Invalid incoming chat message.');
     }
     final timestamp = createdAt.toUtc();
+    final storedPath = await _attachments.canonicalChatPath(
+      id: messageId,
+      incident: sosId,
+      mime: attachmentMimeType,
+      path: attachmentPath,
+    );
     await _database.transaction(() async {
       await _database
           .into(_database.chatMessages)
@@ -224,7 +247,7 @@ class PersistentChatRepository implements ChatRepository {
               textContent: Value(text),
               createdAt: timestamp,
               deliveryStatus: ChatDeliveryStatus.delivered.name,
-              attachmentPath: Value(attachmentPath),
+              attachmentPath: Value(storedPath),
               attachmentMimeType: Value(attachmentMimeType),
               attachmentName: Value(attachmentName),
             ),
@@ -238,7 +261,13 @@ class PersistentChatRepository implements ChatRepository {
           row.sosId != sosId ||
           row.senderId != senderId ||
           row.recipientId != (recipientId ?? _ownerId) ||
-          row.attachmentPath != attachmentPath ||
+          await _attachments.canonicalChatPath(
+                id: row.messageId,
+                incident: row.sosId,
+                mime: row.attachmentMimeType,
+                path: row.attachmentPath,
+              ) !=
+              storedPath ||
           row.attachmentMimeType != attachmentMimeType ||
           row.attachmentName != attachmentName ||
           row.textContent != text) {
@@ -250,7 +279,7 @@ class PersistentChatRepository implements ChatRepository {
     final row = await (_database.select(
       _database.chatMessages,
     )..where((table) => table.messageId.equals(messageId))).getSingle();
-    final message = _toMessage(row);
+    final message = await _toMessage(row);
     if (!message.isMine) {
       try {
         await onIncomingPersisted?.call(message);
@@ -282,25 +311,32 @@ class PersistentChatRepository implements ChatRepository {
       _database.bleOutbox,
     )..where((t) => t.messageId.isIn(rows.map((r) => r.messageId)))).get();
     final ids = outgoing.map((r) => r.messageId).toSet();
-    return rows
-        .map((row) => _toMessage(row, outgoing: ids.contains(row.messageId)))
-        .toList(growable: false);
+    return Future.wait(
+      rows.map((row) => _toMessage(row, outgoing: ids.contains(row.messageId))),
+    );
   }
 
-  EmergencyChatMessage _toMessage(ChatMessage row, {bool outgoing = false}) =>
-      EmergencyChatMessage(
-        id: row.messageId,
-        sosId: row.sosId,
-        senderId: row.senderId,
-        recipientId: row.recipientId,
-        text: row.textContent ?? '',
-        createdAt: row.createdAt,
-        status: _parseStatus(row.deliveryStatus),
-        isMine: outgoing || row.senderId == _senderId,
-        attachmentPath: row.attachmentPath,
-        attachmentMimeType: row.attachmentMimeType,
-        attachmentName: row.attachmentName,
-      );
+  Future<EmergencyChatMessage> _toMessage(
+    ChatMessage row, {
+    bool outgoing = false,
+  }) async => EmergencyChatMessage(
+    id: row.messageId,
+    sosId: row.sosId,
+    senderId: row.senderId,
+    recipientId: row.recipientId,
+    text: row.textContent ?? '',
+    createdAt: row.createdAt,
+    status: _parseStatus(row.deliveryStatus),
+    isMine: outgoing || row.senderId == _senderId,
+    attachmentPath: await _attachments.resolveChatPath(
+      id: row.messageId,
+      incident: row.sosId,
+      mime: row.attachmentMimeType,
+      path: row.attachmentPath,
+    ),
+    attachmentMimeType: row.attachmentMimeType,
+    attachmentName: row.attachmentName,
+  );
 
   ChatDeliveryStatus _parseStatus(String value) =>
       ChatDeliveryStatus.values.firstWhere(

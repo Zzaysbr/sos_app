@@ -218,6 +218,108 @@ void main() {
       expect(await receiving.file.readAsBytes(), await m.file.readAsBytes());
     },
   );
+  for (final recoverable in [true, false]) {
+    test('stalled media proof refresh is bounded; recoverable=$recoverable', () async {
+      final root = await temp();
+      final s = ThreeNodeSimulation(mediaRoot: root);
+      addTearDown(s.close);
+      await s.start();
+      await s.prepareIncident();
+      final file = await s.a.coordinator.mediaStore.importFile(
+        id: 'stalled-media',
+        incident: 'incident-1',
+        source: await sample(root),
+        mime: 'image/png',
+      );
+      final chat = await s.a.chat.insertMessage(
+        sosId: 'incident-1',
+        text: 'Photo',
+        messageId: file.id,
+        messageType: 'media',
+        attachmentPath: file.file.path,
+        attachmentMimeType: 'image/png',
+        attachmentName: 'Photo',
+      );
+      var allowChunks = false;
+      var observeRefresh = false;
+      int? initialGeneration;
+      // Model an established native link whose old application binding stops
+      // carrying chunks. Only a fresh proof exchange restores this link; native
+      // writes still complete, so the write-timeout path cannot recover it.
+      s.network.dropMessage = (from, to, message) {
+        if (from == 'B' && to == 'A' && message.type == 'sos.capabilities.v1') {
+          initialGeneration ??= message.payload['sessionGeneration'] as int?;
+          if (observeRefresh &&
+              message.payload['sessionGeneration'] != initialGeneration) {
+            allowChunks = recoverable;
+          }
+        }
+        return message.type == 'chat.media.chunk.v1' && !allowChunks;
+      };
+      final c = await s.c.identity();
+      await s.a.coordinator.enqueueChatThroughRelay(
+        chat: chat,
+        recipientKeyId: c.keyId,
+        recipientPublicKey: base64UrlEncode(c.publicKey),
+      );
+      await s.network.until(
+        () async => await s.b.coordinator.mediaStore.find(file.id) != null,
+      );
+      await s.network.pump();
+      observeRefresh = true;
+      for (var i = 0; i < 12; i++) {
+        s.clock.advance(const Duration(seconds: 30));
+        for (final n in [s.a, s.b, s.c]) {
+          await n.coordinator.processDue();
+        }
+        await s.network.pump();
+        if ((await s.a.chat.loadMessages('incident-1')).single.status ==
+            ChatDeliveryStatus.delivered) {
+          break;
+        }
+      }
+      final refreshes = s.b.logs
+          .where((l) => l.contains('relayMediaStallProofRefresh'))
+          .length;
+      expect(refreshes, inInclusiveRange(1, 2));
+      if (!recoverable) {
+        expect(refreshes, 2);
+        expect(await s.c.chat.loadMessages('incident-1'), isEmpty);
+        expect(
+          (await s.a.chat.loadMessages('incident-1')).single.status,
+          isNot(ChatDeliveryStatus.delivered),
+        );
+        final pending = (await s.b.coordinator.mediaStore.find(file.id))!;
+        expect(
+          (pending.state['request'] as Map)['count'],
+          greaterThan(2),
+          reason: 'Proof refresh must not reset the persisted chunk budget.',
+        );
+        expect(
+          pending.expires,
+          s.clock.now.add(const Duration(minutes: 24)),
+          reason: 'Original 30-minute expiry must not be renewed.',
+        );
+        return;
+      }
+      expect(
+        allowChunks,
+        isTrue,
+        reason: 'Silent chunk stall must restart proof.',
+      );
+      final received = await s.c.chat.loadMessages('incident-1');
+      expect(received, hasLength(1));
+      expect(received.single.id, file.id);
+      expect(
+        await File(received.single.attachmentPath!).readAsBytes(),
+        await file.file.readAsBytes(),
+      );
+      expect(
+        (await s.a.chat.loadMessages('incident-1')).single.status,
+        ChatDeliveryStatus.delivered,
+      );
+    });
+  }
   test('real signed A-B-C media waits for complete files and final recipient receipt', () async {
     final root = await temp();
     final s = ThreeNodeSimulation(mediaRoot: root);

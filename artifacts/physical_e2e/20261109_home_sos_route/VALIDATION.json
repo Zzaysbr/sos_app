@@ -1,0 +1,105 @@
+{
+  "date": "2026-11-09",
+  "candidate_build": 19,
+  "status": "ALL_THREE_PROFILE19_UPDATED_AND_OLD_DATA_ACCEPTED; TARGETED_PAIR_ACCEPTANCE_COMPLETE_WITH_DELAY_LIMIT",
+  "request": [
+    "Move Home SOS in progress banner below the primary SOS button",
+    "Show current SOS icon-led route immediately beneath it, titled เส้นทาง SOS ปัจจุบัน"
+  ],
+  "implementation": [
+    "Home order is primary SOS button, current incident banner, current incident route panel",
+    "Home still filters incoming incidents and shows only newest own active SOS; section removed when no active own incident",
+    "Inline panel caches route stream by incident/owner/database, follows live accepted route projection and uses shared owner-scoped nickname store",
+    "Without accepted route evidence, show only known local saved source with unknown next device; no fabricated radio hops/intermediaries",
+    "Current route title propagated through reusable route view; existing Chat titles remain unchanged"
+  ],
+  "validation": {
+    "focused_suite": {
+      "passed": 51,
+      "failed": 0,
+      "files": [
+        "test/emergency_navigation_ux_test.dart",
+        "test/role_based_ux_test.dart",
+        "test/user_route_view_test.dart"
+      ]
+    },
+    "assertions": "Existing banner accessibility/navigation test now also checks button/banner/route vertical order, current-route title and no-evidence unknown-next-device copy",
+    "analysis": "No issues found",
+    "full_suite_baseline": {
+      "build": 18,
+      "passed": 643,
+      "scope": "Previous build; not rerun for19 UI-only change"
+    }
+  },
+  "unchanged": [
+    "SQLite schema10, old rows/media/maps/labels",
+    "BLE protocols/identity and signed receipt semantics",
+    "Original pending physical media-stall retest not started"
+  ],
+  "physical_iphone18_report": "App/history normal; selected older item Route not recorded. No nickname/known-route device acceptance claimed.",
+  "native_builds": {
+    "ios_profile": 0,
+    "ios_standalone_guard": 0,
+    "android_profile": 0,
+    "android_apk_preflight": "PASS"
+  },
+  "installed_devices": {
+    "iPhone": "Profile19",
+    "Samsung": "Profile19",
+    "iPad": "Profile19"
+  },
+  "iphone_update_retention": {
+    "sos_rows": 24,
+    "chat_rows": 74,
+    "all_original_rows_unchanged": true,
+    "media_files_identical": 32,
+    "map_files_identical": 43,
+    "prior_label_files": 0,
+    "schema": 10,
+    "quick_check": "ok"
+  },
+  "physical_home_review": {
+    "result": "PASS in reported scope",
+    "evidence": "Operator confirms normal app/history, primary SOS button then active banner then current route, scrolling works",
+    "limits": "One iPhone Home layout observation; no known remote route/hop/alias persistence or media-stall recovery inferred"
+  },
+  "samsung_update_retention": {
+    "sos_rows": 25,
+    "chat_rows": 69,
+    "rescue_inbox_rows": 16,
+    "all_original_rows_unchanged": true,
+    "media_files_identical": 24,
+    "map_files_identical": 25,
+    "prior_label_files": 0,
+    "completed_attachment_contents_identical": 12,
+    "schema": 10,
+    "quick_check": "ok"
+  },
+  "physical_samsung_review": {
+    "result": "PASS in reported scope",
+    "evidence": "Operator confirms app/history normal, old image opens, old video preview and audiovisual playback work",
+    "limits": "No new transfer, actual route/hop/nickname persistence or media-stall recovery acceptance inferred"
+  },
+  "ipad_update_retention": {
+    "sos_rows": 5,
+    "chat_rows": 24,
+    "rescue_inbox_rows": 16,
+    "all_original_rows_unchanged": true,
+    "media_files_identical": 12,
+    "prior_map_files": 0,
+    "prior_label_files": 0,
+    "schema": 10,
+    "quick_check": "ok"
+  },
+  "physical_ipad_review": {
+    "result": "PASS in reported scope",
+    "evidence": "Operator reports app/history normal, old stopped-following incidents absent from Helping, old image/video open with preview and audiovisual playback",
+    "limits": "No new transfer, actual route/hop/nickname persistence or media-stall recovery inferred"
+  },
+  "physical_pair_acceptance": "See PAIR_ACCEPTANCE.json and VIDEO_CROSS_DEVICE_VERIFICATION.json; direct route/alias reopen, offer, both-direction video and photo smoke, cleanup scoped accepted",
+  "limitations": [
+    "Initial Samsung camera-video was not visible at operator 3-minute check, eventually arrived without intervention; sender DB receipt interval157s and exact UI timing discrepancy unresolved",
+    "One subsequent Samsung gallery-video, one reverse camera-video and one gallery-photo passed reported 3-minute bound; sustained performance not established",
+    "Current19 route acceptance covers direct received SOS and same-runtime nickname reopening only; no current19 multihop UI/media or restart nickname acceptance inferred"
+  ]
+}

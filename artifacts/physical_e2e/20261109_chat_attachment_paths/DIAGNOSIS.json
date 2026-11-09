@@ -1,0 +1,77 @@
+{
+  "date": "2026-11-09",
+  "candidate_build": 17,
+  "status": "BOTH_PHONE17_SCOPED_HISTORY_MEDIA_ACCEPTED; STALL_RECOVERY_AND_IPAD_UPDATE_PENDING",
+  "operator_failure16": "iPhone app opens but older images/video report attachment unavailable; video poster reported present but full file unable to open. Exact bubble/file correlation not captured.",
+  "captured_evidence": {
+    "chat_attachment_rows": 11,
+    "absolute_path_rows": 11,
+    "distinct_old_sandbox_roots": 6,
+    "matching_complete_current_snapshot_files": 11,
+    "production_resolver_digest_checks": {
+      "captured_attachment_rows": 11,
+      "resolved_and_digest_matched": 11,
+      "raw_rows_rewritten": false,
+      "device_files_changed": false
+    },
+    "macos_video_decode": {
+      "captured_chat_videos": 4,
+      "native_mime_decode_passed": 4,
+      "scope": "macOS production MIME helper AVAssetReader decode; not physical iPhone playback"
+    }
+  },
+  "cause_scope": "Persisted absolute sandbox paths are fragile across app-container relocation; legacy raw-path read behavior fails a controlled relocation regression. This explains unavailable files, not independent proof of every physical video-player failure.",
+  "fix": [
+    "New managed attachment paths persist owner/message hashed relative chat-media-v1 references",
+    "History read resolves legacy absolute paths and relative references through current owner-scoped store with matching message/incident/MIME/complete regular file",
+    "Duplicate incoming/outgoing comparisons canonicalize managed paths, preventing false content conflict after relocation",
+    "Existing raw Chat rows not rewritten; no data migration/file copies/renames/retry resets; schema10 unchanged"
+  ],
+  "regressions": {
+    "legacy_raw_path_read_reproduced": {
+      "passed": 0,
+      "failed": 1,
+      "scope": "Old read behavior restored temporarily, remaining new storage APIs retained for fixture compatibility"
+    },
+    "focused_current": {
+      "passed": 20,
+      "failed": 0,
+      "includes": "4 new path regressions, repository9, media7"
+    },
+    "private_captured_resolver": {
+      "passed": 1,
+      "failed": 0
+    },
+    "analysis": "No issues found"
+  },
+  "unchanged": [
+    "Chat signatures/receipt semantics (no E2EE claim)",
+    "Media file bytes/storage quota",
+    "Owner/account authorization",
+    "Attachment delivery status",
+    "Installed devices iPhone16/Samsung16/iPad14 until candidate installed"
+  ],
+  "full_host_suite": {
+    "passed": 631,
+    "failed": 0,
+    "exit": 0
+  },
+  "native_builds": {
+    "ios_profile": 0,
+    "ios_standalone_guard": 0,
+    "android_profile": 0,
+    "android_apk_preflight": "PASS"
+  },
+  "installed_devices": {
+    "iPhone": "Profile17",
+    "Samsung": "Profile17",
+    "iPad": "Profile14"
+  },
+  "physical_iphone17_retest": {
+    "old_image": "Full image opens",
+    "old_video": "Poster visible and video/audio play",
+    "evidence": "Operator report on 2026-11-09; one image and one clip, no resend",
+    "scope": "Scoped history-file recovery, not exhaustive history or transfer reliability"
+  },
+  "physical_samsung17_retest": "Operator confirms app/history normal, old image opens, video poster and picture/audio/controls normal"
+}

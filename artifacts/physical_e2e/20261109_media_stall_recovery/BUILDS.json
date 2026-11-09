@@ -1,0 +1,29 @@
+{
+  "version": "0.1.0+15",
+  "schema": 10,
+  "source_sha256": "5ce80af4c8ae2cde2c7ab62933bd0bdc6779a408461fb3272ba90464fd878a81",
+  "ios": {
+    "mode": "profile",
+    "build_exit": 0,
+    "standalone_preflight_exit": 0,
+    "bundle_version": "15",
+    "full_bundle_sha256": "031a32b19fcc0c059259008c0d457e0ca0f7f78d6d8807316d640446cc2503e6",
+    "full_bundle_files": 196,
+    "installed": true,
+    "installed_device_aliases": [
+      "iPhone 15 Plus"
+    ]
+  },
+  "android_profile": {
+    "mode": "profile",
+    "build_exit": 0,
+    "version_code": 15,
+    "package_identity_valid": true,
+    "signature_valid": true,
+    "aot_libapp_present": true,
+    "debug_kernel_absent": true,
+    "apk_sha256": "3983a49ca08f9627f96f7ec7801fdfcdfd13ab8d451c68e82d1087aa43eb5e75",
+    "installed": false,
+    "same_installed_certificate": "Check when known Samsung is connected"
+  }
+}

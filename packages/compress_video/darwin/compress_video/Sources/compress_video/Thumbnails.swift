@@ -12,6 +12,21 @@ import Security
   import FlutterMacOS
 #endif
 
+// BEGIN SOS OPAQUE THUMBNAIL MIME
+// Stored Chat files have opaque names. Only local, extensionless ISO-BMFF
+// files with an ftyp header receive the documented Apple MIME hint.
+func cvThumbnailAssetOptions(url: URL, header: Data) -> [String: Any]? {
+  guard url.isFileURL, url.pathExtension.isEmpty, header.count >= 12,
+        Array(header[4..<8]) == Array("ftyp".utf8) else { return nil }
+  if #available(iOS 17.0, macOS 14.0, *) {
+    let mime = Array(header[8..<12]) == Array("qt  ".utf8)
+      ? "video/quicktime" : "video/mp4"
+    return [AVURLAssetOverrideMIMETypeKey: mime]
+  }
+  return nil
+}
+// END SOS OPAQUE THUMBNAIL MIME
+
 /// `ThumbnailHostApi` implementation: extracts a rotation-correct poster frame via
 /// `AVAssetImageGenerator`, exactly as `Probe` does for media info.
 ///
@@ -78,7 +93,13 @@ final class Thumbnails: ThumbnailHostApi {
     maxDimensionPx: Int64?
   ) async throws -> Data {
     let standardizedPath = try Arguments.requireReadableMediaFile(path)
-    let asset = AVURLAsset(url: URL(fileURLWithPath: standardizedPath))
+    let url = URL(fileURLWithPath: standardizedPath)
+    var header = Data()
+    if url.pathExtension.isEmpty, let handle = try? FileHandle(forReadingFrom: url) {
+      defer { try? handle.close() }
+      header = (try? handle.read(upToCount: 12)) ?? Data()
+    }
+    let asset = AVURLAsset(url: url, options: cvThumbnailAssetOptions(url: url, header: header))
 
     let duration: CMTime
     let videoTracks: [AVAssetTrack]

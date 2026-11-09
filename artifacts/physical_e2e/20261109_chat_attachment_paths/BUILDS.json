@@ -1,0 +1,31 @@
+{
+  "version": "0.1.0+17",
+  "schema": 10,
+  "source_sha256": "162b363ada5ccb586391179e59d56f884b7bc168fcccb72c1e95141f4345b365",
+  "ios": {
+    "mode": "profile",
+    "build_exit": 0,
+    "standalone_preflight_exit": 0,
+    "bundle_version": "17",
+    "full_bundle_sha256": "7641dc6e426183167762afb32b2bf34a234cb2b0e72c5f4accbc1d349c1192e2",
+    "full_bundle_files": 196,
+    "installed": true,
+    "installed_device_aliases": [
+      "iPhone 15 Plus"
+    ]
+  },
+  "android_profile": {
+    "mode": "profile",
+    "build_exit": 0,
+    "version_code": 17,
+    "signature_valid": true,
+    "same_profile16_certificate": true,
+    "aot_libapp_present": true,
+    "debug_kernel_absent": true,
+    "apk_sha256": "5fa5ecf16c82664f22a680b69b62ecc86ea089c42bd661abdcafdcd331c13010",
+    "installed": true,
+    "installed_device_aliases": [
+      "Samsung SM-A536E"
+    ]
+  }
+}

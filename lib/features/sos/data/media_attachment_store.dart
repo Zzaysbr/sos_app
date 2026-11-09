@@ -102,6 +102,69 @@ class MediaAttachmentStore {
 
   Future<StoredMedia?> find(String id) => _serial(() => _find(id));
 
+  // Persist only an owner/message-scoped relative reference. iOS may move
+  // the app's sandbox between installations; never reuse its old root.
+  Future<({String reference, File file})?> _chatAttachment({
+    required String id,
+    required String incident,
+    required String? mime,
+    required String? path,
+  }) async {
+    if (path == null || mime == null) return null;
+    final reference =
+        'chat-media-v1/${await _key(ownerId)}/${await _key(id)}/content';
+    final currentPath = _root == null
+        ? null
+        : '${_root!.path}/${await _key(ownerId)}/${await _key(id)}/content';
+    if (path != reference &&
+        path != currentPath &&
+        !path.endsWith('/$reference')) {
+      return null;
+    }
+    final media = await _find(id);
+    if (media == null ||
+        !media.complete ||
+        media.incident != incident ||
+        media.manifest.mime != mime ||
+        await FileSystemEntity.type(media.file.path, followLinks: false) !=
+            FileSystemEntityType.file) {
+      return null;
+    }
+    return (reference: reference, file: media.file);
+  }
+
+  Future<String?> canonicalChatPath({
+    required String id,
+    required String incident,
+    required String? mime,
+    required String? path,
+  }) => _serial(
+    () async =>
+        (await _chatAttachment(
+          id: id,
+          incident: incident,
+          mime: mime,
+          path: path,
+        ))?.reference ??
+        path,
+  );
+
+  Future<String?> resolveChatPath({
+    required String id,
+    required String incident,
+    required String? mime,
+    required String? path,
+  }) => _serial(
+    () async =>
+        (await _chatAttachment(
+          id: id,
+          incident: incident,
+          mime: mime,
+          path: path,
+        ))?.file.path ??
+        path,
+  );
+
   Future<void> beginPicker(String incident, String kind) => _serial(() async {
     final file = File('${(await _base()).path}/picker.json');
     await file.writeAsString(

@@ -1,0 +1,83 @@
+{
+  "date": "2026-11-09",
+  "candidate_build": 18,
+  "status": "HOST643_AND_BOTH_FINAL_PROFILE_BUILDS_VALIDATED; IPHONE18_INSTALLED; PHYSICAL_UI_REVIEW_PENDING",
+  "user_preferences": {
+    "devices": "Editable local nicknames plus short device code",
+    "visuals": "Icons and ordered route more prominent than text"
+  },
+  "implementation": [
+    "SOS route entry in Chat and received-SOS details; per-message route entry in all Chat entry points",
+    "Vertical generic device/hub icons, editable nickname and6hex installation fingerprint code; no guessed manufacturer",
+    "Intermediaries exclude both endpoints; radio hops are legs between nodes. Direct =0 intermediaries/1 hop",
+    "Received SOS and Chat show stored accepted incoming path; sender Chat explicitly has unknown intermediaries because final receipt contains no full forward path",
+    "SOS origin shows known next-device prefixes; relay storage never becomes final-recipient confirmation",
+    "Final Chat storage confirmation requires cryptographic recipient receipt verification at signed persistence time, cached per page; no expiry/retry renewal",
+    "Owner-scoped read-only projection; no identity creation during UI lookup; local label files scoped per owner, max128 labels",
+    "Chat headers and messages share a scroll view, composer fixed; icon/static loading avoids blocking SOS startup; no-coordinator sessions omit unavailable route projections"
+  ],
+  "validation_so_far": {
+    "route_projection_and_labels": {
+      "passed": 5,
+      "failed": 0
+    },
+    "route_ui": {
+      "passed": 7,
+      "failed": 0
+    },
+    "preview_render": "PASS, synthetic data, Thai390x844; visually inspected",
+    "small_phone_font2": "After layout fix, no overflow at320x568; Thai/English route views and Chat"
+  },
+  "regressions_found_and_fixed": [
+    "New Chat header overflowed273pixels with enlarged text; replaced separate fixed headers/list with shared sliver scroll",
+    "An indeterminate route-loader/new projection in a no-coordinator startup fixture caused a nonsettling test; replaced with static loading and omit unsupported session route lookup; one-tap SOS isolated regression now passes",
+    "Readonly identity lookup uses separate service to avoid poisoning an authorized concurrent key-creation single-flight cache",
+    "Stream cancellation now sets cancellation flag before concurrently cancelling SQL watchers; prevents emit/read loops during Chat disposal and database teardown. Readonly key lookup skipped when no route evidence exists."
+  ],
+  "unchanged": [
+    "SQLite schema10 and old history/media files",
+    "BLE wire protocols, consent, relay budgets and signed receipt meaning",
+    "No new SOS/media physical test started; operator previously not ready"
+  ],
+  "limits": [
+    "Unknown/expired/malformed legacy route records show no stored route",
+    "No end-to-end path invented on sender even after valid destination storage receipt",
+    "Nicknames are labels on this device, not broadcast or human identity verification",
+    "No physical18 route UI acceptance yet; original media-stall physical retest remains pending"
+  ],
+  "full_host_suite": {
+    "passed": 643,
+    "failed": 0,
+    "exit": 0,
+    "concurrency": 1,
+    "reason": "Final run after stream cancellation fix and production-localized responsive assertions; no concurrent native builds"
+  },
+  "application_analysis": "No issues found",
+  "whitespace_check": "PASS",
+  "startup_and_composer_regressions": "one-tap SOS and both held-enqueue cases pass",
+  "initial_check_failures": [
+    "Full run with old responsive test copy/list expectations failed; test now checks production localization and shared scroll layout",
+    "Concurrent native builds/full suite produced one Stage2 runtime timeout; unchanged isolated case passed, final serial suite643 passed"
+  ],
+  "native_builds": {
+    "ios_profile": 0,
+    "ios_standalone_guard": 0,
+    "android_profile": 0,
+    "android_apk_signature_package_aot_preflight": "PASS"
+  },
+  "installed_devices": {
+    "iPhone": "Profile18",
+    "Samsung": "Profile17",
+    "iPad": "Profile14"
+  },
+  "installation_retention": {
+    "sos_rows": 23,
+    "chat_rows": 74,
+    "all_original_rows_unchanged": true,
+    "media_files_identical": 32,
+    "map_files_identical": 43,
+    "prior_label_files": 0,
+    "note": "Label directory absence independently checked by nonrecursive app support listing before/after update"
+  },
+  "physical_ui_review": "PENDING operator Home launch/history, route detail and local nickname save/reopen"
+}

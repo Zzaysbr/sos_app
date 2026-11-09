@@ -1,0 +1,1024 @@
+{
+  "version": "0.1.0+19",
+  "schema": 10,
+  "files": [
+    {
+      "path": ".impeccable.md",
+      "sha256": "dcb653af0fb5e7ce0dbebe528bf7636976d194a7166b15981e353b7926ce9c19"
+    },
+    {
+      "path": "android/app/build.gradle.kts",
+      "sha256": "29d132a58b5e43a9d053c8a633ea8077519e730c93faa70f6357870f08a05d63"
+    },
+    {
+      "path": "android/app/src/main/AndroidManifest.xml",
+      "sha256": "9adc3501be2bd8665b704c0c4716b1f6ec9f2b48951985c8515a625bef08fb30"
+    },
+    {
+      "path": "android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java",
+      "sha256": "670de1b0c492219aabdb6ab483723c812086b813d58e15ef2980376a3475d2a2"
+    },
+    {
+      "path": "android/app/src/main/kotlin/com/n1cxltine/sosapp/BackgroundRuntime.kt",
+      "sha256": "bac2fd9967e6309251efefe5c04194f33f0bbce5a4f7349e554f32bf3dd345c2"
+    },
+    {
+      "path": "android/app/src/main/kotlin/com/n1cxltine/sosapp/BleTransportBridge.kt",
+      "sha256": "2874b4642069c62ee05cd5cc5f0d57971e90c821d8ffd0a1a5a9992122b138e8"
+    },
+    {
+      "path": "android/app/src/main/kotlin/com/n1cxltine/sosapp/MainActivity.kt",
+      "sha256": "6034d2ee4ab54f98a4fba1de0b8201d42768cadff22780035604f570d203eff4"
+    },
+    {
+      "path": "android/app/src/main/kotlin/com/n1cxltine/sosapp/SosApplication.kt",
+      "sha256": "bca8475acd370ec98bcb3a36aa55bd13a90bcf36ef5ec58915241daf2b7bd988"
+    },
+    {
+      "path": "android/app/src/main/res/drawable-v21/launch_background.xml",
+      "sha256": "7ca6d5cec2169c5a98661a119db23a6f3399c8fef2256ff04f3a642831282478"
+    },
+    {
+      "path": "android/app/src/main/res/drawable/emergency_foreground.xml",
+      "sha256": "318ad52f738450294370b11b3ff5e1770684fe1f8d254b5ece7c9090230db02f"
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_stat_sos.xml",
+      "sha256": "5a8c5bbd0250b6d5f629dfbd5dd01bad88373e2bb00de885de2f53b42b2c8fbc"
+    },
+    {
+      "path": "android/app/src/main/res/drawable/launch_background.xml",
+      "sha256": "94433756fe10005ddd6fc55cc5c0b1e9f3c10b66a08ceac795ece6713d34e28a"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+      "sha256": "d2d1f2c0733df53f49a4a05a816b98ae3577b8bea7d255f86665c9a322e9ae11"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml",
+      "sha256": "acaf1391b559a6e0c17e76582e17930d46b1b6268f50c7530d917167c5627641"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-hdpi/ic_launcher.png",
+      "sha256": "c21a17a4aef5794079c53d26240d491f1094bce41f695de5deaa11da9e8db0ad"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-mdpi/ic_launcher.png",
+      "sha256": "6cb282054ac37190c891c9c8e13f3eef2ecc0cd102e85178245a3ed049dbe239"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xhdpi/ic_launcher.png",
+      "sha256": "0dee9748f025d1b80ae2b5d03dd107bb844f7864c44dfb9d7f336a7effe64105"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+      "sha256": "d2a6c2f40cb81b56a177e4f0e5170ce2bc20890890c9554ea5da008dcca47fbc"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "sha256": "aae0037610673c22167cdffedbcb3049f981be8356ad8d9af19a9972e99de78e"
+    },
+    {
+      "path": "android/app/src/main/res/values-night/styles.xml",
+      "sha256": "8c5bad5152f217e837519f9c15211d19f39bd45f5f67faf6dd81cb4b299e518f"
+    },
+    {
+      "path": "android/app/src/main/res/values/emergency_colors.xml",
+      "sha256": "562c643d6469f5ab42a11f4e8fad36b9c9fbd25d9475f3ffa6a7479f570c7ca0"
+    },
+    {
+      "path": "android/app/src/main/res/values/styles.xml",
+      "sha256": "937d7c82f539c72eb94fd3a3773f29b3d3fef1997213c92cb632298cedf4bda9"
+    },
+    {
+      "path": "android/app/src/main/res/xml/relay_backup_rules.xml",
+      "sha256": "97d2c4475d34f26b34b7bae55f59151cec28992c146e0dd4efd992683bee0bc7"
+    },
+    {
+      "path": "android/app/src/main/res/xml/relay_data_extraction_rules.xml",
+      "sha256": "60e31d1fccd630e8de4ed61d24835ba45fbba81725bcd3c9d693f4f2c192a2f6"
+    },
+    {
+      "path": "assets/branding/emergency-icon.png",
+      "sha256": "b2f0175ffd0b0bd2809b80658fcb9c8471c3179b597aa07384843fd24345b741"
+    },
+    {
+      "path": "assets/branding/emergency.svg",
+      "sha256": "0e4c79685091874b50edd44be343b0b0e3cf3c58f2f5364a54a4b281c3cdf084"
+    },
+    {
+      "path": "ios/Podfile",
+      "sha256": "ed9a0a4770046f2eefde02db1e3fe9cc07a8df0c1343774fda450d405a33d165"
+    },
+    {
+      "path": "ios/Podfile.lock",
+      "sha256": "c192ca9202ade214576ef7aabc1ff3f9ba41e6146c5d64af21ffb2bed531da73"
+    },
+    {
+      "path": "ios/Runner.xcodeproj/project.pbxproj",
+      "sha256": "89b2ce3b7fd41e8e877ec6bea612f64a09864144ce68df400c09b6b16286b311"
+    },
+    {
+      "path": "ios/Runner/AppDelegate.swift",
+      "sha256": "9adfe3104c6defe8faaad73bb5e38bbc5559fe1a8d9c12d2e33450f87d833ecb"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/EmergencyIcon.appiconset/Contents.json",
+      "sha256": "3b1e214f466ffedff74baa5598ad5c4421130eea6bc8d57b8fe23435e8280ae4"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/EmergencyIcon.appiconset/Icon-App-1024x1024@1x.png",
+      "sha256": "b2f0175ffd0b0bd2809b80658fcb9c8471c3179b597aa07384843fd24345b741"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/EmergencyIcon.appiconset/Icon-App-20x20@1x.png",
+      "sha256": "2472ada74c7be60f080d44c4bbcdadeb9d257f32955edd6fee850c2da6ceceed"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/EmergencyIcon.appiconset/Icon-App-20x20@2x.png",
+      "sha256": "a430d1b53f77fae3154235ecbca4fb1b3fd0e36d606723baf91d7aebda727a40"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/EmergencyIcon.appiconset/Icon-App-20x20@3x.png",
+      "sha256": "526bdf6c001ee0ba928fc6663048bbb89c9d16ea3c11e7a760bd7f2163210df5"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/EmergencyIcon.appiconset/Icon-App-29x29@1x.png",
+      "sha256": "3f8e0484e59bbedeaf7b568cfb0ac4b111a202f72ceea2068df0e254206a8753"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/EmergencyIcon.appiconset/Icon-App-29x29@2x.png",
+      "sha256": "ab9fa511433e5006fd9825114ce0b6fc46dcda7b376dcdbda4dd7c4efab2999f"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/EmergencyIcon.appiconset/Icon-App-29x29@3x.png",
+      "sha256": "dc62a27df958ad59e8ecdc2e3adf4cbe8de44d7c7daaa4643b9fbbb78230a15f"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/EmergencyIcon.appiconset/Icon-App-40x40@1x.png",
+      "sha256": "a430d1b53f77fae3154235ecbca4fb1b3fd0e36d606723baf91d7aebda727a40"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/EmergencyIcon.appiconset/Icon-App-40x40@2x.png",
+      "sha256": "eb3d6508e766f55a515352b77f26e959b0bbd542bab5c7d4ae36b3a1c5cda43d"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/EmergencyIcon.appiconset/Icon-App-40x40@3x.png",
+      "sha256": "ad3c0133d82e243d6b45f5b3d80fd72da7f74c910db060afaf3e1ee7e228df75"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/EmergencyIcon.appiconset/Icon-App-60x60@2x.png",
+      "sha256": "ad3c0133d82e243d6b45f5b3d80fd72da7f74c910db060afaf3e1ee7e228df75"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/EmergencyIcon.appiconset/Icon-App-60x60@3x.png",
+      "sha256": "c51f32ede272da725ac5c243b9dc33499aef75a5ac3f44361ed31dad3e2bcb79"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/EmergencyIcon.appiconset/Icon-App-76x76@1x.png",
+      "sha256": "9c472aed7dce392f6a0cdcf91f46eb4854a1d7fb67c5fde413235a8bfb8bbcd5"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/EmergencyIcon.appiconset/Icon-App-76x76@2x.png",
+      "sha256": "4482eeb665fbaa3c3e1d8c4a03847b412a1ca0a93cf675e3a87721c81bde1b57"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/EmergencyIcon.appiconset/Icon-App-83.5x83.5@2x.png",
+      "sha256": "da2eb285fafd95d5f3bf6613942f2c62378bd2c1369c1a58ccf08e3a7d1fca0e"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/LaunchImage.imageset/Contents.json",
+      "sha256": "ccc7950fd5f5b82067c85f667940a9d59189151460761ece8098ca78daa19469"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage.png",
+      "sha256": "93ae7d494fad0fb30cbf3ae746a39c4bc7a0f8bbf87fbb587a3f3c01f3c5ce20"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage@2x.png",
+      "sha256": "93ae7d494fad0fb30cbf3ae746a39c4bc7a0f8bbf87fbb587a3f3c01f3c5ce20"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage@3x.png",
+      "sha256": "93ae7d494fad0fb30cbf3ae746a39c4bc7a0f8bbf87fbb587a3f3c01f3c5ce20"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/LaunchImage.imageset/README.md",
+      "sha256": "a985b626c4f7546a8ba392d135e9226c3547c8e2b46895f5f2bdf40d7b14ef9f"
+    },
+    {
+      "path": "ios/Runner/Base.lproj/LaunchScreen.storyboard",
+      "sha256": "857e61203b3deafb05766d8fcda898b86a7cb6f3d5e385ecc9926c4d698215e9"
+    },
+    {
+      "path": "ios/Runner/Base.lproj/Main.storyboard",
+      "sha256": "fd367b6c43006d61b730f674970dd48b9f662c8f2264e52ffc1558102a2c9f2d"
+    },
+    {
+      "path": "ios/Runner/BleTransport.swift",
+      "sha256": "e503c09abd9500af215a5ab6a0babaf3b3f94c11b6d578a3bcb42d0113fdcb65"
+    },
+    {
+      "path": "ios/Runner/GeneratedPluginRegistrant.h",
+      "sha256": "a5f88cc6415d2e639d2cb549348b84e02a7fdd0261603b0063abef6fa11f075a"
+    },
+    {
+      "path": "ios/Runner/GeneratedPluginRegistrant.m",
+      "sha256": "575778d7703a2fcda178762a2d5c9a3e2f2b3da01e6302859f5a32b89f7a95d3"
+    },
+    {
+      "path": "ios/Runner/GoogleService-Info.plist",
+      "sha256": "5e5ef867f59a5c2e182613faf83242e771e6f50360cec0aba9bbf48f0bcaf8bc"
+    },
+    {
+      "path": "ios/Runner/Info.plist",
+      "sha256": "753da519885374a700fffcd6de96e28a5fa4ee396e34870f49e15d9f47781f77"
+    },
+    {
+      "path": "ios/Runner/Runner-Bridging-Header.h",
+      "sha256": "1a8d11d01d1cc92c650c9c9ed35299240052d4683a15a719a2315ef44185e074"
+    },
+    {
+      "path": "ios/Runner/SceneDelegate.swift",
+      "sha256": "add68b905971dedfcc0d0b5b7118030de5925ba8c081ad9815463699e3a444ad"
+    },
+    {
+      "path": "lib/.DS_Store",
+      "sha256": "b3001460b9fbb2a226b3d810c73bd2a0781dc32338ccf81df36170895eff2e88"
+    },
+    {
+      "path": "lib/core/database/app_database.dart",
+      "sha256": "c02682520677482955dc30901b37a84beb3012da43f4083e3ef278ce712e8c12"
+    },
+    {
+      "path": "lib/core/database/app_database.g.dart",
+      "sha256": "2b57912c64cbcc2c868dedfc8087cf2d37c942b2ebb214ea5f179869a96dad86"
+    },
+    {
+      "path": "lib/core/database/tables/ble_inbox.dart",
+      "sha256": "01a4fe9341dc8cd79a9f59210d2cbd222347aeaf52ec57e42c766c11cac2eaef"
+    },
+    {
+      "path": "lib/core/database/tables/ble_outbox.dart",
+      "sha256": "1521ed9b784fdc1ad1d843020dff9035bfd8839ed6cfbb133a7c6dc45717ec20"
+    },
+    {
+      "path": "lib/core/database/tables/ble_relay_attempts.dart",
+      "sha256": "450090af8f189737e6579129dd1fb4f33ea17993877804494ccfd999200ea72b"
+    },
+    {
+      "path": "lib/core/database/tables/ble_relay_messages.dart",
+      "sha256": "6e2e44a0e47cdb80922b7b9d8078450a5f883af65d1c0363210bf4d00b019c17"
+    },
+    {
+      "path": "lib/core/database/tables/ble_relay_receipts.dart",
+      "sha256": "6d834947b3ad6fc001e9e143e0901e59626bd81bdc743a6f9cb4063bbd1c4074"
+    },
+    {
+      "path": "lib/core/database/tables/chat_messages.dart",
+      "sha256": "452b50312a7d2b95b1549b0442163434736b848804362df9f4f49958f2460402"
+    },
+    {
+      "path": "lib/core/database/tables/chat_receipts.dart",
+      "sha256": "eeb3e88be98b50bebad1e5615498ff470591f518819e6ae2a17fdd590c795a9a"
+    },
+    {
+      "path": "lib/core/database/tables/chat_relay_inbox.dart",
+      "sha256": "b394e887eb985aa8f5930dfd73d406fc657f5148dbc939ed022486f131d04ec4"
+    },
+    {
+      "path": "lib/core/database/tables/chat_relay_outbox.dart",
+      "sha256": "9edf8a55d7ad1f404c6e1be1b902c6f8ad6bd7328ac37467e999bd720dfd0f17"
+    },
+    {
+      "path": "lib/core/database/tables/rescue_inbox.dart",
+      "sha256": "283461b21942b1839967de15e88f4e028c30884bc46febfb4551022741fd80f7"
+    },
+    {
+      "path": "lib/core/database/tables/rescue_response_inbox.dart",
+      "sha256": "8e3d04a19f0a5d9c98442ea1512009914a975fe80343b1b3585f8e660eeec5ef"
+    },
+    {
+      "path": "lib/core/database/tables/rescue_response_jobs.dart",
+      "sha256": "84e7953cab85de59fa6ffcff2077c22c6c5fc56b975962fcf8c46b12e1dbd4b9"
+    },
+    {
+      "path": "lib/core/database/tables/rescue_response_outbox.dart",
+      "sha256": "57d75a7545d63c65deae1f893fa9d0c402f565034c1b2c777e16933dbacf508c"
+    },
+    {
+      "path": "lib/core/database/tables/rescue_response_replay.dart",
+      "sha256": "ece8ad0ff62ee251d651328dd55bca4320537f0173d7d24974a9badb64effb17"
+    },
+    {
+      "path": "lib/core/database/tables/sos_messages.dart",
+      "sha256": "c0ebf94e304e3399d1b2c164c0c54408762977d385f5faaea1913a51a7efa8f3"
+    },
+    {
+      "path": "lib/core/database/tables/sos_sync_queue.dart",
+      "sha256": "72375035fd42b4a0772d081684fb9d6067905a2543bcf94f12b76763d991cbe6"
+    },
+    {
+      "path": "lib/core/localization/language_selector_tile.dart",
+      "sha256": "1cfe5af75d78b70de612e4f68549ffe484ebf6e834ae26934aec5d1b7071d6ef"
+    },
+    {
+      "path": "lib/core/localization/locale_controller.dart",
+      "sha256": "e3f9bd7ace44b07da296f34f2c72963ca6752df67573968e8fded1e47f0e75ad"
+    },
+    {
+      "path": "lib/core/localization/locale_preference_store.dart",
+      "sha256": "283641cd77d12853ed26d62a97c22fd8980838d36c1e23a0f4bd9b4bdf75672c"
+    },
+    {
+      "path": "lib/core/localization/localization.dart",
+      "sha256": "8fb861f57bf6e3ed8a54defb58e3b776f94a41317315067f686d937b4b4e3b24"
+    },
+    {
+      "path": "lib/core/notifications/chat_notifications.dart",
+      "sha256": "2fa74551171a87b47c32abd35f6a24e33c85188addad23b3ecc4df3d7d3e656f"
+    },
+    {
+      "path": "lib/core/theme/app_theme.dart",
+      "sha256": "562bb0e882b653b805d44c9d3c68c61cff4e8d79cc627cc7d450166bd6299495"
+    },
+    {
+      "path": "lib/features/auth/data/auth_service.dart",
+      "sha256": "2f7df6708d2386c6d5ee2a66ec7c2822a5c3c8f94603b1ad8f73ab6eb803d0e7"
+    },
+    {
+      "path": "lib/features/auth/data/password_recovery.dart",
+      "sha256": "2d98b7a1d757f135d3c098064d66cd4ef0383677c7023d4d8760031d29563866"
+    },
+    {
+      "path": "lib/features/auth/presentation/auth_page.dart",
+      "sha256": "8fe2c4979e5214b3becd3f53f573b7b603873be42556924a947c1cd3176fdd31"
+    },
+    {
+      "path": "lib/features/auth/presentation/auth_session_navigator.dart",
+      "sha256": "cabcd8768dbd093ba2f03297b97c8e7e06c69fdeaf1107ff007385c1421c373a"
+    },
+    {
+      "path": "lib/features/nearby_ble/data/ble_delivery_repository.dart",
+      "sha256": "bb0aafda16a6fad1f532c083e0ebe726ab7e73d5dff0dc419d5bb587ec7213a4"
+    },
+    {
+      "path": "lib/features/nearby_ble/data/ble_protocol.dart",
+      "sha256": "92fea7fd5cb131a0c59640a0d221cba27896036d3f1c28ef8e7c7d115b884d3c"
+    },
+    {
+      "path": "lib/features/nearby_ble/data/ble_transport.dart",
+      "sha256": "70282b2378299c9528688fcde1f624c83c4a4c68da03fa2fcdaf6a11dc64cd5b"
+    },
+    {
+      "path": "lib/features/nearby_ble/data/chat_receipt_repository.dart",
+      "sha256": "c4f7fcb33f9c60dddb695283e9cec19c502725bed4b150fe3c041aa25e0a9622"
+    },
+    {
+      "path": "lib/features/nearby_ble/data/chat_relay_authorization.dart",
+      "sha256": "e30a5322ee139c3f3b18d85e2ebd2c5f10b807ab46f0fcecbdff2e31fdeb76a8"
+    },
+    {
+      "path": "lib/features/nearby_ble/data/chat_relay_repository.dart",
+      "sha256": "706d8dd6582b5ff1c346501ed0a0eebf1328405aa637e9adb5c8c3fd54794e96"
+    },
+    {
+      "path": "lib/features/nearby_ble/data/emergency_consent_store.dart",
+      "sha256": "259faf907666d76466064a0fd9dc5e56c031504c6a71c858da05f66967514fe7"
+    },
+    {
+      "path": "lib/features/nearby_ble/data/hop_relay_coordinator.dart",
+      "sha256": "04bea44ec81cc408ef6eb6c703fcda039fd303e81c43fa30ff26d102c1c44a1c"
+    },
+    {
+      "path": "lib/features/nearby_ble/data/incident_lifecycle_repository.dart",
+      "sha256": "3a9216bb2c37a6b69c7416b8a245917c73822dba0f7c839efecb8814b511bea2"
+    },
+    {
+      "path": "lib/features/nearby_ble/data/relay_diagnostics_repository.dart",
+      "sha256": "1fcb0c99f3b446aff0d13f2d854cb2a5c6a14896adfb64a9f9413936d52becc5"
+    },
+    {
+      "path": "lib/features/nearby_ble/data/relay_key_store.dart",
+      "sha256": "41f4a8a16b5703280b66f2a83ab0cdd408e605fb201cda1dcf79ea391cf61c39"
+    },
+    {
+      "path": "lib/features/nearby_ble/data/relay_preference_store.dart",
+      "sha256": "27db2db97584123507488b68ab3868d5a4bf5724206762c1a8bbb945e1d9a988"
+    },
+    {
+      "path": "lib/features/nearby_ble/data/relay_repository.dart",
+      "sha256": "44f62eb7fee38e492c4cefd7f5f0ec12da6340fa116da38db6578297a58a359e"
+    },
+    {
+      "path": "lib/features/nearby_ble/data/relay_storage_accounting.dart",
+      "sha256": "f1c4dd92bec20bdfccc5421c2bb29ce2d5ccfb6548ead49b28dc9828ede06599"
+    },
+    {
+      "path": "lib/features/nearby_ble/data/rescue_inbox_repository.dart",
+      "sha256": "aa897bbacca0381ceafb7397523d14356822aca5fac18f7a1019d0092bfaa51a"
+    },
+    {
+      "path": "lib/features/nearby_ble/data/rescue_response_repository.dart",
+      "sha256": "d07a4fbbf92df782c1f2360e16173a0a72fc710ba028767cd7694c74bace3f01"
+    },
+    {
+      "path": "lib/features/nearby_ble/data/route_device_names.dart",
+      "sha256": "b43005ed410a3770c0c06f47501604fd5139f169535ca538c873719b9f58ea2a"
+    },
+    {
+      "path": "lib/features/nearby_ble/data/sos_ble_coordinator.dart",
+      "sha256": "faee95081e9184839e0ea99918a7ebf8c42207766044485fbf4e1662404b1cc5"
+    },
+    {
+      "path": "lib/features/nearby_ble/data/user_route_repository.dart",
+      "sha256": "25d1d12435f821c6ed1500a6371ec5203ff482b2bb621cdba74d581df6fb4606"
+    },
+    {
+      "path": "lib/features/nearby_ble/domain/ble_connection_events.dart",
+      "sha256": "466674d4379c2946347ad561dddd4a0dd29b83f9f4d9ed386024add741e69082"
+    },
+    {
+      "path": "lib/features/nearby_ble/domain/ble_delivery_state.dart",
+      "sha256": "9dc654b55938d68752b08e767940a78508ff06c20748a9c55e9ddc9afff10cdf"
+    },
+    {
+      "path": "lib/features/nearby_ble/domain/ble_models.dart",
+      "sha256": "61837b96eeed3f9a2865c5de67fff721148897db4ead5809228c33bec60f5800"
+    },
+    {
+      "path": "lib/features/nearby_ble/domain/ble_range_diagnostic.dart",
+      "sha256": "85ec16a26cc4c48b74a3608be0e298ba060e1409f2785b79c6f7f472552c3449"
+    },
+    {
+      "path": "lib/features/nearby_ble/domain/chat_receipt.dart",
+      "sha256": "3ec1692b4ee8560691cadc05e6c1cdb29c90521ffcc57c4745517f2235a42439"
+    },
+    {
+      "path": "lib/features/nearby_ble/domain/chat_relay_envelope.dart",
+      "sha256": "bf737867c9694bff777b1ef8c0ad94da06918bcc825e09cba350b2ecb9ec8dd4"
+    },
+    {
+      "path": "lib/features/nearby_ble/domain/incident_lifecycle_envelope.dart",
+      "sha256": "444d60602acd8794032c26aca6a45367c9552284cfc652f5d118094c4b080d75"
+    },
+    {
+      "path": "lib/features/nearby_ble/domain/location_ble_envelope.dart",
+      "sha256": "5df155f0e41028720ca6b5d5b8aa534c4ab11dc320ee37da1e630ca86deefe67"
+    },
+    {
+      "path": "lib/features/nearby_ble/domain/media_manifest.dart",
+      "sha256": "c12c5aabb0ab786cd7b6e5e61e0f0a27f7bf61152da5098b32f7315de991dfba"
+    },
+    {
+      "path": "lib/features/nearby_ble/domain/relay_envelope.dart",
+      "sha256": "0903d161cda9b849c44bd6c67a988a430f48ac385130dbb9d3cfc1c89c726ea5"
+    },
+    {
+      "path": "lib/features/nearby_ble/domain/rescue_response_envelope.dart",
+      "sha256": "312700585e8a131a9e934ffd8d61b6864b5feedfa2f744f6af9276199dc370af"
+    },
+    {
+      "path": "lib/features/nearby_ble/domain/sos_ble_envelope.dart",
+      "sha256": "602f4381b8ab3d81121f918b4e5c4c2b623e0ba18fa3239421ddca3656599fb5"
+    },
+    {
+      "path": "lib/features/nearby_ble/nearby_ble.dart",
+      "sha256": "7e4b189b684d706575c8ee943f4582b1bb7f80d02207518894a1cd72833150c0"
+    },
+    {
+      "path": "lib/features/nearby_ble/presentation/ble_recipient_picker_page.dart",
+      "sha256": "ad010512d06c158f694c55dd613c78731554412ca4aee40a7454a8fd22e5d74b"
+    },
+    {
+      "path": "lib/features/nearby_ble/presentation/ble_test_page.dart",
+      "sha256": "2d9003d8365b666edb6a2ab1ea1a8401b5e63726985aaa768a3d099fefb78621"
+    },
+    {
+      "path": "lib/features/nearby_ble/presentation/relay_diagnostics_page.dart",
+      "sha256": "dc684cf3e16572d58edad1428ac944b65bfbca050cddf83ff70d3d80a5521042"
+    },
+    {
+      "path": "lib/features/nearby_ble/presentation/user_route_view.dart",
+      "sha256": "fde0a361fe24a0f2ce88f81278e47faa272698821c51d3771775826b215103d7"
+    },
+    {
+      "path": "lib/features/role/data/role_preference_store.dart",
+      "sha256": "60d837e06a34b810f170b2de5e46e1ef3dd6e801efcc15daba378050fa078888"
+    },
+    {
+      "path": "lib/features/role/domain/app_role.dart",
+      "sha256": "53860cf47d0cffdc7a1300487a89fa8110db6b9caaa2701dfdc9c7a3e7d066df"
+    },
+    {
+      "path": "lib/features/role/domain/role_workflow_controller.dart",
+      "sha256": "7be2c7a03882ba36d19a0cc55a533b1bcdd0ba7c485ac228956e5cd124a687ac"
+    },
+    {
+      "path": "lib/features/role/presentation/role_selection_page.dart",
+      "sha256": "d526f40cd779f7ddf64605270c4b524e39df231a36e35e2c4ffa8949b2d9c28a"
+    },
+    {
+      "path": "lib/features/sos/data/chat_repository.dart",
+      "sha256": "04e0796dd58f14770c708217340bdb099a078d900b6cca9160cca27d8c713864"
+    },
+    {
+      "path": "lib/features/sos/data/media_attachment_store.dart",
+      "sha256": "626e849757449175ec03c846d1276e67f65cb1435d2e4a1181d09d370c166930"
+    },
+    {
+      "path": "lib/features/sos/data/media_content_validator.dart",
+      "sha256": "86f05c2af92a5ab0e1ca66390a91d0d473c27ec524da9ec12220b219e4b0add2"
+    },
+    {
+      "path": "lib/features/sos/data/offline_map_repository.dart",
+      "sha256": "8d59e3cabcd05dd74e5a54f7f93a5e7550c5f93e8dbbbe0eec998f1497297c89"
+    },
+    {
+      "path": "lib/features/sos/data/sos_cloud_service.dart",
+      "sha256": "9d3af3734237a9ff7442e2ff46749e797955fdf220fd151ae730209c46f8d802"
+    },
+    {
+      "path": "lib/features/sos/data/sos_repository.dart",
+      "sha256": "7dc1ae9d428f5a7eecc40d395386dd7da8e12d74bdbaa1be56dcdb63ed627bdc"
+    },
+    {
+      "path": "lib/features/sos/data/sos_sync_coordinator.dart",
+      "sha256": "cdade0ffe4b27f64d2c9c52ce90de07c5080ff99ed45735ff0cd8fbe06fecd37"
+    },
+    {
+      "path": "lib/features/sos/presentation/account_page.dart",
+      "sha256": "f8b2f66944648384080f47451a59efd7b1bd14de799ed5a62b40418355770949"
+    },
+    {
+      "path": "lib/features/sos/presentation/chat_media.dart",
+      "sha256": "65e5e41678cd487b4566247b0442e9699b2967cd124f245937536c23dcc298d4"
+    },
+    {
+      "path": "lib/features/sos/presentation/chat_media_compression.dart",
+      "sha256": "15975a61b275f6b4d2bbc21ce8ef7a459e6f2d142beb141a48fc0c150b3d5a00"
+    },
+    {
+      "path": "lib/features/sos/presentation/chat_video_preview.dart",
+      "sha256": "a7bb497964d999194f9f8aa0a7f397a7e71a2d45137b14d186ff80a916acd925"
+    },
+    {
+      "path": "lib/features/sos/presentation/current_sos_route_panel.dart",
+      "sha256": "7172e9a60449a818a9e5cd0996e5696e80c7d0b5f831d82426646cc7dc0788c4"
+    },
+    {
+      "path": "lib/features/sos/presentation/emergency_chat_page.dart",
+      "sha256": "ce8cbeb9ed8015d969a45e7fdffd4a9111b9482aea964b77d4fc6e9d3361b261"
+    },
+    {
+      "path": "lib/features/sos/presentation/in_app_notifications_page.dart",
+      "sha256": "742bb7eb0a7e7437d8aacc36444542d8b630177554be7e8d39a3f2acfa40cc12"
+    },
+    {
+      "path": "lib/features/sos/presentation/incident_map_page.dart",
+      "sha256": "aff94e594d299e570e741cd397a794c0261ed1d4ec0e77a1204b53edeca06e75"
+    },
+    {
+      "path": "lib/features/sos/presentation/location_sharing_panel.dart",
+      "sha256": "7611d175ae491bb1911bd8a7427c2264b9654d9804e33e70ce2a01c1169557d9"
+    },
+    {
+      "path": "lib/features/sos/presentation/map_tile_provider.dart",
+      "sha256": "bc6344284a803d5ea29682bc1807019d1563c7d7aa4b6dd61a59d87b36e24791"
+    },
+    {
+      "path": "lib/features/sos/presentation/offline_first_tile_provider.dart",
+      "sha256": "0bc400456027d720d0de9164b1b812196fd00900eb4d47b9aac181485fdb0415"
+    },
+    {
+      "path": "lib/features/sos/presentation/sos_page.dart",
+      "sha256": "13f3bb79aa05585076c961a9e1820303e710ccc33e6ce377b846ba5038898a76"
+    },
+    {
+      "path": "lib/features/startup/presentation/startup_page.dart",
+      "sha256": "1b5ee831297ac2e414a5d01d2c7f82b9db611952acfbcd4eea7657abfc281d73"
+    },
+    {
+      "path": "lib/firebase_options.dart",
+      "sha256": "b433bf3e52ca95a71445b8f20152deca3973014b60fae97ccf70ee76c4ea4d71"
+    },
+    {
+      "path": "lib/l10n/app_en.arb",
+      "sha256": "37c05c84f50428bedb5d40e460667b9d070569e586911ef70f1256bcd788dbaf"
+    },
+    {
+      "path": "lib/l10n/app_th.arb",
+      "sha256": "a5e7dadb3b9d551f7b250d69662c96f571e65fbfed8d12ac27de88259193045f"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations.dart",
+      "sha256": "244d6d6af0040e38eea4b78ef5509b6c63906e600c6b041e450d1a39f786a3d8"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_en.dart",
+      "sha256": "5c55918327c2abc12b7716c72669e1e009fce81e8721191b74778d6761856104"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_th.dart",
+      "sha256": "a5de1884a42b7a590fbd9bc822f3156cd034feee9d1c519ce22120c24c081f41"
+    },
+    {
+      "path": "lib/main.dart",
+      "sha256": "e9c7b765586197ab36cda1c9d1510643488a37b62b6d77c2026185ac322945b5"
+    },
+    {
+      "path": "packages/compress_video/LICENSE",
+      "sha256": "21507f7c54ea578b6305869eeae9cc70613f47d6cbb2c89bcda249ba9ed49246"
+    },
+    {
+      "path": "packages/compress_video/LOCAL_PATCH.md",
+      "sha256": "f0cdb478d790e043f07a028556a7552c30feb9265cedcb08a16e2c75232cf304"
+    },
+    {
+      "path": "packages/compress_video/android/build.gradle.kts",
+      "sha256": "ea9537e7e1a5a1900261f30713b29fab8870c09ed6e78ee385239767515f3e1f"
+    },
+    {
+      "path": "packages/compress_video/android/settings.gradle.kts",
+      "sha256": "14c05658de40ee71560aad27a7ec1a5b578cb5e4e5a8da9f7a376feec094d46b"
+    },
+    {
+      "path": "packages/compress_video/android/src/main/AndroidManifest.xml",
+      "sha256": "eb43d522152cdb17bc232590de3445b0ccf3628d0fbce7ddc48f78765f9a179a"
+    },
+    {
+      "path": "packages/compress_video/android/src/main/kotlin/com/danjjohnson/compress_video/Arguments.kt",
+      "sha256": "734adf96cf709cd19803179170c43629c535364b95156f2b1e068d6ecf710218"
+    },
+    {
+      "path": "packages/compress_video/android/src/main/kotlin/com/danjjohnson/compress_video/CodecCapabilities.kt",
+      "sha256": "fc43fa6cafe7b12e97bf9e4866d552f869109bb7b20dc06bdc472c65352787b2"
+    },
+    {
+      "path": "packages/compress_video/android/src/main/kotlin/com/danjjohnson/compress_video/CompressVideoPlugin.kt",
+      "sha256": "38f270923f015edaa06651add4d622144f44c5ea7b4b76f49784d41511399ae8"
+    },
+    {
+      "path": "packages/compress_video/android/src/main/kotlin/com/danjjohnson/compress_video/Compression.kt",
+      "sha256": "8acdb384b4246c735aeb7bdf3eebc04d504b3091039bb1a7508833fb7f1fa9f6"
+    },
+    {
+      "path": "packages/compress_video/android/src/main/kotlin/com/danjjohnson/compress_video/ErrorMapping.kt",
+      "sha256": "290e2d50f4314df4deebcd29b74dc7bc8ece7d398659cfbd6c6c31cf3f9a88e9"
+    },
+    {
+      "path": "packages/compress_video/android/src/main/kotlin/com/danjjohnson/compress_video/ForegroundServiceHost.kt",
+      "sha256": "13e4438c66f80871824a338dd29a4d6642d88e2d7c97d2870b9918b96352599a"
+    },
+    {
+      "path": "packages/compress_video/android/src/main/kotlin/com/danjjohnson/compress_video/JobRegistry.kt",
+      "sha256": "2ae3047356de769f6321f9d87c29803c31e6644228b10e18b2d3800a8f78fae4"
+    },
+    {
+      "path": "packages/compress_video/android/src/main/kotlin/com/danjjohnson/compress_video/MediaMath.kt",
+      "sha256": "916e3c5b8eeccfae6f97be9d9d32f7cbe13be03a6ec5d191e4418768dce484e3"
+    },
+    {
+      "path": "packages/compress_video/android/src/main/kotlin/com/danjjohnson/compress_video/Messages.g.kt",
+      "sha256": "7c2f7f7504643617d31dc1192226f5f99104dce92d8cfa045e21972c9b6a1d29"
+    },
+    {
+      "path": "packages/compress_video/android/src/main/kotlin/com/danjjohnson/compress_video/PluginFiles.kt",
+      "sha256": "6a3acdbdf2c30f9a19f95de161ac36acd338bb52655025ae6356583fa736d875"
+    },
+    {
+      "path": "packages/compress_video/android/src/main/kotlin/com/danjjohnson/compress_video/Probe.kt",
+      "sha256": "d38ce34801b1ff1f4de2f78f76b4e44d0332713afec7413bed3d707e363ce6af"
+    },
+    {
+      "path": "packages/compress_video/android/src/main/kotlin/com/danjjohnson/compress_video/SizeGuard.kt",
+      "sha256": "2c1a5bc3b127e8bfdd61e6615a3fdeeef474046f7293f058513b11f01518676b"
+    },
+    {
+      "path": "packages/compress_video/android/src/main/kotlin/com/danjjohnson/compress_video/Thumbnails.kt",
+      "sha256": "2959edcd4864d202671cd89e19e039260ba2577d06b5ad2235f31070f53d0312"
+    },
+    {
+      "path": "packages/compress_video/android/src/main/kotlin/com/danjjohnson/compress_video/TransformerEngine.kt",
+      "sha256": "62ab2179bac621fcf1ecdc5d0d9ef7531ab7db1835a0222096583820315af795"
+    },
+    {
+      "path": "packages/compress_video/android/src/test/kotlin/com/danjjohnson/compress_video/ArgumentsTest.kt",
+      "sha256": "acc79e556d29af234b02b017124a8fe1cf1d4a21cf52e85d97ba052cd5f25773"
+    },
+    {
+      "path": "packages/compress_video/android/src/test/kotlin/com/danjjohnson/compress_video/CodecCapabilitiesTest.kt",
+      "sha256": "40a7778b56a0d0d05a055adc895cc3e397b8959af67f51170e7b0b52e205c374"
+    },
+    {
+      "path": "packages/compress_video/android/src/test/kotlin/com/danjjohnson/compress_video/CompressVideoPluginTest.kt",
+      "sha256": "f01351ae84ce41780d77dae1c88ed77d4a441f78c70ef85bcaa76233a59f35fe"
+    },
+    {
+      "path": "packages/compress_video/android/src/test/kotlin/com/danjjohnson/compress_video/EffectOrderTest.kt",
+      "sha256": "3573d6e1da7457a31d9a3eafc6371d6e0f50c837ccfa2adef90af5b538dee10e"
+    },
+    {
+      "path": "packages/compress_video/android/src/test/kotlin/com/danjjohnson/compress_video/ErrorMappingTest.kt",
+      "sha256": "06666d008e8d3d0a310fd083667673de3d6f5b75bbafe3b295c16a32981d3e0c"
+    },
+    {
+      "path": "packages/compress_video/android/src/test/kotlin/com/danjjohnson/compress_video/FiveDotOneToStereoMixingMatrixTest.kt",
+      "sha256": "fe882cdc84c90b8404155f79ec188789a52a7c1dabe2b9f4ad2ef2cc1658e743"
+    },
+    {
+      "path": "packages/compress_video/android/src/test/kotlin/com/danjjohnson/compress_video/ForegroundServiceHostTest.kt",
+      "sha256": "24835335f854752bc2557a6d4c3c8f996d04b4b7cf37de5ef075d739e07d2aae"
+    },
+    {
+      "path": "packages/compress_video/android/src/test/kotlin/com/danjjohnson/compress_video/HevcOutputDecisionTest.kt",
+      "sha256": "787fe0beea9166bb3b9400ba320bc9765535f00921a49761c8e3a47b950afc79"
+    },
+    {
+      "path": "packages/compress_video/android/src/test/kotlin/com/danjjohnson/compress_video/JobRegistryTest.kt",
+      "sha256": "e8e17835a99b7a3af105c437e3c29d94e6ee4c1425762c3b3334bf424db018e3"
+    },
+    {
+      "path": "packages/compress_video/android/src/test/kotlin/com/danjjohnson/compress_video/MediaMathTest.kt",
+      "sha256": "05ffdc80b6df27ef62201f5587cbd12bd09d9236f8a30937f414adc074d7626a"
+    },
+    {
+      "path": "packages/compress_video/android/src/test/kotlin/com/danjjohnson/compress_video/SizeGuardTest.kt",
+      "sha256": "34d6888943269c4f11b9c5972c6d6a11454ef6eaf5dfce0584ff05d44148578d"
+    },
+    {
+      "path": "packages/compress_video/darwin/compress_video.podspec",
+      "sha256": "9cc78c95db120d05ddf26d437c9e3aa16069e60f817293eb37e23cc51b6d5b76"
+    },
+    {
+      "path": "packages/compress_video/darwin/compress_video/Package.swift",
+      "sha256": "1a313cb93285f738b1fc35aed97168ccb536125b4e3480377c938479a3962a52"
+    },
+    {
+      "path": "packages/compress_video/darwin/compress_video/Sources/compress_video/Arguments.swift",
+      "sha256": "ac517ad8fe3a21f1b21eebe03167b0f6faf42750b4d16b5138480627afbab093"
+    },
+    {
+      "path": "packages/compress_video/darwin/compress_video/Sources/compress_video/CodecCapabilities.swift",
+      "sha256": "d873d64f94beb24664a921470ada9e2f76a10c15ea627713168763bee409ba21"
+    },
+    {
+      "path": "packages/compress_video/darwin/compress_video/Sources/compress_video/CompressVideoPlugin.swift",
+      "sha256": "ec5a24fc657037d2c115e8e8d468033598b018f653f2dc7aeeb7c48502b15905"
+    },
+    {
+      "path": "packages/compress_video/darwin/compress_video/Sources/compress_video/Compression.swift",
+      "sha256": "24e97a92f828a8f92773f43945ca0ccfac1fe6d6169e4fd5ca074b214758126d"
+    },
+    {
+      "path": "packages/compress_video/darwin/compress_video/Sources/compress_video/CompressionEngine.swift",
+      "sha256": "4f0633b7dd382f250fd7819f1015aaae85b5be996cb08cfdcf0785b6fc6de4aa"
+    },
+    {
+      "path": "packages/compress_video/darwin/compress_video/Sources/compress_video/ErrorMapping.swift",
+      "sha256": "a278f46ceb8635c9de13ef1b2c53bebf2d2de20380e9c440eca87c247ee4b84d"
+    },
+    {
+      "path": "packages/compress_video/darwin/compress_video/Sources/compress_video/JobRegistry.swift",
+      "sha256": "749412796cd1f49cdacf46c825f745ed8b7842d05b0105559a70af26a6fe83ec"
+    },
+    {
+      "path": "packages/compress_video/darwin/compress_video/Sources/compress_video/MediaMath.swift",
+      "sha256": "2c7f5f977c56dbb56688d20c61421185c4679957e051932a9b17ba872dc5ed2a"
+    },
+    {
+      "path": "packages/compress_video/darwin/compress_video/Sources/compress_video/Messages.g.swift",
+      "sha256": "561601967c548279452dc550da1c94d9aba83bc267bfec376948c1c1a2a40911"
+    },
+    {
+      "path": "packages/compress_video/darwin/compress_video/Sources/compress_video/PluginFiles.swift",
+      "sha256": "eedffdfd59b29e3faa98fdd30459bcaa6e4116d7ca90421d02c693b4768a023f"
+    },
+    {
+      "path": "packages/compress_video/darwin/compress_video/Sources/compress_video/PrivacyInfo.xcprivacy",
+      "sha256": "6d2da0d8d930227d428c1d9363b0ad6e3a12e2c9b68c5ce297158a7412fc8c31"
+    },
+    {
+      "path": "packages/compress_video/darwin/compress_video/Sources/compress_video/Probe.swift",
+      "sha256": "018b04f6943710ae1025d1bfd712f5cd8726e57760bada83190405d374b49634"
+    },
+    {
+      "path": "packages/compress_video/darwin/compress_video/Sources/compress_video/SizeGuard.swift",
+      "sha256": "7d9841d1712c2d98620119071d67044242eadd408b8ee12747a90cc20674b073"
+    },
+    {
+      "path": "packages/compress_video/darwin/compress_video/Sources/compress_video/Thumbnails.swift",
+      "sha256": "bdd8cc3128376ce96445734d417986b9bfcd03671e892bf344c9a7dd76fe6787"
+    },
+    {
+      "path": "packages/compress_video/lib/compress_video.dart",
+      "sha256": "1b3ef5a030145e864225fb365e2a03ee40e5fac5a204428ac5cddd08030bf07e"
+    },
+    {
+      "path": "packages/compress_video/lib/src/compress_job.dart",
+      "sha256": "9207cc7f15b43458b40aa0c1a33a9f518a8605b914432ea991de3af93af98dff"
+    },
+    {
+      "path": "packages/compress_video/lib/src/compress_options.dart",
+      "sha256": "2733cac2c145154468f4ff5e77cc8e7373656fe47835f08d731ec14a02cbe5ed"
+    },
+    {
+      "path": "packages/compress_video/lib/src/compress_result.dart",
+      "sha256": "a1cb6092faabedf36be8092007335bc21b8f8b3d79795d288a8a1a5e0bd0ad00"
+    },
+    {
+      "path": "packages/compress_video/lib/src/compress_video_exception.dart",
+      "sha256": "31f839ce4d9ee70246b9848d06ae4b06bbf7091e18dc770e412b485eff6702b7"
+    },
+    {
+      "path": "packages/compress_video/lib/src/media_info.dart",
+      "sha256": "5cc090a4210db16a4495a95fbccb13028f22f24b46c24a93a923b9be38f8e7af"
+    },
+    {
+      "path": "packages/compress_video/lib/src/messages.g.dart",
+      "sha256": "ec949d162760768da693e414a959460781d7135ae045cd590f25874a0d58a2e7"
+    },
+    {
+      "path": "packages/compress_video/lib/src/presets.dart",
+      "sha256": "a672b22375f2022e004d74fafcc51794c7690fe027527d6499bce3d141aaeb5e"
+    },
+    {
+      "path": "packages/compress_video/lib/video_compress_compat.dart",
+      "sha256": "63da8c62a4fe815b85eed4be2fdc47eb8d7547eb0d161662eb43f5c29a4d6599"
+    },
+    {
+      "path": "packages/compress_video/pubspec.lock",
+      "sha256": "a2e8fd919bf3e9cf5b925239e317c9a360194b13ab2f5ae3214365a4269e078d"
+    },
+    {
+      "path": "packages/compress_video/pubspec.yaml",
+      "sha256": "fb215b78a2b91d74c5150e99fb007a490c4d835a6d43cdb614f79c426cb6c86f"
+    },
+    {
+      "path": "packages/video_player_avfoundation/AUTHORS",
+      "sha256": "44e9cf62e93fd51a59b9ad5f92b6769bfe161b5e20f42f31c4a859812cf46eb7"
+    },
+    {
+      "path": "packages/video_player_avfoundation/LICENSE",
+      "sha256": "420f7739f169097f0aad1242045169cd643c8f1d94e62866fad265ae4c369b7d"
+    },
+    {
+      "path": "packages/video_player_avfoundation/LOCAL_PATCH.md",
+      "sha256": "ea5b50da654aabecc11408a86f6fa9bc3ec1fa819952ad419397567b984d9e0a"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/RunnerTests/TestClasses.swift",
+      "sha256": "8327fe2c1eab64806b94d96f3d52aaedc329587590ff485dc7332459945f907d"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/RunnerTests/VideoPlayerTests.swift",
+      "sha256": "69d32d8dfb8eb9aaa34dea0e295f5683f2bafa61ec5999cd0c13c28cb4eb6af7"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation.podspec",
+      "sha256": "eda6e5068acbc2883c90a33ab781b04296b9947bbcc22181f74541fb149e832d"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Package.swift",
+      "sha256": "4e3646e56846e20f50f2ec079b47f0443ce0668485a20ed2b148626181df0462"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation/AVAssetTrackUtils.swift",
+      "sha256": "c064b545d7900810f1b523f90ba318ca1514e8ed2ef301d5eed12c98af26cf4e"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation/AVFactory.swift",
+      "sha256": "230cb0240e9185819975729c1d782745799c8c44e4276e5ee5bba0d3bef4672e"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation/Messages.g.swift",
+      "sha256": "73d2828ce71f1109cd05658b2fb07a2dceaaa38ae6259dcdb6b6bfc143b5e3f0"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation/NativeVideoViewFactory.swift",
+      "sha256": "a20f4969dddf0534b2c935e830204f74e7839bd9989208d2788916124255efd4"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation/Resources/PrivacyInfo.xcprivacy",
+      "sha256": "6d2da0d8d930227d428c1d9363b0ad6e3a12e2c9b68c5ce297158a7412fc8c31"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation/TextureBasedVideoPlayer.swift",
+      "sha256": "c0e0d43584266198397ff3bb07878510d881c8b72fcd8034736b6ea49ed36bf7"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation/VideoPlayer.swift",
+      "sha256": "7d91f406f26b3c3c1e18eefc6e2101cb6dbf988effe6f48c719b6b13a2bc4c92"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation/VideoPlayerPlugin.swift",
+      "sha256": "a6d7f729558e0992ab327d0ca2a92ade41abaee3ef7d955860667160a89eedd6"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation_ios/FVPNativeVideoView.m",
+      "sha256": "c7acde4d8035ecbec64f12eecce8d8ed4b4260e29a7d90802b373d433cf2d0bb"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation_ios/include/FVPEmpty.h",
+      "sha256": "53c2eabeba99c7df17ab2bfec667430687c3fd05cbfc293a804b8713b190170c"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation_macos/FVPCoreVideoDisplayLink.m",
+      "sha256": "3e85e34cddf0b0eb93ceec0da51aa45f7425d718a1677c0bf1bdb39ea578f4f7"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation_macos/FVPNativeVideoView.m",
+      "sha256": "65b4a955c375a6120f60516af00bc87a06e33f4de98c07c1c905fc70d8aea641"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation_macos/include/FVPEmpty.h",
+      "sha256": "53c2eabeba99c7df17ab2bfec667430687c3fd05cbfc293a804b8713b190170c"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation_objc/FVPCADisplayLink.m",
+      "sha256": "996416606ecbb7cc7b900506a1f8ca9da6d02954963b13acc35c787879f9cc60"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation_objc/FVPEventBridge.m",
+      "sha256": "3d4c38dd3046a8842361280ebbb8f5a7badb869c206a7b769ff4ea69e5a660db"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation_objc/FVPFrameUpdater.m",
+      "sha256": "912266f586c482c13431daac072b30d2ccb5b0486b7134165d4dd19f0f56b007"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation_objc/FVPViewProvider.m",
+      "sha256": "94a46f780f437260a98b7d7c0d267efa1590cce755e71f53cec6523df04cd8c6"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation_objc/include/video_player_avfoundation_objc/FVPAssetProvider.h",
+      "sha256": "1b390406983017edd9b76f7fab0c695c602e6a2f205cf894d78236f2cb0d16ca"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation_objc/include/video_player_avfoundation_objc/FVPDisplayLink.h",
+      "sha256": "02a761d6c58ba0a5344ac738c882af37318a7805195b81453095cdc4ba5b3fc6"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation_objc/include/video_player_avfoundation_objc/FVPEventBridge.h",
+      "sha256": "7537379d1df41b88a3c824b50a6941e02e0c372841e68dadaab2e0171912b9ff"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation_objc/include/video_player_avfoundation_objc/FVPFrameUpdater.h",
+      "sha256": "ad748fbd8fac054d78c747065dcb3dbf953840e8a9261d996d71c0cff55f8184"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation_objc/include/video_player_avfoundation_objc/FVPNativeVideoView.h",
+      "sha256": "5c980168abd17bc0c237eb3a8350f99b9cd333ebe7fcf852151e79a9e7ff18ef"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation_objc/include/video_player_avfoundation_objc/FVPVideoEventListener.h",
+      "sha256": "90b65076742b3259f58f837cef2b631f83f7cbd031a7f4d41072efd8e57bec77"
+    },
+    {
+      "path": "packages/video_player_avfoundation/darwin/video_player_avfoundation/Sources/video_player_avfoundation_objc/include/video_player_avfoundation_objc/FVPViewProvider.h",
+      "sha256": "068490751cdcfa1bd58a0044df3aa967fdb63de7b175abd343426ed6c4760837"
+    },
+    {
+      "path": "packages/video_player_avfoundation/lib/src/avfoundation_video_player.dart",
+      "sha256": "b76f5085c20d9870857329ce24f46655e4644671b566dca58aa32e248755ea0a"
+    },
+    {
+      "path": "packages/video_player_avfoundation/lib/src/messages.g.dart",
+      "sha256": "0c160161961822bff69ce551aed7c47d3688d221a6a988e857fae02e465a285f"
+    },
+    {
+      "path": "packages/video_player_avfoundation/lib/video_player_avfoundation.dart",
+      "sha256": "d1f6b8ac1989d81c5839f83820ef8274b262d9317c794a4ac4e65fc5b8bc25d8"
+    },
+    {
+      "path": "packages/video_player_avfoundation/pubspec.yaml",
+      "sha256": "8131619236e36d722e5b47b21325fcaefb0d7ab806d3e4cb709f9e49642779b8"
+    },
+    {
+      "path": "pubspec.lock",
+      "sha256": "cfbb837f280ca93d1516eeedfa93285ab3f04eb4f3461634c5423d05ec0284a8"
+    },
+    {
+      "path": "pubspec.yaml",
+      "sha256": "cd7c1b23f20f9430b93b6fdc1e4998a7ff6ba00d8f7e042daefefb5af8791c49"
+    },
+    {
+      "path": "scripts/check_apple_local_video_mime.py",
+      "sha256": "1247b9d97a659e5b59a7e7086a7f0a767ba0b38e651e241cc1c2bdbe52c5d4a0"
+    },
+    {
+      "path": "scripts/check_apple_video_thumbnail.py",
+      "sha256": "f2c872b99d9595d80964760aec0cda32fb316594c17dd69718e41c2fff74fab8"
+    },
+    {
+      "path": "scripts/check_ios_notification_capacity.py",
+      "sha256": "4c669f47a7ede2e31e5eae0f56fd1935a17f03fe3aa18c9e7c60ea86b2da30df"
+    },
+    {
+      "path": "scripts/render_app_icons.swift",
+      "sha256": "8d7d81dbe8d5f89afd02126c9eb74b00f0afbf1660a4f2a8c021f4c571d90b30"
+    }
+  ],
+  "source_sha256": "53165beb492da3fa7c346b7dd961992364e4dc6198fbbde14271af7437104d12",
+  "digest_method": "SHA256 of sorted path + NUL + file SHA256 + newline"
+}

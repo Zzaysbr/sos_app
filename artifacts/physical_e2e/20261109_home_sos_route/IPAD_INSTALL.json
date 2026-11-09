@@ -1,0 +1,48 @@
+{
+  "date": "2026-11-09",
+  "device_alias": "iPad Air M2",
+  "known_device_target_match": true,
+  "operator_reports_wired": true,
+  "devicectl_reported_transport": "wired",
+  "after_version": 19,
+  "mode": "profile",
+  "standalone_preflight": "PASS",
+  "install_exit": 0,
+  "schema": 10,
+  "application_rows": {
+    "sos_messages": {
+      "before": 5,
+      "after": 5,
+      "all_original_rows_unchanged": true
+    },
+    "chat_messages": {
+      "before": 24,
+      "after": 24,
+      "all_original_rows_unchanged": true
+    },
+    "rescue_inbox": {
+      "before": 16,
+      "after": 16,
+      "all_original_rows_unchanged": true
+    }
+  },
+  "file_retention": {
+    "media": {
+      "files_before": 12,
+      "all_original_files_identical": true
+    },
+    "map": {
+      "files_before": 0,
+      "all_original_files_identical": true
+    },
+    "labels": {
+      "files_before": 0,
+      "all_original_files_identical": true
+    }
+  },
+  "update_in_place": true,
+  "uninstall_or_data_clear": false,
+  "automatic_launch": false,
+  "visual_home_launch_history": "Operator PASS: app/history normal; stopped-following incidents remain outside Helping; old image and video open with video preview and audiovisual playback",
+  "physical_media_retest": "PENDING"
+}

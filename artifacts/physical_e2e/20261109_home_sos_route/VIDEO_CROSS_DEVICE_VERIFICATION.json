@@ -1,0 +1,18 @@
+{
+  "matched_receipt_wire": true,
+  "recipient_signature_and_envelope_binding_verified": true,
+  "historical_verification_time": "sender receipt-row capture time",
+  "complete_content_on_both_devices_matches_signed_digest": true,
+  "bytes": 352435,
+  "date": "2026-11-09",
+  "build": 19,
+  "receiver_matching_chat_rows": 1,
+  "same_incident": true,
+  "test_result": "PASS: one captured-data verification test",
+  "device_data_modified": false,
+  "limits": [
+    "Single previously delayed transfer; no repeated reliability or causal recovery proof",
+    "Exact UI appearance time not recorded; operator >3-minute observation differs from sender DB 157-second interval",
+    "Receiver receipt received_at is initial transfer registration, not complete file time"
+  ]
+}

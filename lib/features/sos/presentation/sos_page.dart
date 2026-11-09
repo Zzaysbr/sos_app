@@ -1,3 +1,8 @@
+import 'current_sos_route_panel.dart';
+import '../../nearby_ble/data/user_route_repository.dart';
+import '../../nearby_ble/data/route_device_names.dart';
+import '../../nearby_ble/presentation/user_route_view.dart';
+
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -144,6 +149,7 @@ class _SosPageState extends State<SosPage> {
   bool _relayPreferenceLoading = true;
   bool _relayPreferenceSaving = false;
   String? _relayPreferenceError;
+  RouteDeviceNames? _routeNamesCache;
   late BleDeliveryRepository _deliveryRepository;
   late RescueInboxRepository _rescueInboxRepository;
   late RescueResponseRepository _rescueResponseRepository;
@@ -943,6 +949,40 @@ class _SosPageState extends State<SosPage> {
     );
   }
 
+  String _offerDeliveryLabel(BuildContext context, String? state) =>
+      switch (state) {
+        'delivered' => routeText(
+          context,
+          'Origin device confirmed your offer',
+          'เครื่องต้นทางยืนยันรับข้อเสนอแล้ว',
+        ),
+        'forwarded' => routeText(
+          context,
+          'Offer forwarded · waiting for confirmation',
+          'ส่งข้อเสนอต่อแล้ว · รอยืนยัน',
+        ),
+        'queued' => routeText(
+          context,
+          'Waiting to send your help offer',
+          'รอส่งข้อเสนอช่วยเหลือ',
+        ),
+        'failed' => routeText(
+          context,
+          'Help offer could not be sent',
+          'ส่งข้อเสนอช่วยเหลือไม่สำเร็จ',
+        ),
+        'expired' => routeText(
+          context,
+          'Help offer delivery window ended',
+          'หมดเวลาส่งข้อเสนอช่วยเหลือ',
+        ),
+        _ => routeText(
+          context,
+          'Help offer saved on this device',
+          'บันทึกข้อเสนอไว้บนเครื่องนี้',
+        ),
+      };
+
   Widget _buildAcceptedRescueCandidateCard(RescueInboxData candidate) {
     return Card(
       key: ValueKey('accepted-rescue-candidate-${candidate.originMessageId}'),
@@ -954,9 +994,7 @@ class _SosPageState extends State<SosPage> {
           final state = snapshot.data != null && snapshot.data!.isNotEmpty
               ? snapshot.data!.first.state
               : null;
-          final status = state == null
-              ? 'Help offered locally; delivery not queued'
-              : 'Offer delivery: $state';
+          final status = _offerDeliveryLabel(context, state);
           return ListTile(
             leading: const Icon(Icons.volunteer_activism_outlined),
             title: Text(candidate.emergencyType.toUpperCase()),
@@ -1107,181 +1145,206 @@ class _SosPageState extends State<SosPage> {
     var locallyAccepted = candidate.state == 'locallyAccepted';
     final canOffer =
         candidate.state == 'pending' || candidate.state == 'viewed';
+    final routeStream = _userRouteStream(candidate.incidentId);
+    final routeNames = _routeNames();
     final accepted = await showModalBottomSheet<bool>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * .9,
+      ),
       builder: (sheetContext) => StatefulBuilder(
         builder: (sheetContext, setSheetState) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Incoming SOS candidate',
-                  style: Theme.of(sheetContext).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 12),
-                Text(candidate.emergencyType.toUpperCase()),
-                const SizedBox(height: 8),
-                Text(candidate.emergencyMessage),
-                const SizedBox(height: 8),
-                Text(
-                  'Identity assurance: origin signature + relay attestations',
-                ),
-                if (candidate.includeLocation &&
-                    candidate.latitude != null &&
-                    candidate.longitude != null) ...[
-                  const SizedBox(height: 8),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    'Victim location: ${candidate.latitude!.toStringAsFixed(6)}, '
-                    '${candidate.longitude!.toStringAsFixed(6)}',
+                    routeText(sheetContext, 'SOS details', 'รายละเอียด SOS'),
+                    style: Theme.of(sheetContext).textTheme.headlineSmall,
                   ),
-                  Text(
-                    'Location timestamp: ${_formatDateTime(candidate.createdAt)}',
-                  ),
+                  const SizedBox(height: 12),
+                  Text(candidate.emergencyType.toUpperCase()),
                   const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(sheetContext);
-                      Navigator.of(context).push<void>(
-                        MaterialPageRoute<void>(
-                          builder: (_) => IncidentMapPage(
-                            incident: SosMessage(
-                              id: candidate.incidentId,
-                              ownerId: candidate.ownerId,
-                              type: candidate.emergencyType,
-                              message: candidate.emergencyMessage,
-                              latitude: candidate.latitude,
-                              longitude: candidate.longitude,
-                              status: 'active',
-                              createdAt: candidate.createdAt,
-                              updatedAt: candidate.receivedAt,
-                              syncState: 'deviceOnly',
-                            ),
-                            rescueCandidate: candidate,
+                  Text(candidate.emergencyMessage),
+                  const SizedBox(height: 8),
+                  StreamBuilder<UserRoutesSnapshot>(
+                    stream: routeStream,
+                    builder: (ctx, snapshot) {
+                      if (snapshot.hasError) {
+                        return Text(
+                          routeText(
+                            ctx,
+                            'Route information unavailable',
+                            'อ่านข้อมูลเส้นทางไม่ได้',
                           ),
-                        ),
+                        );
+                      }
+                      return UserRouteView(
+                        routes: snapshot.data?.sos ?? const [],
+                        names: routeNames,
+                        compact: true,
                       );
                     },
-                    icon: const Icon(Icons.map_outlined),
-                    label: const Text('View victim location'),
                   ),
-                ] else
-                  const Text('Victim location was not included in this SOS.'),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    final incident = await _ensureRescueIncident(candidate);
-                    if (!sheetContext.mounted) return;
-                    Navigator.pop(sheetContext);
-                    if (mounted) await _openIncidentChat(incident);
-                  },
-                  icon: const Icon(Icons.chat_bubble_outline),
-                  label: const Text('Open incident chat'),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: !canOffer || locallyAccepted || submitting
-                        ? null
-                        : () async {
-                            if (submitting) return;
-                            setSheetState(() => submitting = true);
-                            RescueInboxData? localAcceptance;
-                            try {
-                              localAcceptance = await _rescueInboxRepository
-                                  .acceptLocally(candidate.originMessageId);
-                            } on Object {
+                  if (candidate.includeLocation &&
+                      candidate.latitude != null &&
+                      candidate.longitude != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Victim location: ${candidate.latitude!.toStringAsFixed(6)}, '
+                      '${candidate.longitude!.toStringAsFixed(6)}',
+                    ),
+                    Text(
+                      'Location timestamp: ${_formatDateTime(candidate.createdAt)}',
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(sheetContext);
+                        Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) => IncidentMapPage(
+                              incident: SosMessage(
+                                id: candidate.incidentId,
+                                ownerId: candidate.ownerId,
+                                type: candidate.emergencyType,
+                                message: candidate.emergencyMessage,
+                                latitude: candidate.latitude,
+                                longitude: candidate.longitude,
+                                status: 'active',
+                                createdAt: candidate.createdAt,
+                                updatedAt: candidate.receivedAt,
+                                syncState: 'deviceOnly',
+                              ),
+                              rescueCandidate: candidate,
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.map_outlined),
+                      label: const Text('View victim location'),
+                    ),
+                  ] else
+                    const Text('Victim location was not included in this SOS.'),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final incident = await _ensureRescueIncident(candidate);
+                      if (!sheetContext.mounted) return;
+                      Navigator.pop(sheetContext);
+                      if (mounted) await _openIncidentChat(incident);
+                    },
+                    icon: const Icon(Icons.chat_bubble_outline),
+                    label: const Text('Open incident chat'),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: !canOffer || locallyAccepted || submitting
+                          ? null
+                          : () async {
+                              if (submitting) return;
+                              setSheetState(() => submitting = true);
+                              RescueInboxData? localAcceptance;
+                              try {
+                                localAcceptance = await _rescueInboxRepository
+                                    .acceptLocally(candidate.originMessageId);
+                              } on Object {
+                                if (sheetContext.mounted) {
+                                  setSheetState(() => submitting = false);
+                                  ScaffoldMessenger.of(sheetContext)
+                                      .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Unable to save help offer. Please try again.',
+                                          ),
+                                        ),
+                                      );
+                                }
+                                return;
+                              }
+                              if (localAcceptance?.state != 'locallyAccepted') {
+                                if (sheetContext.mounted) {
+                                  Navigator.pop(sheetContext);
+                                }
+                                return;
+                              }
                               if (sheetContext.mounted) {
-                                setSheetState(() => submitting = false);
-                                ScaffoldMessenger.of(sheetContext).showSnackBar(
-                                  const SnackBar(
+                                setSheetState(() => locallyAccepted = true);
+                              }
+                              var queued = false;
+                              Object? queueError;
+                              try {
+                                final relay = RelayRepository(
+                                  database: widget.repository.database,
+                                );
+                                final stored = await relay.lookupMessage(
+                                  candidate.originMessageId,
+                                );
+                                if (stored == null) {
+                                  throw StateError(
+                                    'Signed origin envelope is not available locally.',
+                                  );
+                                }
+                                final origin =
+                                    RelayOfferEnvelope.fromCanonicalWire(
+                                      stored.wireEnvelope,
+                                    ).body;
+                                final identity = await RelayIdentityService(
+                                  keyStore: PlatformRelayPrivateKeyStore(),
+                                ).loadOrCreate(allowCreate: true);
+                                final digest = await RelayCryptography()
+                                    .immutableDigest(origin);
+                                await _rescueResponseRepository.signAndEnqueueOffer(
+                                  origin: origin,
+                                  responder: identity,
+                                  sessionBinding:
+                                      'incident-binding:${origin.originMessageId}:$digest',
+                                );
+                                queued = true;
+                                // The signed outbox is durable. Native radio work
+                                // must not keep the sheet/navigation waiting.
+                                unawaited(_processQueuedHelpOffer());
+                              } catch (error) {
+                                queueError = error;
+                              }
+                              if (sheetContext.mounted) {
+                                Navigator.pop(sheetContext, true);
+                              }
+                              if (mounted && !queued) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
                                     content: Text(
-                                      'Unable to save help offer. Please try again.',
+                                      'Help saved locally; delivery queued failed: $queueError',
                                     ),
                                   ),
                                 );
                               }
-                              return;
-                            }
-                            if (localAcceptance?.state != 'locallyAccepted') {
-                              if (sheetContext.mounted) {
-                                Navigator.pop(sheetContext);
-                              }
-                              return;
-                            }
-                            if (sheetContext.mounted) {
-                              setSheetState(() => locallyAccepted = true);
-                            }
-                            var queued = false;
-                            Object? queueError;
-                            try {
-                              final relay = RelayRepository(
-                                database: widget.repository.database,
-                              );
-                              final stored = await relay.lookupMessage(
-                                candidate.originMessageId,
-                              );
-                              if (stored == null) {
-                                throw StateError(
-                                  'Signed origin envelope is not available locally.',
-                                );
-                              }
-                              final origin =
-                                  RelayOfferEnvelope.fromCanonicalWire(
-                                    stored.wireEnvelope,
-                                  ).body;
-                              final identity = await RelayIdentityService(
-                                keyStore: PlatformRelayPrivateKeyStore(),
-                              ).loadOrCreate(allowCreate: true);
-                              final digest = await RelayCryptography()
-                                  .immutableDigest(origin);
-                              await _rescueResponseRepository.signAndEnqueueOffer(
-                                origin: origin,
-                                responder: identity,
-                                sessionBinding:
-                                    'incident-binding:${origin.originMessageId}:$digest',
-                              );
-                              queued = true;
-                              // The signed outbox is durable. Native radio work
-                              // must not keep the sheet/navigation waiting.
-                              unawaited(_processQueuedHelpOffer());
-                            } catch (error) {
-                              queueError = error;
-                            }
-                            if (sheetContext.mounted) {
-                              Navigator.pop(sheetContext, true);
-                            }
-                            if (mounted && !queued) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Help saved locally; delivery queued failed: $queueError',
-                                  ),
-                                ),
-                              );
-                            }
-                          },
-                    icon: submitting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.volunteer_activism),
-                    label: Text(
-                      locallyAccepted ? 'Help offered locally' : 'Offer Help',
+                            },
+                      icon: submitting
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.volunteer_activism),
+                      label: Text(
+                        locallyAccepted ? 'Help offered locally' : 'Offer Help',
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Saving an offer records your intent. Offer delivery shows whether the origin confirmed it.',
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Saving an offer records your intent. Offer delivery shows whether the origin confirmed it.',
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1489,9 +1552,9 @@ class _SosPageState extends State<SosPage> {
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  _buildActiveSosSection(),
-                  const SizedBox(height: 16),
                   _buildSendSosButton(),
+                  const SizedBox(height: 16),
+                  _buildActiveSosSection(),
                 ]),
               ),
             ),
@@ -1713,7 +1776,20 @@ class _SosPageState extends State<SosPage> {
                   .toList()
                 ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
           if (active.isEmpty) return const SizedBox.shrink();
-          return _buildActiveSosChatBanner(active.first);
+          final current = active.first;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildActiveSosChatBanner(current),
+              const SizedBox(height: 12),
+              CurrentSosRoutePanel(
+                key: ValueKey('current-sos-route-${current.id}'),
+                incidentId: current.id,
+                repository: _userRoutes(),
+                names: _routeNames(),
+              ),
+            ],
+          );
         },
       ),
     );
@@ -2383,6 +2459,23 @@ class _SosPageState extends State<SosPage> {
     );
   }
 
+  UserRouteRepository _userRoutes() => UserRouteRepository(
+    widget.repository.database,
+    ownerId: widget.repository.currentOwnerId ?? guestDeviceOwnerId,
+    readLocalKeyId: widget.bleCoordinator?.existingRelayKeyId,
+  );
+
+  Stream<UserRoutesSnapshot>? _userRouteStream(String incident) =>
+      widget.bleCoordinator == null ? null : _userRoutes().watch(incident);
+
+  RouteDeviceNames _routeNames() {
+    final owner = widget.repository.currentOwnerId ?? guestDeviceOwnerId;
+    if (_routeNamesCache?.ownerId != owner) {
+      _routeNamesCache = RouteDeviceNames(ownerId: owner);
+    }
+    return _routeNamesCache!;
+  }
+
   Future<void> _openIncidentChat(
     SosMessage sos, {
     ValueListenable<String?>? locationFeedback,
@@ -2394,6 +2487,8 @@ class _SosPageState extends State<SosPage> {
         MaterialPageRoute<void>(
           builder: (_) => EmergencyChatPage(
             sosId: sos.id,
+            routeStream: _userRouteStream(sos.id),
+            routeDeviceNames: _routeNames(),
             contactName: 'Incident ${sos.id}',
             repository: widget.chatRepository,
             attachmentStore: widget.bleCoordinator?.mediaStore,
@@ -2496,6 +2591,8 @@ class _SosPageState extends State<SosPage> {
                                 MaterialPageRoute<void>(
                                   builder: (_) => EmergencyChatPage(
                                     sosId: sosId,
+                                    routeStream: _userRouteStream(sosId),
+                                    routeDeviceNames: _routeNames(),
                                     repository: widget.chatRepository,
                                     attachmentStore:
                                         widget.bleCoordinator?.mediaStore,
@@ -3533,6 +3630,8 @@ class _SosPageState extends State<SosPage> {
                             MaterialPageRoute<void>(
                               builder: (_) => EmergencyChatPage(
                                 sosId: sos.id,
+                                routeStream: _userRouteStream(sos.id),
+                                routeDeviceNames: _routeNames(),
                                 repository: widget.chatRepository,
                                 attachmentStore:
                                     widget.bleCoordinator?.mediaStore,

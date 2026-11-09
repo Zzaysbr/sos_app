@@ -1,0 +1,69 @@
+{
+  "date": "2026-11-09",
+  "build": 19,
+  "evidence_type": "operator report",
+  "scope": "Offline foreground iPhone sender / Samsung receiver, iPad Bluetooth off",
+  "new_sos_discovery": "PASS: Samsung sees new SOS",
+  "received_sos_route_ui": {
+    "result": "PASS in reported scope",
+    "nodes": 2,
+    "radio_hops": 1,
+    "intermediaries": 0,
+    "short_codes_visible": true,
+    "status_received_visible": true,
+    "limits": "Direct received SOS only; no multihop or sender complete-path inference"
+  },
+  "nickname_persistence": {
+    "result": "PASS in reported scope",
+    "evidence": "Operator saved a test origin alias on Samsung, closed route and incident details, reopened same route; alias retained with same short code",
+    "limits": "Same runtime reopen only; no process-restart or other-device synchronization claim"
+  },
+  "media_without_manual_bluetooth_switch": {
+    "result": "PASS eventual single delivery/playback without manual intervention; 3-minute criterion missed",
+    "direction": "Samsung camera video to iPhone",
+    "evidence": "Operator reports iPhone has not seen the clip after 3 minutes",
+    "sender_status": "Confirmed stored (operator report)",
+    "ready_to_send_size": "NOT_REPORTED",
+    "limits": "One delayed successful transfer only; exact elapsed time/size not measured, automatic recovery mechanism and repeated reliability not established",
+    "eventual_delivery": "Operator later reports iPhone received clip and Samsung Confirmed stored",
+    "elapsed_time": "Over 3 minutes; exact duration not measured",
+    "receiver_count": 1,
+    "preview_and_audiovisual_playback": "Operator PASS",
+    "manual_bluetooth_cycle": false,
+    "app_reopen_during_wait": false,
+    "resend": false
+  },
+  "help_offer": {
+    "result": "PASS in reported scope",
+    "evidence": "Operator confirms iPhone Verified help offer received (1) and Samsung Offer delivery delivered after one offer"
+  },
+  "samsung_gallery_video_repeat": {
+    "result": "PASS in reported scope",
+    "evidence": "Operator reports new gallery-video message arrives on iPhone once within 3 minutes, preview and audiovisual playback normal, Samsung Confirmed stored under requested unchanged foreground offline link",
+    "elapsed_seconds": "Not reported; within 3-minute bound",
+    "ready_to_send_bytes": "Not reported",
+    "limits": "One repeat after earlier delayed camera video; no sustained reliability guarantee or recovery mechanism proof"
+  },
+  "iphone_camera_video_reverse": {
+    "result": "PASS in reported scope",
+    "evidence": "Operator reports Samsung receives new iPhone camera-video once within 3 minutes with preview/audiovisual playback normal and iPhone Confirmed stored under requested unchanged offline foreground link",
+    "elapsed_seconds": "Not reported; within 3-minute bound",
+    "ready_to_send_bytes": "Not reported",
+    "limits": "One reverse transfer; no sustained reliability guarantee"
+  },
+  "iphone_gallery_photo": {
+    "result": "PASS in reported scope",
+    "evidence": "Operator reports Samsung receives one new gallery photo within 3 minutes, full image opens, iPhone Confirmed stored under requested unchanged offline foreground link",
+    "ready_to_send_bytes": "Not reported"
+  },
+  "incident_cleanup": {
+    "result": "PASS in reported scope",
+    "evidence": "Operator cancelled current iPhone test SOS; history/Chat/media retained and same incident removed from Samsung Helping"
+  },
+  "status": "TARGETED_PROFILE19_PAIR_ACCEPTANCE_COMPLETE_WITH_INITIAL_DELAY_DOCUMENTED",
+  "remaining_limits": [
+    "Initial Samsung camera-video was not visible at operator 3-minute check, eventually arrived without intervention; sender DB receipt interval157s and exact UI timing discrepancy unresolved",
+    "One subsequent Samsung gallery-video, one reverse camera-video and one gallery-photo passed reported 3-minute bound; sustained performance not established",
+    "Current19 route acceptance covers direct received SOS and same-runtime nickname reopening only; no current19 multihop UI/media or restart nickname acceptance inferred"
+  ]
+}

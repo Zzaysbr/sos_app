@@ -350,6 +350,8 @@ class SosBleCoordinator with WidgetsBindingObserver {
     _log('lifecycle_enqueued incident=$sosId status=$status');
   }
 
+  Future<String?> existingRelayKeyId() => _hopRelay.existingSigningKeyId();
+
   Stream<RelayStatusSnapshot> watchRelayStatus(String incidentId) =>
       _hopRelay.watchStatus(incidentId);
 
@@ -1120,13 +1122,17 @@ class SosBleCoordinator with WidgetsBindingObserver {
           envelope = _decodeEnvelope(sending.payload);
         }
       }
+      final role = recoveredLifecycleRoute?.role ?? _sendRoleFor(deviceId);
       final frames = BleMessageCodec.encode(
         (locationEnvelope?.toBleMessage() ??
             envelope?.toBleMessage() ??
             lifecycle!.toBleMessage()),
-        maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
+        maxFrameBytes: await negotiatedBleFrameBytes(
+          _transport,
+          deviceId,
+          role,
+        ),
       );
-      final role = recoveredLifecycleRoute?.role ?? _sendRoleFor(deviceId);
       _log(
         'send sosId=${sending.sosId} messageId=${sending.messageId} '
         'peer=$deviceId role=${role.wireValue} frames=${frames.length}',
@@ -1363,7 +1369,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
       peer,
       BleMessageCodec.encode(
         message,
-        maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
+        maxFrameBytes: await negotiatedBleFrameBytes(_transport, peer, role),
       ),
       role: role,
       canSend: () =>
@@ -1583,7 +1589,11 @@ class SosBleCoordinator with WidgetsBindingObserver {
           peer,
           BleMessageCodec.encode(
             lifecycle.toBleMessage(),
-            maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
+            maxFrameBytes: await negotiatedBleFrameBytes(
+              _transport,
+              peer,
+              _sendRoleFor(peer),
+            ),
           ),
           role: _sendRoleFor(peer),
           canSend: () => _sessionActive && !_disposed,
@@ -1638,7 +1648,11 @@ class SosBleCoordinator with WidgetsBindingObserver {
           peer,
           BleMessageCodec.encode(
             lifecycle.toBleMessage(),
-            maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
+            maxFrameBytes: await negotiatedBleFrameBytes(
+              _transport,
+              peer,
+              _sendRoleFor(peer),
+            ),
           ),
           role: _sendRoleFor(peer),
           canSend: () => _sessionActive && !_disposed,
@@ -1797,7 +1811,11 @@ class SosBleCoordinator with WidgetsBindingObserver {
         deviceId,
         BleMessageCodec.encode(
           acknowledgement.toBleMessage(),
-          maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
+          maxFrameBytes: await negotiatedBleFrameBytes(
+            _transport,
+            deviceId,
+            role,
+          ),
         ),
         role: role,
         canSend: () => _sessionActive && !_disposed,
@@ -2007,7 +2025,11 @@ class SosBleCoordinator with WidgetsBindingObserver {
         deviceId,
         BleMessageCodec.encode(
           acknowledgement.toBleMessage(),
-          maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
+          maxFrameBytes: await negotiatedBleFrameBytes(
+            _transport,
+            deviceId,
+            role,
+          ),
         ),
         role: role,
         canSend: () => _sessionActive && !_disposed,
@@ -2055,7 +2077,11 @@ class SosBleCoordinator with WidgetsBindingObserver {
         deviceId,
         BleMessageCodec.encode(
           acknowledgement.toBleMessage(),
-          maxFrameBytes: BleMessageCodec.transportSafeFrameBytes,
+          maxFrameBytes: await negotiatedBleFrameBytes(
+            _transport,
+            deviceId,
+            role,
+          ),
         ),
         role: role,
         canSend: () => _sessionActive && !_disposed,

@@ -1,0 +1,54 @@
+{
+  "date": "2026-11-09",
+  "candidate_build": 16,
+  "status": "SAMSUNG_PREVIEW_VISIBLE; IPHONE_HISTORY_MEDIA_FAILURE_REOPENED_IN17",
+  "requirement": "Video poster previews in Chat for sent and received videos, without opening the attachment first",
+  "implementation": [
+    "Both video bubble directions render ChatVideoPreview using the complete local attachment",
+    "CompressVideo.getThumbnail position200ms/JPEG quality65/max320px, in-memory only, no thumbnail transfer or persistent file/cache copy",
+    "Fixed bounded poster area, play overlay, no autoplay/player controllers; original tap opens full viewer",
+    "10second failure fallback leaves Open video action usable; future retained on rebuild, replaced safely if local file changes",
+    "Apple thumbnail extraction uses local extensionless ftyp MIME hint on iOS17+/macOS14+; named files/network/non-ftyp unmodified"
+  ],
+  "focused_tests": {
+    "passed": 9,
+    "failed": 0,
+    "includes": "4 preview widget regressions, picker2, full-viewer layout3"
+  },
+  "analysis": "No issues found",
+  "native_apple_helper": {
+    "allowlist_checks": "PASS",
+    "captured_extensionless_video_poster": "PASS",
+    "poster_width": 180,
+    "poster_height": 320,
+    "scope": "macOS compiled production MIME helper and AVAssetImageGenerator extraction; not physical iPhone/iPad plugin acceptance"
+  },
+  "unchanged": [
+    "Attachment bytes and wire format",
+    "Chat delivery and signed receipt semantics",
+    "SQLite schema10",
+    "No new media storage/quota use"
+  ],
+  "includes_candidate15_recovery": true,
+  "physical_preview": {
+    "Samsung": "Operator reports normal app and visible preview; exact sent/received coverage and playback not separately confirmed",
+    "iPhone": "FAILED history-file opening on16; operator preview reported but attachment unavailable/full video unable to open. Candidate17 path resolution pending physical retest.",
+    "iPad": "PENDING"
+  },
+  "physical_stall_recovery": "PENDING",
+  "installed_devices": {
+    "iPhone": "Profile16",
+    "Samsung": "Profile16",
+    "iPad": "Profile14"
+  },
+  "full_host_suite": {
+    "passed": 627,
+    "failed": 0,
+    "exit": 0
+  },
+  "native_builds": {
+    "android_profile": 0,
+    "ios_profile": 0,
+    "ios_standalone_guard": 0
+  }
+}

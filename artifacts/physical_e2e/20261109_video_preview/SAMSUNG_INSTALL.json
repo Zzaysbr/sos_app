@@ -1,0 +1,50 @@
+{
+  "date": "2026-11-09",
+  "device_alias": "Samsung SM-A536E",
+  "known_usb_target_match": true,
+  "after_version": 16,
+  "mode": "profile",
+  "artifact_hash_match": true,
+  "same_installed_signing_certificate": true,
+  "install_exit": 0,
+  "launch_command_exit": 0,
+  "schema": 10,
+  "application_rows": {
+    "sos_messages": {
+      "before": 25,
+      "after": 25,
+      "all_original_rows_unchanged": true
+    },
+    "chat_messages": {
+      "before": 69,
+      "after": 69,
+      "all_original_rows_unchanged": true
+    },
+    "rescue_inbox": {
+      "before": 14,
+      "after": 14,
+      "all_original_rows_unchanged": true
+    }
+  },
+  "file_retention": {
+    "media": {
+      "files_before": 24,
+      "files_after": 24,
+      "all_original_files_identical": true
+    },
+    "map": {
+      "files_before": 25,
+      "files_after": 25,
+      "all_original_files_identical": true
+    },
+    "completed_attachment_contents": {
+      "before": 12,
+      "all_identical": true
+    }
+  },
+  "update_in_place": true,
+  "uninstall_or_data_clear": false,
+  "visual_launch_history": "Operator reports app normal and preview visible; explicit history/playback/both-direction confirmation not supplied",
+  "physical_media_retest": "PENDING",
+  "physical_video_preview": "PASS in reported scope: preview visible; sent/received coverage and playback not separately confirmed"
+}

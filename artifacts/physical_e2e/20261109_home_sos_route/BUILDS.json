@@ -1,0 +1,32 @@
+{
+  "version": "0.1.0+19",
+  "schema": 10,
+  "source_sha256": "53165beb492da3fa7c346b7dd961992364e4dc6198fbbde14271af7437104d12",
+  "ios": {
+    "mode": "profile",
+    "build_exit": 0,
+    "standalone_preflight_exit": 0,
+    "bundle_version": "19",
+    "full_bundle_sha256": "54d4fc8e899930b77044400af047fb386e2299ae2bea341272a9610143bc1d6e",
+    "full_bundle_files": 196,
+    "installed": true,
+    "installed_device_aliases": [
+      "iPhone 15 Plus",
+      "iPad Air M2"
+    ]
+  },
+  "android_profile": {
+    "mode": "profile",
+    "build_exit": 0,
+    "version_code": 19,
+    "signature_valid": true,
+    "same_profile18_certificate": true,
+    "aot_libapp_present": true,
+    "debug_kernel_absent": true,
+    "apk_sha256": "b9c2762de65818d6c43a3783c6814674e0f0f1547d94bc9efa52ea379563c300",
+    "installed": true,
+    "installed_device_aliases": [
+      "Samsung SM-A536E"
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "version": "0.1.0+18",
+  "schema": 10,
+  "source_sha256": "2b89fe2545e9e0f94cb0a9c02d5171e554e9f6c89b959345170bc8cc0fa22866",
+  "ios": {
+    "mode": "profile",
+    "build_exit": 0,
+    "standalone_preflight_exit": 0,
+    "bundle_version": "18",
+    "full_bundle_sha256": "ed9a0fabe5e78dc888cbfcfbda4f515ae95d2d51abe6476cb7b4d0b2f1fc265b",
+    "full_bundle_files": 196,
+    "installed": true,
+    "installed_device_aliases": [
+      "iPhone 15 Plus"
+    ]
+  },
+  "android_profile": {
+    "mode": "profile",
+    "build_exit": 0,
+    "version_code": 18,
+    "signature_valid": true,
+    "same_profile17_certificate": true,
+    "aot_libapp_present": true,
+    "debug_kernel_absent": true,
+    "apk_sha256": "a0c1d4f088ddfab286bd4e9dcc671e84d6d78d1387c7e31647ca5756d12f14a7",
+    "installed": false
+  }
+}

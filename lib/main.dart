@@ -19,6 +19,7 @@ import 'features/auth/presentation/auth_page.dart';
 import 'features/auth/presentation/auth_session_navigator.dart';
 import 'features/nearby_ble/data/sos_ble_coordinator.dart';
 import 'features/sos/data/sos_cloud_service.dart';
+import 'features/sos/data/cloud_archive_service.dart';
 import 'features/sos/data/chat_repository.dart';
 import 'features/sos/data/sos_repository.dart';
 import 'features/sos/data/sos_sync_coordinator.dart';
@@ -229,6 +230,7 @@ class _AuthGateState extends State<AuthGate> {
     final repository = SosRepository(
       database: widget.database,
       cloudService: SosCloudService(firestore: FirebaseFirestore.instance),
+      cloudArchiveService: CloudArchiveService(),
       firebaseAuth: FirebaseAuth.instance,
       localOwnerId: authenticated ? null : ownerId,
       onSosCreated: bleCoordinator.enqueueSos,

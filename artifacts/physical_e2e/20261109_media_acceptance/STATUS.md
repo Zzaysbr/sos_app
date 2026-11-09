@@ -1,3 +1,5 @@
+> Latest checkpoint: all three devices now Profile19 with retained-data/old-media checks accepted. Targeted19 direct-route/nickname/offer/media/cleanup results are in `../20261109_home_sos_route/PAIR_ACCEPTANCE.json`. First Samsung camera-video eventually arrived once without manual Bluetooth/app reset, but missed the operator initial3-minute observation; later gallery-video and reverse camera-video each passed reported3-minute bound. Exact UI timing/root cause and sustained reliability remain unresolved.
+
 # Mandatory media acceptance checkpoint — 9 November 2026
 
 This records scoped operator observations, not general reliability or release certification.
@@ -13,7 +15,7 @@ This records scoped operator observations, not general reliability or release ce
 | Samsung -> iPhone | Camera video | 1 / picture and audio play | Confirmed stored | Required one iPhone Bluetooth OFF/ON; same clip, no resend |
 | Samsung -> iPhone | Gallery video | 1 / picture and audio play | Confirmed stored | Later receiver snapshot confirms complete357134-byte file/local row/signed receipt |
 
-Current installed versions: iPhone Profile14, Samsung Profile13, iPad Profile14 (operator confirms Home launch/history/archive continuity).
+Historical installed versions at the checkpoint below: iPhone Profile14, Samsung Profile13, iPad Profile14 (operator confirms Home launch/history/archive continuity).
 The final pair incident was cancelled at origin; user confirms original history/Chat retained and Samsung Helping removed it.
 
 Read-only iPhone snapshots corroborate complete inbound JPEG40730/10550 and MP4 326721/357134 bytes with local Chat rows/signed receipts. Three captured receipts (two JPEGs and camera MP4) independently passed the production signature/digest/timing verifier at signed persistence time. This is not sender/receiver full-byte correlation for every row; the failed earlier340644-byte MP4 did match both files but exhausted local receipt recovery before the Apple MIME fix, remains unsigned, and is excluded from accepted media cases. No retry counters/expiry were manually reset.

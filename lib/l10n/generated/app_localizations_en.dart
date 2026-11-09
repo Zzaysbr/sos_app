@@ -374,23 +374,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get send => 'Send';
 
   @override
-  String get statusQueued => 'Queued';
+  String get statusQueued => 'Waiting to send';
 
   @override
   String get statusSending => 'Sending';
 
   @override
-  String get statusAwaitingConfirmation => 'Relayed — delivery not confirmed';
+  String get statusAwaitingConfirmation => 'Forwarded · awaiting confirmation';
 
   @override
-  String get statusConfirmedStored =>
-      'Confirmed stored on the selected nearby device';
+  String get statusConfirmedStored => 'Saved on destination device';
 
   @override
   String get statusDelivered => 'Delivered';
 
   @override
-  String get statusFailedRetryable => 'Failed; retryable';
+  String get statusFailedRetryable => 'Send failed';
 
   @override
   String get statusFailedNoRetry => 'Delivery failed; retry not scheduled';

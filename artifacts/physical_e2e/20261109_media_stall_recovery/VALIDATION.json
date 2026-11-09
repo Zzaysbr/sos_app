@@ -1,0 +1,57 @@
+{
+  "date": "2026-11-09",
+  "candidate_build": 15,
+  "status": "HOST_AND_NATIVE_ARTIFACTS_VALIDATED; NOT_INSTALLED_OR_DEVICE_VERIFIED",
+  "observed_physical_problem": "Previous Samsung to iPhone video needed one manual Bluetooth OFF/ON; no single native root cause established.",
+  "regression_scope": "Simulated established native writes succeed but chunk delivery requires fresh application proof generation; not a physical reproduction of every stalled link.",
+  "before": {
+    "media_recovery": {
+      "passed": 0,
+      "failed": 1
+    },
+    "direct_negotiated_frames": {
+      "passed": 0,
+      "failed": 2
+    }
+  },
+  "after_focused": {
+    "media_store_and_signed_transfer": {
+      "passed": 7,
+      "failed": 0
+    },
+    "direct_negotiated_frames": {
+      "passed": 2,
+      "failed": 0
+    }
+  },
+  "changes": [
+    "Direct binding/SOS/lifecycle/location/ACK use negotiated role-specific frame capacity, existing 20-byte fallback and 512-byte ceiling",
+    "Incomplete authorized media with same missing index for90seconds refreshes authenticated session proof, at most2 times per media per coordinator runtime, minimum90seconds per peer-role",
+    "No native Bluetooth toggle, no GATT reconnect added; fresh proof on retained native channel only"
+  ],
+  "unchanged": [
+    "SQLite schema10",
+    "installation identities and wire formats",
+    "durable media chunk retry budgets/backoff and original expiry",
+    "cryptographic authorization, Merkle proofs, persistence-before-receipt",
+    "completed media/history"
+  ],
+  "limitations": [
+    "Does not repair a native channel that cannot carry control messages",
+    "Recovery counters are ephemeral per coordinator runtime; durable chunk budgets remain persisted",
+    "No physical candidate15 acceptance yet"
+  ],
+  "full_host_suite": {
+    "passed": 623,
+    "failed": 0,
+    "exit": 0
+  },
+  "application_analysis": "No issues found",
+  "whitespace_check": "PASS",
+  "native_builds": {
+    "ios_profile": 0,
+    "android_profile": 0,
+    "ios_standalone_preflight": 0,
+    "android_apk_preflight": "PASS"
+  }
+}

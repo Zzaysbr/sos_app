@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../nearby_ble/data/incident_lifecycle_repository.dart';
+import 'cloud_archive_service.dart';
+import 'media_attachment_store.dart';
 import 'sos_cloud_service.dart';
 
 bool isValidSosCoordinatePair(double? latitude, double? longitude) {
@@ -30,6 +32,7 @@ class SosRepository {
     FirebaseAuth? firebaseAuth,
     this.localOwnerId,
     this._onSosCreated,
+    this._cloudArchiveService,
   }) : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance {
     _sessionOwnerId = _firebaseAuth.currentUser?.uid ?? localOwnerId;
   }
@@ -37,6 +40,7 @@ class SosRepository {
   final AppDatabase _database;
   final SosCloudService _cloudService;
   final FirebaseAuth _firebaseAuth;
+  final CloudArchiveService? _cloudArchiveService;
   final String? localOwnerId;
   late final String? _sessionOwnerId;
   final Future<void> Function(SosMessage sos, {String? destinationId})?
@@ -452,6 +456,16 @@ class SosRepository {
           // Keep failed commands for a later retry.
           failedSosIds.add(item.sosId);
         }
+      }
+
+      // Firestore is also the recovery source for authenticated owners. This
+      // is intentionally after the durable upload queue so local edits win.
+      if (_isOwnerCurrent(ownerId)) {
+        await _cloudArchiveService?.reconcile(
+          ownerId: ownerId,
+          database: _database,
+          attachments: MediaAttachmentStore(ownerId: ownerId),
+        );
       }
     } finally {
       _isSyncing = false;

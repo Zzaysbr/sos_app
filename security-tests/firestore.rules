@@ -42,6 +42,65 @@ service cloud.firestore {
         && resource.data.ownerId == request.auth.uid
         && isValidSos(request.resource.data, sosId)
         && request.resource.data.createdAt == resource.data.createdAt;
+
+    }
+
+    match /accounts/{ownerId}/archiveSos/{sosId} {
+      function ownsArchive() {
+        return isSignedIn() && request.auth.uid == ownerId;
+      }
+
+      function isValidArchiveSos(data) {
+        return data.keys().hasAll([
+            'id', 'ownerId', 'type', 'message', 'latitude', 'longitude',
+            'status', 'createdAt', 'updatedAt'
+          ])
+          && data.keys().hasOnly([
+            'id', 'ownerId', 'type', 'message', 'latitude', 'longitude',
+            'status', 'createdAt', 'updatedAt'
+          ])
+          && data.id == sosId
+          && data.ownerId == ownerId
+          && data.type is string
+          && data.status in ['active', 'resolved', 'cancelled']
+          && data.createdAt is timestamp
+          && data.updatedAt is timestamp;
+      }
+
+      allow read: if ownsArchive();
+      allow create, update: if ownsArchive() && isValidArchiveSos(request.resource.data);
+      allow delete: if ownsArchive();
+
+      match /chat/{messageId} {
+        function ownsIncident() {
+          return isSignedIn()
+            && request.auth.uid == ownerId;
+        }
+
+        function isValidChat(data) {
+          return data.keys().hasAll([
+              'messageId', 'sosId', 'ownerId', 'senderId', 'messageType',
+              'createdAt', 'deliveryStatus'
+            ])
+            && data.keys().hasOnly([
+              'messageId', 'sosId', 'ownerId', 'senderId', 'recipientId',
+              'messageType', 'textContent', 'createdAt', 'deliveryStatus',
+              'attachmentMimeType', 'attachmentName', 'mediaPath'
+            ])
+            && data.messageId == messageId
+            && data.sosId == sosId
+            && data.ownerId == ownerId
+            && data.senderId is string
+            && data.messageType is string
+            && data.createdAt is timestamp
+            && data.deliveryStatus in ['pending', 'sent', 'delivered', 'failed'];
+        }
+
+        allow read: if ownsIncident();
+        allow create, update: if ownsIncident()
+          && isValidChat(request.resource.data);
+        allow delete: if ownsIncident();
+      }
     }
   }
 }

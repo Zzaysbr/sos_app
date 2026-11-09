@@ -1,3 +1,8 @@
+import '../../nearby_ble/data/user_route_repository.dart';
+import '../../nearby_ble/data/route_device_names.dart';
+import '../../nearby_ble/presentation/user_route_view.dart';
+import 'chat_video_preview.dart';
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
@@ -100,6 +105,8 @@ class EmergencyChatPage extends StatefulWidget {
     this.bleTransport,
     this.sosDeliveryStream,
     this.relayStatusStream,
+    this.routeStream,
+    this.routeDeviceNames,
     this.verifiedHelpOfferStream,
     this.locationFeedback,
     this.attachmentStore,
@@ -121,6 +128,8 @@ class EmergencyChatPage extends StatefulWidget {
   final BleTransportClient? bleTransport;
   final Stream<BleOutboxData?>? sosDeliveryStream;
   final Stream<RelayStatusSnapshot>? relayStatusStream;
+  final Stream<UserRoutesSnapshot>? routeStream;
+  final RouteDeviceNames? routeDeviceNames;
   final Stream<List<RescueResponseInboxData>>? verifiedHelpOfferStream;
   final ValueListenable<String?>? locationFeedback;
   final MediaAttachmentStore? attachmentStore;
@@ -137,6 +146,10 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
   late final ChatRepository _repository;
   final _messages = <EmergencyChatMessage>[];
   StreamSubscription<List<EmergencyChatMessage>>? _messagesSubscription;
+  StreamSubscription<UserRoutesSnapshot>? _routeSubscription;
+  UserRoutesSnapshot _routes = const UserRoutesSnapshot();
+  bool _routeError = false;
+  bool _routesLoading = true;
   String? _selectedDestinationId;
   bool _sending = false;
   bool _picking = false;
@@ -157,6 +170,26 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
   void initState() {
     super.initState();
     _repository = widget.repository ?? MockEmergencyChatRepository();
+    _routeSubscription = widget.routeStream?.listen(
+      (value) {
+        if (mounted) {
+          setState(() {
+            _routes = value;
+            _routeError = false;
+            _routesLoading = false;
+          });
+        }
+      },
+      onError: (Object _) {
+        if (mounted) {
+          setState(() {
+            _routes = const UserRoutesSnapshot();
+            _routeError = true;
+            _routesLoading = false;
+          });
+        }
+      },
+    );
     final sosId = widget.sosId;
     if (sosId != null) {
       _messagesSubscription = _repository
@@ -221,6 +254,7 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
   @override
   void dispose() {
     _controller.dispose();
+    unawaited(_routeSubscription?.cancel() ?? Future<void>.value());
     unawaited(_messagesSubscription?.cancel() ?? Future<void>.value());
     super.dispose();
   }
@@ -496,263 +530,177 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
       appBar: AppBar(title: Text(l10n.emergencyChat)),
       body: Column(
         children: [
-          if (widget.sosId != null)
-            Semantics(
-              label: l10n.chatIncidentSemantics(widget.sosId!),
-              child: Container(
-                width: double.infinity,
-                constraints: const BoxConstraints(minHeight: 48),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                color: Theme.of(context).colorScheme.surfaceContainerLow,
-                child: Row(
-                  children: [
-                    const Icon(Icons.sos_rounded, size: 20),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.contactName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          Text(
-                            l10n.savedLocallyFirst,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          if (widget.sosId != null) _buildEmergencyDeliveryStatus(),
-          if (widget.verifiedHelpOfferStream != null)
-            StreamBuilder<List<RescueResponseInboxData>>(
-              stream: widget.verifiedHelpOfferStream,
-              builder: (context, snapshot) {
-                final offers = snapshot.data ?? const [];
-                if (offers.isEmpty) return const SizedBox.shrink();
-                return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-                  color: Theme.of(context).colorScheme.secondaryContainer,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.volunteer_activism_outlined),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Verified help offer received (${offers.length}). '
-                          'The responder has been authenticated; assistance is not guaranteed.',
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          if (widget.locationFeedback != null)
-            ValueListenableBuilder<String?>(
-              valueListenable: widget.locationFeedback!,
-              builder: (context, message, _) => message == null
-                  ? const SizedBox.shrink()
-                  : Semantics(
-                      liveRegion: true,
-                      label: message,
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerLow,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(Icons.location_off_outlined, size: 20),
-                            const SizedBox(width: 10),
-                            Expanded(child: Text(message)),
-                          ],
-                        ),
-                      ),
-                    ),
-            ),
-          if (_hasUnroutedPendingMessages &&
-              widget.onAssignPendingDestination != null &&
-              widget.bleTransport != null)
-            MaterialBanner(
-              leading: const Icon(Icons.link_off_rounded),
-              content: Text(l10n.chatNeedsRecipient),
-              actions: [
-                TextButton(
-                  onPressed: _assigningPendingDestination
-                      ? null
-                      : _assignPendingDestination,
-                  child: Text(
-                    _assigningPendingDestination
-                        ? l10n.assigning
-                        : l10n.chooseRecipient,
-                  ),
-                ),
-              ],
-            ),
           Expanded(
-            child: _loadingMessages
-                ? const Center(child: CircularProgressIndicator())
-                : _loadError != null
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.error_outline, size: 36),
-                          const SizedBox(height: 10),
-                          Text(_loadError!, textAlign: TextAlign.center),
-                          const SizedBox(height: 12),
-                          OutlinedButton.icon(
-                            onPressed: widget.sosId == null
-                                ? null
-                                : () {
-                                    setState(() {
-                                      _loadingMessages = true;
-                                      _loadError = null;
-                                    });
-                                    unawaited(_loadMessages(widget.sosId!));
-                                  },
-                            icon: const Icon(Icons.refresh),
-                            label: Text(l10n.tryAgain),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : _messages.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        widget.sosId == null
-                            ? l10n.chooseIncidentBeforeChat
-                            : l10n.noChatMessages,
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                    itemCount: _messages.length,
-                    itemBuilder: (_, index) {
-                      final message = _messages[index];
-                      return Align(
-                        alignment: message.isMine
-                            ? Alignment.centerRight
-                            : Alignment.centerLeft,
-                        child: Container(
-                          constraints: const BoxConstraints(maxWidth: 320),
-                          margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: message.isMine
-                                ? Theme.of(context).colorScheme.primaryContainer
-                                : Theme.of(context)
-                                      .colorScheme
-                                      .surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: message.attachmentPath == null
-                                    ? Text(message.text)
-                                    : InkWell(
-                                        onTap: () => Navigator.of(context)
-                                            .push<void>(
-                                              MaterialPageRoute(
-                                                builder: (_) => ChatMediaViewer(
-                                                  file: File(
-                                                    message.attachmentPath!,
-                                                  ),
-                                                  mime:
-                                                      message
-                                                          .attachmentMimeType ??
-                                                      'image/png',
-                                                ),
-                                              ),
-                                            ),
-                                        child:
-                                            (message.attachmentMimeType ?? '')
-                                                .startsWith('image/')
-                                            ? Image.file(
-                                                File(message.attachmentPath!),
-                                                width: 220,
-                                                height: 180,
-                                                fit: BoxFit.contain,
-                                                errorBuilder: (_, _, _) => Text(
-                                                  mediaText(
-                                                    context,
-                                                    'Attachment unavailable',
-                                                    'ไม่พบไฟล์แนบ',
-                                                  ),
-                                                ),
-                                              )
-                                            : Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  const Icon(
-                                                    Icons.play_circle_outline,
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  Text(
-                                                    mediaText(
-                                                      context,
-                                                      'Open video',
-                                                      'เปิดวิดีโอ',
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (widget.sosId != null)
+                        Semantics(
+                          label: l10n.chatIncidentSemantics(widget.sosId!),
+                          child: Container(
+                            width: double.infinity,
+                            constraints: const BoxConstraints(minHeight: 48),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerLow,
+                            child: Row(
+                              children: [
+                                const Icon(Icons.sos_rounded, size: 20),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        widget.contactName,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                        ),
                                       ),
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    _statusIcon(message.status),
-                                    size: 13,
-                                    semanticLabel: _statusLabel(
+                                      Text(
+                                        l10n.savedLocallyFirst,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      if (widget.sosId != null) _buildEmergencyDeliveryStatus(),
+                      if (widget.routeStream != null &&
+                          widget.routeDeviceNames != null)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: _routeError
+                              ? Text(
+                                  routeText(
+                                    context,
+                                    'Route information unavailable',
+                                    'อ่านข้อมูลเส้นทางไม่ได้',
+                                  ),
+                                )
+                              : _routesLoading
+                              ? ListTile(
+                                  leading: const Icon(Icons.route_rounded),
+                                  title: Text(
+                                    routeText(
                                       context,
-                                      message.status,
+                                      'Loading route',
+                                      'กำลังอ่านเส้นทาง',
                                     ),
                                   ),
-                                  const SizedBox(width: 4),
-                                  Flexible(
+                                )
+                              : UserRouteView(
+                                  routes: _routes.sos,
+                                  names: widget.routeDeviceNames!,
+                                  compact: true,
+                                ),
+                        ),
+                      if (widget.verifiedHelpOfferStream != null)
+                        StreamBuilder<List<RescueResponseInboxData>>(
+                          stream: widget.verifiedHelpOfferStream,
+                          builder: (context, snapshot) {
+                            final offers = snapshot.data ?? const [];
+                            if (offers.isEmpty) return const SizedBox.shrink();
+                            return Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.fromLTRB(
+                                16,
+                                10,
+                                16,
+                                10,
+                              ),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .secondaryContainer,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(Icons.volunteer_activism_outlined),
+                                  const SizedBox(width: 10),
+                                  Expanded(
                                     child: Text(
-                                      '${_time(context, message.createdAt)} · ${_statusLabel(context, message.status)}',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .labelSmall,
+                                      'Verified help offer received (${offers.length}). '
+                                      'The responder has been authenticated; assistance is not guaranteed.',
                                     ),
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
+                            );
+                          },
                         ),
-                      );
-                    },
+                      if (widget.locationFeedback != null)
+                        ValueListenableBuilder<String?>(
+                          valueListenable: widget.locationFeedback!,
+                          builder: (context, message, _) => message == null
+                              ? const SizedBox.shrink()
+                              : Semantics(
+                                  liveRegion: true,
+                                  label: message,
+                                  child: Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      10,
+                                      16,
+                                      10,
+                                    ),
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .surfaceContainerLow,
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Icon(
+                                          Icons.location_off_outlined,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(child: Text(message)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                        ),
+                      if (_hasUnroutedPendingMessages &&
+                          widget.onAssignPendingDestination != null &&
+                          widget.bleTransport != null)
+                        MaterialBanner(
+                          leading: const Icon(Icons.link_off_rounded),
+                          content: Text(l10n.chatNeedsRecipient),
+                          actions: [
+                            TextButton(
+                              onPressed: _assigningPendingDestination
+                                  ? null
+                                  : _assignPendingDestination,
+                              child: Text(
+                                _assigningPendingDestination
+                                    ? l10n.assigning
+                                    : l10n.chooseRecipient,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
                   ),
+                ),
+                _messagesSliver(),
+              ],
+            ),
           ),
           SafeArea(
             child: Padding(
@@ -839,6 +787,156 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _messagesSliver() {
+    final l10n = context.l10n;
+    if (_loadingMessages) {
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.chat_bubble_outline_rounded, size: 32),
+              const SizedBox(height: 8),
+              Text(routeText(context, 'Loading messages', 'กำลังโหลดข้อความ')),
+            ],
+          ),
+        ),
+      );
+    }
+    if (_loadError != null) {
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, size: 36),
+                const SizedBox(height: 10),
+                Text(_loadError!, textAlign: TextAlign.center),
+                OutlinedButton.icon(
+                  onPressed: widget.sosId == null
+                      ? null
+                      : () {
+                          setState(() {
+                            _loadingMessages = true;
+                            _loadError = null;
+                          });
+                          unawaited(_loadMessages(widget.sosId!));
+                        },
+                  icon: const Icon(Icons.refresh),
+                  label: Text(l10n.tryAgain),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    if (_messages.isEmpty) {
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              widget.sosId == null
+                  ? l10n.chooseIncidentBeforeChat
+                  : l10n.noChatMessages,
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    }
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      sliver: SliverList.builder(
+        itemCount: _messages.length,
+        itemBuilder: (_, index) => _messageBubble(index),
+      ),
+    );
+  }
+
+  Widget _messageBubble(int index) {
+    final message = _messages[index];
+    return Align(
+      alignment: message.isMine ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 320),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: message.isMine
+              ? Theme.of(context).colorScheme.primaryContainer
+              : Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: message.attachmentPath == null
+                  ? Text(message.text)
+                  : InkWell(
+                      onTap: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute(
+                          builder: (_) => ChatMediaViewer(
+                            file: File(message.attachmentPath!),
+                            mime: message.attachmentMimeType ?? 'image/png',
+                          ),
+                        ),
+                      ),
+                      child:
+                          (message.attachmentMimeType ?? '').startsWith(
+                            'image/',
+                          )
+                          ? Image.file(
+                              File(message.attachmentPath!),
+                              width: 220,
+                              height: 180,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, _, _) => Text(
+                                mediaText(
+                                  context,
+                                  'Attachment unavailable',
+                                  'ไม่พบไฟล์แนบ',
+                                ),
+                              ),
+                            )
+                          : ChatVideoPreview(
+                              key: ValueKey(message.id),
+                              file: File(message.attachmentPath!),
+                            ),
+                    ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _statusIcon(message.status),
+                  size: 13,
+                  semanticLabel: _statusLabel(context, message.status),
+                ),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    '${_time(context, message.createdAt)} · ${_statusLabel(context, message.status)}',
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

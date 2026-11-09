@@ -1,3 +1,5 @@
+import 'package:sos_app/l10n/generated/app_localizations.dart';
+
 import 'dart:async';
 import 'dart:ui' as ui;
 
@@ -183,6 +185,21 @@ void main() {
       const ValueKey('active-sos-chat-banner-active-banner-incident'),
     );
     expect(banner, findsOneWidget);
+    final action = find.byKey(const ValueKey('primary-sos-hold-action'));
+    final route = find.byKey(
+      const ValueKey('current-sos-route-active-banner-incident'),
+    );
+    expect(route, findsOneWidget);
+    expect(find.text('Current SOS route'), findsOneWidget);
+    expect(find.text('Next device not recorded'), findsOneWidget);
+    expect(
+      tester.getTopLeft(banner).dy,
+      greaterThan(tester.getBottomRight(action).dy),
+    );
+    expect(
+      tester.getTopLeft(route).dy,
+      greaterThan(tester.getBottomRight(banner).dy),
+    );
     final node = tester.getSemantics(banner);
     expect(node.label, contains('เปิดแชต SOS'));
     expect(node.hint, contains('active-banner-incident'));
@@ -1047,6 +1064,9 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         theme: AppTheme.light,
         home: MediaQuery(
           data: const MediaQueryData(
@@ -1063,12 +1083,19 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Queued'), findsOneWidget);
-    expect(find.textContaining('Awaiting confirmation (sent)'), findsOneWidget);
-    expect(find.textContaining('Confirmed received'), findsOneWidget);
-    await tester.drag(find.byType(ListView), const Offset(0, -300));
-    await tester.pump();
-    expect(find.textContaining('Failed; retryable'), findsOneWidget);
+    for (final label in [
+      'Waiting to send',
+      'Forwarded · awaiting confirmation',
+      'Saved on destination device',
+      'Send failed',
+    ]) {
+      await tester.scrollUntilVisible(
+        find.textContaining(label),
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.textContaining(label), findsOneWidget);
+    }
     expect(find.byTooltip('Attach image'), findsNothing);
     expect(find.byTooltip('Share location'), findsNothing);
     expect(tester.takeException(), isNull);

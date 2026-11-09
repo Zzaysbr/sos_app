@@ -455,9 +455,11 @@ class SimNode {
     );
     identityService = RelayIdentityService(keyStore: SimulationKeys(seed));
     transport = SimBleTransport(id, network);
+    final attachments = MediaAttachmentStore(ownerId: id, root: mediaRoot);
     chat = PersistentChatRepository(
       database: db,
       ownerId: id,
+      attachmentStore: attachments,
       now: () => network.clock.now,
     );
     coordinator = SosBleCoordinator(
@@ -474,9 +476,7 @@ class SimNode {
       },
       random: () => 0.5,
       chatRepository: chat,
-      attachmentStore: mediaRoot == null
-          ? null
-          : MediaAttachmentStore(ownerId: id, root: mediaRoot),
+      attachmentStore: mediaRoot == null ? null : attachments,
       now: () => network.clock.now,
       pollInterval: const Duration(days: 1),
       onLog: logs.add,

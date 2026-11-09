@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-09",
+  "build": 19,
+  "capture": "Read-only known Samsung target; DB quick_check ok; raw DB/media/log private",
+  "correlation": "Newest video message matched sender outbox, applied receipt and complete local media state by exact message ID",
+  "mime": "video/mp4",
+  "bytes": 352435,
+  "kib": 344.17,
+  "chunk_bytes": 4096,
+  "chunks": 87,
+  "local_complete": true,
+  "chat_state": "delivered",
+  "outbox_state": "delivered",
+  "outbox_retry_counter": 5,
+  "receipt_state": "applied",
+  "sender_clock_message_creation_to_receipt_capture_seconds": 157,
+  "last_outbox_update_after_message_seconds": 78,
+  "limits": [
+    "Counter combines forwarded/failed attempts per source; not chunk retry count",
+    "Sender-clock receipt capture interval differs from reported >3-minute UI observation; no UI latency cause established",
+    "No per-chunk timing or exact UI appearance time; delay cause remains unknown"
+  ],
+  "independent_recipient_receipt_verification": "PASS against original signed envelope at historical sender receipt-row capture time",
+  "receiver_file_and_row_verification": "PASS: one matched Chat row, same incident and receipt wire, complete352435-byte file equals sender and signed manifest digest"
+}

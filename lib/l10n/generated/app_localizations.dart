@@ -773,7 +773,7 @@ abstract class AppLocalizations {
   /// No description provided for @statusQueued.
   ///
   /// In en, this message translates to:
-  /// **'Queued'**
+  /// **'Waiting to send'**
   String get statusQueued;
 
   /// No description provided for @statusSending.
@@ -785,13 +785,13 @@ abstract class AppLocalizations {
   /// No description provided for @statusAwaitingConfirmation.
   ///
   /// In en, this message translates to:
-  /// **'Relayed — delivery not confirmed'**
+  /// **'Forwarded · awaiting confirmation'**
   String get statusAwaitingConfirmation;
 
   /// No description provided for @statusConfirmedStored.
   ///
   /// In en, this message translates to:
-  /// **'Confirmed stored on the selected nearby device'**
+  /// **'Saved on destination device'**
   String get statusConfirmedStored;
 
   /// No description provided for @statusDelivered.
@@ -803,7 +803,7 @@ abstract class AppLocalizations {
   /// No description provided for @statusFailedRetryable.
   ///
   /// In en, this message translates to:
-  /// **'Failed; retryable'**
+  /// **'Send failed'**
   String get statusFailedRetryable;
 
   /// No description provided for @statusFailedNoRetry.

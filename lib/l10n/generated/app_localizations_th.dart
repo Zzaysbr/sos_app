@@ -369,24 +369,22 @@ class AppLocalizationsTh extends AppLocalizations {
   String get send => 'ส่ง';
 
   @override
-  String get statusQueued => 'อยู่ในคิว';
+  String get statusQueued => 'รอส่ง';
 
   @override
   String get statusSending => 'กำลังส่ง';
 
   @override
-  String get statusAwaitingConfirmation =>
-      'ส่งต่อแล้ว — ยังไม่ยืนยันการรับปลายทาง';
+  String get statusAwaitingConfirmation => 'ส่งต่อแล้ว · รอยืนยัน';
 
   @override
-  String get statusConfirmedStored =>
-      'ยืนยันว่าบันทึกบนอุปกรณ์ใกล้เคียงที่เลือกแล้ว';
+  String get statusConfirmedStored => 'เครื่องปลายทางเก็บแล้ว';
 
   @override
   String get statusDelivered => 'ส่งถึงอุปกรณ์ผู้รับแล้ว';
 
   @override
-  String get statusFailedRetryable => 'ล้มเหลว · ลองใหม่ได้';
+  String get statusFailedRetryable => 'ส่งไม่สำเร็จ';
 
   @override
   String get statusFailedNoRetry => 'ส่งไม่สำเร็จและยังไม่ได้นัดลองใหม่';
@@ -406,8 +404,7 @@ class AppLocalizationsTh extends AppLocalizations {
       'บันทึกในเครื่องแล้ว แต่เซสชันนี้ส่งไปอุปกรณ์ใกล้เคียงไม่ได้';
 
   @override
-  String get directStoredConfirmed =>
-      'ยืนยันว่าบันทึกบนอุปกรณ์ใกล้เคียงที่เลือกแล้ว';
+  String get directStoredConfirmed => 'เครื่องปลายทางเก็บแล้ว';
 
   @override
   String get sentAwaitingConfirmation =>

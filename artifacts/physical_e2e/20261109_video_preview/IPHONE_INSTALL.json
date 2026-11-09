@@ -1,0 +1,39 @@
+{
+  "date": "2026-11-09",
+  "device_alias": "iPhone 15 Plus",
+  "known_device_target_match": true,
+  "operator_reports_wired": true,
+  "devicectl_reported_transport": "wired",
+  "after_version": 16,
+  "mode": "profile",
+  "standalone_preflight": "PASS",
+  "install_exit": 0,
+  "schema": 10,
+  "application_rows": {
+    "sos_messages": {
+      "before": 21,
+      "after": 21,
+      "all_original_rows_unchanged": true
+    },
+    "chat_messages": {
+      "before": 68,
+      "after": 68,
+      "all_original_rows_unchanged": true
+    }
+  },
+  "file_retention": {
+    "media": {
+      "files_before": 24,
+      "all_original_files_identical": true
+    },
+    "map": {
+      "files_before": 43,
+      "all_original_files_identical": true
+    }
+  },
+  "update_in_place": true,
+  "uninstall_or_data_clear": false,
+  "automatic_launch": false,
+  "visual_home_launch_history": "PENDING",
+  "physical_media_retest": "PENDING"
+}
