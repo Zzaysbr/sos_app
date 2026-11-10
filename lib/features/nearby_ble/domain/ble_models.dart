@@ -27,15 +27,27 @@ enum BleSessionRole {
 }
 
 class BleDevice {
-  const BleDevice({required this.id, this.name, this.rssi});
+  const BleDevice({
+    required this.id,
+    this.name,
+    this.model,
+    this.rssi,
+    this.recoveryHint,
+  });
   final String id;
   final String? name;
+  final String? model;
   final int? rssi;
+  final String? recoveryHint;
 
   factory BleDevice.fromMap(Map<Object?, Object?> map) => BleDevice(
     id: map['id'] is String ? map['id'] as String : '',
     name: map['name'] is String ? map['name'] as String : null,
+    model: map['model'] is String ? map['model'] as String : null,
     rssi: map['rssi'] is num ? (map['rssi'] as num).toInt() : null,
+    recoveryHint: map['recoveryHint'] is String
+        ? map['recoveryHint'] as String
+        : null,
   );
 }
 
@@ -81,8 +93,9 @@ class BleEvent {
 }
 
 class BleTransportException implements Exception {
-  const BleTransportException(this.message);
+  const BleTransportException(this.message, {this.code});
   final String message;
+  final String? code;
   @override
   String toString() => 'BleTransportException: $message';
 }

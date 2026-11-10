@@ -50,6 +50,7 @@ class RelayRepository {
   final int maximumPayloadBytes;
 
   static const maximumRetriesPerPeer = 3;
+  static const nativeRelayWriteFailure = 'Native relay write failed.';
   static const localOriginPeerId = 'local-origin';
 
   static Future<String> attemptIdFor(
@@ -103,9 +104,12 @@ class RelayRepository {
     final immutableDigest = await _cryptography.immutableDigest(offer.body);
     final wireEnvelope = offer.toCanonicalWire();
     final payloadBytes = utf8.encode(wireEnvelope).length;
-    final retentionDeadline = _minimumTime(
-      offer.body.expiresAt,
-      timestamp.add(RelayProtocolLimits.maximumLifetime),
+    final expiresAt = _databaseTime(offer.expiresAt);
+    final retentionDeadline = _databaseTime(
+      _minimumTime(
+        offer.expiresAt,
+        timestamp.add(RelayProtocolLimits.maximumLifetime),
+      ),
     );
     final messageFields = _messageFields(
       originMessageId: offer.body.originMessageId,
@@ -119,7 +123,7 @@ class RelayRepository {
       authorizationScope: offer.body.scope.wireValue,
       emergencyType: offer.body.emergencyType,
       createdAt: offer.body.createdAt,
-      expiresAt: offer.body.expiresAt,
+      expiresAt: expiresAt,
       retentionDeadline: retentionDeadline,
       maxHops: offer.body.maxHops,
       incomingHopCount: offer.hopCount,
@@ -144,12 +148,28 @@ class RelayRepository {
         );
       }
       final existing = await lookupMessage(offer.body.originMessageId);
+      if (source == localOriginPeerId && offer.lease != null) {
+        final active =
+            await (database.select(database.sosMessages)..where(
+                  (s) =>
+                      s.id.equals(offer.body.incidentId) &
+                      s.status.equals('active'),
+                ))
+                .getSingleOrNull();
+        if (active == null || existing?.incomingPeerId != localOriginPeerId) {
+          throw const RelayPersistenceException(
+            'Only an active local SOS can be renewed.',
+          );
+        }
+      }
       if (existing != null) {
         // An already verified origin can arrive through another authenticated
         // route. Deduplicate the immutable signed origin, not its mutable hop
         // envelope/native address; retain the first durable route unchanged.
         // Locally originated records still reject returning relay loops.
-        if (existing.incomingPeerId == localOriginPeerId ||
+        final renewingLocal =
+            source == localOriginPeerId && offer.lease != null;
+        if ((existing.incomingPeerId == localOriginPeerId && !renewingLocal) ||
             existing.immutablePayload != immutablePayload ||
             existing.immutableDigest != immutableDigest ||
             existing.originSignature != offer.originSignature) {
@@ -157,8 +177,17 @@ class RelayRepository {
             'Conflicting relay offer reuses a stored identity.',
           );
         }
-        await _loadVerifiedOffer(existing, timestamp);
-        return RelayAcceptanceResult(row: existing, duplicate: true);
+        await _loadVerifiedOffer(existing, timestamp, allowExpired: true);
+        if (offer.lease == null ||
+            !offer.expiresAt.isAfter(existing.expiresAt)) {
+          return RelayAcceptanceResult(row: existing, duplicate: true);
+        }
+        // Relay attempts and hop receipts belong to the previous lease.
+        // Foreign keys remove them atomically; incident/history IDs stay put.
+        await (database.delete(
+              database.bleRelayMessages,
+            )..where((r) => r.originMessageId.equals(existing.originMessageId)))
+            .go();
       }
       await _enforceGlobalQuota(deltaBytes: storageBytes);
       if (participationStillEnabled != null && !participationStillEnabled()) {
@@ -185,7 +214,7 @@ class RelayRepository {
               authorizationScope: offer.body.scope.wireValue,
               emergencyType: offer.body.emergencyType,
               createdAt: offer.body.createdAt,
-              expiresAt: offer.body.expiresAt,
+              expiresAt: expiresAt,
               retentionDeadline: retentionDeadline,
               maxHops: offer.body.maxHops,
               incomingHopCount: offer.hopCount,
@@ -233,18 +262,38 @@ class RelayRepository {
       final immutableDigest = await _cryptography.immutableDigest(offer.body);
       final incomingPath = relayCanonicalJson({'path': offer.pathKeyIds});
       final payloadBytes = utf8.encode(row.wireEnvelope).length;
-      final expectedDeadline = _minimumTime(
-        offer.body.expiresAt,
-        row.receivedAt.toUtc().add(RelayProtocolLimits.maximumLifetime),
+      final expectedDeadline = _databaseTime(
+        _minimumTime(
+          offer.expiresAt,
+          row.receivedAt.toUtc().add(RelayProtocolLimits.maximumLifetime),
+        ),
       );
       final expectedStorageBytes = relayLogicalRecordBytes(
         'ble_relay_messages',
         _messageFieldsFromRow(row),
       );
-      final legacySubsecondAccounting = _hasLegacySubsecondAccounting(
-        row,
-        expectedStorageBytes,
-      );
+      // Older lease builds counted the signed subsecond expiry before SQLite
+      // truncated its local projection. Reconstruct that exact accounting;
+      // signature and all projected fields are still verified below.
+      final legacyLeaseFields = {
+        ..._messageFieldsFromRow(row),
+        'expiresAt': _wireTime(offer.expiresAt),
+        'retentionDeadline': _wireTime(
+          _minimumTime(
+            offer.expiresAt,
+            row.receivedAt.toUtc().add(RelayProtocolLimits.maximumLifetime),
+          ),
+        ),
+      };
+      final legacySubsecondAccounting =
+          _hasLegacySubsecondAccounting(row, expectedStorageBytes) ||
+          (offer.lease != null &&
+              row.storageBytes ==
+                  relayLogicalRecordBytes(
+                    'ble_relay_messages',
+                    legacyLeaseFields,
+                  ) &&
+              row.storageBytes != expectedStorageBytes);
       if (!await _cryptography.verifyOffer(
             offer,
             now: timestamp,
@@ -258,7 +307,7 @@ class RelayRepository {
           offer.body.scope.wireValue != row.authorizationScope ||
           offer.body.emergencyType != row.emergencyType ||
           !_sameTime(offer.body.createdAt, row.createdAt) ||
-          !_sameTime(offer.body.expiresAt, row.expiresAt) ||
+          !_sameTime(_databaseTime(offer.expiresAt), row.expiresAt) ||
           !_sameTime(expectedDeadline, row.retentionDeadline) ||
           offer.body.maxHops != row.maxHops ||
           offer.originSignature != row.originSignature ||
@@ -538,6 +587,7 @@ class RelayRepository {
       pathKeyIds: [...offer.pathKeyIds, identity.keyId],
       immediateSenderKeyId: identity.keyId,
       hopAttestations: [...offer.hopAttestations, attestation],
+      lease: offer.lease,
     );
     if (!await _cryptography.verifyOffer(outgoing, now: timestamp)) {
       throw const RelayPersistenceException(
@@ -701,6 +751,7 @@ class RelayRepository {
   Future<BleRelayAttempt?> claimAttemptForSending({
     required String originMessageId,
     required String attemptId,
+    ({String deviceId, DateTime connectedAt})? provenLink,
     DateTime? now,
   }) async {
     final timestamp = _databaseTime(now ?? DateTime.now());
@@ -726,9 +777,21 @@ class RelayRepository {
           attempt.retryCount < maximumRetriesPerPeer &&
           (attempt.nextRetryAt == null ||
               !attempt.nextRetryAt!.toUtc().isAfter(timestamp));
-      if (state != RelayAttemptState.queued && !retryReady) return null;
+      // Reserve one additional send for a newer, proven native connection.
+      // Retain the retry counter so a second reconnect cannot renew the budget.
+      final recovered =
+          provenLink != null &&
+          state == RelayAttemptState.failed &&
+          attempt.retryCount == maximumRetriesPerPeer &&
+          attempt.lastError == nativeRelayWriteFailure &&
+          _databaseTime(provenLink.connectedAt).isAfter(attempt.updatedAt);
+      if (state != RelayAttemptState.queued && !retryReady && !recovered) {
+        return null;
+      }
+      final device = recovered ? provenLink.deviceId : attempt.nextHopDeviceId;
       final nextFields = _attemptFieldsFromRow(
         attempt,
+        nextHopDeviceId: device,
         state: RelayAttemptState.sending.wireValue,
         updatedAt: timestamp,
         lastAttemptAt: timestamp,
@@ -751,6 +814,7 @@ class RelayRepository {
               ))
               .write(
                 BleRelayAttemptsCompanion(
+                  nextHopDeviceId: Value(device),
                   state: Value(RelayAttemptState.sending.wireValue),
                   lastAttemptAt: Value(timestamp),
                   nextRetryAt: const Value(null),
@@ -952,6 +1016,25 @@ class RelayRepository {
     return removed;
   });
 
+  Future<List<BleRelayMessage>> localOriginsForRenewal(
+    String ownerId,
+    DateTime dueBy,
+  ) async {
+    final origins = database.bleRelayMessages;
+    final sos = database.sosMessages;
+    final rows =
+        await (database.select(origins).join([
+              innerJoin(sos, sos.id.equalsExp(origins.incidentId)),
+            ])..where(
+              sos.ownerId.equals(ownerId) &
+                  sos.status.equals('active') &
+                  origins.incomingPeerId.equals(localOriginPeerId) &
+                  origins.expiresAt.isSmallerOrEqualValue(dueBy),
+            ))
+            .get();
+    return rows.map((row) => row.readTable(origins)).toList();
+  }
+
   Future<bool> hasForwardableLocalOrigin({DateTime? now}) async {
     final timestamp = (now ?? DateTime.now()).toUtc();
     await removeInactiveLocalOrigins();
@@ -999,7 +1082,13 @@ class RelayRepository {
               .add(RelayProtocolLimits.maximumClockSkew)
               .isBefore(message.createdAt) ||
           receipt.createdAt.isAfter(message.retentionDeadline) ||
-          receipt.expiresAt.isAfter(message.retentionDeadline)) {
+          receipt.expiresAt.isAfter(message.retentionDeadline) ||
+          (message.expiresAt.isAfter(
+                message.createdAt.add(RelayProtocolLimits.maximumLifetime),
+              ) &&
+              receipt.expiresAt
+                  .add(RelayProtocolLimits.maximumClockSkew)
+                  .isBefore(message.retentionDeadline))) {
         throw const RelayPersistenceException(
           'Relay receipt does not match the retained message window.',
         );
@@ -1185,7 +1274,15 @@ class RelayRepository {
         // Transport expiry must not erase the signed authorization needed by
         // an established conversation or a still-live Chat job. Retained rows
         // keep their original deadlines/accounting and cannot be forwarded.
-        if (await _hasChatReference(row, timestamp)) {
+        if (await _hasChatReference(row, timestamp) ||
+            (row.incomingPeerId == localOriginPeerId &&
+                await (database.select(database.sosMessages)..where(
+                          (s) =>
+                              s.id.equals(row.incidentId) &
+                              s.status.equals('active'),
+                        ))
+                        .getSingleOrNull() !=
+                    null)) {
           try {
             await _loadVerifiedOffer(row, timestamp, allowExpired: true);
             continue;
@@ -1206,7 +1303,7 @@ class RelayRepository {
         allowExpired: true,
       );
       final deadline = _minimumTime(
-        offer.body.expiresAt,
+        offer.expiresAt,
         row.receivedAt.toUtc().add(RelayProtocolLimits.maximumLifetime),
       );
       if (!deadline.isAfter(timestamp)) {

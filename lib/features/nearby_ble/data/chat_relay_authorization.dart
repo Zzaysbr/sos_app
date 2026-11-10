@@ -29,7 +29,7 @@ class ChatRelayAuthorization {
         envelope.body.scope != RelayAuthorizationScope.voluntaryRescue) {
       throw const FormatException('Chat SOS origin binding invalid.');
     }
-    return envelope.body;
+    return envelope.responseOrigin;
   }
 
   Future<String> authorize(
@@ -41,9 +41,26 @@ class ChatRelayAuthorization {
     final binding = envelope.body.originIncidentBinding;
     // Legacy signed text envelopes used the incident ID. They still require
     // the same verified origin and signed offer proof; no arbitrary key trust.
+    final emergencyBinding = 'emergency-text:${body.originMessageId}:$digest';
     if (binding != body.incidentId &&
+        binding != emergencyBinding &&
         binding != 'incident-binding:${body.originMessageId}:$digest') {
       throw const FormatException('Chat incident digest binding invalid.');
+    }
+    // The SOS author can supply urgent text before a helper volunteers.
+    // This permission is one-way and text-only; replies and media still
+    // require the existing signed help offer. The coordinator verifies the
+    // Chat signature and session/path before calling this authorization.
+    if (binding == emergencyBinding) {
+      if (envelope.body.senderKeyId != body.originKeyId ||
+          envelope.body.senderPublicKey != body.originPublicKey ||
+          envelope.body.recipientKeyId == body.originKeyId ||
+          envelope.body.media != null ||
+          envelope.body.createdAt.isBefore(body.createdAt) ||
+          !await RelayCryptography().verifyChatRelay(envelope)) {
+        throw const FormatException('Emergency text authorization invalid.');
+      }
+      return emergencyBinding;
     }
     final offers = <String>[];
     if (suppliedOffer != null) {

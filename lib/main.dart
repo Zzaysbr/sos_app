@@ -215,6 +215,7 @@ class _AuthGateState extends State<AuthGate> {
       ownerId: ownerId,
       localDeviceId: widget.localDeviceId,
       requirePeerBinding: widget.localDeviceId != null,
+      manualPeerSelection: true,
       isSessionCurrent: () =>
           mounted &&
           generation == _resourceGeneration &&

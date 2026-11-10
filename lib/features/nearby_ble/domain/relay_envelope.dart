@@ -52,6 +52,7 @@ class RelayOriginBody {
     required this.includeLocation,
     required this.createdAt,
     required this.expiresAt,
+    this.responseExpiry,
     this.latitude,
     this.longitude,
     this.maxHops = RelayProtocolLimits.maximumHops,
@@ -73,6 +74,9 @@ class RelayOriginBody {
   final DateTime createdAt;
   final DateTime expiresAt;
   final int maxHops;
+  final DateTime? responseExpiry;
+
+  DateTime get responseExpiresAt => responseExpiry ?? expiresAt;
 
   Map<String, Object?> toCanonicalMap() => {
     'schemaVersion': schemaVersion,
@@ -91,7 +95,10 @@ class RelayOriginBody {
     'maxHops': maxHops,
   };
 
-  factory RelayOriginBody.fromJson(Map<String, Object?> json) {
+  factory RelayOriginBody.fromJson(
+    Map<String, Object?> json, {
+    DateTime? responseExpiry,
+  }) {
     final includeLocation = _requiredBool(json, 'includeLocation');
     _requireExactKeys(json, {
       'schemaVersion',
@@ -125,6 +132,7 @@ class RelayOriginBody {
       longitude: _optionalDouble(json['longitude']),
       createdAt: _requiredDate(json, 'createdAt'),
       expiresAt: _requiredDate(json, 'expiresAt'),
+      responseExpiry: responseExpiry,
       maxHops: _requiredInt(json, 'maxHops'),
     );
   }
@@ -175,6 +183,35 @@ class RelayOriginBody {
   }
 }
 
+/// Short-lived, origin-signed continuation of an existing SOS identity.
+class RelayOriginLease {
+  const RelayOriginLease(this.issuedAt, this.signature);
+
+  final DateTime issuedAt;
+  final String signature;
+
+  DateTime get expiresAt => issuedAt.add(RelayProtocolLimits.maximumLifetime);
+
+  Map<String, Object?> toJson() => {
+    'issuedAt': issuedAt.toUtc().toIso8601String(),
+    'signature': signature,
+  };
+
+  factory RelayOriginLease.fromJson(Map<String, Object?> json) {
+    _requireExactKeys(json, {'issuedAt', 'signature'});
+    return RelayOriginLease(
+      _requiredDate(json, 'issuedAt'),
+      _requiredString(json, 'signature'),
+    );
+  }
+
+  Map<String, Object?> signedFields(String digest) => {
+    'kind': 'sos.origin.lease.v1',
+    'originDigest': digest,
+    'issuedAt': issuedAt.toUtc().toIso8601String(),
+  };
+}
+
 class RelayOfferEnvelope {
   const RelayOfferEnvelope({
     required this.body,
@@ -183,6 +220,7 @@ class RelayOfferEnvelope {
     required this.pathKeyIds,
     required this.immediateSenderKeyId,
     this.hopAttestations = const [],
+    this.lease,
   });
 
   static const wireKind = 'sos.relay.offer.v2';
@@ -193,11 +231,23 @@ class RelayOfferEnvelope {
   final List<String> pathKeyIds;
   final String immediateSenderKeyId;
   final List<RelayHopAttestation> hopAttestations;
+  final RelayOriginLease? lease;
+
+  DateTime get expiresAt => lease?.expiresAt ?? body.expiresAt;
+
+  // Use only after verifying this offer or loading it from verified storage.
+  RelayOriginBody get responseOrigin => lease == null
+      ? body
+      : RelayOriginBody.fromJson(
+          body.toCanonicalMap(),
+          responseExpiry: expiresAt,
+        );
 
   Map<String, Object?> toJson() => {
     'kind': wireKind,
     'body': body.toCanonicalMap(),
     'originSignature': originSignature,
+    if (lease != null) 'lease': lease!.toJson(),
     'relay': {
       'hopCount': hopCount,
       'pathKeyIds': pathKeyIds,
@@ -220,7 +270,13 @@ class RelayOfferEnvelope {
   }
 
   factory RelayOfferEnvelope.fromJson(Map<String, Object?> json) {
-    _requireExactKeys(json, {'kind', 'body', 'originSignature', 'relay'});
+    _requireExactKeys(json, {
+      'kind',
+      'body',
+      'originSignature',
+      'relay',
+      if (json.containsKey('lease')) 'lease',
+    });
     if (json['kind'] != wireKind ||
         json['body'] is! Map ||
         json['relay'] is! Map) {
@@ -243,6 +299,11 @@ class RelayOfferEnvelope {
         Map<String, Object?>.from(json['body']! as Map),
       ),
       originSignature: _requiredString(json, 'originSignature'),
+      lease: json.containsKey('lease')
+          ? RelayOriginLease.fromJson(
+              Map<String, Object?>.from(json['lease'] as Map),
+            )
+          : null,
       hopCount: _requiredInt(relay, 'hopCount'),
       pathKeyIds: path
           .map((value) {
@@ -269,7 +330,24 @@ class RelayOfferEnvelope {
   }
 
   void validate({DateTime? now, bool allowExpired = false}) {
-    body.validate(now: now, allowExpired: allowExpired);
+    final renewal = lease;
+    body.validate(now: now, allowExpired: allowExpired || renewal != null);
+    if (renewal != null) {
+      _decodeExact(renewal.signature, 64, 'lease signature');
+      if (!renewal.issuedAt.isUtc ||
+          !renewal.issuedAt.isAfter(body.createdAt) ||
+          !renewal.expiresAt.isAfter(body.expiresAt) ||
+          (now != null &&
+              (renewal.issuedAt.isAfter(
+                    now.toUtc().add(RelayProtocolLimits.maximumClockSkew),
+                  ) ||
+                  (!allowExpired &&
+                      !renewal.expiresAt.isAfter(now.toUtc()))))) {
+        throw const RelayProtocolException(
+          'SOS renewal time window is invalid.',
+        );
+      }
+    }
     _decodeExact(originSignature, 64, 'originSignature');
     if (hopCount < 0 || hopCount > body.maxHops) {
       throw const RelayProtocolException('Relay hop count is exhausted.');
@@ -618,6 +696,20 @@ class RelayCryptography {
     return base64UrlEncode(signature.bytes);
   }
 
+  Future<RelayOriginLease> signOriginLease(
+    RelayOriginBody body,
+    DateTime issuedAt,
+    SimpleKeyPair keyPair,
+  ) async {
+    final draft = RelayOriginLease(issuedAt.toUtc(), '');
+    final digest = await immutableDigest(body);
+    final signature = await _algorithm.sign(
+      utf8.encode(relayCanonicalJson(draft.signedFields(digest))),
+      keyPair: keyPair,
+    );
+    return RelayOriginLease(draft.issuedAt, base64UrlEncode(signature.bytes));
+  }
+
   Future<bool> verifyOffer(
     RelayOfferEnvelope offer, {
     DateTime? now,
@@ -639,6 +731,17 @@ class RelayCryptography {
     );
     if (!originValid) return false;
     final digest = await immutableDigest(offer.body);
+    final lease = offer.lease;
+    if (lease != null &&
+        !await _algorithm.verify(
+          utf8.encode(relayCanonicalJson(lease.signedFields(digest))),
+          signature: Signature(
+            _decodeExact(lease.signature, 64, 'lease signature'),
+            publicKey: SimplePublicKey(publicBytes, type: KeyPairType.ed25519),
+          ),
+        )) {
+      return false;
+    }
     for (final attestation in offer.hopAttestations) {
       if (attestation.originMessageId != offer.body.originMessageId ||
           attestation.immutableDigest != digest) {
@@ -710,6 +813,34 @@ class RelayCryptography {
     return base64UrlEncode(signature.bytes);
   }
 
+  /// Signs/validates the immutable participant portion of a live location.
+  /// Relay hops must never rewrite coordinates, sequence or role metadata.
+  Future<String> signLiveLocationBody(
+    Map<String, Object?> body,
+    SimpleKeyPair keyPair,
+  ) async {
+    final signature = await _algorithm.sign(
+      utf8.encode(relayCanonicalJson(body)),
+      keyPair: keyPair,
+    );
+    return base64UrlEncode(signature.bytes);
+  }
+
+  Future<bool> verifyLiveLocationBody({
+    required Map<String, Object?> body,
+    required String publicKey,
+    required String signature,
+  }) async {
+    final keyBytes = _decodeExact(publicKey, 32, 'originPublicKey');
+    return _algorithm.verify(
+      utf8.encode(relayCanonicalJson(body)),
+      signature: Signature(
+        _decodeExact(signature, 64, 'originSignature'),
+        publicKey: SimplePublicKey(keyBytes, type: KeyPairType.ed25519),
+      ),
+    );
+  }
+
   Future<bool> verifyChatRelay(
     ChatRelayEnvelope envelope, {
     DateTime? now,
@@ -767,7 +898,7 @@ class RelayCryptography {
         envelope.body.originKeyId != origin.originKeyId) {
       return false;
     }
-    if (envelope.body.expiresAt.isAfter(origin.expiresAt)) {
+    if (envelope.body.expiresAt.isAfter(origin.responseExpiresAt)) {
       return false;
     }
     if (envelope.body.originDigest != await immutableDigest(origin)) {

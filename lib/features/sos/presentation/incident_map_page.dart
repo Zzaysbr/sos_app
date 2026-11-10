@@ -9,6 +9,7 @@ import 'package:latlong2/latlong.dart';
 import '../../../core/localization/localization.dart';
 import '../../../core/database/app_database.dart';
 import '../../nearby_ble/domain/location_ble_envelope.dart';
+import '../../nearby_ble/domain/live_location_envelope.dart';
 import '../data/offline_map_repository.dart';
 import 'map_tile_provider.dart';
 import 'offline_first_tile_provider.dart';
@@ -24,6 +25,8 @@ class IncidentMapPage extends StatefulWidget {
     this.locationLoader,
     this.incomingLocation,
     this.incomingSenderDeviceId,
+    this.incomingLocationStream,
+    this.liveLocationStream,
     this.rescueCandidate,
     this.tileProvider,
     this.offlineMapRepository,
@@ -33,6 +36,12 @@ class IncidentMapPage extends StatefulWidget {
   final LocationLoader? locationLoader;
   final LocationBleEnvelope? incomingLocation;
   final String? incomingSenderDeviceId;
+
+  /// Live, already-validated location updates for this incident. The map
+  /// keeps the last update locally so a brief BLE gap does not blank the
+  /// rescuer/victim marker.
+  final Stream<LocationBleEnvelope?>? incomingLocationStream;
+  final Stream<LiveLocationEnvelope?>? liveLocationStream;
   final RescueInboxData? rescueCandidate;
   final MapTileProviderConfig? tileProvider;
   final OfflineMapRepository? offlineMapRepository;
@@ -44,6 +53,11 @@ class IncidentMapPage extends StatefulWidget {
 class _IncidentMapPageState extends State<IncidentMapPage> {
   final MapController _mapController = MapController();
   Position? _currentPosition;
+  LocationBleEnvelope? _liveIncomingLocation;
+  LiveLocationEnvelope? _liveParticipantLocation;
+  StreamSubscription<LocationBleEnvelope?>? _incomingLocationSubscription;
+  StreamSubscription<LiveLocationEnvelope?>? _liveLocationSubscription;
+  Timer? _currentLocationTimer;
   String? _locationError;
   bool _loadingLocation = false;
   bool _tileError = false;
@@ -74,7 +88,16 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
   }
 
   LatLng? get _incomingPoint {
-    final location = widget.incomingLocation;
+    final live = _liveParticipantLocation;
+    if (live != null) {
+      try {
+        live.validate(now: DateTime.now().toUtc());
+        return LatLng(live.latitude, live.longitude);
+      } on Object {
+        // Fall back to the legacy direct location stream below.
+      }
+    }
+    final location = _liveIncomingLocation ?? widget.incomingLocation;
     if (location == null ||
         (widget.incomingSenderDeviceId != null &&
             location.senderDeviceId != widget.incomingSenderDeviceId)) {
@@ -92,7 +115,16 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
   }
 
   bool get _incomingExpired {
-    final location = widget.incomingLocation;
+    final live = _liveParticipantLocation;
+    if (live != null) {
+      try {
+        live.validate(now: DateTime.now().toUtc());
+        return false;
+      } on Object {
+        return true;
+      }
+    }
+    final location = _liveIncomingLocation ?? widget.incomingLocation;
     if (location == null) return false;
     try {
       location.validate(now: DateTime.now().toUtc());
@@ -123,18 +155,40 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
   @override
   void initState() {
     super.initState();
+    _liveIncomingLocation = widget.incomingLocation;
+    final incomingStream = widget.incomingLocationStream;
+    if (incomingStream != null) {
+      _incomingLocationSubscription = incomingStream.listen((location) {
+        if (!mounted) return;
+        setState(() => _liveIncomingLocation = location);
+      });
+    }
+    final liveStream = widget.liveLocationStream;
+    if (liveStream != null) {
+      _liveLocationSubscription = liveStream.listen((location) {
+        if (!mounted) return;
+        setState(() => _liveParticipantLocation = location);
+      });
+    }
     _offlineTileProvider = OfflineFirstTileProvider(
       repositoryProvider: () => _offlineRepository,
       providerKey: _tileProvider.offlineStorageKey,
     );
     unawaited(_initializeOfflineMaps());
-    if (_incidentPoint == null && _incomingPoint == null) {
-      _loadCurrentLocation();
-    }
+    // The map is a two-sided view: always load the local participant marker,
+    // even when the incident already has coordinates.
+    unawaited(_loadCurrentLocation());
+    _currentLocationTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => unawaited(_loadCurrentLocation()),
+    );
   }
 
   @override
   void dispose() {
+    _incomingLocationSubscription?.cancel();
+    _liveLocationSubscription?.cancel();
+    _currentLocationTimer?.cancel();
     _downloadCancellation?.cancel();
     unawaited(_offlineTileProvider?.dispose() ?? Future<void>.value());
     _mapController.dispose();
@@ -276,11 +330,7 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
           point: incomingPoint,
           width: 56,
           height: 56,
-          child: const Icon(
-            Icons.share_location,
-            color: Colors.deepPurple,
-            size: 42,
-          ),
+          child: const Icon(Icons.share_location, color: Colors.blue, size: 42),
         ),
       if (currentPoint != null)
         Marker(

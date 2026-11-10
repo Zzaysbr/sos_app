@@ -8,6 +8,23 @@ import 'package:sos_app/features/nearby_ble/domain/ble_models.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('central retirement uses its own native method', () async {
+    const methods = MethodChannel('central-retirement-test');
+    final calls = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(methods, (call) async {
+          calls.add(call);
+          return null;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(methods, null),
+    );
+    await BleTransport(methods: methods).retireCentralLink('peer');
+    expect(calls.single.method, 'retireCentralLink');
+    expect(calls.single.arguments, {'deviceId': 'peer'});
+  });
+
   test('native frame capacity is role-specific, bounded and falls back for old native bridges', () async {
     const methods = MethodChannel('capacity-test/methods');
     int? capacity = 185;

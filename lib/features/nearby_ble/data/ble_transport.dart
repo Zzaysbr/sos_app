@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../domain/ble_models.dart';
@@ -17,6 +18,20 @@ abstract interface class BleTransportClient {
   Future<void> disconnect(String deviceId);
   Future<void> send(String deviceId, List<int> frame, {BleSessionRole? role});
   Future<void> dispose();
+}
+
+abstract interface class BlePeripheralRecovery {
+  bool get supportsPeripheralRecovery;
+  Future<void> retirePeripheralLink(String deviceId);
+}
+
+/// Retire an outgoing client without clearing an independent inbound server.
+abstract interface class BleCentralRecovery {
+  Future<void> retireCentralLink(String deviceId);
+}
+
+abstract interface class BleDiscoveryIdentity {
+  Future<void> setDiscoveryIdentityHint(String hint);
 }
 
 /// Optional native capability, deliberately absent from simulated transports.
@@ -212,6 +227,7 @@ class BleMessageWriteQueue {
     Iterable<List<int>> frames, {
     required BleSessionRole role,
     bool Function()? canSend,
+    bool Function()? isConnectionCurrent,
     bool control = false,
     Duration writeTimeout = const Duration(seconds: 10),
   }) {
@@ -220,6 +236,7 @@ class BleMessageWriteQueue {
       frames.map((f) => List<int>.unmodifiable(f)).toList(growable: false),
       role,
       canSend,
+      isConnectionCurrent,
       control,
       writeTimeout,
     );
@@ -251,6 +268,15 @@ class BleMessageWriteQueue {
             write.index++;
           }
         } on TimeoutException catch (error, stack) {
+          if (write.isConnectionCurrent != null &&
+              !write.isConnectionCurrent!()) {
+            // The owning connection was retired while native completion was
+            // pending. Its late deadline must not disconnect a replacement
+            // session or fail that session's newly queued messages.
+            queue.remove(write);
+            write.completed.completeError(error, stack);
+            continue;
+          }
           // A missing native callback leaves the connection ambiguous. Fail
           // every queued message on it before disconnecting; never mix fresh
           // frames with an old in-flight write. Durable callers retain retry.
@@ -280,6 +306,7 @@ class _BleFrameWrite {
     this.frames,
     this.role,
     this.canSend,
+    this.isConnectionCurrent,
     this.control,
     this.timeout,
   );
@@ -287,13 +314,35 @@ class _BleFrameWrite {
   final List<List<int>> frames;
   final BleSessionRole role;
   final bool Function()? canSend;
+  final bool Function()? isConnectionCurrent;
   final bool control;
   final completed = Completer<bool>();
   int index = 0;
 }
 
 class BleTransport
-    implements BleTransportClient, BleBackgroundExecution, BleFrameCapacity {
+    implements
+        BleTransportClient,
+        BleBackgroundExecution,
+        BleFrameCapacity,
+        BleDiscoveryIdentity,
+        BleCentralRecovery,
+        BlePeripheralRecovery {
+  @override
+  Future<void> setDiscoveryIdentityHint(String hint) =>
+      _call('setDiscoveryIdentityHint', {'hint': hint});
+  @override
+  Future<void> retireCentralLink(String deviceId) =>
+      _call('retireCentralLink', {'deviceId': deviceId});
+
+  @override
+  bool get supportsPeripheralRecovery =>
+      defaultTargetPlatform == TargetPlatform.android;
+
+  @override
+  Future<void> retirePeripheralLink(String deviceId) =>
+      _call('retirePeripheralLink', {'deviceId': deviceId});
+
   bool _backgroundEnabled = false;
   @override
   bool get backgroundExecutionEnabled => _backgroundEnabled;
@@ -455,7 +504,7 @@ class BleTransport
     try {
       await _methods.invokeMethod<void>('dispose').timeout(nativeCallTimeout);
     } on PlatformException catch (e) {
-      throw BleTransportException(e.message ?? e.code);
+      throw BleTransportException(e.message ?? e.code, code: e.code);
     }
   }
 
@@ -479,7 +528,7 @@ class BleTransport
           : nativeCallTimeout;
       await _methods.invokeMethod<void>(method, args).timeout(timeout);
     } on PlatformException catch (e) {
-      throw BleTransportException(e.message ?? e.code);
+      throw BleTransportException(e.message ?? e.code, code: e.code);
     } finally {
       if (!allowAfterDispose) {
         _activeCalls--;

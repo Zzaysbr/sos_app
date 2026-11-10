@@ -318,11 +318,31 @@ class SimBleNetwork {
   }
 }
 
-class SimBleTransport implements BleTransportClient {
-  SimBleTransport(this.id, this.network) {
+class SimBleTransport
+    implements BleTransportClient, BlePeripheralRecovery, BleDiscoveryIdentity {
+  @override
+  bool supportsPeripheralRecovery = false;
+
+  @override
+  Future<void> retirePeripheralLink(String deviceId) async {
+    network.disconnect(locator, deviceId);
+  }
+
+  SimBleTransport(this.id, this.network) : locator = id {
     network.transports[id] = this;
   }
   final String id;
+  String locator;
+  String? discoveryIdentityHint;
+  @override
+  Future<void> setDiscoveryIdentityHint(String hint) async =>
+      discoveryIdentityHint = hint;
+
+  void rotateLocator(String replacement) {
+    locator = replacement;
+    network.transports[replacement] = this;
+  }
+
   final SimBleNetwork network;
   final controller = StreamController<BleEvent>.broadcast();
   bool advertising = false, discovering = false;
@@ -359,28 +379,32 @@ class SimBleTransport implements BleTransportClient {
     discovering = false;
   }
 
-  void discover(String peer) => emit(
+  void discover(String peer, {String? recoveryHint}) => emit(
     BleEvent(
       type: 'deviceFound',
-      device: BleDevice(id: peer),
+      device: BleDevice(
+        id: peer,
+        recoveryHint:
+            recoveryHint ?? network.transports[peer]?.discoveryIdentityHint,
+      ),
     ),
   );
   @override
   Future<void> connect(String deviceId) async {
     connectionCalls++;
-    network.connect(id, deviceId);
+    network.connect(locator, deviceId);
   }
 
   @override
   Future<void> disconnect(String deviceId) async =>
-      network.disconnect(id, deviceId);
+      network.disconnect(locator, deviceId);
   @override
   Future<void> send(
     String deviceId,
     List<int> frame, {
     BleSessionRole? role,
   }) async =>
-      network.write(id, deviceId, frame, role ?? BleSessionRole.central);
+      network.write(locator, deviceId, frame, role ?? BleSessionRole.central);
   @override
   Future<void> dispose() async {
     await controller.close();
@@ -448,6 +472,7 @@ class SimNode {
     this.network, {
     File? file,
     Directory? mediaRoot,
+    bool manualPeerSelection = false,
   }) {
     db = AppDatabase.forTesting(
       (file == null ? NativeDatabase.memory() : NativeDatabase(file))
@@ -466,6 +491,7 @@ class SimNode {
       database: db,
       ownerId: id,
       localDeviceId: id,
+      manualPeerSelection: manualPeerSelection,
       transport: transport,
       relayIdentityService: identityService,
       relayProofTimer: network.clock.timer,
@@ -557,12 +583,23 @@ class SimNode {
 }
 
 class ThreeNodeSimulation {
-  ThreeNodeSimulation({File? relayFile, Directory? mediaRoot}) {
+  ThreeNodeSimulation({
+    File? relayFile,
+    Directory? mediaRoot,
+    bool manualRelaySelection = false,
+  }) {
     network = SimBleNetwork(clock)
       ..allow('A', 'B')
       ..allow('B', 'C');
     a = SimNode('A', 1, network, mediaRoot: mediaRoot);
-    b = SimNode('B', 2, network, file: relayFile, mediaRoot: mediaRoot);
+    b = SimNode(
+      'B',
+      2,
+      network,
+      file: relayFile,
+      mediaRoot: mediaRoot,
+      manualPeerSelection: manualRelaySelection,
+    );
     c = SimNode('C', 3, network, mediaRoot: mediaRoot);
   }
   final clock = SimulationClock();

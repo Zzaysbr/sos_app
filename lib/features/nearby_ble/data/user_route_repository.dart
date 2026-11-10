@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 
 import '../../../core/database/app_database.dart';
 import '../domain/relay_envelope.dart';
+import '../domain/rescue_response_envelope.dart';
 import '../domain/chat_receipt.dart';
 import '../domain/chat_relay_envelope.dart';
 import 'chat_relay_repository.dart';
@@ -23,7 +24,7 @@ enum UserRouteStage {
   resolved,
 }
 
-enum UserRouteExtent { thisDevice, nextDevice, endpointsOnly }
+enum UserRouteExtent { thisDevice, nextDevice, endpointsOnly, confirmedSos }
 
 class UserRouteNode {
   const UserRouteNode(this.keyId, {this.local = false});
@@ -68,7 +69,7 @@ String shortRouteDeviceCode(String key) {
 }
 
 /// Read-only owner-scoped projection of protocol-accepted durable records.
-/// Does not infer a complete route from a receipt or count radio discoveries.
+/// Full outgoing SOS routes require a signed path reported by a responder.
 class UserRouteRepository {
   UserRouteRepository(this.db, {required this.ownerId, this.readLocalKeyId});
   final AppDatabase db;
@@ -134,6 +135,11 @@ class UserRouteRepository {
               ))
               .watch(),
           (db.select(db.rescueInbox)..where(
+                (r) =>
+                    r.ownerId.equals(ownerId) & r.incidentId.equals(incident),
+              ))
+              .watch(),
+          (db.select(db.rescueResponseInbox)..where(
                 (r) =>
                     r.ownerId.equals(ownerId) & r.incidentId.equals(incident),
               ))
@@ -269,15 +275,65 @@ class UserRouteRepository {
       );
     }
     if (candidates.isEmpty && own != null) {
+      final responses =
+          await (db.select(db.rescueResponseInbox)..where(
+                (r) =>
+                    r.ownerId.equals(ownerId) &
+                    r.incidentId.equals(incident) &
+                    r.state.equals('verified'),
+              ))
+              .get();
       for (final message in localOrigins) {
         // Only this installation's origin job, never another account's global relay row.
         if (local == null || message.originKeyId != local) continue;
+        final confirmedFirstHops = <String>{};
+        for (final row in responses.where(
+          (r) => r.originMessageId == message.originMessageId,
+        )) {
+          try {
+            final response = RescueResponseEnvelope.fromCanonicalWire(
+              row.payload,
+            );
+            final path = response.body.receivedSosPath;
+            if (path == null) continue;
+            final origin = RelayOfferEnvelope.fromCanonicalWire(
+              message.wireEnvelope,
+            ).responseOrigin;
+            if (path.length - 1 > origin.maxHops ||
+                !await RelayCryptography().verifyRescueResponseForOrigin(
+                  response,
+                  origin,
+                  now: row.receivedAt,
+                )) {
+              continue;
+            }
+            confirmedFirstHops.add(path[1]);
+            sosRoutes.insert(
+              0,
+              UserRoute(
+                nodes: [
+                  for (final key in path)
+                    UserRouteNode(key, local: key == local),
+                ],
+                stage: own.status == 'cancelled'
+                    ? UserRouteStage.cancelled
+                    : own.status == 'resolved'
+                    ? UserRouteStage.resolved
+                    : UserRouteStage.confirmed,
+                extent: UserRouteExtent.confirmedSos,
+              ),
+            );
+          } on Object {
+            // A damaged or unverified offer cannot extend the known path.
+          }
+        }
         final attempts =
             await (db.select(db.bleRelayAttempts)..where(
                   (r) => r.originMessageId.equals(message.originMessageId),
                 ))
                 .get();
         for (final a in attempts) {
+          if (confirmedFirstHops.contains(a.nextHopKeyId)) continue;
           final path = _path(
             a.outgoingPath,
             message.originKeyId,
@@ -304,7 +360,7 @@ class UserRouteRepository {
             ),
           );
         }
-        if (attempts.isEmpty) {
+        if (attempts.isEmpty && confirmedFirstHops.isEmpty) {
           sosRoutes.add(
             UserRoute(
               nodes: [UserRouteNode(local, local: true)],

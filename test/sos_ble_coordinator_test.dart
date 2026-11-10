@@ -10,6 +10,7 @@ import 'package:sos_app/features/nearby_ble/data/ble_delivery_repository.dart';
 import 'package:sos_app/features/nearby_ble/data/ble_protocol.dart';
 import 'package:sos_app/features/nearby_ble/data/ble_transport.dart';
 import 'package:sos_app/features/nearby_ble/data/sos_ble_coordinator.dart';
+import 'package:sos_app/features/nearby_ble/data/relay_key_store.dart';
 import 'package:sos_app/features/nearby_ble/domain/ble_delivery_state.dart';
 import 'package:sos_app/features/nearby_ble/domain/ble_models.dart';
 import 'package:sos_app/features/nearby_ble/domain/sos_ble_envelope.dart';
@@ -27,6 +28,7 @@ class FakeBleTransport implements BleTransportClient {
   bool disposed = false;
   bool failWrites = false;
   void Function()? onSend;
+  Future<void> Function()? beforeSend;
   bool failConnect = false;
 
   @override
@@ -71,6 +73,7 @@ class FakeBleTransport implements BleTransportClient {
     BleSessionRole? role,
   }) async {
     if (failWrites) throw const BleTransportException('write failed');
+    await beforeSend?.call();
     sent.add(List<int>.from(frame));
     sentDeviceIds.add(deviceId);
     sentRoles.add(role);
@@ -84,6 +87,13 @@ class FakeBleTransport implements BleTransportClient {
   }
 
   void emit(BleEvent event) => controller.add(event);
+}
+
+class _ConnectionTestKeys implements RelayPrivateKeyStore {
+  @override
+  Future<List<int>?> readSeed() async => List<int>.filled(32, 45);
+  @override
+  Future<void> writeSeed(List<int> seed) async {}
 }
 
 class FailingChatRepository implements ChatRepository {
@@ -175,6 +185,66 @@ void main() {
     await coordinator.dispose();
     await database.close();
   });
+
+  test(
+    'delayed connected handler cannot restore a retired connection',
+    () async {
+      await coordinator.dispose();
+      final logs = <String>[];
+      coordinator = SosBleCoordinator(
+        database: database,
+        ownerId: 'owner-1',
+        transport: transport,
+        relayIdentityService: RelayIdentityService(
+          keyStore: _ConnectionTestKeys(),
+        ),
+        onLog: logs.add,
+        now: () => DateTime.utc(2026, 1, 1, 12),
+        pollInterval: const Duration(hours: 1),
+      );
+      await coordinator.start();
+      await coordinator.setRelayParticipationEnabled(true);
+      final started = Completer<void>();
+      final release = Completer<void>();
+      transport.beforeSend = () async {
+        if (!started.isCompleted) started.complete();
+        await release.future;
+      };
+      transport.emit(
+        const BleEvent(
+          type: 'connected',
+          device: device,
+          role: BleSessionRole.central,
+          attempt: 1,
+        ),
+      );
+      await started.future;
+      transport.emit(
+        const BleEvent(
+          type: 'disconnected',
+          device: device,
+          role: BleSessionRole.central,
+          attempt: 1,
+        ),
+      );
+      await _settle();
+      release.complete();
+      transport.beforeSend = null;
+      for (
+        var i = 0;
+        i < 20 && !logs.contains('ignoredConnectedAfterSessionRetired');
+        i++
+      ) {
+        await _settle();
+      }
+      expect(logs, contains('ignoredConnectedAfterSessionRetired'));
+      transport.sent.clear();
+      await coordinator.enqueueSos(_sos(), destinationId: device.id);
+      await coordinator.processDue();
+      expect(transport.connectCalls, contains(device.id));
+      expect(transport.sent, isEmpty);
+    },
+  );
 
   test(
     'sends an SOS with a stable messageId and records a persisted ACK',

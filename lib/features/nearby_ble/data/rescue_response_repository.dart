@@ -105,24 +105,52 @@ class RescueResponseRepository {
     required RelayOriginBody origin,
     required RelaySigningIdentity responder,
     required String sessionBinding,
+    RescueInboxData? receivedSos,
     DateTime? now,
   }) async {
     final timestamp = (now ?? DateTime.now()).toUtc();
     final crypto = RelayCryptography();
+    final digest = await crypto.immutableDigest(origin);
+    if (receivedSos != null &&
+        receivedSos.ownerId == ownerId &&
+        receivedSos.originMessageId == origin.originMessageId &&
+        receivedSos.immutableDigest == digest &&
+        receivedSos.state == 'locallyAccepted') {
+      try {
+        final path = List<String>.from(
+          jsonDecode(receivedSos.incomingPath) as List,
+        );
+        if (path.length == receivedSos.incomingHopCount + 1 &&
+            path.length <= origin.maxHops &&
+            path.first == origin.originKeyId &&
+            path.toSet().length == path.length &&
+            !path.contains(responder.keyId)) {
+          for (final key in path) {
+            validateRelayKeyId(key);
+          }
+          sessionBinding =
+              RescueResponseBody.receivedSosPathPrefix + path.join(',');
+        }
+      } on Object {
+        // Legacy or malformed history can still send a normal Help Offer.
+      }
+    }
     final responseBody = RescueResponseBody(
       messageId: 'rescue:${origin.originMessageId}:${responder.keyId}',
       incidentId: origin.incidentId,
       originMessageId: origin.originMessageId,
       originKeyId: origin.originKeyId,
-      originDigest: await crypto.immutableDigest(origin),
+      originDigest: digest,
       responderKeyId: responder.keyId,
       responderPublicKey: base64UrlEncode(responder.publicKey),
       sessionBinding: sessionBinding,
       createdAt: timestamp,
       expiresAt:
-          timestamp.add(const Duration(minutes: 15)).isBefore(origin.expiresAt)
+          timestamp
+              .add(const Duration(minutes: 15))
+              .isBefore(origin.responseExpiresAt)
           ? timestamp.add(const Duration(minutes: 15))
-          : origin.expiresAt,
+          : origin.responseExpiresAt,
     );
     final envelope = RescueResponseEnvelope(
       body: responseBody,

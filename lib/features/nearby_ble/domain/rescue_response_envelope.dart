@@ -41,6 +41,32 @@ class RescueResponseBody {
   final int maxHops;
   final String status;
 
+  // The existing signed binding field carries this optional receipt without
+  // changing the response schema understood by older relay installations.
+  static const receivedSosPathPrefix = 'sos-received-path-v1:';
+
+  List<String>? get receivedSosPath {
+    if (!sessionBinding.startsWith(receivedSosPathPrefix)) return null;
+    final path = sessionBinding
+        .substring(receivedSosPathPrefix.length)
+        .split(',');
+    if (path.isEmpty ||
+        path.length > RelayProtocolLimits.maximumHops ||
+        path.first != originKeyId ||
+        path.contains(responderKeyId) ||
+        path.toSet().length != path.length) {
+      return null;
+    }
+    try {
+      for (final key in path) {
+        validateRelayKeyId(key);
+      }
+      return [...path, responderKeyId];
+    } on RelayProtocolException {
+      return null;
+    }
+  }
+
   Map<String, Object?> toCanonicalMap() => {
     'schemaVersion': schemaVersion,
     'kind': wireKind,
