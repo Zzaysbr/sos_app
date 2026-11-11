@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import androidx.core.content.ContextCompat
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
@@ -107,6 +108,7 @@ class BackgroundRuntime(private val app: Application, messenger: BinaryMessenger
 }
 
 class BleBackgroundService : Service() {
+    private var cpuLock: PowerManager.WakeLock? = null
     companion object { var active = false; private set }
     override fun onCreate() {
         super.onCreate()
@@ -116,9 +118,19 @@ class BleBackgroundService : Service() {
             .setSmallIcon(R.drawable.ic_stat_sos).setContentTitle("Emergency")
             .setContentText("Nearby SOS and chat are active")
             .setOngoing(true).setContentIntent(BackgroundRuntime.openApp(this)).build())
+        // Preserve the shared Flutter relay isolate while selected BLE work is
+        // active, including on a relay-only device with no GPS stream.
+        cpuLock = (getSystemService(Context.POWER_SERVICE) as PowerManager)
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Emergency:BleRelay")
+            .apply { setReferenceCounted(false); acquire() }
         active = true
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_NOT_STICKY
-    override fun onDestroy() { active = false; super.onDestroy() }
+    override fun onDestroy() {
+        cpuLock?.let { if (it.isHeld) it.release() }
+        cpuLock = null
+        active = false
+        super.onDestroy()
+    }
     override fun onBind(intent: Intent?): IBinder? = null
 }

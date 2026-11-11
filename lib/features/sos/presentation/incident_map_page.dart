@@ -93,7 +93,7 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
     final live = _liveParticipantLocation;
     if (live != null) {
       try {
-        live.validate(now: DateTime.now().toUtc());
+        live.validate();
         return LatLng(live.latitude, live.longitude);
       } on Object {
         // Fall back to the legacy direct location stream below.
@@ -106,7 +106,7 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
       return null;
     }
     try {
-      location.validate(now: DateTime.now().toUtc());
+      location.validate();
     } on Object {
       return null;
     }
@@ -162,14 +162,16 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
     if (incomingStream != null) {
       _incomingLocationSubscription = incomingStream.listen((location) {
         if (!mounted) return;
-        setState(() => _liveIncomingLocation = location);
+        if (location != null) setState(() => _liveIncomingLocation = location);
       });
     }
     final liveStream = widget.liveLocationStream;
     if (liveStream != null) {
       _liveLocationSubscription = liveStream.listen((location) {
         if (!mounted) return;
-        setState(() => _liveParticipantLocation = location);
+        if (location != null) {
+          setState(() => _liveParticipantLocation = location);
+        }
       });
     }
     _offlineTileProvider = OfflineFirstTileProvider(
@@ -372,9 +374,12 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
           point: victimPoint,
           width: 48,
           height: 48,
-          child: _positionDot(
-            'victim',
-            local: !localRescue && currentPoint != null,
+          child: Opacity(
+            opacity: localRescue && _incomingExpired ? .45 : 1,
+            child: _positionDot(
+              'victim',
+              local: !localRescue && currentPoint != null,
+            ),
           ),
         ),
       if (rescuePoint != null)
@@ -382,9 +387,12 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
           point: rescuePoint,
           width: 48,
           height: 48,
-          child: _positionDot(
-            'rescue',
-            local: localRescue && currentPoint != null,
+          child: Opacity(
+            opacity: !localRescue && _incomingExpired ? .45 : 1,
+            child: _positionDot(
+              'rescue',
+              local: localRescue && currentPoint != null,
+            ),
           ),
         ),
     ];
@@ -546,13 +554,15 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
   }) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
-    final incomingStatus = widget.incomingLocation == null
+    final lastPeerFix =
+        _liveParticipantLocation?.createdAt ??
+        _liveIncomingLocation?.createdAt ??
+        widget.incomingLocation?.createdAt;
+    final incomingStatus = lastPeerFix == null
         ? null
-        : incomingPoint != null
-        ? l10n.sharedLocationAvailable
         : _incomingExpired
         ? l10n.sharedLocationExpired
-        : l10n.sharedLocationUnavailable;
+        : l10n.sharedLocationAvailable;
     final status =
         _incidentCoordinateError ??
         (_locationError != null
@@ -598,13 +608,9 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
                     if (incomingPoint != null)
                       Text(
                         l10n.sharedCoordinates(
-                          widget.incomingLocation!.latitude!.toStringAsFixed(6),
-                          widget.incomingLocation!.longitude!.toStringAsFixed(
-                            6,
-                          ),
-                          _formatLocationTime(
-                            widget.incomingLocation!.createdAt,
-                          ),
+                          incomingPoint.latitude.toStringAsFixed(6),
+                          incomingPoint.longitude.toStringAsFixed(6),
+                          _formatLocationTime(lastPeerFix!),
                         ),
                         style: const TextStyle(fontSize: 12),
                       ),

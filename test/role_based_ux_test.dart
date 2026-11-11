@@ -32,6 +32,8 @@ import 'package:sos_app/features/sos/data/sos_cloud_service.dart';
 import 'package:sos_app/features/sos/data/chat_repository.dart';
 import 'package:sos_app/features/sos/data/sos_repository.dart';
 import 'package:sos_app/features/sos/presentation/sos_page.dart';
+import 'package:sos_app/features/sos/presentation/automatic_location_status.dart';
+import 'package:sos_app/features/sos/presentation/incident_map_page.dart';
 
 class _Auth extends Mock implements FirebaseAuth {}
 
@@ -420,6 +422,104 @@ void main() {
           : MemoryRelayPreferenceStore(),
     ),
   );
+
+  for (final accepted in [false, true]) {
+    testWidgets(
+      'relay details expose sharing only after acceptance: $accepted',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 1400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final now = DateTime.now().toUtc();
+        await database
+            .into(database.rescueInbox)
+            .insert(
+              RescueInboxCompanion.insert(
+                ownerId: guestDeviceOwnerId,
+                originMessageId: 'sharing-origin',
+                incidentId: 'sharing-incident',
+                originKeyId: 'source-key',
+                immutableDigest: 'digest',
+                emergencyType: 'emergency',
+                emergencyMessage: 'Sharing test',
+                includeLocation: true,
+                latitude: const Value(13.7),
+                longitude: const Value(100.5),
+                incomingHopCount: 1,
+                incomingPath: '["source-key","relay-key"]',
+                createdAt: now,
+                receivedAt: now,
+                expiresAt: now.add(const Duration(minutes: 30)),
+                state: accepted ? 'locallyAccepted' : 'pending',
+              ),
+            );
+        final coordinator = _BleCoordinator();
+        final transport = _ListeningTransport();
+        addTearDown(transport.dispose);
+        when(() => coordinator.reachableIncidents)
+            .thenReturn(ValueNotifier({'sharing-incident'}));
+        when(() => coordinator.hasPendingPublicRelay())
+            .thenAnswer((_) async => false);
+        when(() => coordinator.setRelayParticipationEnabled(any()))
+            .thenAnswer((_) async {});
+        when(() => coordinator.watchLocationDeliveryForSos(any()))
+            .thenAnswer((_) => const Stream.empty());
+        when(() => coordinator.watchIncomingLocation(any()))
+            .thenAnswer((_) => const Stream.empty());
+        when(() => coordinator.watchLiveLocation(any()))
+            .thenAnswer((_) => const Stream.empty());
+        when(() => coordinator.disableLocationSharing(any()))
+            .thenAnswer((_) async {});
+        await tester.pumpWidget(
+          app(
+            MemoryRolePreferenceStore(AppRole.rescue),
+            bleCoordinator: coordinator,
+            bleTransport: transport,
+          ),
+        );
+        await tester.pumpAndSettle();
+        if (accepted) {
+          await tester.tap(find.byIcon(Icons.assignment_outlined).last);
+        } else {
+          await tester.tap(find.text('เริ่มเปิดรับเหตุ'));
+        }
+        await tester.pumpAndSettle();
+        final card = find.byKey(
+          ValueKey(
+            accepted
+                ? 'accepted-rescue-candidate-sharing-origin'
+                : 'received-rescue-candidate-sharing-incident',
+          ),
+        );
+        await tester.ensureVisible(card);
+        await tester.tapAt(tester.getTopLeft(card) + const Offset(20, 20));
+        await tester.pumpAndSettle();
+        expect(
+          find.byType(AutomaticLocationStatus),
+          accepted ? findsOneWidget : findsNothing,
+        );
+        if (accepted) {
+          expect(find.text('เริ่มแชร์'), findsNothing);
+          expect(await repository.findById('sharing-incident'), isNull);
+          final map = find.text('View victim location');
+          await tester.ensureVisible(map);
+          await tester.tap(map);
+          await tester.pump(const Duration(seconds: 1));
+          expect(find.byType(IncidentMapPage), findsOneWidget);
+          expect(
+            find.byType(AutomaticLocationStatus, skipOffstage: false),
+            findsOneWidget,
+          );
+          Navigator.of(tester.element(find.byType(IncidentMapPage))).pop();
+          await tester.pumpAndSettle();
+          expect(find.byType(AutomaticLocationStatus), findsOneWidget);
+        } else {
+          expect(await repository.findById('sharing-incident'), isNull);
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump(const Duration(milliseconds: 1));
+      },
+    );
+  }
 
   testWidgets(
     'contact loss hides Helping without discarding acceptance and returns without another offer',

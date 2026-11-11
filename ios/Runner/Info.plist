@@ -68,7 +68,7 @@
 	</array>
 
 	<key>UIBackgroundModes</key>
-	<array><string>bluetooth-central</string><string>bluetooth-peripheral</string></array>
+	<array><string>bluetooth-central</string><string>bluetooth-peripheral</string><string>location</string></array>
 	<key>UIRequiresPersistentWiFi</key>
 	<true/>
 
@@ -86,7 +86,9 @@
 	</array>
 
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Location is used to include your current position with an emergency SOS.</string>
+	<string>Your position is shared automatically during an active SOS or accepted rescue, including while the screen is locked.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Keep updating your position with SOS participants while Emergency is in the background.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Take a photo or video to send in your incident chat.</string>
 	<key>NSMicrophoneUsageDescription</key>

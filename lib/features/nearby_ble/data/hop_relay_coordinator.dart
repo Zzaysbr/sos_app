@@ -336,8 +336,11 @@ class HopRelayCoordinator {
   /// application messages. It is the same identity used by Relay v2.
   Future<RelaySigningIdentity> signingIdentity() => _ensureIdentity();
 
-  Future<bool> verifyLiveLocation(LiveLocationEnvelope envelope) async {
-    envelope.validate(now: _now());
+  Future<bool> verifyLiveLocation(
+    LiveLocationEnvelope envelope, {
+    bool allowExpired = false,
+  }) async {
+    envelope.validate(now: allowExpired ? null : _now());
     if (!await _cryptography.publicKeyMatchesId(
       envelope.originPublicKey,
       envelope.originKeyId,

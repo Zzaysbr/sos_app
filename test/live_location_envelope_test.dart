@@ -1,4 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:drift/native.dart';
+import 'package:sos_app/core/database/app_database.dart';
+import 'package:sos_app/features/nearby_ble/data/ble_delivery_repository.dart';
 import 'package:sos_app/features/nearby_ble/domain/live_location_envelope.dart';
 
 void main() {
@@ -47,4 +50,51 @@ void main() {
       throwsA(isA<LiveLocationEnvelopeException>()),
     );
   });
+  test('rejects unknown roles and future timestamps', () {
+    expect(
+      () => LiveLocationEnvelope.fromJson({
+        ...sample().toJson(),
+        'participantRole': 'admin',
+      }),
+      throwsA(isA<LiveLocationEnvelopeException>()),
+    );
+    expect(
+      () =>
+          sample().validate(now: created.subtract(const Duration(minutes: 1))),
+      throwsA(isA<LiveLocationEnvelopeException>()),
+    );
+  });
+
+  test(
+    'coalesces GPS fixes and retains replay rejection without deleting Chat',
+    () async {
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
+      final repository = BleDeliveryRepository(db);
+      await repository.persistIncomingLiveLocation(
+        sample(),
+        sourceDeviceId: 'middle',
+        now: created,
+      );
+      await repository.persistIncomingLiveLocation(
+        sample(sequence: 2),
+        sourceDeviceId: 'middle',
+        now: created,
+      );
+      expect(await db.select(db.bleInbox).get(), hasLength(1));
+      expect(
+        (await repository.latestLiveLocation('sos-1', now: created))!.sequence,
+        2,
+      );
+      await expectLater(
+        repository.persistIncomingLiveLocation(
+          sample(),
+          sourceDeviceId: 'middle',
+          now: created,
+        ),
+        throwsException,
+      );
+      expect(await db.select(db.bleInbox).get(), hasLength(1));
+    },
+  );
 }
