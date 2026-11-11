@@ -45,11 +45,11 @@ class RoleSelectionPage extends StatelessWidget {
                 title: l10n.rescueTitle,
                 description: l10n.rescueDescription,
                 color: theme.brightness == Brightness.dark
-                    ? const Color(0xFF70D7B1)
-                    : const Color(0xFF006B57),
+                    ? const Color(0xFF90CAF9)
+                    : const Color(0xFF1565C0),
                 background: theme.brightness == Brightness.dark
-                    ? const Color(0xFF0B3028)
-                    : const Color(0xFFE3F5EE),
+                    ? const Color(0xFF0D2A4A)
+                    : const Color(0xFFE3F0FF),
               ),
             ];
             return SingleChildScrollView(

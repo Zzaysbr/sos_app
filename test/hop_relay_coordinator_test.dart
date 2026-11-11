@@ -245,17 +245,39 @@ class _LinkedTransport implements BleTransportClient {
   Future<void> dispose() async => controller.close();
 }
 
+class _CentralRecoveryTransport extends _LinkedTransport
+    implements BleCentralRecovery {
+  _CentralRecoveryTransport(super.id);
+  final retiredCentralPeers = <String>[];
+
+  @override
+  Future<void> retireCentralLink(String deviceId) async {
+    retiredCentralPeers.add(deviceId);
+    controller.add(
+      BleEvent(
+        type: 'disconnected',
+        device: BleDevice(id: deviceId),
+        role: BleSessionRole.central,
+      ),
+    );
+  }
+}
+
 class _RelayNode {
   _RelayNode({
     required this.database,
     required this.transport,
     required this.now,
     RelayPrivateKeyStore? keyStore,
+    bool Function(String)? canInitiateConnection,
+    Iterable<String> Function()? selectedPeers,
     Duration proofTimeout = const Duration(seconds: 15),
   }) {
     coordinator = HopRelayCoordinator(
       database: database,
       transport: transport,
+      canInitiateConnection: canInitiateConnection,
+      selectedPeers: selectedPeers,
       identityService: RelayIdentityService(
         keyStore: keyStore ?? _MemoryKeyStore(),
       ),
@@ -2002,6 +2024,316 @@ void main() {
   );
 
   test(
+    'proof refresh tolerates disconnect while awaiting a challenge write',
+    () async {
+      final clock = DateTime.utc(2026, 11, 10, 17);
+      final transport = _LinkedTransport('device-a');
+      final node = _RelayNode(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        transport: transport,
+        now: () => clock,
+      );
+      addTearDown(node.close);
+      final remotes = [
+        _LinkedTransport('device-b'),
+        _LinkedTransport('device-c'),
+      ];
+      for (final remote in remotes) {
+        transport.link(remote);
+        addTearDown(remote.dispose);
+      }
+      await node.coordinator.setParticipationEnabled(true);
+      await node.start();
+      for (var i = 0; i < remotes.length; i++) {
+        final peer = remotes[i].id;
+        final pair = await Ed25519().newKeyPairFromSeed(
+          List<int>.filled(32, i + 61),
+        );
+        final public = (await pair.extractPublicKey()).bytes;
+        await node.coordinator.onEvent(
+          BleEvent(
+            type: 'connected',
+            device: BleDevice(id: peer),
+            role: BleSessionRole.central,
+          ),
+        );
+        await node.coordinator.handleMessage(
+          peer,
+          BleSessionRole.central,
+          BleMessage(
+            id: 'relay-capabilities-v1',
+            type: RelayCapabilityAdvertisement.wireKind,
+            createdAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+            payload: RelayCapabilityAdvertisement(
+              capabilities: const [RelayProtocolCapabilities.relayV2],
+              participating: true,
+              relayKeyId: await RelayCryptography().publicKeyId(public),
+              relayPublicKey: base64UrlEncode(public),
+              sessionGeneration: 1,
+              sessionRole: BleSessionRole.peripheral.wireValue,
+            ).toJson(),
+          ),
+        );
+      }
+      await node.coordinator.setForeground(false);
+      var disconnected = false;
+      final refreshedChallenges = <String>[];
+      transport.beforeMessageDelivery = (message) async {
+        if (message.type != RelaySessionChallenge.wireKind) return;
+        refreshedChallenges.add(message.id);
+        if (disconnected) return;
+        disconnected = true;
+        await node.coordinator.onEvent(
+          const BleEvent(
+            type: 'disconnected',
+            device: BleDevice(id: 'device-b'),
+            role: BleSessionRole.central,
+          ),
+        );
+      };
+      await node.coordinator.setForeground(true);
+      expect(disconnected, isTrue);
+      expect(refreshedChallenges, hasLength(2));
+      expect(node.errors, isEmpty);
+    },
+  );
+
+  test(
+    'proven inbound route survives a preferred outgoing duplicate',
+    () async {
+      final clock = DateTime.utc(2026, 11, 10, 16);
+      final crypto = RelayCryptography();
+      final seeds = [List<int>.filled(32, 12), List<int>.filled(32, 82)];
+      final keys = <String>[];
+      for (final seed in seeds) {
+        final pair = await Ed25519().newKeyPairFromSeed(seed);
+        keys.add(
+          await crypto.publicKeyId((await pair.extractPublicKey()).bytes),
+        );
+      }
+      final aIndex = keys[0].compareTo(keys[1]) < 0 ? 0 : 1;
+      final bIndex = 1 - aIndex;
+      final transportA = _CentralRecoveryTransport('device-a');
+      final transportB = _LinkedTransport('device-b');
+      transportA.link(transportB);
+      final nodeA = _RelayNode(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        transport: transportA,
+        now: () => clock,
+        keyStore: _MemoryKeyStore()..seed = seeds[aIndex],
+      );
+      final nodeB = _RelayNode(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        transport: transportB,
+        now: () => clock,
+        keyStore: _MemoryKeyStore()..seed = seeds[bIndex],
+      );
+      addTearDown(nodeA.close);
+      addTearDown(nodeB.close);
+      await nodeA.coordinator.setParticipationEnabled(true);
+      await nodeB.coordinator.setParticipationEnabled(true);
+      await nodeA.start();
+      await nodeB.start();
+      await transportB.connect('device-a');
+      await _eventually(
+        () async =>
+            nodeA.coordinator.hasProvenLinkForLocator('device-b') &&
+            nodeB.coordinator.hasProvenLinkForLocator('device-a'),
+      );
+      expect(
+        nodeA.coordinator.authenticatedRouteForKey(keys[bIndex])!.role,
+        BleSessionRole.peripheral,
+      );
+      transportA.dropMessageTypes.add(RelayCapabilityAdvertisement.wireKind);
+      await nodeA.coordinator.onEvent(
+        const BleEvent(
+          type: 'connected',
+          device: BleDevice(id: 'device-b'),
+          role: BleSessionRole.central,
+          attempt: 99,
+        ),
+      );
+      final bPublic = (await (await Ed25519().newKeyPairFromSeed(
+        seeds[bIndex],
+      )).extractPublicKey()).bytes;
+      await nodeA.coordinator.handleMessage(
+        'device-b',
+        BleSessionRole.central,
+        BleMessage(
+          id: 'relay-capabilities-v1',
+          type: RelayCapabilityAdvertisement.wireKind,
+          createdAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+          payload: RelayCapabilityAdvertisement(
+            capabilities: const [RelayProtocolCapabilities.relayV2],
+            participating: true,
+            relayKeyId: keys[bIndex],
+            relayPublicKey: base64UrlEncode(bPublic),
+            sessionGeneration: 99,
+            sessionRole: BleSessionRole.peripheral.wireValue,
+          ).toJson(),
+        ),
+      );
+      expect(transportA.retiredCentralPeers, ['device-b']);
+      expect(transportA.disconnectedPeers, isEmpty);
+      expect(
+        nodeA.logs,
+        isNot(contains('relayDuplicateInstallationSessionRebound')),
+      );
+      expect(
+        nodeA.coordinator.authenticatedRouteForKey(keys[bIndex])!.role,
+        BleSessionRole.peripheral,
+      );
+      final alias = _LinkedTransport('device-b-alias');
+      transportA.link(alias);
+      addTearDown(alias.dispose);
+      await nodeA.coordinator.onEvent(
+        const BleEvent(
+          type: 'connected',
+          device: BleDevice(id: 'device-b-alias'),
+          role: BleSessionRole.central,
+        ),
+      );
+      final capability = RelayCapabilityAdvertisement.fromJson(
+        transportA.sentMessages
+            .lastWhere((m) => m.type == RelayCapabilityAdvertisement.wireKind)
+            .payload,
+      );
+      final challenge = RelaySessionChallenge(
+        nonce: base64UrlEncode(List<int>.filled(32, 43)),
+        challengerKeyId: keys[bIndex],
+        challengerPublicKey: base64UrlEncode(bPublic),
+        challengedKeyId: keys[aIndex],
+        challengerRole: BleSessionRole.peripheral.wireValue,
+        challengedRole: BleSessionRole.central.wireValue,
+        challengerGeneration: 100,
+        challengedGeneration: capability.sessionGeneration!,
+        challengerParticipating: true,
+        signature: base64UrlEncode(List<int>.filled(64, 0)),
+      );
+      final signature = await crypto.signSessionChallenge(
+        challenge,
+        await Ed25519().newKeyPairFromSeed(seeds[bIndex]),
+      );
+      await nodeA.coordinator.handleMessage(
+        'device-b-alias',
+        BleSessionRole.central,
+        BleMessage(
+          id: 'alias-proof',
+          type: RelaySessionChallenge.wireKind,
+          createdAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+          payload: {...challenge.toJson(), 'signature': signature},
+        ),
+      );
+      expect(
+        nodeA.coordinator.hasProvenLinkForLocator('device-b-alias'),
+        isTrue,
+      );
+      await nodeA.coordinator.queuePublicEmergency(
+        _sos('incident-retained-inbound', clock),
+        includeLocation: false,
+      );
+      await _eventually(
+        () async =>
+            (await nodeA.database.select(nodeA.database.bleRelayAttempts).get())
+                .any(
+                  (a) => a.state == RelayAttemptState.acceptedByRelay.wireValue,
+                ),
+      );
+      final connects = transportA.connectCount;
+      await nodeA.coordinator.onEvent(
+        const BleEvent(
+          type: 'deviceFound',
+          device: BleDevice(id: 'device-b-alias'),
+        ),
+      );
+      expect(transportA.connectCount, connects);
+      await nodeA.coordinator.onEvent(
+        const BleEvent(
+          type: 'disconnected',
+          device: BleDevice(id: 'device-b'),
+          role: BleSessionRole.peripheral,
+        ),
+      );
+      expect(
+        nodeA.coordinator.hasProvenLinkForLocator('device-b-alias'),
+        isFalse,
+      );
+      await nodeA.coordinator.onEvent(
+        const BleEvent(
+          type: 'deviceFound',
+          device: BleDevice(id: 'device-b-alias'),
+        ),
+      );
+      expect(transportA.connectCount, connects + 1);
+      expect(nodeA.errors, isEmpty);
+      expect(nodeB.errors, isEmpty);
+    },
+  );
+
+  test(
+    'old native capability timeout cannot disconnect its replacement',
+    () async {
+      final clock = DateTime.utc(2026, 11, 10, 18);
+      final transport = _LinkedTransport('device-a');
+      final remote = _LinkedTransport('device-b');
+      transport.link(remote);
+      final node = _RelayNode(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        transport: transport,
+        now: () => clock,
+      );
+      addTearDown(node.close);
+      addTearDown(remote.dispose);
+      await node.coordinator.setParticipationEnabled(true);
+      await node.start();
+      final started = Completer<void>();
+      final oldWrite = Completer<void>();
+      transport.beforeFrameSend = () async {
+        if (started.isCompleted) return;
+        started.complete();
+        await oldWrite.future;
+      };
+      final old = node.coordinator.onEvent(
+        const BleEvent(
+          type: 'connected',
+          device: BleDevice(id: 'device-b'),
+          role: BleSessionRole.central,
+          attempt: 1,
+        ),
+      );
+      final failed = expectLater(old, throwsA(isA<TimeoutException>()));
+      await started.future;
+      await node.coordinator.onEvent(
+        const BleEvent(
+          type: 'disconnected',
+          device: BleDevice(id: 'device-b'),
+          role: BleSessionRole.central,
+          attempt: 1,
+        ),
+      );
+      final replacement = node.coordinator.onEvent(
+        const BleEvent(
+          type: 'connected',
+          device: BleDevice(id: 'device-b'),
+          role: BleSessionRole.central,
+          attempt: 2,
+        ),
+      );
+      oldWrite.completeError(TimeoutException('retired native write'));
+      await failed;
+      await replacement;
+      expect(transport.disconnectedPeers, isEmpty);
+      expect(
+        transport.sentMessages.where(
+          (m) => m.type == RelayCapabilityAdvertisement.wireKind,
+        ),
+        hasLength(1),
+      );
+      expect(node.errors, isEmpty);
+    },
+  );
+
+  test(
     'per-incident consent sends local-origin work while participation is OFF',
     () async {
       final clock = DateTime.utc(2026, 10, 26, 15);
@@ -2130,6 +2462,123 @@ void main() {
       await nodeA.coordinator.onEvent(found);
 
       expect(transportA.connectCount, 3);
+    },
+  );
+
+  test(
+    'scheduler retries a recently seen peer without another scan callback',
+    () async {
+      var clock = DateTime.utc(2026, 11, 10);
+      final transport = _LinkedTransport('device-a')..failConnections = true;
+      final remote = _LinkedTransport('device-b');
+      transport.link(remote);
+      addTearDown(remote.dispose);
+      final node = _RelayNode(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        transport: transport,
+        now: () => clock,
+      );
+      addTearDown(node.close);
+      await node.coordinator.setParticipationEnabled(true);
+      await node.start();
+      await node.coordinator.queuePublicEmergency(
+        _sos('reconnect-without-callback', clock),
+        includeLocation: false,
+      );
+      const found = BleEvent(
+        type: 'deviceFound',
+        device: BleDevice(id: 'device-b'),
+      );
+      await node.coordinator.onEvent(found);
+      await node.coordinator.onEvent(found);
+      expect(transport.connectCount, 2);
+      clock = clock.add(const Duration(seconds: 29));
+      await node.coordinator.processDue();
+      expect(transport.connectCount, 2);
+      clock = clock.add(const Duration(seconds: 1));
+      await node.coordinator.processDue();
+      expect(transport.connectCount, 3);
+      // A remembered discovery is only a short recovery hint, not permanent
+      // evidence that a phone is still nearby.
+      clock = clock.add(const Duration(minutes: 3));
+      await node.coordinator.processDue();
+      expect(transport.connectCount, 3);
+    },
+  );
+
+  test(
+    'discovery does not connect an unselected peer in manual mode',
+    () async {
+      final now = DateTime.utc(2026, 11, 10);
+      final transport = _LinkedTransport('device-a')..failConnections = true;
+      final remote = _LinkedTransport('device-b');
+      transport.link(remote);
+      addTearDown(remote.dispose);
+      final selected = <String>{};
+      final node = _RelayNode(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        transport: transport,
+        now: () => now,
+        canInitiateConnection: selected.contains,
+      );
+      addTearDown(node.close);
+      await node.start();
+      await node.coordinator.queuePublicEmergency(
+        _sos('manual-peer', now),
+        includeLocation: false,
+      );
+      const found = BleEvent(
+        type: 'deviceFound',
+        device: BleDevice(id: 'device-b'),
+      );
+      await node.coordinator.onEvent(found);
+      expect(transport.connectCount, 0);
+      selected.add('device-b');
+      await node.coordinator.onEvent(found);
+      expect(transport.connectCount, 1);
+    },
+  );
+
+  test(
+    'selected peer recovers while idle and stops retrying after deselection',
+    () async {
+      var clock = DateTime.utc(2026, 11, 10);
+      final transport = _LinkedTransport('device-a')..failConnections = true;
+      final remote = _LinkedTransport('device-b');
+      transport.link(remote);
+      addTearDown(remote.dispose);
+      final selected = {'device-b'};
+      final node = _RelayNode(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        transport: transport,
+        now: () => clock,
+        canInitiateConnection: selected.contains,
+        selectedPeers: () => selected,
+      );
+      addTearDown(node.close);
+      await node.start();
+      const peer = BleDevice(id: 'device-b');
+      await node.coordinator.onEvent(
+        const BleEvent(type: 'connecting', device: peer),
+      );
+      await node.coordinator.onEvent(
+        const BleEvent(type: 'deviceFound', device: peer),
+      );
+      expect(transport.connectCount, 0);
+      await node.coordinator.onEvent(
+        const BleEvent(type: 'disconnected', device: peer),
+      );
+      await node.coordinator.processDue();
+      expect(transport.discovering, isTrue);
+      expect(transport.connectCount, 1);
+      selected.clear();
+      clock = clock.add(const Duration(seconds: 35));
+      await node.coordinator.processDue();
+      await node.coordinator.onEvent(
+        const BleEvent(type: 'deviceFound', device: peer),
+      );
+      expect(transport.connectCount, 1);
+      expect(transport.discovering, isFalse);
     },
   );
 

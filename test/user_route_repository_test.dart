@@ -7,6 +7,11 @@ import 'package:sos_app/core/database/app_database.dart';
 import 'package:sos_app/features/nearby_ble/data/user_route_repository.dart';
 import 'package:sos_app/features/nearby_ble/data/route_device_names.dart';
 import 'package:sos_app/features/nearby_ble/domain/chat_receipt.dart';
+import 'package:sos_app/features/nearby_ble/domain/relay_envelope.dart';
+import 'package:sos_app/features/nearby_ble/data/relay_repository.dart';
+import 'package:sos_app/features/nearby_ble/data/rescue_inbox_repository.dart';
+import 'package:sos_app/features/nearby_ble/data/rescue_response_repository.dart';
+import 'package:sos_app/features/nearby_ble/domain/rescue_response_envelope.dart';
 
 import 'support/three_node_ble_simulation.dart';
 
@@ -53,6 +58,87 @@ void main() {
         (await s.c.identity()).keyId,
       ]);
       expect(route.stage, UserRouteStage.received);
+    },
+  );
+
+  test(
+    'signed Help Offer returns the actual two-hop SOS path to its origin',
+    () async {
+      final s = ThreeNodeSimulation();
+      addTearDown(s.close);
+      s.clock.now = DateTime.now().toUtc();
+      await s.start();
+      const incident = 'live-route';
+      await s.a.materialize(incident);
+      final sos = await s.a.db.select(s.a.db.sosMessages).getSingle();
+      final originRoutes = repo(s.a);
+      final candidates = RescueInboxRepository(s.c.db, ownerId: s.c.id);
+      await s.a.coordinator.enqueuePublicRelay(
+        sos,
+        includeLocation: false,
+        scope: RelayAuthorizationScope.voluntaryRescue,
+      );
+      await s.network.until(
+        () async => (await candidates.watchCandidates().first).isNotEmpty,
+      );
+      final inbound = (await candidates.watchCandidates().first).single;
+      expect(inbound.incomingHopCount, 1);
+      expect((await originRoutes.read(incident)).sos.first.hopCount, 1);
+      final update = originRoutes
+          .watch(incident)
+          .firstWhere(
+            (snapshot) => snapshot.sos.any(
+              (route) => route.extent == UserRouteExtent.confirmedSos,
+            ),
+          );
+      final accepted = await candidates.acceptLocally(inbound.originMessageId);
+      expect(accepted?.state, 'locallyAccepted');
+      final stored = (await RelayRepository(database: s.c.db)
+          .lookupMessage(inbound.originMessageId))!;
+      final origin = RelayOfferEnvelope.fromCanonicalWire(stored.wireEnvelope)
+          .body;
+      final responder = await s.c.identity();
+      await RescueResponseRepository(
+        s.c.db,
+        ownerId: s.c.id,
+      ).signAndEnqueueOffer(
+        origin: origin,
+        responder: responder,
+        sessionBinding: 'legacy-binding',
+        receivedSos: accepted,
+        now: s.clock.now,
+      );
+      await s.c.coordinator.processDue();
+      await s.network.until(
+        () async =>
+            (await s.a.db.select(s.a.db.rescueResponseInbox).get()).isNotEmpty,
+      );
+      final route = (await update).sos.single;
+      expect(route.nodes.map((node) => node.keyId), [
+        (await s.a.identity()).keyId,
+        (await s.b.identity()).keyId,
+        responder.keyId,
+      ]);
+      expect(route.hopCount, 2);
+      expect(route.stage, UserRouteStage.confirmed);
+
+      final row = await s.a.db.select(s.a.db.rescueResponseInbox).getSingle();
+      final response = RescueResponseEnvelope.fromCanonicalWire(row.payload);
+      final forged = RescueResponseEnvelope(
+        body: response.body,
+        signature: base64UrlEncode(List.filled(64, 0)),
+      );
+      await s.a.db
+          .update(s.a.db.rescueResponseInbox)
+          .write(
+            RescueResponseInboxCompanion(
+              payload: Value(forged.toCanonicalWire()),
+            ),
+          );
+      expect(
+        (await originRoutes.read(incident)).sos.first.extent,
+        UserRouteExtent.nextDevice,
+      );
     },
   );
 

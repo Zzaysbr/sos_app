@@ -336,6 +336,8 @@ class _UserRouteViewState extends State<UserRouteView> {
             context,
             switch (route.extent) {
               UserRouteExtent.thisDevice => 'Route to this device',
+              UserRouteExtent.confirmedSos =>
+                'SOS route reported by the responder',
               UserRouteExtent.nextDevice => 'Known route to the next device',
               UserRouteExtent.endpointsOnly =>
                 nodes.length < 2
@@ -344,6 +346,8 @@ class _UserRouteViewState extends State<UserRouteView> {
             },
             switch (route.extent) {
               UserRouteExtent.thisDevice => 'เส้นทางถึงเครื่องนี้',
+              UserRouteExtent.confirmedSos =>
+                'เส้นทาง SOS ที่ผู้ช่วยเหลือยืนยัน',
               UserRouteExtent.nextDevice => 'ช่วงเส้นทางถึงเครื่องถัดไปที่ทราบ',
               UserRouteExtent.endpointsOnly =>
                 nodes.length < 2

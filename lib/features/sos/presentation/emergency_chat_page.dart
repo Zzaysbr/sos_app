@@ -97,7 +97,8 @@ class EmergencyChatPage extends StatefulWidget {
   const EmergencyChatPage({
     super.key,
     this.sosId,
-    this.contactName = 'Emergency helper',
+    this.contactName = 'SOS',
+    this.onOpenMap,
     this.repository,
     this.onMessageCreated,
     this.onMessageCreatedWithDestination,
@@ -116,6 +117,7 @@ class EmergencyChatPage extends StatefulWidget {
 
   final String? sosId;
   final String contactName;
+  final VoidCallback? onOpenMap;
   final ChatRepository? repository;
   final Future<void> Function(EmergencyChatMessage message)? onMessageCreated;
   final Future<void> Function(
@@ -523,6 +525,44 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
       MaterialLocalizations.of(context)
           .formatTimeOfDay(TimeOfDay.fromDateTime(value.toLocal()));
 
+  String _sourceLabel() {
+    final origins = _routes.sos
+        .where((route) => route.nodes.isNotEmpty)
+        .map((route) => route.nodes.first)
+        .toList();
+    final source = origins.firstOrNull;
+    if (source != null && origins.every((node) => node.keyId == source.keyId)) {
+      final alias = widget.routeDeviceNames?.labels[source.keyId];
+      final name = alias?.isNotEmpty == true
+          ? alias!
+          : source.local
+          ? routeText(context, 'this device', 'เครื่องนี้')
+          : source.keyId != null
+          ? '${routeText(context, 'device', 'เครื่อง')} ${shortRouteDeviceCode(source.keyId!)}'
+          : null;
+      if (name != null) {
+        return '${routeText(context, 'SOS from', 'SOS จาก')} $name';
+      }
+    }
+    if (widget.contactName != 'SOS' &&
+        !widget.contactName.startsWith('Incident ')) {
+      return widget.contactName;
+    }
+    return routeText(context, 'SOS source device', 'SOS จากเครื่องต้นทาง');
+  }
+
+  Widget _sourceHeading() {
+    Widget label() => Text(
+      _sourceLabel(),
+      key: const ValueKey('chat-sos-source'),
+      style: const TextStyle(fontWeight: FontWeight.w700),
+    );
+    final names = widget.routeDeviceNames;
+    return names == null
+        ? label()
+        : ListenableBuilder(listenable: names, builder: (_, _) => label());
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -539,7 +579,7 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
                     children: [
                       if (widget.sosId != null)
                         Semantics(
-                          label: l10n.chatIncidentSemantics(widget.sosId!),
+                          label: _sourceLabel(),
                           child: Container(
                             width: double.infinity,
                             constraints: const BoxConstraints(minHeight: 48),
@@ -559,14 +599,7 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        widget.contactName,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
+                                      _sourceHeading(),
                                       Text(
                                         l10n.savedLocallyFirst,
                                         maxLines: 1,
@@ -707,6 +740,21 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
               padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
               child: Row(
                 children: [
+                  if (widget.onOpenMap != null)
+                    IconButton(
+                      key: const ValueKey('chat-open-map'),
+                      tooltip: routeText(
+                        context,
+                        'View SOS map',
+                        'ดูแผนที่ SOS',
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 48,
+                        minHeight: 48,
+                      ),
+                      onPressed: widget.onOpenMap,
+                      icon: const Icon(Icons.map_outlined),
+                    ),
                   if (widget.attachmentStore != null)
                     PopupMenuButton<ChatMediaSource>(
                       tooltip: mediaText(

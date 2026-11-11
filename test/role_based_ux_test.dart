@@ -283,6 +283,8 @@ void main() {
       );
       final processing = Completer<void>();
       final coordinator = _BleCoordinator();
+      final transport = _ListeningTransport();
+      addTearDown(transport.dispose);
       when(() => coordinator.hasPendingPublicRelay())
           .thenAnswer((_) async => false);
       when(() => coordinator.setRelayParticipationEnabled(any()))
@@ -298,6 +300,7 @@ void main() {
             relayPreferenceStore: MemoryRelayPreferenceStore(),
             emergencyConsentStore: MemoryEmergencyConsentStore(),
             bleCoordinator: coordinator,
+            bleTransport: transport,
           ),
         ),
       );
@@ -305,6 +308,9 @@ void main() {
       final candidate = find.byKey(
         const ValueKey('received-rescue-candidate-offer-ui'),
       );
+      expect(candidate, findsNothing);
+      await tester.tap(find.byKey(const ValueKey('rescue-listening-toggle')));
+      await tester.pumpAndSettle();
       await tester.ensureVisible(candidate);
       await tester.tap(candidate);
       await tester.pumpAndSettle();
@@ -464,7 +470,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(transport.advertisingStarts, 1);
         expect(transport.advertisingStops, 0);
-        expect(find.text('กำลังเปิดรับเหตุ'), findsOneWidget);
+        expect(find.text('ปิดรับเหตุ'), findsOneWidget);
         await tester.tap(
           find.byKey(const ValueKey('active-sos-chat-banner-role-incident')),
         );
@@ -476,10 +482,14 @@ void main() {
         await tester.pumpAndSettle();
         expect(store.value, AppRole.rescue);
         expect(find.text('ศูนย์ช่วยเหลือใกล้ตัว'), findsOneWidget);
-        expect(find.text('กำลังเปิดรับเหตุ'), findsOneWidget);
+        expect(find.text('ปิดรับเหตุ'), findsOneWidget);
         expect(transport.advertisingStarts, 1);
         expect(transport.advertisingStops, 0);
         expect((await repository.findById('role-incident'))!.status, 'active');
+        await tester.tap(find.byKey(const ValueKey('rescue-listening-toggle')));
+        await tester.pumpAndSettle();
+        expect(find.text('เริ่มเปิดรับเหตุ'), findsOneWidget);
+        expect(transport.advertisingStops, 1);
         // Only the explicit role switch releases the listening lease.
         await tester.tap(find.byTooltip('สลับไปโหมดขอความช่วยเหลือ'));
         await tester.pumpAndSettle();
@@ -553,6 +563,18 @@ void main() {
       find.byKey(const ValueKey('active-sos-chat-banner-active-own')),
       findsOneWidget,
     );
+    expect(
+      tester
+          .getBottomRight(
+            find.byKey(const ValueKey('active-sos-chat-banner-active-own')),
+          )
+          .dy,
+      lessThan(
+        tester
+            .getTopLeft(find.byKey(const ValueKey('rescue-controls-banner')))
+            .dy,
+      ),
+    );
 
     await tester.tap(
       find.byKey(const ValueKey('active-sos-chat-banner-active-own')),
@@ -561,7 +583,7 @@ void main() {
     // Opening Chat is navigation, not an implicit role-switch action.
     expect(store.value, AppRole.rescue);
     expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
-    expect(find.text('Incident active-own'), findsOneWidget);
+    expect(find.text('SOS จากเครื่องต้นทาง'), findsOneWidget);
     expect(await database.select(database.sosMessages).getSingle(), before);
     expect(
       (await database.select(database.chatMessages).get()).map(
@@ -582,6 +604,27 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
   });
+
+  testWidgets(
+    'holding the primary SOS button cancels and retains the incident',
+    (tester) async {
+      await repository.create(id: 'hold-cancel', type: 'emergency');
+      await tester.pumpWidget(app(MemoryRolePreferenceStore(AppRole.needHelp)));
+      await tester.pumpAndSettle();
+      final button = find.byKey(const ValueKey('primary-sos-hold-action'));
+      final press = await tester.startGesture(tester.getCenter(button));
+      await tester.pump(const Duration(seconds: 2));
+      await press.up();
+      await tester.pumpAndSettle();
+      expect((await repository.findById('hold-cancel'))?.status, 'cancelled');
+      expect(
+        find.byKey(const ValueKey('active-sos-chat-banner-hold-cancel')),
+        findsNothing,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    },
+  );
 
   test('active own SOS blocks duplicates but inbound SOS does not', () {
     final workflow = RoleWorkflowController();
@@ -1001,7 +1044,13 @@ void main() {
       now: now,
     );
 
-    await tester.pumpWidget(app(MemoryRolePreferenceStore(AppRole.rescue)));
+    final transport = _ListeningTransport();
+    addTearDown(transport.dispose);
+    await tester.pumpWidget(
+      app(MemoryRolePreferenceStore(AppRole.rescue), bleTransport: transport),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('rescue-listening-toggle')));
     await tester.pumpAndSettle();
     expect(find.text('FIRE'), findsOneWidget);
     expect(find.text('MEDICAL'), findsNothing);
@@ -1013,6 +1062,12 @@ void main() {
     tester,
   ) async {
     await repository.create(id: 'own-chat-incident', type: 'medical');
+    await repository.create(id: 'closed-chat-incident', type: 'emergency');
+    await repository.update(
+      id: 'closed-chat-incident',
+      type: 'emergency',
+      status: 'cancelled',
+    );
     final now = DateTime.now().toUtc();
     await BleDeliveryRepository(database).persistIncomingDelivery(
       SosBleEnvelope.delivery(
@@ -1038,11 +1093,32 @@ void main() {
     expect(find.text('MEDICAL'), findsOneWidget);
     expect(find.text('FIRE'), findsNothing);
     expect(find.text('Incident own-chat-incident'), findsOneWidget);
+    expect(find.textContaining('closed-chat-incident'), findsNothing);
 
     await tester.tap(find.text('Incident own-chat-incident'));
     await tester.pumpAndSettle();
     expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
-    expect(find.text('Incident own-chat-incident'), findsOneWidget);
+    expect(find.text('SOS จากเครื่องต้นทาง'), findsOneWidget);
+    expect(find.byKey(const ValueKey('chat-open-map')), findsOneWidget);
+    Navigator.of(tester.element(find.byKey(const ValueKey('chat-open-map'))))
+        .pop();
+    await tester.pumpAndSettle();
+    await repository.update(
+      id: 'own-chat-incident',
+      type: 'medical',
+      status: 'cancelled',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Incident own-chat-incident'), findsNothing);
+    await tester.tap(find.text('ประวัติ'));
+    await tester.pumpAndSettle();
+    final oldChat = find.byKey(
+      const ValueKey('history-sos-chat-card-own-chat-incident'),
+    );
+    expect(oldChat, findsOneWidget);
+    await tester.tap(oldChat);
+    await tester.pumpAndSettle();
+    expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
   });
@@ -1080,7 +1156,7 @@ void main() {
     await tester.tap(find.text('Incident inbound-chat-incident'));
     await tester.pumpAndSettle();
     expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
-    expect(find.text('Incident inbound-chat-incident'), findsOneWidget);
+    expect(find.text('SOS จากเครื่องต้นทาง'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
   });
@@ -1135,6 +1211,8 @@ void main() {
   testWidgets('BLE persistence is not presented as human acknowledgement', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final now = DateTime.now();
     final envelope = SosBleEnvelope.delivery(
       messageId: 'inbound-message',
@@ -1151,10 +1229,17 @@ void main() {
       sourceDeviceId: 'installation-a',
       now: now,
     );
-    await tester.pumpWidget(app(MemoryRolePreferenceStore(AppRole.rescue)));
+    final transport = _ListeningTransport();
+    addTearDown(transport.dispose);
+    await tester.pumpWidget(
+      app(MemoryRolePreferenceStore(AppRole.rescue), bleTransport: transport),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('rescue-listening-toggle')));
     await tester.pumpAndSettle();
 
     expect(find.text('รับช่วยเหลือ'), findsOneWidget);
+    await tester.ensureVisible(find.text('EMERGENCY'));
     await tester.tap(find.text('EMERGENCY'));
     await tester.pumpAndSettle();
     expect(

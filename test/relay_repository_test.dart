@@ -177,6 +177,75 @@ void main() {
 
   tearDown(() async => database.close());
 
+  for (final receiveDelay in [0, 1]) {
+    test(
+      'subsecond signed renewal survives SQLite and legacy accounting ($receiveDelay)',
+      () async {
+        final origin = await _offer();
+        final crypto = RelayCryptography();
+        final pair = await Ed25519().newKeyPairFromSeed(
+          List<int>.generate(32, (index) => index + 1),
+        );
+        final issued = acceptedAt.add(
+          const Duration(minutes: 15, microseconds: 137886),
+        );
+        final renewed = RelayOfferEnvelope(
+          body: origin.body,
+          originSignature: origin.originSignature,
+          hopCount: 0,
+          pathKeyIds: origin.pathKeyIds,
+          immediateSenderKeyId: origin.immediateSenderKeyId,
+          lease: await crypto.signOriginLease(origin.body, issued, pair),
+        );
+        await repository.acceptIncomingOffer(
+          renewed,
+          sourceDeviceId: 'origin-peer',
+          relayEnabled: true,
+          now: issued.add(Duration(seconds: receiveDelay)),
+        );
+        final checkAt = issued.add(const Duration(minutes: 1));
+        final loaded = await repository.loadVerifiedOffer(
+          origin.body.originMessageId,
+          now: checkAt,
+        );
+        expect(loaded.toCanonicalWire(), renewed.toCanonicalWire());
+        final row = (await repository.lookupMessage(
+          origin.body.originMessageId,
+        ))!;
+        // Earlier builds counted fractional expiry/deadline ISO strings before
+        // SQLite truncated the expiry (and sometimes the deadline).
+        await (database.update(database.bleRelayMessages)).write(
+          BleRelayMessagesCompanion(
+            storageBytes: Value(row.storageBytes + (receiveDelay == 0 ? 3 : 6)),
+          ),
+        );
+        expect(
+          (await repository.loadVerifiedOffer(
+            origin.body.originMessageId,
+            now: checkAt,
+          )).toCanonicalWire(),
+          renewed.toCanonicalWire(),
+        );
+        expect(
+          (await repository.lookupMessage(origin.body.originMessageId))!
+              .storageBytes,
+          row.storageBytes,
+        );
+        // A full-second discrepancy remains an integrity failure.
+        await database.customStatement(
+          'UPDATE ble_relay_messages SET expires_at = expires_at + 1',
+        );
+        await expectLater(
+          repository.loadVerifiedOffer(
+            origin.body.originMessageId,
+            now: checkAt,
+          ),
+          throwsA(isA<RelayPersistenceException>()),
+        );
+      },
+    );
+  }
+
   test('schema 10 creates dedicated relay and rescue tables', () async {
     expect(database.schemaVersion, 10);
     expect(await database.select(database.bleRelayMessages).get(), isEmpty);
@@ -840,6 +909,55 @@ void main() {
         ),
         isNotNull,
       );
+    },
+  );
+
+  test(
+    'exhausted native write gets one retry on a newer proven link',
+    () async {
+      final offer = await _offer();
+      await repository.persistOriginOffer(offer, now: acceptedAt);
+      final attempt = await repository.createNextHopAttempt(
+        originMessageId: offer.body.originMessageId,
+        nextHopKeyId: await _keyId(90),
+        nextHopDeviceId: 'old-address',
+        localRelayKeyId: offer.body.originKeyId,
+        correlationId: 'recovery-correlation',
+        now: acceptedAt,
+      );
+      Future<BleRelayAttempt?> claim(DateTime now, {DateTime? connectedAt}) =>
+          repository.claimAttemptForSending(
+            originMessageId: attempt.originMessageId,
+            attemptId: attempt.attemptId,
+            provenLink: connectedAt == null
+                ? null
+                : (deviceId: 'new-address', connectedAt: connectedAt),
+            now: now,
+          );
+      Future<void> fail(DateTime now) async {
+        await repository.markAttemptFailed(
+          originMessageId: attempt.originMessageId,
+          attemptId: attempt.attemptId,
+          error: RelayRepository.nativeRelayWriteFailure,
+          retryDelay: Duration.zero,
+          now: now,
+        );
+      }
+
+      for (var i = 0; i < RelayRepository.maximumRetriesPerPeer; i++) {
+        expect(await claim(acceptedAt), isNotNull);
+        await fail(acceptedAt);
+      }
+      final recoveredAt = acceptedAt.add(const Duration(seconds: 2));
+      expect(await claim(recoveredAt), isNull);
+      expect(await claim(recoveredAt, connectedAt: acceptedAt), isNull);
+      final recovered = (await claim(recoveredAt, connectedAt: recoveredAt))!;
+      expect(recovered.attemptId, attempt.attemptId);
+      expect(recovered.correlationId, attempt.correlationId);
+      expect(recovered.nextHopDeviceId, 'new-address');
+      await fail(recoveredAt);
+      final later = recoveredAt.add(const Duration(seconds: 2));
+      expect(await claim(later, connectedAt: later), isNull);
     },
   );
 

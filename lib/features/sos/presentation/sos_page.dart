@@ -1,4 +1,5 @@
 import 'current_sos_route_panel.dart';
+import '../../nearby_ble/presentation/nearby_connection_status.dart';
 import '../../nearby_ble/data/user_route_repository.dart';
 import '../../nearby_ble/data/route_device_names.dart';
 import '../../nearby_ble/presentation/user_route_view.dart';
@@ -121,6 +122,8 @@ class _SosPageState extends State<SosPage> {
   bool _rescueListening = false;
   bool _rescueStarting = false;
   final Object _rescueAdvertisingLease = Object();
+  final Object _manualDiscoveryLease = Object();
+  Timer? _manualDiscoveryTimer;
   BlePresenceManager? _blePresence;
   bool _syncing = false;
   bool _sendingSos = false;
@@ -364,7 +367,7 @@ class _SosPageState extends State<SosPage> {
         _role = role;
         _loadingRole = false;
       });
-      widget.bleCoordinator?.setRescueModeEnabled(role == AppRole.rescue);
+      widget.bleCoordinator?.setRescueModeEnabled(false);
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -382,6 +385,13 @@ class _SosPageState extends State<SosPage> {
   @override
   void dispose() {
     _sosHoldTimer?.cancel();
+    _manualDiscoveryTimer?.cancel();
+    unawaited(
+      _blePresence
+              ?.releaseDiscovery(_manualDiscoveryLease)
+              .catchError((Object _) {}) ??
+          Future<void>.value(),
+    );
     unawaited(
       _blePresence
               ?.releaseAdvertising(_rescueAdvertisingLease)
@@ -526,7 +536,9 @@ class _SosPageState extends State<SosPage> {
         _savingRole = null;
         _currentIndex = 0;
       });
-      widget.bleCoordinator?.setRescueModeEnabled(role == AppRole.rescue);
+      widget.bleCoordinator?.setRescueModeEnabled(
+        role == AppRole.rescue && _rescueListening,
+      );
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -594,9 +606,9 @@ class _SosPageState extends State<SosPage> {
     final l10n = context.l10n;
     final theme = Theme.of(context);
     final dark = theme.brightness == Brightness.dark;
-    const rescue = Color(0xFF006B57);
-    final rescueColor = dark ? const Color(0xFF70D7B1) : rescue;
-    final background = dark ? const Color(0xFF101A18) : const Color(0xFFF3FAF7);
+    const rescue = Color(0xFF1565C0);
+    final rescueColor = dark ? const Color(0xFF90CAF9) : rescue;
+    final background = dark ? const Color(0xFF101A2B) : const Color(0xFFEFF6FF);
     return SafeArea(
       child: ColoredBox(
         color: background,
@@ -664,10 +676,15 @@ class _SosPageState extends State<SosPage> {
                       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
+                          if (ownActive.isNotEmpty) ...[
+                            _buildActiveSosChatBanner(ownActive.first),
+                            const SizedBox(height: 12),
+                          ],
                           Material(
+                            key: const ValueKey('rescue-controls-banner'),
                             color: dark
-                                ? const Color(0xFF12342C)
-                                : const Color(0xFFDDF3EB),
+                                ? const Color(0xFF102A43)
+                                : const Color(0xFFDCEBFA),
                             borderRadius: BorderRadius.circular(24),
                             child: Padding(
                               padding: const EdgeInsets.all(22),
@@ -699,13 +716,17 @@ class _SosPageState extends State<SosPage> {
                                   SizedBox(
                                     width: double.infinity,
                                     child: FilledButton.icon(
+                                      key: const ValueKey(
+                                        'rescue-listening-toggle',
+                                      ),
                                       style: FilledButton.styleFrom(
                                         backgroundColor: rescue,
                                         foregroundColor: Colors.white,
                                       ),
-                                      onPressed:
-                                          _rescueStarting || _rescueListening
+                                      onPressed: _rescueStarting
                                           ? null
+                                          : _rescueListening
+                                          ? _stopRescueListening
                                           : _startRescueListening,
                                       icon: _rescueStarting
                                           ? const SizedBox(
@@ -725,117 +746,135 @@ class _SosPageState extends State<SosPage> {
                                         _rescueStarting
                                             ? l10n.rescuePreparingBluetooth
                                             : _rescueListening
-                                            ? l10n.rescueListening
+                                            ? routeText(
+                                                context,
+                                                'Stop receiving',
+                                                'ปิดรับเหตุ',
+                                              )
                                             : l10n.startRescueListening,
                                       ),
                                     ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  NearbyConnectionStatus(
+                                    transport: widget.bleTransport,
+                                    verifiedPeerKey:
+                                        widget.bleCoordinator?.verifiedPeerKey,
+                                    onSearch: widget.bleTransport == null
+                                        ? null
+                                        : _searchNearby,
+                                    onConnect: widget
+                                        .bleCoordinator
+                                        ?.connectSelectedPeer,
+                                    onDisconnect: widget
+                                        .bleCoordinator
+                                        ?.disconnectSelectedPeer,
                                   ),
                                 ],
                               ),
                             ),
                           ),
-                          if (ownActive.isNotEmpty) ...[
-                            const SizedBox(height: 16),
-                            _buildActiveSosChatBanner(ownActive.first),
-                          ],
                           const SizedBox(height: 30),
-                          StreamBuilder<List<RescueInboxData>>(
-                            stream: _rescueCandidatesStream,
-                            builder: (context, candidateSnapshot) {
-                              final candidates =
-                                  (candidateSnapshot.data ??
-                                          const <RescueInboxData>[])
-                                      .where(
-                                        (candidate) =>
-                                            candidate.state !=
-                                                'archivedLocally' &&
-                                            candidate.state != 'expired' &&
-                                            candidate.state != 'cancelled' &&
-                                            candidate.state != 'resolved' &&
-                                            candidate.expiresAt.isAfter(
-                                              DateTime.now().toUtc(),
-                                            ),
-                                      )
-                                      .toList(growable: false);
-                              final archivedIds =
-                                  (candidateSnapshot.data ??
-                                          const <RescueInboxData>[])
-                                      .where(
-                                        (candidate) =>
-                                            candidate.state ==
-                                            'archivedLocally',
-                                      )
-                                      .map((candidate) => candidate.incidentId)
-                                      .toSet();
-                              final activeReceived = received
-                                  .where(
-                                    (sos) =>
-                                        sos.status == 'active' &&
-                                        !archivedIds.contains(sos.id),
-                                  )
-                                  .toList(growable: false);
-                              final existingIds = activeReceived
-                                  .map((sos) => sos.id)
-                                  .toSet();
-                              final uniqueCandidates = candidates
-                                  .where(
-                                    (candidate) => !existingIds.contains(
-                                      candidate.incidentId,
-                                    ),
-                                  )
-                                  .toList(growable: false);
-                              final total =
-                                  activeReceived.length +
-                                  uniqueCandidates.length;
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        l10n.receivedIncidents,
-                                        style: theme.textTheme.titleLarge
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w900,
-                                            ),
-                                      ),
-                                      const Spacer(),
-                                      Text(
-                                        l10n.incidentCount(total),
-                                        style: TextStyle(color: rescueColor),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  if (sosSnapshot.connectionState ==
-                                          ConnectionState.waiting ||
-                                      inboundSnapshot.connectionState ==
-                                          ConnectionState.waiting ||
-                                      candidateSnapshot.connectionState ==
-                                          ConnectionState.waiting)
-                                    const Padding(
-                                      padding: EdgeInsets.all(36),
-                                      child: Center(
-                                        child: CircularProgressIndicator(),
+                          if (_rescueListening)
+                            StreamBuilder<List<RescueInboxData>>(
+                              stream: _rescueCandidatesStream,
+                              builder: (context, candidateSnapshot) {
+                                final candidates =
+                                    (candidateSnapshot.data ??
+                                            const <RescueInboxData>[])
+                                        .where(
+                                          (candidate) =>
+                                              candidate.state !=
+                                                  'archivedLocally' &&
+                                              candidate.state != 'expired' &&
+                                              candidate.state != 'cancelled' &&
+                                              candidate.state != 'resolved' &&
+                                              candidate.expiresAt.isAfter(
+                                                DateTime.now().toUtc(),
+                                              ),
+                                        )
+                                        .toList(growable: false);
+                                final archivedIds =
+                                    (candidateSnapshot.data ??
+                                            const <RescueInboxData>[])
+                                        .where(
+                                          (candidate) =>
+                                              candidate.state ==
+                                              'archivedLocally',
+                                        )
+                                        .map(
+                                          (candidate) => candidate.incidentId,
+                                        )
+                                        .toSet();
+                                final activeReceived = received
+                                    .where(
+                                      (sos) =>
+                                          sos.status == 'active' &&
+                                          !archivedIds.contains(sos.id),
+                                    )
+                                    .toList(growable: false);
+                                final existingIds = activeReceived
+                                    .map((sos) => sos.id)
+                                    .toSet();
+                                final uniqueCandidates = candidates
+                                    .where(
+                                      (candidate) => !existingIds.contains(
+                                        candidate.incidentId,
                                       ),
                                     )
-                                  else if (total == 0)
-                                    _buildRescueEmptyState()
-                                  else ...[
-                                    for (final sos in activeReceived) ...[
-                                      _buildRescueIncidentCard(sos),
-                                      const SizedBox(height: 12),
-                                    ],
-                                    for (final candidate
-                                        in uniqueCandidates) ...[
-                                      _buildIncomingCandidateCard(candidate),
-                                      const SizedBox(height: 12),
+                                    .toList(growable: false);
+                                final total =
+                                    activeReceived.length +
+                                    uniqueCandidates.length;
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          l10n.receivedIncidents,
+                                          style: theme.textTheme.titleLarge
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w900,
+                                              ),
+                                        ),
+                                        const Spacer(),
+                                        Text(
+                                          l10n.incidentCount(total),
+                                          style: TextStyle(color: rescueColor),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    if (sosSnapshot.connectionState ==
+                                            ConnectionState.waiting ||
+                                        inboundSnapshot.connectionState ==
+                                            ConnectionState.waiting ||
+                                        candidateSnapshot.connectionState ==
+                                            ConnectionState.waiting)
+                                      const Padding(
+                                        padding: EdgeInsets.all(36),
+                                        child: Center(
+                                          child: CircularProgressIndicator(),
+                                        ),
+                                      )
+                                    else if (total == 0)
+                                      _buildRescueEmptyState()
+                                    else ...[
+                                      for (final sos in activeReceived) ...[
+                                        _buildRescueIncidentCard(sos),
+                                        const SizedBox(height: 12),
+                                      ],
+                                      for (final candidate
+                                          in uniqueCandidates) ...[
+                                        _buildIncomingCandidateCard(candidate),
+                                        const SizedBox(height: 12),
+                                      ],
                                     ],
                                   ],
-                                ],
-                              );
-                            },
-                          ),
+                                );
+                              },
+                            ),
                         ]),
                       ),
                     ),
@@ -1222,6 +1261,10 @@ class _SosPageState extends State<SosPage> {
                                 syncState: 'deviceOnly',
                               ),
                               rescueCandidate: candidate,
+                              incomingLocationStream: widget.bleCoordinator
+                                  ?.watchIncomingLocation(candidate.incidentId),
+                              liveLocationStream: widget.bleCoordinator
+                                  ?.watchLiveLocation(candidate.incidentId),
                             ),
                           ),
                         );
@@ -1295,7 +1338,7 @@ class _SosPageState extends State<SosPage> {
                                 final origin =
                                     RelayOfferEnvelope.fromCanonicalWire(
                                       stored.wireEnvelope,
-                                    ).body;
+                                    ).responseOrigin;
                                 final identity = await RelayIdentityService(
                                   keyStore: PlatformRelayPrivateKeyStore(),
                                 ).loadOrCreate(allowCreate: true);
@@ -1304,6 +1347,7 @@ class _SosPageState extends State<SosPage> {
                                 await _rescueResponseRepository.signAndEnqueueOffer(
                                   origin: origin,
                                   responder: identity,
+                                  receivedSos: localAcceptance,
                                   sessionBinding:
                                       'incident-binding:${origin.originMessageId}:$digest',
                                 );
@@ -1443,7 +1487,7 @@ class _SosPageState extends State<SosPage> {
                     accepted
                         ? Icons.assignment_turned_in
                         : Icons.chevron_right_rounded,
-                    color: accepted ? const Color(0xFF006B57) : null,
+                    color: accepted ? const Color(0xFF1565C0) : null,
                   ),
                 ],
               ),
@@ -1465,7 +1509,7 @@ class _SosPageState extends State<SosPage> {
                       )
                     : FilledButton.icon(
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF006B57),
+                          backgroundColor: const Color(0xFF1565C0),
                           foregroundColor: Colors.white,
                         ),
                         onPressed: accepting
@@ -1508,6 +1552,7 @@ class _SosPageState extends State<SosPage> {
         name: 'Emergency Rescue',
       );
       if (!mounted) return;
+      widget.bleCoordinator?.setRescueModeEnabled(true);
       setState(() => _rescueListening = true);
     } catch (error) {
       if (!mounted) return;
@@ -1516,6 +1561,22 @@ class _SosPageState extends State<SosPage> {
           content: Text(context.l10n.rescueStartFailed(error.toString())),
         ),
       );
+    } finally {
+      if (mounted) setState(() => _rescueStarting = false);
+    }
+  }
+
+  Future<void> _stopRescueListening() async {
+    setState(() {
+      _rescueListening = false;
+      _rescueStarting = true;
+    });
+    widget.bleCoordinator?.setRescueModeEnabled(false);
+    try {
+      await _blePresence?.releaseAdvertising(_rescueAdvertisingLease);
+    } on Object {
+      // Receiving stays off even if native advertising needs reconciliation.
+      debugPrint('Rescue advertising stop deferred.');
     } finally {
       if (mounted) setState(() => _rescueStarting = false);
     }
@@ -1551,11 +1612,7 @@ class _SosPageState extends State<SosPage> {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
               sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  _buildSendSosButton(),
-                  const SizedBox(height: 16),
-                  _buildActiveSosSection(),
-                ]),
+                delegate: SliverChildListDelegate([_buildActiveSosSection()]),
               ),
             ),
           ],
@@ -1646,16 +1703,21 @@ class _SosPageState extends State<SosPage> {
     );
   }
 
-  Widget _buildSendSosButton() {
+  Widget _buildSendSosButton(SosMessage? active) {
     final l10n = context.l10n;
     final progress = _sosHoldProgress.clamp(0.0, 1.0);
+    final cancelLabel = routeText(
+      context,
+      'Hold to cancel SOS',
+      'กดค้างเพื่อยกเลิก SOS',
+    );
     return Semantics(
       button: true,
-      label: l10n.sosHold,
-      hint: l10n.holdToStart,
+      label: active == null ? l10n.sosHold : cancelLabel,
+      hint: active == null ? l10n.holdToStart : cancelLabel,
       enabled: !_sendingSos,
       child: GestureDetector(
-        onTapDown: _sendingSos ? null : (_) => _startSosHold(),
+        onTapDown: _sendingSos ? null : (_) => _startSosHold(active),
         onTapUp: _sendingSos ? null : (_) => _cancelSosHold(),
         onTapCancel: _sendingSos ? null : _cancelSosHold,
         child: AnimatedContainer(
@@ -1727,6 +1789,8 @@ class _SosPageState extends State<SosPage> {
                         ? l10n.creatingSos
                         : _sosHoldActive
                         ? l10n.keepHolding
+                        : active != null
+                        ? l10n.cancelSos
                         : l10n.sendSos,
                     style: const TextStyle(
                       color: Colors.white,
@@ -1741,9 +1805,12 @@ class _SosPageState extends State<SosPage> {
                         ? l10n.checkingLocation
                         : _sosHoldActive
                         ? '${((1 - progress) * 1.4).ceil()} sec'
+                        : active != null
+                        ? cancelLabel
                         : l10n.holdToStart,
                     style: const TextStyle(color: Colors.white, fontSize: 16),
                   ),
+                  const SizedBox(height: 16),
                 ],
               ),
             ],
@@ -1759,35 +1826,54 @@ class _SosPageState extends State<SosPage> {
       builder: (context, sosSnapshot) => StreamBuilder<Set<String>>(
         stream: _activeInboundSosIdsStream,
         builder: (context, inboundSnapshot) {
-          if (sosSnapshot.hasError || inboundSnapshot.hasError) {
-            return _buildErrorCard('Unable to load the active SOS.');
-          }
-          if (sosSnapshot.connectionState == ConnectionState.waiting ||
-              inboundSnapshot.connectionState == ConnectionState.waiting) {
-            return const SizedBox.shrink();
-          }
           final inboundIds = inboundSnapshot.data ?? const <String>{};
           final active =
               (sosSnapshot.data ?? const <SosMessage>[])
                   .where(
                     (sos) =>
-                        sos.status == 'active' && !inboundIds.contains(sos.id),
+                        inboundSnapshot.hasData &&
+                        sos.status == 'active' &&
+                        !inboundIds.contains(sos.id),
                   )
                   .toList()
                 ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          if (active.isEmpty) return const SizedBox.shrink();
-          final current = active.first;
+          final current = active.firstOrNull;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildActiveSosChatBanner(current),
-              const SizedBox(height: 12),
-              CurrentSosRoutePanel(
-                key: ValueKey('current-sos-route-${current.id}'),
-                incidentId: current.id,
-                repository: _userRoutes(),
-                names: _routeNames(),
-              ),
+              if (current != null) ...[
+                _buildActiveSosChatBanner(current),
+                const SizedBox(height: 12),
+              ],
+              _buildSendSosButton(current),
+              if (widget.bleTransport != null)
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    child: NearbyConnectionStatus(
+                      transport: widget.bleTransport,
+                      verifiedPeerKey: widget.bleCoordinator?.verifiedPeerKey,
+                      onSearch: _searchNearby,
+                      onConnect: widget.bleCoordinator?.connectSelectedPeer,
+                      onDisconnect:
+                          widget.bleCoordinator?.disconnectSelectedPeer,
+                    ),
+                  ),
+                ),
+              if (sosSnapshot.hasError || inboundSnapshot.hasError)
+                _buildErrorCard('Unable to load the active SOS.'),
+              if (current != null) ...[
+                const SizedBox(height: 12),
+                CurrentSosRoutePanel(
+                  key: ValueKey('current-sos-route-${current.id}'),
+                  incidentId: current.id,
+                  repository: _userRoutes(),
+                  names: _routeNames(),
+                ),
+              ],
             ],
           );
         },
@@ -1852,7 +1938,7 @@ class _SosPageState extends State<SosPage> {
     );
   }
 
-  void _startSosHold() {
+  void _startSosHold(SosMessage? active) {
     if (_sendingSos || _sosHoldActive) return;
     _sosHoldTimer?.cancel();
     setState(() {
@@ -1871,7 +1957,11 @@ class _SosPageState extends State<SosPage> {
           _sosHoldActive = false;
           _sosHoldProgress = 0;
         });
-        _sendSos();
+        if (active == null) {
+          unawaited(_sendSos());
+        } else {
+          unawaited(_changeSosStatus(active, 'cancelled', holdConfirmed: true));
+        }
       } else {
         setState(() => _sosHoldProgress = progress);
       }
@@ -2348,7 +2438,8 @@ class _SosPageState extends State<SosPage> {
                     .where(
                       (sos) => rescue
                           ? inboundIds.contains(sos.id)
-                          : !inboundIds.contains(sos.id),
+                          : !inboundIds.contains(sos.id) &&
+                                sos.status == 'active',
                     )
                     .toList()
                   ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -2366,7 +2457,11 @@ class _SosPageState extends State<SosPage> {
                       Text(
                         rescue
                             ? 'เลือกเหตุที่ได้รับเพื่อเปิดแชตให้ถูกเหตุการณ์'
-                            : 'เลือก SOS ของคุณเพื่อเปิดแชตให้ถูกเหตุการณ์',
+                            : routeText(
+                                context,
+                                'Your active SOS chats. Find past conversations in History.',
+                                'แชทของ SOS ที่ยังเปิดอยู่ ดูแชทเก่าได้ในประวัติ',
+                              ),
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                           height: 1.4,
@@ -2379,7 +2474,11 @@ class _SosPageState extends State<SosPage> {
                           title: context.l10n.noChatIncidents,
                           message: rescue
                               ? 'เหตุที่รับผ่าน BLE จะปรากฏที่นี่หลังบันทึกบนอุปกรณ์สำเร็จ'
-                              : 'สร้าง SOS ก่อน แล้วกลับมาเลือกเหตุการณ์ที่ต้องการสนทนา',
+                              : routeText(
+                                  context,
+                                  'Start an SOS to chat. Past conversations are saved in History.',
+                                  'เปิด SOS เพื่อเริ่มแชท บทสนทนาเก่ายังอยู่ในประวัติ',
+                                ),
                           actionLabel: rescue
                               ? 'ดูเหตุที่ได้รับ'
                               : 'ดูประวัติ SOS',
@@ -2476,6 +2575,20 @@ class _SosPageState extends State<SosPage> {
     return _routeNamesCache!;
   }
 
+  void _openIncidentMap(SosMessage sos) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => IncidentMapPage(
+          incident: sos,
+          incomingLocationStream: widget.bleCoordinator?.watchIncomingLocation(
+            sos.id,
+          ),
+          liveLocationStream: widget.bleCoordinator?.watchLiveLocation(sos.id),
+        ),
+      ),
+    );
+  }
+
   Future<void> _openIncidentChat(
     SosMessage sos, {
     ValueListenable<String?>? locationFeedback,
@@ -2489,7 +2602,7 @@ class _SosPageState extends State<SosPage> {
             sosId: sos.id,
             routeStream: _userRouteStream(sos.id),
             routeDeviceNames: _routeNames(),
-            contactName: 'Incident ${sos.id}',
+            onOpenMap: () => _openIncidentMap(sos),
             repository: widget.chatRepository,
             attachmentStore: widget.bleCoordinator?.mediaStore,
             canAttach: () async =>
@@ -3219,6 +3332,26 @@ class _SosPageState extends State<SosPage> {
     }
   }
 
+  Future<void> _searchNearby() async {
+    final presence = _blePresence;
+    if (presence == null) return;
+    await widget.onBleStartRequested?.call();
+    if (!mounted) return;
+    await presence.acquireDiscovery(_manualDiscoveryLease);
+    _manualDiscoveryTimer?.cancel();
+    if (!mounted) {
+      await presence.releaseDiscovery(_manualDiscoveryLease);
+      return;
+    }
+    _manualDiscoveryTimer = Timer(const Duration(seconds: 30), () {
+      unawaited(
+        presence
+            .releaseDiscovery(_manualDiscoveryLease)
+            .catchError((Object _) {}),
+      );
+    });
+  }
+
   Future<void> _beginAutomaticEmergencyRouting(
     SosMessage sos,
     EmergencyConsent consent,
@@ -3501,11 +3634,12 @@ class _SosPageState extends State<SosPage> {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  _buildDetailRow(
-                    icon: Icons.warning_amber_rounded,
-                    label: sheetContext.l10n.type,
-                    value: sos.type,
-                  ),
+                  if (rescueView || _role == AppRole.rescue)
+                    _buildDetailRow(
+                      icon: Icons.warning_amber_rounded,
+                      label: sheetContext.l10n.type,
+                      value: sos.type,
+                    ),
                   if (!readOnly && !rescueView && widget.bleCoordinator != null)
                     _buildBleDeliveryDetail(sos, sheetContext),
                   if (!readOnly && !rescueView && widget.bleCoordinator != null)
@@ -3535,6 +3669,8 @@ class _SosPageState extends State<SosPage> {
                       sos: sos,
                       coordinator: widget.bleCoordinator!,
                       transport: widget.bleTransport!,
+                      participantRole: rescueView ? 'rescue' : 'victim',
+                      automaticRefresh: true,
                       onBleStartRequested: widget.onBleStartRequested,
                     ),
                   ],
@@ -3575,6 +3711,12 @@ class _SosPageState extends State<SosPage> {
                                         incomingLocation: location,
                                         incomingSenderDeviceId:
                                             location.senderDeviceId,
+                                        incomingLocationStream: widget
+                                            .bleCoordinator
+                                            ?.watchIncomingLocation(sos.id),
+                                        liveLocationStream: widget
+                                            .bleCoordinator
+                                            ?.watchLiveLocation(sos.id),
                                       ),
                                     ),
                                   );
@@ -3613,7 +3755,9 @@ class _SosPageState extends State<SosPage> {
                         ? sheetContext.l10n.synced
                         : sheetContext.l10n.pendingSync,
                   ),
-                  if (sos.message != null && sos.message!.isNotEmpty)
+                  if ((rescueView || _role == AppRole.rescue) &&
+                      sos.message != null &&
+                      sos.message!.isNotEmpty)
                     _buildDetailRow(
                       icon: Icons.message_outlined,
                       label: sheetContext.l10n.message,
@@ -3630,6 +3774,7 @@ class _SosPageState extends State<SosPage> {
                             MaterialPageRoute<void>(
                               builder: (_) => EmergencyChatPage(
                                 sosId: sos.id,
+                                onOpenMap: () => _openIncidentMap(sos),
                                 routeStream: _userRouteStream(sos.id),
                                 routeDeviceNames: _routeNames(),
                                 repository: widget.chatRepository,
@@ -3671,7 +3816,13 @@ class _SosPageState extends State<SosPage> {
                           Navigator.of(sheetContext).pop();
                           Navigator.of(context).push<void>(
                             MaterialPageRoute<void>(
-                              builder: (_) => IncidentMapPage(incident: sos),
+                              builder: (_) => IncidentMapPage(
+                                incident: sos,
+                                incomingLocationStream: widget.bleCoordinator
+                                    ?.watchIncomingLocation(sos.id),
+                                liveLocationStream: widget.bleCoordinator
+                                    ?.watchLiveLocation(sos.id),
+                              ),
                             ),
                           );
                         },
@@ -3844,52 +3995,61 @@ class _SosPageState extends State<SosPage> {
     );
   }
 
-  Future<void> _changeSosStatus(SosMessage sos, String status) async {
+  Future<void> _changeSosStatus(
+    SosMessage sos,
+    String status, {
+    bool holdConfirmed = false,
+  }) async {
     final isResolved = status == 'resolved';
 
-    final confirmed = await showDialog<bool>(
-      useRootNavigator: false,
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(
-            isResolved
-                ? context.l10n.resolveSosQuestion
-                : context.l10n.cancelSosQuestion,
-          ),
-          content: Text(
-            isResolved
-                ? context.l10n.resolveSosConfirmation
-                : context.l10n.cancelSosConfirmation,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop(false);
+    final confirmed =
+        holdConfirmed ||
+        await showDialog<bool>(
+              useRootNavigator: false,
+              context: context,
+              builder: (dialogContext) {
+                return AlertDialog(
+                  title: Text(
+                    isResolved
+                        ? context.l10n.resolveSosQuestion
+                        : context.l10n.cancelSosQuestion,
+                  ),
+                  content: Text(
+                    isResolved
+                        ? context.l10n.resolveSosConfirmation
+                        : context.l10n.cancelSosConfirmation,
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(dialogContext).pop(false);
+                      },
+                      child: Text(context.l10n.back),
+                    ),
+                    FilledButton(
+                      style: !isResolved
+                          ? FilledButton.styleFrom(
+                              backgroundColor: Theme.of(dialogContext)
+                                  .colorScheme
+                                  .error,
+                            )
+                          : null,
+                      onPressed: () {
+                        Navigator.of(dialogContext).pop(true);
+                      },
+                      child: Text(
+                        isResolved
+                            ? context.l10n.resolve
+                            : context.l10n.cancelSos,
+                      ),
+                    ),
+                  ],
+                );
               },
-              child: Text(context.l10n.back),
-            ),
-            FilledButton(
-              style: !isResolved
-                  ? FilledButton.styleFrom(
-                      backgroundColor: Theme.of(dialogContext)
-                          .colorScheme
-                          .error,
-                    )
-                  : null,
-              onPressed: () {
-                Navigator.of(dialogContext).pop(true);
-              },
-              child: Text(
-                isResolved ? context.l10n.resolve : context.l10n.cancelSos,
-              ),
-            ),
-          ],
-        );
-      },
-    );
+            ) ==
+            true;
 
-    if (confirmed != true || !mounted) {
+    if (!confirmed || !mounted) {
       return;
     }
 
@@ -4144,7 +4304,9 @@ class _SosPageState extends State<SosPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          sos.type.toUpperCase(),
+                          historyStyle && _role != AppRole.rescue
+                              ? 'SOS · ${sos.id}'
+                              : sos.type.toUpperCase(),
                           style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),

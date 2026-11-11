@@ -15,6 +15,29 @@ class CloudArchiveService {
   CollectionReference<Map<String, dynamic>> _sos(String ownerId) =>
       _firestore.collection('accounts').doc(ownerId).collection('archiveSos');
 
+  Future<void> deleteIncident({
+    required String ownerId,
+    required String incidentId,
+  }) async {
+    if (ownerId.isEmpty || ownerId == 'guest-local-device') return;
+    await _sos(ownerId).doc(incidentId).delete();
+  }
+
+  Future<bool> _deleted(
+    AppDatabase database,
+    String ownerId,
+    String id,
+  ) async =>
+      (await (database.select(database.sosSyncQueue)..where(
+                (row) =>
+                    row.ownerId.equals(ownerId) &
+                    row.sosId.equals(id) &
+                    (row.operation.equals('delete') |
+                        row.operation.equals('deleteConfirmed')),
+              ))
+              .get())
+          .isNotEmpty;
+
   Future<void> reconcile({
     required String ownerId,
     required AppDatabase database,
@@ -24,6 +47,7 @@ class CloudArchiveService {
 
     final localSos = await database.select(database.sosMessages).get();
     for (final row in localSos.where((row) => row.ownerId == ownerId)) {
+      if (await _deleted(database, ownerId, row.id)) continue;
       await _sos(ownerId)
           .doc(row.id)
           .set(_sosData(row), SetOptions(merge: true));
@@ -31,12 +55,13 @@ class CloudArchiveService {
 
     final localChats = await database.select(database.chatMessages).get();
     for (final row in localChats.where((row) => row.ownerId == ownerId)) {
+      if (await _deleted(database, ownerId, row.sosId)) continue;
       await _uploadChat(ownerId: ownerId, row: row, attachments: attachments);
     }
 
     final remoteSos = await _sos(ownerId).get();
     for (final document in remoteSos.docs) {
-      await _restoreSos(database, ownerId, document);
+      if (!await _restoreSos(database, ownerId, document)) continue;
       final chats = await document.reference.collection('chat').get();
       for (final chat in chats.docs) {
         await _restoreChat(
@@ -88,36 +113,40 @@ class CloudArchiveService {
         .set(data, SetOptions(merge: true));
   }
 
-  Future<void> _restoreSos(
+  Future<bool> _restoreSos(
     AppDatabase database,
     String ownerId,
     QueryDocumentSnapshot<Map<String, dynamic>> document,
   ) async {
     final data = document.data();
-    if (data['id'] is! String ||
+    if (data['id'] != document.id ||
         data['ownerId'] != ownerId ||
         data['type'] is! String ||
         data['status'] is! String ||
         data['createdAt'] is! Timestamp ||
         data['updatedAt'] is! Timestamp) {
-      return;
+      return false;
     }
-    await database
-        .into(database.sosMessages)
-        .insertOnConflictUpdate(
-          SosMessagesCompanion.insert(
-            id: data['id'] as String,
-            ownerId: ownerId,
-            type: data['type'] as String,
-            message: Value(data['message'] as String?),
-            latitude: Value((data['latitude'] as num?)?.toDouble()),
-            longitude: Value((data['longitude'] as num?)?.toDouble()),
-            status: data['status'] as String,
-            syncState: 'synced',
-            createdAt: (data['createdAt'] as Timestamp).toDate(),
-            updatedAt: (data['updatedAt'] as Timestamp).toDate(),
-          ),
-        );
+    return database.transaction(() async {
+      if (await _deleted(database, ownerId, document.id)) return false;
+      await database
+          .into(database.sosMessages)
+          .insertOnConflictUpdate(
+            SosMessagesCompanion.insert(
+              id: data['id'] as String,
+              ownerId: ownerId,
+              type: data['type'] as String,
+              message: Value(data['message'] as String?),
+              latitude: Value((data['latitude'] as num?)?.toDouble()),
+              longitude: Value((data['longitude'] as num?)?.toDouble()),
+              status: data['status'] as String,
+              syncState: 'synced',
+              createdAt: (data['createdAt'] as Timestamp).toDate(),
+              updatedAt: (data['updatedAt'] as Timestamp).toDate(),
+            ),
+          );
+      return true;
+    });
   }
 
   Future<void> _restoreChat({
@@ -135,23 +164,26 @@ class CloudArchiveService {
       return;
     }
     final mime = data['attachmentMimeType'] as String?;
-    await database
-        .into(database.chatMessages)
-        .insertOnConflictUpdate(
-          ChatMessagesCompanion.insert(
-            messageId: data['messageId'] as String,
-            sosId: data['sosId'] as String,
-            ownerId: ownerId,
-            senderId: data['senderId'] as String,
-            recipientId: Value(data['recipientId'] as String?),
-            messageType: data['messageType'] as String? ?? 'text',
-            textContent: Value(data['textContent'] as String?),
-            createdAt: (data['createdAt'] as Timestamp).toDate(),
-            deliveryStatus: data['deliveryStatus'] as String? ?? 'delivered',
-            attachmentPath: const Value(null),
-            attachmentMimeType: Value(mime),
-            attachmentName: Value(data['attachmentName'] as String?),
-          ),
-        );
+    await database.transaction(() async {
+      if (await _deleted(database, ownerId, data['sosId'] as String)) return;
+      await database
+          .into(database.chatMessages)
+          .insertOnConflictUpdate(
+            ChatMessagesCompanion.insert(
+              messageId: data['messageId'] as String,
+              sosId: data['sosId'] as String,
+              ownerId: ownerId,
+              senderId: data['senderId'] as String,
+              recipientId: Value(data['recipientId'] as String?),
+              messageType: data['messageType'] as String? ?? 'text',
+              textContent: Value(data['textContent'] as String?),
+              createdAt: (data['createdAt'] as Timestamp).toDate(),
+              deliveryStatus: data['deliveryStatus'] as String? ?? 'delivered',
+              attachmentPath: const Value(null),
+              attachmentMimeType: Value(mime),
+              attachmentName: Value(data['attachmentName'] as String?),
+            ),
+          );
+    });
   }
 }

@@ -67,6 +67,27 @@ void main() {
     );
   }
 
+  test(
+    'emergency text rejects a non-origin signer and reverse reply',
+    () async {
+      final binding =
+          'emergency-text:${s.sos.body.originMessageId}:'
+          '${await RelayCryptography().immutableDigest(s.sos.body)}';
+      final wrong = await input(
+        binding: binding,
+        signer: await s.c.identity(),
+        recipient: await s.a.identity(),
+      );
+      await expectLater(
+        ChatRelayAuthorization(s.b.db, ownerId: s.b.id).authorize(
+          ChatRelayEnvelope.fromCanonicalWire(wrong.wireEnvelope),
+          suppliedOffer: binding,
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    },
+  );
+
   Future<void> inject(
     ChatRelayTransfer transfer, {
     Map<String, Object?>? json,

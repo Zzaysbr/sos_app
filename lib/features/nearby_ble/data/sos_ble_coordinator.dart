@@ -17,6 +17,7 @@ import '../domain/ble_models.dart';
 import '../domain/ble_connection_events.dart';
 import '../domain/sos_ble_envelope.dart';
 import '../domain/location_ble_envelope.dart';
+import '../domain/live_location_envelope.dart';
 import '../domain/chat_relay_envelope.dart';
 import '../domain/relay_envelope.dart';
 import '../domain/incident_lifecycle_envelope.dart';
@@ -33,6 +34,7 @@ import 'rescue_response_repository.dart';
 import 'chat_relay_repository.dart';
 import 'chat_receipt_repository.dart';
 import 'relay_key_store.dart';
+import '../domain/selected_peer_recovery.dart';
 
 typedef SosBleNow = DateTime Function();
 typedef SosBleRandom = double Function();
@@ -40,6 +42,15 @@ typedef SosBlePeriodicTimer = Timer Function(
   Duration interval,
   void Function(Timer) callback,
 );
+
+class _LifecycleForwardLink {
+  _LifecycleForwardLink(this.attempt);
+  final int? attempt;
+  final sentEventIds = <String>{};
+  bool failed = false;
+  bool replayRequested = false;
+  Future<void>? replay;
+}
 
 /// Coordinates durable SOS delivery state with the existing BLE transport.
 ///
@@ -52,6 +63,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
     required this.ownerId,
     this.isSessionCurrent,
     this.requirePeerBinding = false,
+    this.manualPeerSelection = false,
     String? localDeviceId,
     BleTransportClient? transport,
     BleDeliveryRepository? deliveryRepository,
@@ -96,6 +108,13 @@ class SosBleCoordinator with WidgetsBindingObserver {
           now: _now,
           onLog: (message) => _log('relay=$message'),
           rescueModeEnabled: () => isRescueModeEnabled,
+          canInitiateConnection: _canInitiateConnection,
+          selectedPeers: manualPeerSelection
+              ? () => _peerRecovery.connectionCandidates
+              : null,
+          peerKeyAllowed: _peerRecovery.mayAuthenticate,
+          onPeerAuthenticated: _onPeerAuthenticated,
+          onRecoveryPeerRejected: _peerRecovery.reject,
           rescueInbox: RescueInboxRepository(database, ownerId: ownerId),
           responseOwnerId: ownerId,
           chatRelayRepository: ChatRelayRepository(database, ownerId: ownerId),
@@ -108,6 +127,55 @@ class SosBleCoordinator with WidgetsBindingObserver {
   final String ownerId;
   late final MediaAttachmentStore mediaStore;
   final bool requirePeerBinding;
+  final bool manualPeerSelection;
+  final _peerRecovery = SelectedPeerRecovery();
+
+  /// Presentation-only alias grouping; never infer identity from model or hint.
+  String? verifiedPeerKey(String peer) => _hopRelay.verifiedKeyForLocator(peer);
+
+  bool _canInitiateConnection(String peer) =>
+      !manualPeerSelection ||
+      _peerRecovery.mayInitiate(
+        peer,
+        hasProvenRoute: _hopRelay.hasProvenLinkForKey,
+      );
+
+  Future<void> connectSelectedPeer(String peer) async {
+    _ensureUsable();
+    if (peer.trim().isEmpty || !_sessionActive) return;
+    final known = _hopRelay.verifiedKeyForLocator(peer);
+    if (known != null && _hopRelay.hasProvenLinkForLocator(peer)) {
+      _peerRecovery.selectProven(peer, known);
+      final route = _hopRelay.authenticatedRouteForKey(known);
+      if (route != null) {
+        _peerRecovery.selectProven(route.deviceId, known);
+        final link =
+            _lifecycleLinks['${route.deviceId}|${route.role.wireValue}'];
+        if (link != null) {
+          unawaited(
+            _activateDirectConnection(
+              route.deviceId,
+              route.role,
+              link,
+            ).catchError((Object _) {
+              _log('recoveryDirectActivationFailed');
+            }),
+          );
+        }
+      }
+      return;
+    }
+    _peerRecovery.select(peer);
+    await _transport.connect(peer);
+  }
+
+  Future<void> disconnectSelectedPeer(String peer) async {
+    _ensureUsable();
+    if (peer.trim().isEmpty || !_sessionActive) return;
+    _peerRecovery.forget(peer);
+    await _transport.disconnect(peer);
+  }
+
   final bool Function()? isSessionCurrent;
   bool get _sessionActive => isSessionCurrent?.call() ?? true;
   final AppDatabase _database;
@@ -145,6 +213,32 @@ class SosBleCoordinator with WidgetsBindingObserver {
   Future<void> _persistRelayedChat(ChatRelayEnvelope envelope) async {
     final repository = chatRepository;
     if (repository == null) return;
+    // Incoming emergency text may precede the Rescue user's opening or
+    // accepting the candidate. Materialize its verified incident for local
+    // Chat storage without creating a help offer or changing Helping state.
+    final origin = await RelayRepository(database: _database)
+        .lookupMessage('relay:${envelope.body.incidentId}');
+    if (origin != null) {
+      final body = RelayOfferEnvelope.fromCanonicalWire(origin.wireEnvelope)
+          .body;
+      await _database
+          .into(_database.sosMessages)
+          .insert(
+            SosMessagesCompanion.insert(
+              id: body.incidentId,
+              ownerId: ownerId,
+              type: body.emergencyType,
+              message: Value(body.emergencyMessage),
+              latitude: Value(body.latitude),
+              longitude: Value(body.longitude),
+              status: 'active',
+              syncState: 'deviceOnly',
+              createdAt: body.createdAt,
+              updatedAt: body.createdAt,
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+    }
     if (envelope.body.media != null) {
       final file = await mediaStore.find(envelope.body.messageId);
       if (file == null || !file.complete || !await file.file.exists()) return;
@@ -211,6 +305,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
   final _assemblers = <String, BleMessageAssembler>{};
   final _connectionEvents = BleConnectionEvents();
   final _connected = <String, Set<BleSessionRole>>{};
+  final _lifecycleLinks = <String, _LifecycleForwardLink>{};
   final _connecting = <String>{};
   final _inflightDeliveries = <String, Future<bool>>{};
   final _sendingMessages = <String>{};
@@ -279,6 +374,9 @@ class SosBleCoordinator with WidgetsBindingObserver {
       requiredSenderDeviceId: sender,
     );
   }
+
+  Stream<LiveLocationEnvelope?> watchLiveLocation(String sosId) =>
+      _deliveryRepository.watchLiveLocation(sosId);
 
   /// The shared transport owned by this coordinator.
   ///
@@ -352,6 +450,70 @@ class SosBleCoordinator with WidgetsBindingObserver {
 
   Future<String?> existingRelayKeyId() => _hopRelay.existingSigningKeyId();
 
+  Future<LiveLocationEnvelope> createLiveLocationEnvelope({
+    required String sosId,
+    required String participantId,
+    required String participantRole,
+    required int sequence,
+    required double latitude,
+    required double longitude,
+    required DateTime createdAt,
+    required DateTime expiresAt,
+    double? accuracyMeters,
+  }) async {
+    _ensureUsable();
+    final identity = await _hopRelay.signingIdentity();
+    final unsigned = LiveLocationEnvelope(
+      messageId: 'live-location:$sosId:$participantId:$sequence',
+      sosId: sosId,
+      participantId: participantId,
+      participantRole: participantRole,
+      originKeyId: identity.keyId,
+      originPublicKey: base64UrlEncode(identity.publicKey),
+      originSignature: 'pending',
+      sequence: sequence,
+      latitude: latitude,
+      longitude: longitude,
+      accuracyMeters: accuracyMeters,
+      createdAt: createdAt.toUtc(),
+      expiresAt: expiresAt.toUtc(),
+    );
+    final signature = await RelayCryptography().signLiveLocationBody(
+      unsigned.bodyMap(),
+      identity.keyPair,
+    );
+    return LiveLocationEnvelope(
+      messageId: unsigned.messageId,
+      sosId: unsigned.sosId,
+      participantId: unsigned.participantId,
+      participantRole: unsigned.participantRole,
+      originKeyId: unsigned.originKeyId,
+      originPublicKey: unsigned.originPublicKey,
+      originSignature: signature,
+      sequence: unsigned.sequence,
+      latitude: unsigned.latitude,
+      longitude: unsigned.longitude,
+      accuracyMeters: unsigned.accuracyMeters,
+      createdAt: unsigned.createdAt,
+      expiresAt: unsigned.expiresAt,
+    );
+  }
+
+  Future<void> enqueueLiveLocation({
+    required LiveLocationEnvelope envelope,
+    required String destinationId,
+  }) async {
+    _ensureUsable();
+    envelope.validate(now: _now());
+    await _deliveryRepository.enqueueRaw(
+      envelope.toBleMessage(),
+      sosId: envelope.sosId,
+      destinationId: destinationId,
+      now: _now(),
+    );
+    if (_started) unawaited(processDue());
+  }
+
   Stream<RelayStatusSnapshot> watchRelayStatus(String incidentId) =>
       _hopRelay.watchStatus(incidentId);
 
@@ -423,6 +585,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
     await _eventsSubscription?.cancel();
     _eventsSubscription = null;
     _connected.clear();
+    _lifecycleLinks.clear();
     _connectionEvents.clear();
     _connecting.clear();
     _pendingConnectionMessages.clear();
@@ -621,11 +784,28 @@ class SosBleCoordinator with WidgetsBindingObserver {
     final body = RelayOfferEnvelope.fromCanonicalWire(origin.wireEnvelope).body;
     final localIdentity = await _hopRelay.signingIdentity();
     if (body.originKeyId == localIdentity.keyId) {
+      final receipts =
+          await (_database.select(_database.bleRelayReceipts)
+                ..where((r) => r.incidentId.equals(incidentId))
+                ..orderBy([(r) => OrderingTerm.asc(r.createdAt)]))
+              .get();
+      for (final row in receipts) {
+        final receipt = RelayReceiptEnvelope.fromJson(
+          Map<String, Object?>.from(jsonDecode(row.payload) as Map),
+        );
+        if (receipt.originMessageId != body.originMessageId ||
+            receipt.immutableDigest !=
+                await RelayCryptography().immutableDigest(body) ||
+            !await RelayCryptography().verifyReceipt(receipt)) {
+          continue;
+        }
+        return (keyId: receipt.signerKeyId, publicKey: receipt.signerPublicKey);
+      }
       // The victim's own signed SOS proves its identity, not the rescuer's.
       // Stop here rather than routing its reply to itself or falling back to
       // an unrelated direct BLE destination in the Chat send callback.
       throw const BleDeliveryStateException(
-        'Waiting for a verified help offer for this incident.',
+        'Waiting for a device to confirm receiving this SOS.',
       );
     }
     return (keyId: body.originKeyId, publicKey: body.originPublicKey);
@@ -640,6 +820,17 @@ class SosBleCoordinator with WidgetsBindingObserver {
             .getSingleOrNull();
     if (row == null || row.status != 'active') return false;
     try {
+      final ownOrigin = await RelayRepository(database: _database)
+          .lookupMessage('relay:$incidentId');
+      if (ownOrigin != null &&
+          ownOrigin.originKeyId == (await _hopRelay.signingIdentity()).keyId &&
+          await RescueResponseRepository(
+                _database,
+                ownerId: ownerId,
+              ).verifiedResponderBindingForIncident(incidentId) ==
+              null) {
+        return false;
+      }
       return await resolveVerifiedChatParticipant(incidentId) != null;
     } on Object {
       return false;
@@ -786,7 +977,9 @@ class SosBleCoordinator with WidgetsBindingObserver {
           """
       SELECT 1 FROM ble_outbox o JOIN sos_messages s ON s.id = o.sos_id
       WHERE s.owner_id = ? AND s.status IN ('cancelled', 'resolved')
-        AND o.state IN ('queued', 'failed') AND o.retry_count < ?
+        AND ((o.state IN ('queued', 'failed') AND o.retry_count < ?)
+          OR (s.status = 'cancelled' AND o.state = 'expired'
+            AND o.last_error LIKE 'retry limit reached: Bluetooth adapter state is %'))
         AND o.payload LIKE '%"kind":"sos.lifecycle.v1"%'
         AND EXISTS (SELECT 1 FROM rescue_response_inbox r
           WHERE r.owner_id = s.owner_id AND r.incident_id = s.id AND r.state = 'verified')
@@ -823,7 +1016,6 @@ class SosBleCoordinator with WidgetsBindingObserver {
                 ..where(
                   (r) =>
                       r.ownerId.equals(ownerId) &
-                      r.messageType.equals('media') &
                       r.deliveryStatus.equals('pending'),
                 )
                 ..limit(2))
@@ -840,8 +1032,15 @@ class SosBleCoordinator with WidgetsBindingObserver {
         if (!row.createdAt.add(const Duration(minutes: 30)).isAfter(_now())) {
           continue;
         }
-        if (!await canSendMedia(row.sosId)) continue;
-        final recipient = await resolveVerifiedChatParticipant(row.sosId);
+        if (row.messageType == 'media' && !await canSendMedia(row.sosId)) {
+          continue;
+        }
+        ({String keyId, String publicKey})? recipient;
+        try {
+          recipient = await resolveVerifiedChatParticipant(row.sosId);
+        } on BleDeliveryStateException {
+          continue;
+        }
         if (recipient == null) continue;
         await enqueueChatThroughRelay(
           chat: EmergencyChatMessage(
@@ -872,6 +1071,9 @@ class SosBleCoordinator with WidgetsBindingObserver {
       while (_drainRequested && _started && !_disposed) {
         _drainRequested = false;
         final now = _now().toUtc();
+        if (!_adapterUnavailable && _sessionActive) {
+          await _recoverAdapterExpiredCancellations(now);
+        }
         await _deliveryRepository.recoverStaleOutbox(
           ownerId: isSessionCurrent == null ? null : ownerId,
           olderThan: now.subtract(staleAfter),
@@ -970,6 +1172,53 @@ class SosBleCoordinator with WidgetsBindingObserver {
     return null;
   }
 
+  Future<void> _recoverAdapterExpiredCancellations(DateTime now) async {
+    final outbox = _database.bleOutbox;
+    final incidents = _database.sosMessages;
+    final rows =
+        await (_database.select(outbox).join([
+              innerJoin(incidents, incidents.id.equalsExp(outbox.sosId)),
+            ])..where(
+              incidents.ownerId.equals(ownerId) &
+                  incidents.status.equals('cancelled') &
+                  outbox.state.equals(BleOutboxState.expired.wireValue) &
+                  outbox.messageId.like('lifecycle:%') &
+                  outbox.lastError.like(
+                    'retry limit reached: Bluetooth adapter state is %',
+                  ),
+            ))
+            .get();
+    for (final result in rows) {
+      final row = result.readTable(outbox);
+      final event = _decodeLifecycleEnvelope(row.payload);
+      if (event == null ||
+          event.status != 'cancelled' ||
+          event.eventId != row.messageId ||
+          event.incidentId != row.sosId) {
+        continue;
+      }
+      try {
+        await event.validate(now: now);
+      } on Object {
+        continue;
+      }
+      if (!_sessionActive || _disposed || _adapterUnavailable) return;
+      await (_database.update(outbox)..where(
+            (r) =>
+                r.messageId.equals(row.messageId) & r.state.equals(row.state),
+          ))
+          .write(
+            BleOutboxCompanion(
+              state: Value(BleOutboxState.queued.wireValue),
+              retryCount: const Value(0),
+              nextRetryAt: const Value(null),
+              lastError: const Value(null),
+              updatedAt: Value(now),
+            ),
+          );
+    }
+  }
+
   Future<void> _trySend(BleOutboxData row) async {
     if (!_sessionActive || _disposed) return;
     if (_adapterUnavailable) {
@@ -998,21 +1247,21 @@ class SosBleCoordinator with WidgetsBindingObserver {
     }
     var deviceId = destination;
     var roles = _connected[deviceId];
-    AuthenticatedRelayRoute? recoveredLifecycleRoute;
-    if (roles == null || roles.isEmpty) {
-      recoveredLifecycleRoute = await _recoverLifecycleRoute(activeRow);
-      if (recoveredLifecycleRoute != null &&
-          recoveredLifecycleRoute.deviceId != deviceId) {
-        activeRow = await _deliveryRepository.reassignPendingDestination(
-          activeRow.messageId,
-          expectedDestinationId: deviceId,
-          destinationId: recoveredLifecycleRoute.deviceId,
-          now: _now(),
-        );
-        deviceId = recoveredLifecycleRoute.deviceId;
-        roles = _connected[deviceId];
-        _log('lifecycleRouteRecoveredByVerifiedResponder');
-      }
+    // A native link can remain ready while no longer being the useful route
+    // to this incident's responder. Prefer the existing signed Help Offer +
+    // current Session Proof even when the stored next hop still looks alive.
+    final recoveredLifecycleRoute = await _recoverLifecycleRoute(activeRow);
+    if (recoveredLifecycleRoute != null &&
+        recoveredLifecycleRoute.deviceId != deviceId) {
+      activeRow = await _deliveryRepository.reassignPendingDestination(
+        activeRow.messageId,
+        expectedDestinationId: deviceId,
+        destinationId: recoveredLifecycleRoute.deviceId,
+        now: _now(),
+      );
+      deviceId = recoveredLifecycleRoute.deviceId;
+      roles = _connected[deviceId];
+      _log('lifecycleRouteRecoveredByVerifiedResponder');
     }
     var identityRoutedPayload = false;
     try {
@@ -1020,7 +1269,8 @@ class SosBleCoordinator with WidgetsBindingObserver {
       identityRoutedPayload =
           stored is Map &&
           (stored['kind'] == SosBleMessageKind.chatMessage.wireValue ||
-              stored['kind'] == 'location.update');
+              stored['kind'] == 'location.update' ||
+              stored['kind'] == LiveLocationEnvelope.wireKind);
     } on Object {
       // Malformed payloads are expired by the normal decode path below.
     }
@@ -1052,6 +1302,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
       }
     }
     if (roles == null || roles.isEmpty) {
+      if (!_canInitiateConnection(deviceId)) return;
       _pendingConnectionMessages
           .putIfAbsent(deviceId, () => <String>{})
           .add(activeRow.messageId);
@@ -1091,7 +1342,8 @@ class SosBleCoordinator with WidgetsBindingObserver {
       if (requirePeerBinding &&
           stored is Map &&
           (stored['kind'] == 'chat.message' ||
-              stored['kind'] == 'location.update') &&
+              stored['kind'] == 'location.update' ||
+              stored['kind'] == LiveLocationEnvelope.wireKind) &&
           !_peerBindings.containsKey(deviceId)) {
         // Capability negotiation must not block urgent SOS behind a Chat row
         // or count an unsent payload as a failed native delivery attempt.
@@ -1107,9 +1359,13 @@ class SosBleCoordinator with WidgetsBindingObserver {
         sending.payload,
         now: _now(),
       );
+      final liveLocationEnvelope = _decodeLiveLocationEnvelope(
+        sending.payload,
+        now: _now(),
+      );
       SosBleEnvelope? envelope;
       IncidentLifecycleEnvelope? lifecycle;
-      if (locationEnvelope == null) {
+      if (locationEnvelope == null && liveLocationEnvelope == null) {
         final rawKind = stored is Map ? stored['kind'] : null;
         if (rawKind == IncidentLifecycleEnvelope.wireKind) {
           lifecycle = _decodeLifecycleEnvelope(sending.payload);
@@ -1124,7 +1380,8 @@ class SosBleCoordinator with WidgetsBindingObserver {
       }
       final role = recoveredLifecycleRoute?.role ?? _sendRoleFor(deviceId);
       final frames = BleMessageCodec.encode(
-        (locationEnvelope?.toBleMessage() ??
+        (liveLocationEnvelope?.toBleMessage() ??
+            locationEnvelope?.toBleMessage() ??
             envelope?.toBleMessage() ??
             lifecycle!.toBleMessage()),
         maxFrameBytes: await negotiatedBleFrameBytes(
@@ -1169,6 +1426,11 @@ class SosBleCoordinator with WidgetsBindingObserver {
         activeRow.messageId,
         'invalid stored location envelope: $error',
       );
+    } on LiveLocationEnvelopeException catch (error) {
+      await _expire(
+        activeRow.messageId,
+        'invalid stored live location envelope: $error',
+      );
     } on RelayProtocolException catch (error) {
       await _expire(
         activeRow.messageId,
@@ -1184,11 +1446,40 @@ class SosBleCoordinator with WidgetsBindingObserver {
   Future<void> _onEvent(BleEvent event) async {
     if (!_started || _disposed || !_sessionActive) return;
     for (final current in _connectionEvents.accept(event)) {
-      await _onCurrentEvent(current);
+      final peer = current.device?.id;
+      if (manualPeerSelection &&
+          current.type == 'deviceFound' &&
+          peer != null) {
+        _peerRecovery.observe(
+          peer,
+          current.device?.recoveryHint,
+          hasProvenRoute: _hopRelay.hasProvenLinkForKey,
+        );
+      }
+      _LifecycleForwardLink? link;
+      if (peer != null) {
+        final role = current.role ?? BleSessionRole.central;
+        final key = '$peer|${role.wireValue}';
+        if (current.type == 'connected') {
+          final existing = _lifecycleLinks[key];
+          link = existing != null && existing.attempt == current.attempt
+              ? existing
+              : _LifecycleForwardLink(current.attempt);
+          _lifecycleLinks[key] = link;
+        } else if (current.type == 'disconnected') {
+          _lifecycleLinks.removeWhere(
+            (k, _) => current.role == null ? k.startsWith('$peer|') : k == key,
+          );
+        }
+      }
+      await _onCurrentEvent(current, connectionLink: link);
     }
   }
 
-  Future<void> _onCurrentEvent(BleEvent event) async {
+  Future<void> _onCurrentEvent(
+    BleEvent event, {
+    _LifecycleForwardLink? connectionLink,
+  }) async {
     if (!_started || _disposed || !_sessionActive) return;
     final deviceId = event.device?.id;
     _log(
@@ -1203,10 +1494,6 @@ class SosBleCoordinator with WidgetsBindingObserver {
       // must fail closed for relay without interrupting Direct SOS v1.
       _log('relayEventRejected type=${event.type} reason=$error');
     }
-    if (event.type == 'connected' && deviceId != null) {
-      await _assignPendingLifecycleDestination(deviceId);
-      await _forwardPendingLifecycles(deviceId);
-    }
     switch (event.type) {
       case 'state':
       case 'centralState':
@@ -1214,6 +1501,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
         if (event.state == 'poweredOn') {
           _adapterUnavailable = false;
           unawaited(_retryPresence());
+          unawaited(processDue());
         } else if (event.state == 'poweredOff' ||
             event.state == 'unauthorized' ||
             event.state == 'unsupported' ||
@@ -1234,14 +1522,19 @@ class SosBleCoordinator with WidgetsBindingObserver {
             return;
           }
           final role = event.role ?? BleSessionRole.central;
-          _connected.putIfAbsent(deviceId, () => <BleSessionRole>{}).add(role);
-          _connecting.remove(deviceId);
-          _pendingConnectionMessages.remove(deviceId);
-          _log('BLE connected: $deviceId');
-          if (requirePeerBinding) {
-            unawaited(_beginPeerBinding(deviceId, role));
+          if (connectionLink == null ||
+              !identical(
+                _lifecycleLinks['$deviceId|${role.wireValue}'],
+                connectionLink,
+              )) {
+            _log('ignoredConnectedAfterSessionRetired');
+            return;
           }
-          unawaited(processDue());
+          if (_peerRecovery.quarantined(deviceId)) {
+            _log('recoveryPeerAwaitingProof');
+            return;
+          }
+          await _activateDirectConnection(deviceId, role, connectionLink);
         }
         return;
       case 'disconnected':
@@ -1289,6 +1582,60 @@ class SosBleCoordinator with WidgetsBindingObserver {
         _log('BLE native error: ${event.error ?? 'unknown'}');
         return;
     }
+  }
+
+  Future<void> _onPeerAuthenticated(
+    String peer,
+    BleSessionRole role,
+    String key,
+  ) async {
+    if (!_started ||
+        _disposed ||
+        !_sessionActive ||
+        !_peerRecovery.mayAuthenticate(peer, key)) {
+      return;
+    }
+    final recovering = _peerRecovery.quarantined(peer);
+    _peerRecovery.authenticated(peer, key);
+    if (!recovering || _peerRecovery.quarantined(peer)) return;
+    final route = _hopRelay.authenticatedRouteForKey(key);
+    final link = _lifecycleLinks['$peer|${role.wireValue}'];
+    if (route == null ||
+        route.deviceId != peer ||
+        route.role != role ||
+        link == null) {
+      return;
+    }
+    _log('selectedInstallationRecovered');
+    unawaited(
+      _activateDirectConnection(peer, role, link).catchError((Object error) {
+        _log('recoveryDirectActivationFailed');
+      }),
+    );
+  }
+
+  Future<void> _activateDirectConnection(
+    String peer,
+    BleSessionRole role,
+    _LifecycleForwardLink link,
+  ) async {
+    if (!_started ||
+        _disposed ||
+        !_sessionActive ||
+        !identical(_lifecycleLinks['$peer|${role.wireValue}'], link)) {
+      return;
+    }
+    _connected.putIfAbsent(peer, () => <BleSessionRole>{}).add(role);
+    _connecting.remove(peer);
+    _pendingConnectionMessages.remove(peer);
+    _log('BLE connected: $peer');
+    if (requirePeerBinding) {
+      unawaited(_beginPeerBinding(peer, role));
+    } else {
+      await _assignPendingLifecycleDestination(peer);
+      await _forwardPendingLifecycles(peer);
+    }
+    unawaited(processDue());
   }
 
   Future<void> _retryPresence() async {
@@ -1466,7 +1813,17 @@ class SosBleCoordinator with WidgetsBindingObserver {
     );
     try {
       final message = assembler.accept(frame);
+      _hopRelay.observeLinkTraffic(deviceId, role);
       if (message == null) return;
+      if (_peerRecovery.quarantined(deviceId) &&
+          !{
+            RelayCapabilityAdvertisement.wireKind,
+            RelaySessionChallenge.wireKind,
+            RelaySessionResponse.wireKind,
+          }.contains(message.type)) {
+        _log('recoveryPeerDataBlocked');
+        return;
+      }
       _log(
         'assemblyComplete peer=$deviceId role=${role.wireValue} '
         'messageId=${message.id}',
@@ -1480,6 +1837,25 @@ class SosBleCoordinator with WidgetsBindingObserver {
         return;
       }
       if (await _hopRelay.handleMessage(deviceId, role, message)) return;
+      if (message.type == LiveLocationEnvelope.wireKind) {
+        final live = LiveLocationEnvelope.fromJson(message.payload);
+        final verified = await _hopRelay.verifyLiveLocation(live);
+        if (!verified) {
+          _log('liveLocationRejected reason=signature');
+          return;
+        }
+        await _deliveryRepository.persistIncomingLiveLocation(
+          live,
+          sourceDeviceId: deviceId,
+          now: _now(),
+        );
+        await _forwardLiveLocation(deviceId, role, live);
+        _log(
+          'liveLocationPersisted sosId=${live.sosId} '
+          'participant=${live.participantId} sequence=${live.sequence}',
+        );
+        return;
+      }
       if (message.type == 'location.update' || message.type == 'location.ack') {
         final location = LocationBleEnvelope.fromBleMessage(message);
         if (requirePeerBinding &&
@@ -1544,6 +1920,54 @@ class SosBleCoordinator with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _forwardLiveLocation(
+    String sourceDeviceId,
+    BleSessionRole sourceRole,
+    LiveLocationEnvelope envelope,
+  ) async {
+    final identity = await _hopRelay.signingIdentity();
+    // The origin receives the update back as a final confirmation, but never
+    // creates another relay fan-out. This keeps a broadcast-style incident
+    // location bounded without inventing a separate route-discovery round.
+    if (envelope.originKeyId == identity.keyId ||
+        envelope.hopCount >= RelayProtocolLimits.maximumHops) {
+      return;
+    }
+    final forwarded = envelope.copyWithHop(
+      relayKeyId: identity.keyId,
+      nextHop: envelope.hopCount + 1,
+    );
+    for (final peer in _connected.keys.toList(growable: false)) {
+      if (peer == sourceDeviceId || _connected[peer]?.isEmpty != false) {
+        continue;
+      }
+      final peerKey = _peerBindings[peer];
+      if (peerKey != null && forwarded.pathKeyIds.contains(peerKey)) continue;
+      final peerRole = _sendRoleFor(peer);
+      try {
+        await _writes.sendFrames(
+          peer,
+          BleMessageCodec.encode(
+            forwarded.toBleMessage(),
+            maxFrameBytes: await negotiatedBleFrameBytes(
+              _transport,
+              peer,
+              peerRole,
+            ),
+          ),
+          role: peerRole,
+          canSend: () => _sessionActive && !_disposed,
+        );
+        _log(
+          'liveLocationForwarded sosId=${envelope.sosId} '
+          'from=$sourceDeviceId to=$peer hop=${forwarded.hopCount}',
+        );
+      } on Object catch (error) {
+        _log('liveLocationForwardFailed peer=$peer reason=$error');
+      }
+    }
+  }
+
   Future<void> _handleIncidentLifecycle(
     String deviceId,
     BleSessionRole role,
@@ -1564,6 +1988,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
       _log('lifecycle_${authorization.name} incident=${lifecycle.incidentId}');
       return;
     }
+    _hopRelay.stopForwardingTerminalSos(lifecycle.incidentId);
     _log(
       'lifecycle_persisted incident=${lifecycle.incidentId} status=${lifecycle.status}',
     );
@@ -1582,28 +2007,9 @@ class SosBleCoordinator with WidgetsBindingObserver {
     if (row == null) return;
     final lifecycle = _decodeLifecycleEnvelope(row.payload);
     if (lifecycle == null) return;
-    for (final peer in _peerBindings.keys) {
+    for (final peer in _peerBindings.keys.toList(growable: false)) {
       if (peer == excludePeer || _connected[peer]?.isNotEmpty != true) continue;
-      try {
-        await _writes.sendFrames(
-          peer,
-          BleMessageCodec.encode(
-            lifecycle.toBleMessage(),
-            maxFrameBytes: await negotiatedBleFrameBytes(
-              _transport,
-              peer,
-              _sendRoleFor(peer),
-            ),
-          ),
-          role: _sendRoleFor(peer),
-          canSend: () => _sessionActive && !_disposed,
-        );
-        _log('lifecycle_forwarded incident=${lifecycle.incidentId} peer=$peer');
-      } on Object catch (error) {
-        _log(
-          'lifecycle_forward_failed incident=${lifecycle.incidentId} reason=$error',
-        );
-      }
+      await _forwardPendingLifecycles(peer);
     }
   }
 
@@ -1630,40 +2036,86 @@ class SosBleCoordinator with WidgetsBindingObserver {
   }
 
   Future<void> _forwardPendingLifecycles(String peer) async {
-    if (_peerBindings[peer] == null || _connected[peer]?.isNotEmpty != true) {
+    if ((requirePeerBinding && _peerBindings[peer] == null) ||
+        _connected[peer]?.isNotEmpty != true) {
       return;
     }
-    final lifecycleRepository = IncidentLifecycleRepository(
-      _database,
-      ownerId: ownerId,
-    );
-    await lifecycleRepository.reconcilePending(now: _now());
-    final rows = await lifecycleRepository.authorizedEvents();
-    for (final row in rows) {
-      if (row.senderDeviceId == peer) continue;
-      final lifecycle = _decodeLifecycleEnvelope(row.payload);
-      if (lifecycle == null) continue;
-      try {
-        await _writes.sendFrames(
-          peer,
-          BleMessageCodec.encode(
-            lifecycle.toBleMessage(),
-            maxFrameBytes: await negotiatedBleFrameBytes(
-              _transport,
-              peer,
-              _sendRoleFor(peer),
-            ),
-          ),
-          role: _sendRoleFor(peer),
-          canSend: () => _sessionActive && !_disposed,
-        );
-      } on Object catch (error) {
-        _log(
-          'lifecycle_retry_failed incident=${lifecycle.incidentId} '
-          'reason=$error',
-        );
-      }
+    final role = _sendRoleFor(peer);
+    final key = '$peer|${role.wireValue}';
+    final link = _lifecycleLinks[key];
+    if (link == null || link.failed) return;
+    link.replayRequested = true;
+    if (link.replay != null) return link.replay!;
+    bool current() =>
+        _started &&
+        !_disposed &&
+        _sessionActive &&
+        !link.failed &&
+        identical(_lifecycleLinks[key], link) &&
+        (_connected[peer]?.contains(role) ?? false) &&
+        (!requirePeerBinding || _peerBindings.containsKey(peer));
+    final replay = _drainLifecycleReplay(peer, role, link, current);
+    link.replay = replay;
+    try {
+      await replay;
+    } finally {
+      link.replay = null;
     }
+  }
+
+  Future<void> _drainLifecycleReplay(
+    String peer,
+    BleSessionRole role,
+    _LifecycleForwardLink link,
+    bool Function() current,
+  ) async {
+    do {
+      link.replayRequested = false;
+      if (!current()) return;
+      final lifecycleRepository = IncidentLifecycleRepository(
+        _database,
+        ownerId: ownerId,
+      );
+      await lifecycleRepository.reconcilePending(now: _now());
+      final rows = await lifecycleRepository.authorizedEvents();
+      for (final row in rows) {
+        if (!current()) return;
+        if (row.senderDeviceId == peer) continue;
+        final lifecycle = _decodeLifecycleEnvelope(row.payload);
+        if (lifecycle == null) continue;
+        if (link.sentEventIds.contains(lifecycle.eventId)) continue;
+        try {
+          final completed = await _writes.sendFrames(
+            peer,
+            BleMessageCodec.encode(
+              lifecycle.toBleMessage(),
+              maxFrameBytes: await negotiatedBleFrameBytes(
+                _transport,
+                peer,
+                role,
+              ),
+            ),
+            role: role,
+            canSend: current,
+            isConnectionCurrent: () =>
+                _started &&
+                !_disposed &&
+                identical(_lifecycleLinks['$peer|${role.wireValue}'], link),
+          );
+          if (!completed || !current()) return;
+          // Native completion only suppresses redundant replay on this live
+          // connection. Durable lifecycle rows remain available after reconnect.
+          link.sentEventIds.add(lifecycle.eventId);
+        } on Object catch (error) {
+          link.failed = true;
+          _log(
+            'lifecycle_retry_failed incident=${lifecycle.incidentId} '
+            'reason=$error',
+          );
+          return;
+        }
+      }
+    } while (link.replayRequested && current());
   }
 
   IncidentLifecycleEnvelope? _decodeLifecycleEnvelope(String payload) {
@@ -2135,6 +2587,21 @@ class SosBleCoordinator with WidgetsBindingObserver {
     return envelope;
   }
 
+  LiveLocationEnvelope? _decodeLiveLocationEnvelope(
+    String payload, {
+    DateTime? now,
+  }) {
+    final value = jsonDecode(payload);
+    if (value is! Map || value['kind'] != LiveLocationEnvelope.wireKind) {
+      return null;
+    }
+    final envelope = LiveLocationEnvelope.fromJson(
+      Map<String, Object?>.from(value),
+    );
+    envelope.validate(now: now);
+    return envelope;
+  }
+
   Future<void> _markFailed(BleOutboxData row, String error) async {
     _log(
       'deliveryFailed sosId=${row.sosId} messageId=${row.messageId} '
@@ -2178,6 +2645,11 @@ class SosBleCoordinator with WidgetsBindingObserver {
     if (messageIds == null || messageIds.isEmpty) return;
     for (final messageId in messageIds) {
       final row = await _deliveryRepository.lookupOutbox(messageId);
+      if (_adapterUnavailable &&
+          row != null &&
+          _decodeLifecycleEnvelope(row.payload) != null) {
+        continue;
+      }
       // A due retry remains failed while connect() waits for the native
       // callback. Count that attempt too; otherwise asynchronous GATT errors
       // leave retryCount frozen after the first failure and retry forever.
@@ -2209,6 +2681,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
       ..._pendingConnectionMessages.keys,
     };
     _connected.clear();
+    _lifecycleLinks.clear();
     _connectionEvents.clear();
     _connecting.clear();
     _peerBindings.clear();

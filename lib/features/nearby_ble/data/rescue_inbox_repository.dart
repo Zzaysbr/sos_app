@@ -65,6 +65,24 @@ class RescueInboxRepository {
           'Rescue candidate identity conflicts with stored data.',
         );
       }
+      if (offer.lease != null &&
+          offer.expiresAt.isAfter(existing.expiresAt) &&
+          existing.state != 'cancelled' &&
+          existing.state != 'resolved') {
+        await (database.update(database.rescueInbox)..where(
+              (r) =>
+                  r.ownerId.equals(ownerId) &
+                  r.originMessageId.equals(existing.originMessageId),
+            ))
+            .write(
+              RescueInboxCompanion(
+                expiresAt: Value(offer.expiresAt),
+                state: existing.state == 'expired'
+                    ? const Value('pending')
+                    : const Value.absent(),
+              ),
+            );
+      }
       await IncidentLifecycleRepository(
         database,
         ownerId: ownerId,
@@ -88,7 +106,7 @@ class RescueInboxRepository {
             incomingHopCount: offer.hopCount,
             incomingPath: jsonEncode(offer.pathKeyIds),
             createdAt: offer.body.createdAt,
-            expiresAt: offer.body.expiresAt,
+            expiresAt: offer.expiresAt,
             receivedAt: timestamp,
             state: RescueCandidateState.pending.name,
           ),

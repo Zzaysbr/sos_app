@@ -7,6 +7,7 @@ import '../domain/ble_delivery_state.dart';
 import 'ble_protocol.dart';
 import '../domain/sos_ble_envelope.dart';
 import '../domain/location_ble_envelope.dart';
+import '../domain/live_location_envelope.dart';
 import '../domain/incident_lifecycle_envelope.dart';
 
 class BlePeerMismatchException extends BleDeliveryStateException {
@@ -77,7 +78,8 @@ class BleDeliveryRepository {
         'BLE message identity is required.',
       );
     }
-    if (message.type != IncidentLifecycleEnvelope.wireKind) {
+    if (message.type != IncidentLifecycleEnvelope.wireKind &&
+        message.type != LiveLocationEnvelope.wireKind) {
       throw const BleDeliveryStateException('Unsupported raw BLE message.');
     }
     final payload = jsonEncode(message.payload);
@@ -1113,6 +1115,119 @@ class BleDeliveryRepository {
       return BleInboxInsertResult(row: row, inserted: existed == null);
     });
   }
+
+  Future<BleInboxInsertResult> persistIncomingLiveLocation(
+    LiveLocationEnvelope envelope, {
+    required String sourceDeviceId,
+    DateTime? now,
+  }) async {
+    final timestamp = (now ?? DateTime.now()).toUtc();
+    envelope.validate(now: timestamp);
+    final payload = jsonEncode(envelope.toJson());
+    return _database.transaction(() async {
+      final existing = await lookupInbox(envelope.messageId);
+      if (existing != null) {
+        if (existing.senderDeviceId != sourceDeviceId ||
+            existing.payload != payload) {
+          throw const BleDeliveryStateException(
+            'Live location message identity conflict.',
+          );
+        }
+        return BleInboxInsertResult(row: existing, inserted: false);
+      }
+      final history = await (_database.select(
+        _database.bleInbox,
+      )..where((table) => table.sosId.equals(envelope.sosId))).get();
+      for (final row in history) {
+        try {
+          final value = jsonDecode(row.payload);
+          if (value is Map &&
+              value['kind'] == LiveLocationEnvelope.wireKind &&
+              value['participantId'] == envelope.participantId &&
+              value['sequence'] is int &&
+              (value['sequence'] as int) >= envelope.sequence) {
+            throw const BleDeliveryStateException(
+              'Live location sequence is older than the latest persisted update.',
+            );
+          }
+        } on BleDeliveryStateException {
+          rethrow;
+        } on Object {
+          // Ignore malformed history; it cannot reject a valid new update.
+        }
+      }
+      await _database
+          .into(_database.bleInbox)
+          .insert(
+            BleInboxCompanion.insert(
+              messageId: envelope.messageId,
+              sosId: envelope.sosId,
+              senderDeviceId: Value(sourceDeviceId),
+              schemaVersion: LiveLocationEnvelope.schemaVersion,
+              payload: payload,
+              processingState: BleInboxState.persisted.wireValue,
+              receivedAt: timestamp,
+              persistedAt: Value(timestamp),
+              acknowledgementStatus: Value(
+                BleAcknowledgementStatus.persisted.wireValue,
+              ),
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+      final row = await lookupInbox(envelope.messageId);
+      if (row == null) {
+        throw const BleDeliveryStateException(
+          'Unable to persist live location inbox.',
+        );
+      }
+      return BleInboxInsertResult(row: row, inserted: true);
+    });
+  }
+
+  Future<LiveLocationEnvelope?> latestLiveLocation(
+    String sosId, {
+    String? participantId,
+    DateTime? now,
+  }) async {
+    final timestamp = (now ?? DateTime.now()).toUtc();
+    final rows =
+        await (_database.select(_database.bleInbox)
+              ..where((table) => table.sosId.equals(sosId))
+              ..orderBy([(table) => OrderingTerm.desc(table.receivedAt)]))
+            .get();
+    LiveLocationEnvelope? newest;
+    for (final row in rows) {
+      try {
+        final value = jsonDecode(row.payload);
+        if (value is! Map || value['kind'] != LiveLocationEnvelope.wireKind) {
+          continue;
+        }
+        final envelope = LiveLocationEnvelope.fromJson(
+          Map<String, Object?>.from(value),
+        );
+        if (participantId != null && envelope.participantId != participantId) {
+          continue;
+        }
+        envelope.validate(now: timestamp);
+        if (newest == null || envelope.sequence > newest.sequence) {
+          newest = envelope;
+        }
+      } on Object {
+        // Ignore malformed/expired history.
+      }
+    }
+    return newest;
+  }
+
+  Stream<LiveLocationEnvelope?> watchLiveLocation(
+    String sosId, [
+    String? participantId,
+  ]) =>
+      (_database.select(
+        _database.bleInbox,
+      )..where((table) => table.sosId.equals(sosId))).watch().asyncMap(
+        (_) => latestLiveLocation(sosId, participantId: participantId),
+      );
 
   /// Persists the inbox row and the SOS row in one transaction. This is the
   /// only operation the coordinator uses before emitting a positive ACK.

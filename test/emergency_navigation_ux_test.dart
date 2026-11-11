@@ -12,6 +12,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:sos_app/core/database/app_database.dart';
 import 'package:sos_app/core/theme/app_theme.dart';
 import 'package:sos_app/features/nearby_ble/data/ble_transport.dart';
+import 'package:sos_app/features/nearby_ble/domain/ble_models.dart';
 import 'package:sos_app/features/nearby_ble/data/emergency_consent_store.dart';
 import 'package:sos_app/features/nearby_ble/data/hop_relay_coordinator.dart';
 import 'package:sos_app/features/nearby_ble/data/relay_preference_store.dart';
@@ -36,7 +37,10 @@ class _BleCoordinator extends Mock implements SosBleCoordinator {
   final mediaStore = MediaAttachmentStore(ownerId: 'test');
 }
 
-class _Transport extends Mock implements BleTransportClient {}
+class _Transport extends Mock implements BleTransportClient {
+  @override
+  Stream<BleEvent> get events => const Stream.empty();
+}
 
 class _SosMessageFake extends Fake implements SosMessage {}
 
@@ -194,7 +198,7 @@ void main() {
     expect(find.text('Next device not recorded'), findsOneWidget);
     expect(
       tester.getTopLeft(banner).dy,
-      greaterThan(tester.getBottomRight(action).dy),
+      lessThan(tester.getTopLeft(action).dy),
     );
     expect(
       tester.getTopLeft(route).dy,
@@ -209,7 +213,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
-    expect(find.text('Incident active-banner-incident'), findsOneWidget);
+    expect(find.text('SOS source device'), findsOneWidget);
     expect(find.text('SOS Details'), findsNothing);
     expect(await repository.listActiveIncidents(), hasLength(1));
     await tester.pageBack();
@@ -272,6 +276,8 @@ void main() {
       const ValueKey('history-sos-chat-card-history-chat-incident'),
     );
     expect(card, findsOneWidget);
+    expect(find.text('SOS · history-chat-incident'), findsOneWidget);
+    expect(find.text('EMERGENCY'), findsNothing);
     expect(
       find.byKey(const ValueKey('history-status-summary')),
       findsOneWidget,
@@ -305,7 +311,7 @@ void main() {
     await tester.tapAt(tester.getTopLeft(card) + const Offset(18, 18));
     await tester.pumpAndSettle();
     expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
-    expect(find.text('Incident history-chat-incident'), findsOneWidget);
+    expect(find.text('SOS source device'), findsOneWidget);
 
     await tester.pageBack();
     await tester.pumpAndSettle();
@@ -314,7 +320,18 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('SOS Details'), findsOneWidget);
-    expect(find.text('History card route'), findsWidgets);
+    final detailSheet = find.byType(BottomSheet);
+    expect(
+      find.descendant(
+        of: detailSheet,
+        matching: find.text('History card route'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: detailSheet, matching: find.text('emergency')),
+      findsNothing,
+    );
     expect(
       find.text('Incident coordinates are not available.'),
       findsOneWidget,
@@ -446,7 +463,7 @@ void main() {
     final incidents = await repository.listActiveIncidents();
     expect(incidents, hasLength(1));
     expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
-    expect(find.text('Incident ${incidents.single.id}'), findsOneWidget);
+    expect(find.text('SOS source device'), findsOneWidget);
     expect(find.text('SOS Details'), findsNothing);
     expect(find.text('SOS relay options'), findsNothing);
     expect(find.text('Choose BLE recipient'), findsNothing);

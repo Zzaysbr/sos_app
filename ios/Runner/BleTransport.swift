@@ -6,12 +6,16 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   static let service = CBUUID(string: "8B7F0001-6D3A-4C8B-9D21-5A7F2E110001")
   static let rx = CBUUID(string: "8B7F0002-6D3A-4C8B-9D21-5A7F2E110001")
   static let tx = CBUUID(string: "8B7F0003-6D3A-4C8B-9D21-5A7F2E110001")
+  static let confirmedTx = CBUUID(string: "8B7F0004-6D3A-4C8B-9D21-5A7F2E110001")
   static let cccd = CBUUID(string: "00002902-0000-1000-8000-00805f9b34fb")
 
   private var sink: FlutterEventSink?
   private var central: CBCentralManager!
   private var peripheral: CBPeripheralManager!
   private var discovered: [UUID: CBPeripheral] = [:]
+  private var peerModels: [UUID: String] = [:]
+  private var peerRecoveryHints: [UUID: String] = [:]
+  private var discoveryIdentityHint: String?
   private var connected: [UUID: CBPeripheral] = [:]
   private var connecting = Set<UUID>()
   private var services = [UUID: CBService]()
@@ -30,6 +34,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     let result: FlutterResult
   }
   private var subscribedCentrals = [UUID: CBCentral]()
+  private var retiredCentrals = Set<UUID>()
   private var pendingPeripheralSends = [UUID: [PendingPeripheralSend]]()
   private var pacedPeripheralSends = Set<UUID>()
   private let maxPendingPeripheralSends = 32
@@ -42,6 +47,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   private var connectionAttempts = [UUID: Int]()
   private var nextConnectionAttempt = 0
   private var scanSession = 0
+  private var lastDiscoveryEmission: [UUID: TimeInterval] = [:]
   private let gattSetupTimeout: TimeInterval = 15
   private var initializationResults = [FlutterResult]()
   private var initializationTimeout: DispatchWorkItem?
@@ -91,6 +97,13 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
       return
     }
     switch call.method {
+    case "setDiscoveryIdentityHint":
+      guard let hint = (call.arguments as? [String: Any])?["hint"] as? String,
+            hint.range(of: "^[0-9a-f]{8}$", options: .regularExpression) != nil else {
+        result(FlutterError(code: "invalid_hint", message: "Expected eight hexadecimal characters", details: nil)); return
+      }
+      discoveryIdentityHint = hint
+      result(nil)
     case "initialize": initialize(result)
     case "requestPermissions": result(nil)
     case "startDiscovery": startDiscovery(result)
@@ -99,6 +112,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     case "stopAdvertising": stopAdvertising(result)
     case "connect": connect(call, result: result)
     case "disconnect": disconnect(call, result: result)
+    case "retireCentralLink": disconnect(call, result: result, centralOnly: true)
     case "send": send(call, result: result)
     case "maxFrameBytes":
       guard let args = call.arguments as? [String: Any],
@@ -179,6 +193,8 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
       }
     }
     discovered.removeAll()
+    peerModels.removeAll()
+    peerRecoveryHints.removeAll()
   }
 
   private func startDiscovery(_ result: @escaping FlutterResult) {
@@ -190,7 +206,8 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     }
     scanSession += 1
     let session = scanSession
-    central.scanForPeripherals(withServices: [Self.service], options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
+    lastDiscoveryEmission.removeAll()
+    central.scanForPeripherals(withServices: [Self.service], options: [CBCentralManagerScanOptionAllowDuplicatesKey: true])
     trace("startDiscovery accepted session=\(session) centralState=\(centralState()) service=\(Self.service.uuidString)")
     emit(["type": "state", "state": "discovering", "scanSession": session])
     result(nil)
@@ -245,7 +262,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
       return
     }
     if connecting.contains(uuid) || ready.contains(uuid) {
-      result(FlutterError(code: "busy", message: "A connection already exists for this device", details: nil))
+      result(nil)
       return
     }
     discovered[uuid] = p
@@ -256,11 +273,12 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     trace("connect requested id=\(uuid.uuidString)")
     p.delegate = self
     emit(["type": "connecting", "device": device(p), "role": "central", "attempt": nextConnectionAttempt])
+    scheduleSetupTimeout(for: p)
     central.connect(p, options: nil)
     result(nil)
   }
 
-  private func disconnect(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+  private func disconnect(_ call: FlutterMethodCall, result: @escaping FlutterResult, centralOnly: Bool = false) {
     guard let id = (call.arguments as? [String: Any])?["deviceId"] as? String,
           let uuid = UUID(uuidString: id) else { result(nil); return }
     // A Dart write deadline may be the only indication of a lost callback.
@@ -270,12 +288,15 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     if let results = writeResults.removeValue(forKey: uuid) {
       results.forEach { $0(FlutterError(code: "disconnected", message: "BLE write session retired", details: nil)) }
     }
-    pendingPeripheralSends.removeValue(forKey: uuid)?.forEach {
-      $0.result(FlutterError(code: "disconnected", message: "BLE write session retired", details: nil))
-    }
-    pacedPeripheralSends.remove(uuid)
-    if subscribedCentrals.removeValue(forKey: uuid) != nil {
-      emit(["type": "disconnected", "device": ["id": uuid.uuidString], "role": "peripheral"])
+    if !centralOnly {
+      pendingPeripheralSends.removeValue(forKey: uuid)?.forEach {
+        $0.result(FlutterError(code: "disconnected", message: "BLE write session retired", details: nil))
+      }
+      pacedPeripheralSends.remove(uuid)
+      if subscribedCentrals.removeValue(forKey: uuid) != nil {
+        retiredCentrals.insert(uuid)
+        emit(["type": "disconnected", "device": ["id": uuid.uuidString], "role": "peripheral"])
+      }
     }
     if let p = connected[uuid] ?? discovered[uuid] {
       disconnectReasons[uuid] = "flutter disconnect()"
@@ -398,9 +419,13 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     pendingPeripheralSends.removeAll()
     pacedPeripheralSends.removeAll()
     subscribedCentrals.removeAll()
+    retiredCentrals.removeAll()
     for results in writeResults.values { results.forEach { $0(FlutterError(code: "disposed", message: "BLE transport was disposed", details: nil)) } }
     writeResults.removeAll()
     connected.removeAll(); discovered.removeAll(); connecting.removeAll(); services.removeAll()
+    peerModels.removeAll()
+    peerRecoveryHints.removeAll()
+    discoveryIdentityHint = nil
     rxCharacteristics.removeAll(); txCharacteristics.removeAll(); notificationPending.removeAll(); ready.removeAll()
     advertisedService = nil; advertisedRx = nil; advertisedTx = nil
     disconnectReasons.removeAll()
@@ -425,6 +450,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     if peripheral.state != .poweredOn && peripheral.state != .unknown {
       advertisingActive = false
       subscribedCentrals.removeAll()
+      retiredCentrals.removeAll()
       pacedPeripheralSends.removeAll()
       for queue in pendingPeripheralSends.values {
         queue.forEach { $0.result(FlutterError(code: "bluetooth_unavailable", message: "Bluetooth peripheral state changed", details: nil)) }
@@ -445,7 +471,10 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
       emitError("iOS GATT service registration failed: \(error.localizedDescription)")
       return
     }
-    peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey: [Self.service]])
+    peripheral.startAdvertising([
+      CBAdvertisementDataServiceUUIDsKey: [Self.service],
+      CBAdvertisementDataLocalNameKey: discoveryIdentityHint.map { "R:\($0):\(Self.modelForAdvertising())" } ?? Self.modelForAdvertising(),
+    ])
   }
 
   func peripheralManagerDidStartAdvertising(_ peripheral: CBPeripheralManager, error: Error?) {
@@ -465,9 +494,25 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   }
 
   func centralManager(_ central: CBCentralManager, didDiscover p: CBPeripheral, advertisementData: [String: Any], rssi RSSI: NSNumber) {
-    guard !disposed, central === self.central else { return }
-    trace("didDiscover session=\(scanSession) id=\(p.identifier.uuidString) name=\(p.name ?? "unknown") rssi=\(RSSI)")
+    guard !disposed, central === self.central, central.isScanning else { return }
+    let previousModel = peerModels[p.identifier]
+    let previousHint = peerRecoveryHints[p.identifier]
     discovered[p.identifier] = p
+    let serviceData = advertisementData[CBAdvertisementDataServiceDataKey] as? [CBUUID: Data]
+    let localName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
+    if let metadata = Self.discoveryMetadata(serviceData?[Self.service], name: localName) {
+      if peerModels.count >= 128 && peerModels[p.identifier] == nil {
+        peerModels = peerModels.filter { connected[$0.key] != nil }
+        peerRecoveryHints = peerRecoveryHints.filter { connected[$0.key] != nil }
+      }
+      peerModels[p.identifier] = metadata.model
+      peerRecoveryHints[p.identifier] = metadata.hint
+    }
+    let now = ProcessInfo.processInfo.systemUptime
+    if previousModel == peerModels[p.identifier], previousHint == peerRecoveryHints[p.identifier],
+       let previous = lastDiscoveryEmission[p.identifier],
+       now - previous < 2 { return }
+    lastDiscoveryEmission[p.identifier] = now
     p.delegate = self
     emit(["type": "deviceFound", "device": device(p, rssi: RSSI), "scanSession": scanSession])
   }
@@ -476,6 +521,10 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     guard !disposed, central === self.central else { return }
     if let current = connected[p.identifier], current !== p {
       trace("ignoring stale didConnect id=\(p.identifier.uuidString)")
+      central.cancelPeripheralConnection(p)
+      return
+    }
+    guard connecting.contains(p.identifier) else {
       central.cancelPeripheralConnection(p)
       return
     }
@@ -494,6 +543,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
       trace("ignoring stale didFailToConnect id=\(p.identifier.uuidString)")
       return
     }
+    guard connecting.contains(p.identifier) || connected[p.identifier] === p else { return }
     cancelSetupTimeout(for: p.identifier)
     connecting.remove(p.identifier)
     connected.removeValue(forKey: p.identifier)
@@ -550,7 +600,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     services[p.identifier] = service
     trace("service matched id=\(p.identifier.uuidString) uuid=\(service.uuid.uuidString); discovering RX/TX")
     emit(["type": "serviceDiscovered", "device": device(p), "role": "central"])
-    p.discoverCharacteristics([Self.rx, Self.tx], for: service)
+    p.discoverCharacteristics([Self.rx, Self.tx, Self.confirmedTx], for: service)
   }
 
   func peripheral(_ p: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
@@ -565,13 +615,14 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     }
     guard service.uuid == Self.service,
           let rx = service.characteristics?.first(where: { $0.uuid == Self.rx }),
-          let tx = service.characteristics?.first(where: { $0.uuid == Self.tx }) else {
+          let tx = service.characteristics?.first(where: { $0.uuid == Self.confirmedTx })
+            ?? service.characteristics?.first(where: { $0.uuid == Self.tx }) else {
       failGATT(p, message: "Required RX/TX characteristics were not found"); return
     }
     rxCharacteristics[p.identifier] = rx
     txCharacteristics[p.identifier] = tx
     guard rx.properties.contains(.write) || rx.properties.contains(.writeWithoutResponse),
-          tx.properties.contains(.notify) else {
+          (tx.uuid == Self.confirmedTx ? tx.properties.contains(.indicate) : tx.properties.contains(.notify)) else {
       failGATT(p, message: "RX/TX properties are incompatible")
       return
     }
@@ -587,7 +638,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
       return
     }
     trace("didUpdateNotificationState id=\(p.identifier.uuidString) uuid=\(characteristic.uuid.uuidString) notifying=\(characteristic.isNotifying) error=\(error?.localizedDescription ?? "none")")
-    guard characteristic.uuid == Self.tx else { return }
+    guard characteristic.uuid == txCharacteristics[p.identifier]?.uuid else { return }
     notificationPending.remove(p.identifier)
     if let error {
       failGATT(p, message: "TX notification setup failed: \(error.localizedDescription)")
@@ -596,7 +647,8 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
       cancelSetupTimeout(for: p.identifier)
       connecting.remove(p.identifier)
       trace("transport ready attempt=\(connectionAttempts[p.identifier] ?? 0) id=\(p.identifier.uuidString)")
-      emit(["type": "connected", "device": device(p), "role": "central", "attempt": connectionAttempts[p.identifier] ?? 0])
+      emit(["type": "connected", "device": device(p), "role": "central", "attempt": connectionAttempts[p.identifier] ?? 0,
+            "state": characteristic.uuid == Self.confirmedTx ? "confirmed_indications" : "legacy_notifications"])
     } else {
       failGATT(p, message: "TX notifications were not enabled")
     }
@@ -620,7 +672,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   func peripheral(_ p: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
     guard !disposed, connected[p.identifier] === p else { return }
     trace("didUpdateValue id=\(p.identifier.uuidString) uuid=\(characteristic.uuid.uuidString) bytes=\(characteristic.value?.count ?? 0) error=\(error?.localizedDescription ?? "none")")
-    guard characteristic.uuid == Self.tx else { return }
+    guard characteristic.uuid == txCharacteristics[p.identifier]?.uuid else { return }
     guard error == nil, let data = characteristic.value else {
       emitError("TX notification read failed: \(error?.localizedDescription ?? "empty value")")
       return
@@ -632,7 +684,8 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     guard !disposed, peripheral === self.peripheral else { return }
     trace("didReceiveWrite requests=\(requests.count)")
     for request in requests {
-      let supported = request.characteristic.uuid == Self.rx && request.offset == 0
+      let supported = !retiredCentrals.contains(request.central.identifier) &&
+        request.characteristic.uuid == Self.rx && request.offset == 0
       if supported, let value = request.value {
         emit(["type": "data", "device": ["id": request.central.identifier.uuidString], "payload": FlutterStandardTypedData(bytes: value), "role": "peripheral"])
       }
@@ -643,6 +696,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didSubscribeTo characteristic: CBCharacteristic) {
     guard !disposed, peripheral === self.peripheral else { return }
     guard characteristic.uuid == Self.tx else { return }
+    retiredCentrals.remove(central.identifier)
     subscribedCentrals[central.identifier] = central
     trace("didSubscribeTo id=\(central.identifier.uuidString) characteristic=\(characteristic.uuid.uuidString)")
     emit(["type": "connected", "device": ["id": central.identifier.uuidString], "role": "peripheral"])
@@ -653,6 +707,7 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     guard !disposed, peripheral === self.peripheral else { return }
     guard characteristic.uuid == Self.tx else { return }
     let id = central.identifier
+    retiredCentrals.remove(id)
     subscribedCentrals.removeValue(forKey: id)
     pacedPeripheralSends.remove(id)
     pendingPeripheralSends.removeValue(forKey: id)?.forEach {
@@ -681,12 +736,27 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
   private func scheduleSetupTimeout(for p: CBPeripheral) {
     cancelSetupTimeout(for: p.identifier)
     let id = p.identifier
+    let attempt = connectionAttempts[id]
     let work = DispatchWorkItem { [weak self] in
       guard let self,
-            self.connected[id] === p,
+            self.connectionAttempts[id] == attempt,
+            self.connecting.contains(id),
             !self.ready.contains(id) else { return }
-      self.trace("GATT setup timeout attempt=\(self.connectionAttempts[id] ?? 0) id=\(id.uuidString)")
-      self.failGATT(p, message: "GATT setup timed out")
+      if self.connected[id] === p {
+        self.failGATT(p, message: "GATT setup timed out")
+      } else {
+        self.cancelSetupTimeout(for: id)
+        self.connecting.remove(id)
+        self.connectionAttempts.removeValue(forKey: id)
+        self.disconnectReasons.removeValue(forKey: id)
+        self.central.cancelPeripheralConnection(p)
+        var event: [String: Any] = [
+          "type": "disconnected", "device": self.device(p),
+          "role": "central", "error": "connection_timeout",
+        ]
+        if let attempt { event["attempt"] = attempt }
+        self.emit(event)
+      }
     }
     setupTimeouts[id] = work
     DispatchQueue.main.asyncAfter(deadline: .now() + gattSetupTimeout, execute: work)
@@ -704,8 +774,45 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     switch peripheral.state { case .poweredOn: return "poweredOn"; case .poweredOff: return "poweredOff"; case .unauthorized: return "unauthorized"; case .unsupported: return "unsupported"; case .resetting: return "resetting"; default: return "unknown" }
   }
 
+  private static func modelForAdvertising() -> String {
+    var info = utsname()
+    uname(&info)
+    let machine = withUnsafeBytes(of: info.machine) { bytes in
+      String(decoding: bytes.prefix { $0 != 0 }, as: UTF8.self)
+    }
+    // Keep the local name short enough for the scan response.
+    if machine.hasPrefix("iPhone") { return "M:I" + machine.dropFirst(6) }
+    if machine.hasPrefix("iPad") { return "M:P" + machine.dropFirst(4) }
+    return "M:A"
+  }
+
+  private static func discoveryMetadata(_ data: Data?, name: String?) -> (model: String, hint: String?)? {
+    if let data {
+      let bytes = Array(data)
+      if bytes.count == 13 && bytes[0] == 0xA7 {
+        let modelBytes = bytes[1..<9].prefix { $0 != 0 }
+        guard !modelBytes.isEmpty, modelBytes.allSatisfy({ (32...126).contains(Int($0)) }),
+              let model = String(bytes: modelBytes, encoding: .ascii) else { return nil }
+        let hint = bytes[9..<13].map { String(format: "%02x", Int($0)) }.joined()
+        return (model, hint)
+      }
+      if !bytes.isEmpty && bytes.count <= 10 && bytes.allSatisfy({ (32...126).contains(Int($0)) }),
+         let model = String(bytes: bytes, encoding: .ascii) { return (model, nil) }
+    }
+    if let name, name.hasPrefix("R:") {
+      let parts = name.split(separator: ":", maxSplits: 2)
+      if parts.count == 3,
+         parts[1].range(of: "^[0-9a-f]{8}$", options: .regularExpression) != nil {
+        return (String(parts[2]), String(parts[1]))
+      }
+    }
+    if let name, name.hasPrefix("M:") { return (name, nil) }
+    return nil
+  }
+
   private func device(_ p: CBPeripheral, rssi: NSNumber? = nil) -> [String: Any] {
-    ["id": p.identifier.uuidString, "name": p.name as Any, "rssi": rssi as Any]
+    ["id": p.identifier.uuidString, "name": p.name as Any, "model": peerModels[p.identifier] as Any,
+     "recoveryHint": peerRecoveryHints[p.identifier] as Any, "rssi": rssi as Any]
   }
 
   private func trace(_ message: String) {

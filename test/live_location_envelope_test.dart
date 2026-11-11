@@ -1,0 +1,50 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sos_app/features/nearby_ble/domain/live_location_envelope.dart';
+
+void main() {
+  final created = DateTime.utc(2026, 11, 9, 12);
+
+  LiveLocationEnvelope sample({int sequence = 1}) => LiveLocationEnvelope(
+    messageId: 'live:1:$sequence',
+    sosId: 'sos-1',
+    participantId: 'device-a',
+    participantRole: 'victim',
+    originKeyId: 'key-a',
+    originPublicKey: 'public-a',
+    originSignature: 'signature-a',
+    sequence: sequence,
+    latitude: 13.7563,
+    longitude: 100.5018,
+    createdAt: created,
+    expiresAt: created.add(const Duration(minutes: 2)),
+  );
+
+  test('round trips an immutable participant location and relay path', () {
+    final forwarded = sample().copyWithHop(relayKeyId: 'key-b', nextHop: 1);
+    final decoded = LiveLocationEnvelope.fromJson(forwarded.toJson());
+    expect(decoded.sequence, 1);
+    expect(decoded.participantRole, 'victim');
+    expect(decoded.pathKeyIds, ['key-b']);
+  });
+
+  test('rejects stale or malformed relay paths', () {
+    expect(
+      () => sample().copyWithHop(relayKeyId: 'key-b', nextHop: 2).validate(),
+      throwsA(isA<LiveLocationEnvelopeException>()),
+    );
+    expect(
+      () => LiveLocationEnvelope.fromJson({
+        ...sample().toJson(),
+        'latitude': 999,
+      }),
+      throwsA(isA<LiveLocationEnvelopeException>()),
+    );
+  });
+
+  test('expires according to receiver time', () {
+    expect(
+      () => sample().validate(now: created.add(const Duration(minutes: 3))),
+      throwsA(isA<LiveLocationEnvelopeException>()),
+    );
+  });
+}

@@ -34,6 +34,7 @@ import android.os.Looper
 import android.os.ParcelUuid
 import android.os.SystemClock
 import android.util.Log
+import android.util.LruCache
 import androidx.core.content.ContextCompat
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
@@ -51,6 +52,7 @@ class BleTransportBridge(
         val SERVICE: UUID = UUID.fromString("8b7f0001-6d3a-4c8b-9d21-5a7f2e110001")
         val RX: UUID = UUID.fromString("8b7f0002-6d3a-4c8b-9d21-5a7f2e110001")
         val TX: UUID = UUID.fromString("8b7f0003-6d3a-4c8b-9d21-5a7f2e110001")
+        val CONFIRMED_TX: UUID = UUID.fromString("8b7f0004-6d3a-4c8b-9d21-5a7f2e110001")
         val CCCD: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
     }
 
@@ -65,6 +67,9 @@ class BleTransportBridge(
     private var advertiser: BluetoothLeAdvertiser? = null
     private var server: BluetoothGattServer? = null
     private var serverTxCharacteristic: BluetoothGattCharacteristic? = null
+    private var serverConfirmedTxCharacteristic: BluetoothGattCharacteristic? = null
+    private val confirmedClients = mutableSetOf<String>()
+    private val centralTxChannels = mutableMapOf<String, UUID>()
     private var serverReady = false
     private var advertisingResult: MethodChannel.Result? = null
     private var permissionResult: MethodChannel.Result? = null
@@ -83,6 +88,30 @@ class BleTransportBridge(
     private val gattWriteTimeoutMs = 5_000L
     private val notificationClients = mutableSetOf<String>()
     private val serverClients = mutableSetOf<String>()
+    private val serverHealthMisses = mutableSetOf<String>()
+    private val centralRetirements = mutableMapOf<String, Runnable>()
+    private val serverHealthCheck = object : Runnable {
+        override fun run() {
+            if (disposed || notificationClients.isEmpty()) return
+            val connected = try {
+                manager.getConnectedDevices(BluetoothProfile.GATT).mapTo(mutableSetOf()) { it.address }
+            } catch (_: RuntimeException) {
+                null
+            }
+            if (connected == null) {
+                serverHealthMisses.clear()
+            } else {
+                for (id in notificationClients.toList()) {
+                    if (id in connected) {
+                        serverHealthMisses.remove(id)
+                    } else if (!serverHealthMisses.add(id)) {
+                        adapter?.getRemoteDevice(id)?.let { retireServerPeer(it, "gatt_link_lost") }
+                    }
+                }
+            }
+            if (notificationClients.isNotEmpty()) mainHandler.postDelayed(this, 5_000L)
+        }
+    }
     private val disconnectReasons = mutableMapOf<String, String>()
     private val connectionTimeouts = mutableMapOf<String, Runnable>()
     private val setupTimeouts = mutableMapOf<String, Runnable>()
@@ -105,13 +134,25 @@ class BleTransportBridge(
     @Volatile private var disposed = false
     private var generation = 0
     private var scanSession = 0L
+    private val peerModels = LruCache<String, String>(128)
+    private val peerRecoveryHints = LruCache<String, String>(128)
+    private var discoveryIdentityHint: String? = null
     private val lastScanEmitMs = mutableMapOf<String, Long>()
     private val scanEmitIntervalMs = 500L
 
     private var receiverRegistered = false
     private val adapterReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action != BluetoothAdapter.ACTION_STATE_CHANGED || disposed) return
+            if (disposed) return
+            if (intent.action == BluetoothDevice.ACTION_ACL_DISCONNECTED) {
+                if (intent.getIntExtra(BluetoothDevice.EXTRA_TRANSPORT, BluetoothDevice.TRANSPORT_AUTO) ==
+                    BluetoothDevice.TRANSPORT_BREDR) return
+                @Suppress("DEPRECATION")
+                val peer = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE) ?: return
+                if (serverClients.contains(peer.address)) retireServerPeer(peer, "acl_disconnected")
+                return
+            }
+            if (intent.action != BluetoothAdapter.ACTION_STATE_CHANGED) return
             when (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)) {
                 BluetoothAdapter.STATE_TURNING_OFF, BluetoothAdapter.STATE_OFF -> {
                     // Retire native GATT objects and callbacks, keeping the
@@ -128,7 +169,9 @@ class BleTransportBridge(
     fun register() {
         if (!receiverRegistered) {
             ContextCompat.registerReceiver(context, adapterReceiver,
-                IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED), ContextCompat.RECEIVER_EXPORTED)
+                IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED).apply {
+                    addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
+                }, ContextCompat.RECEIVER_EXPORTED)
             receiverRegistered = true
         }
         // A Flutter hot restart can replace the Dart channel while the
@@ -170,7 +213,15 @@ class BleTransportBridge(
         mtuSetupTimeouts.values.forEach(mainHandler::removeCallbacks)
         mtuSetupTimeouts.clear()
         notificationClients.clear()
+        peerRecoveryHints.evictAll()
+        discoveryIdentityHint = null
+        confirmedClients.clear()
+        centralTxChannels.clear()
         serverClients.clear()
+        serverHealthMisses.clear()
+        mainHandler.removeCallbacks(serverHealthCheck)
+        centralRetirements.values.forEach(mainHandler::removeCallbacks)
+        centralRetirements.clear()
         notificationQueues.values.flatten().forEach {
             it.result.error("disposed", "BLE transport was disposed", null)
         }
@@ -187,6 +238,7 @@ class BleTransportBridge(
         try { server?.close() } catch (_: SecurityException) { }
         server = null
         serverTxCharacteristic = null
+        serverConfirmedTxCharacteristic = null
         serverReady = false
     }
 
@@ -241,6 +293,15 @@ class BleTransportBridge(
         }
         try {
             when (call.method) {
+                "setDiscoveryIdentityHint" -> {
+                    val hint = call.argument<String>("hint")
+                    if (hint == null || !hint.matches(Regex("[0-9a-f]{8}"))) {
+                        result.error("invalid_hint", "Expected eight hexadecimal characters", null)
+                    } else {
+                        discoveryIdentityHint = hint
+                        result.success(null)
+                    }
+                }
                 "initialize" -> {
                     if (!checkAdapter(result)) return
                     ensureServer(result)
@@ -254,6 +315,16 @@ class BleTransportBridge(
                 }
                 "connect" -> connect(call.argument<String>("deviceId"), result)
                 "disconnect" -> disconnect(call.argument<String>("deviceId"), result)
+                "retireCentralLink" -> disconnect(call.argument<String>("deviceId"), result, centralOnly = true)
+                "retirePeripheralLink" -> {
+                    val id = call.argument<String>("deviceId")
+                    if (id != null && serverClients.contains(id)) {
+                        adapter?.getRemoteDevice(id)?.let {
+                            retireServerPeer(it, "link_probe_timeout", cancelNative = !readyClients.contains(id))
+                        }
+                    }
+                    result.success(null)
+                }
                 "send" -> send(call, result)
                 "maxFrameBytes" -> {
                     val id = call.argument<String>("deviceId")
@@ -345,7 +416,7 @@ class BleTransportBridge(
             return when (method) {
                 "startDiscovery", "stopDiscovery" -> scan && connect
                 "startAdvertising", "stopAdvertising" -> advertise && connect
-                "connect", "disconnect", "send", "initialize" -> connect
+                "connect", "disconnect", "retireCentralLink", "retirePeripheralLink", "send", "initialize" -> connect
                 else -> true
             }
         }
@@ -399,9 +470,19 @@ class BleTransportBridge(
             BluetoothGattCharacteristic.PERMISSION_READ,
         )
         tx.addDescriptor(BluetoothGattDescriptor(CCCD, BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE))
+        // Keep legacy notifications discoverable. Updated clients prefer this
+        // separate indication-only channel and wait for ATT confirmation.
+        val confirmedTx = BluetoothGattCharacteristic(
+            CONFIRMED_TX,
+            BluetoothGattCharacteristic.PROPERTY_INDICATE,
+            BluetoothGattCharacteristic.PERMISSION_READ,
+        )
+        confirmedTx.addDescriptor(BluetoothGattDescriptor(CCCD, BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE))
         serverTxCharacteristic = tx
+        serverConfirmedTxCharacteristic = confirmedTx
         service.addCharacteristic(rx)
         service.addCharacteristic(tx)
+        service.addCharacteristic(confirmedTx)
         serverReady = false
         if (!server!!.addService(service)) {
             server?.close()
@@ -453,20 +534,13 @@ class BleTransportBridge(
                     .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
                     .build(),
                 AdvertiseData.Builder()
-                    // A 128-bit UUID plus the device name can exceed the
-                    // legacy 31-byte advertising packet. Put the name in the
-                    // scan response so code 1 (DATA_TOO_LARGE) is avoided.
-                    .setIncludeDeviceName(false)
                     .addServiceUuid(ParcelUuid(SERVICE))
                     .build(),
-                // Do not put the device name in the scan response. Some
-                // Android adapters account for the local-name overhead
-                // differently and reject this otherwise valid 128-bit UUID
-                // advertisement with ADVERTISE_FAILED_DATA_TOO_LARGE.
-                // Discovery is filtered by SERVICE, so the name is optional
-                // and can still be supplied by the native device record when
-                // available.
-                AdvertiseData.Builder().build(),
+                // A separate scan response leaves the discovery UUID intact.
+                // The versioned model/hint payload fits the 31-byte response.
+                AdvertiseData.Builder()
+                    .addServiceData(ParcelUuid(SERVICE), modelForAdvertising())
+                    .build(),
                 callback,
             )
         } catch (error: Exception) {
@@ -525,11 +599,13 @@ class BleTransportBridge(
             result.error("invalid_device", "Invalid Bluetooth device id", null)
             return
         }
-        if (clients.containsKey(id)) {
-            result.error("busy", "A connection already exists for this device", null)
+        // A manual tap can race the automatic retry or an incoming link.
+        // Reuse the native connection instead of starting a second GATT client.
+        if (clients.containsKey(id) || notificationClients.contains(id)) {
+            result.success(null)
             return
         }
-        val gatt = remote.connectGatt(context, false, gattCallback)
+        val gatt = remote.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
         if (gatt == null) {
             result.error("connect_failed", "Android could not create a GATT connection", null)
             emitError("Could not create a GATT connection to $id")
@@ -544,7 +620,7 @@ class BleTransportBridge(
         result.success(null)
     }
 
-    private fun disconnect(id: String?, result: MethodChannel.Result) {
+    private fun disconnect(id: String?, result: MethodChannel.Result, centralOnly: Boolean = false) {
         if (id.isNullOrBlank()) {
             result.error("invalid_device", "A device id is required", null)
             return
@@ -570,7 +646,9 @@ class BleTransportBridge(
             )
         }
         readyClients.remove(id)
-        notificationClients.remove(id)
+        if (!centralOnly && serverClients.contains(id)) {
+            adapter?.getRemoteDevice(id)?.let { retireServerPeer(it, "local_disconnect") }
+        }
         result.success(null)
     }
 
@@ -710,7 +788,8 @@ class BleTransportBridge(
             return
         }
         val currentServer = server
-        val tx = serverTxCharacteristic
+        val confirmed = confirmedClients.contains(id)
+        val tx = if (confirmed) serverConfirmedTxCharacteristic else serverTxCharacteristic
         val device = try { adapter?.getRemoteDevice(id) } catch (_: IllegalArgumentException) { null }
         if (currentServer == null || tx == null || device == null ||
             !serverClients.contains(id) || !notificationClients.contains(id)) {
@@ -719,18 +798,18 @@ class BleTransportBridge(
             flushPeripheralNotifications(id)
             return
         }
-        logDebug("TX notification send id=$id bytes=${pending.value.size}")
+        logDebug("TX notification send id=$id bytes=${pending.value.size} confirmed=$confirmed")
         tx.value = pending.value
         val accepted = if (Build.VERSION.SDK_INT >= 33) {
             currentServer.notifyCharacteristicChanged(
                 device,
                 tx,
-                false,
+                confirmed,
                 pending.value,
             ) == BluetoothStatusCodes.SUCCESS
         } else {
             @Suppress("DEPRECATION")
-            currentServer.notifyCharacteristicChanged(device, tx, false)
+            currentServer.notifyCharacteristicChanged(device, tx, confirmed)
         }
         if (!accepted) {
             queue.removeFirst()
@@ -746,20 +825,50 @@ class BleTransportBridge(
             if (notificationQueues[id] !== queue || queue.firstOrNull() !== pending ||
                 !notificationInFlight.contains(id)) return@Runnable
             logError("notification callback timeout id=$id")
-            serverClients.remove(id)
-            notificationClients.remove(id)
-            clearNotificationSession(id, "Notification callback timed out")
-            try { currentServer.cancelConnection(device) } catch (_: SecurityException) { }
             emit(mapOf("type" to "error", "device" to device(device), "role" to "peripheral", "error" to "notification_callback_timeout"))
-            emit(mapOf("type" to "disconnected", "device" to device(device), "role" to "peripheral", "error" to "notification_callback_timeout"))
+            retireServerPeer(device, "notification_callback_timeout")
         }
         notificationTimeouts[id] = timeout
         mainHandler.postDelayed(timeout, notificationCallbackTimeoutMs)
     }
 
+    private fun modelForAdvertising(): ByteArray {
+        val model = Build.MODEL.trim().filter { it in ' '..'~' }
+        val hint = discoveryIdentityHint ?: return model.take(10).toByteArray(Charsets.US_ASCII)
+        // Scan response budget: 18-byte 128-bit service-data header + 13 bytes.
+        val payload = ByteArray(13)
+        payload[0] = 0xA7.toByte()
+        model.take(8).toByteArray(Charsets.US_ASCII).copyInto(payload, 1)
+        for (i in 0 until 4) payload[9 + i] = hint.substring(i * 2, i * 2 + 2).toInt(16).toByte()
+        return payload
+    }
+
+    private fun discoveryMetadata(data: ByteArray?, name: String?): Pair<String, String?>? {
+        if (data != null && data.size == 13 && (data[0].toInt() and 0xff) == 0xA7) {
+            val modelBytes = data.copyOfRange(1, 9).takeWhile { it != 0.toByte() }
+            if (modelBytes.isEmpty() || modelBytes.any { (it.toInt() and 0xff) !in 32..126 }) return null
+            val model = modelBytes.toByteArray().toString(Charsets.US_ASCII)
+            val hint = data.copyOfRange(9, 13).joinToString("") { "%02x".format(it.toInt() and 0xff) }
+            return model to hint
+        }
+        if (data != null && data.size <= 10 && data.isNotEmpty() &&
+            data.all { (it.toInt() and 0xff) in 32..126 }) {
+            return data.toString(Charsets.US_ASCII) to null
+        }
+        if (name?.startsWith("R:") == true) {
+            val parts = name.split(':', limit = 3)
+            if (parts.size == 3 && parts[1].matches(Regex("[0-9a-f]{8}")) && parts[2].isNotBlank()) {
+                return parts[2] to parts[1]
+            }
+        }
+        return name?.takeIf { it.startsWith("M:") }?.let { it to null }
+    }
+
     private fun device(value: BluetoothDevice, rssi: Int? = null) = mapOf(
         "id" to value.address,
         "name" to value.name,
+        "model" to peerModels.get(value.address),
+        "recoveryHint" to peerRecoveryHints.get(value.address),
         "rssi" to rssi,
     )
 
@@ -835,8 +944,18 @@ class BleTransportBridge(
                 if (disposed || session != scanSession) return@onMain
                 val id = result.device.address
                 val now = SystemClock.elapsedRealtime()
+                val record = result.scanRecord
+                val metadata = discoveryMetadata(record?.getServiceData(ParcelUuid(SERVICE)), record?.deviceName)
+                val model = metadata?.first
+                val modelChanged = model != null && model != peerModels.get(id)
+                val hintChanged = metadata != null && metadata.second != peerRecoveryHints.get(id)
+                if (metadata != null) {
+                    if (metadata.second == null) peerRecoveryHints.remove(id)
+                    else peerRecoveryHints.put(id, metadata.second!!)
+                }
+                if (model != null) peerModels.put(id, model)
                 val last = lastScanEmitMs[id]
-                if (last != null && now - last < scanEmitIntervalMs) return@onMain
+                if (!modelChanged && !hintChanged && last != null && now - last < scanEmitIntervalMs) return@onMain
                 lastScanEmitMs[id] = now
                 logDebug("onScanResult session=$session callbackType=$callbackType id=${result.device.address} rssi=${result.rssi}")
                 emit(mapOf("type" to "deviceFound", "device" to device(result.device, result.rssi), "scanSession" to session))
@@ -908,7 +1027,7 @@ class BleTransportBridge(
     }
 
     private fun emitCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) {
-        if (characteristic.uuid == TX && readyClients.contains(gatt.device.address)) {
+        if (characteristic.uuid == centralTxChannels[gatt.device.address] && readyClients.contains(gatt.device.address)) {
             logDebug("TX notification received id=${gatt.device.address} bytes=${value.size}")
             emit(mapOf("type" to "data", "device" to device(gatt.device), "payload" to value, "role" to "central"))
         }
@@ -920,6 +1039,12 @@ class BleTransportBridge(
         if (clients[id] !== gatt) {
             logDebug("Ignoring stale connection callback attempt=${attempt ?: "unknown"} id=$id status=$status newState=$newState")
             gatt.close()
+            return
+        }
+        if (centralRetirements.containsKey(id)) {
+            if (newState == BluetoothProfile.STATE_DISCONNECTED || status != BluetoothGatt.GATT_SUCCESS) {
+                finishTimedOutConnection(id, gatt, attempt)
+            }
             return
         }
         val reason = disconnectReasons[id] ?: "remote_or_stack"
@@ -951,7 +1076,7 @@ class BleTransportBridge(
         val id = gatt.device.address
         if (!isCurrentGatt(gatt)) {
             logDebug("Ignoring stale service discovery callback id=$id status=$status")
-            gatt.close()
+            if (clients[id] !== gatt) gatt.close()
             return
         }
         logDebug("onServicesDiscovered id=$id status=$status")
@@ -963,13 +1088,14 @@ class BleTransportBridge(
         }
         val service = gatt.getService(SERVICE)
         val rx = service?.getCharacteristic(RX)
-        val tx = service?.getCharacteristic(TX)
+        val tx = service?.getCharacteristic(CONFIRMED_TX) ?: service?.getCharacteristic(TX)
         logDebug("GATT service=${service != null} rx=${rx != null} tx=${tx != null} id=$id")
         val rxWritable = rx?.let {
             (it.properties and (BluetoothGattCharacteristic.PROPERTY_WRITE or BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE)) != 0
         } == true
         val txNotifiable = tx?.let {
-            (it.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0
+            (it.properties and (if (it.uuid == CONFIRMED_TX)
+                BluetoothGattCharacteristic.PROPERTY_INDICATE else BluetoothGattCharacteristic.PROPERTY_NOTIFY)) != 0
         } == true
         if (service == null || rx == null || tx == null || !rxWritable || !txNotifiable) {
             readyClients.remove(id)
@@ -990,8 +1116,10 @@ class BleTransportBridge(
             gatt.disconnect()
             return
         }
-        descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-        logDebug("Writing TX CCCD id=$id uuid=${descriptor.uuid}")
+        centralTxChannels[id] = tx.uuid
+        descriptor.value = if (tx.uuid == CONFIRMED_TX)
+            BluetoothGattDescriptor.ENABLE_INDICATION_VALUE else BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+        logDebug("Writing TX CCCD id=$id uuid=${descriptor.uuid} confirmed=${tx.uuid == CONFIRMED_TX}")
         if (!gatt.writeDescriptor(descriptor)) {
             emitError("Could not write TX notification descriptor for $id")
             gatt.disconnect()
@@ -1024,7 +1152,8 @@ class BleTransportBridge(
         }
     }
 
-    private fun isCurrentGatt(gatt: BluetoothGatt): Boolean = clients[gatt.device.address] === gatt
+    private fun isCurrentGatt(gatt: BluetoothGatt): Boolean =
+        clients[gatt.device.address] === gatt && !centralRetirements.containsKey(gatt.device.address)
 
     private fun completeMtuSetup(gatt: BluetoothGatt) {
         val id = gatt.device.address
@@ -1032,7 +1161,7 @@ class BleTransportBridge(
         if (!isCurrentGatt(gatt) || readyClients.contains(id)) return
         cancelSetupTimeout(id)
         readyClients.add(id)
-        emit(mapOf("type" to "connected", "device" to device(gatt.device), "role" to "central", "attempt" to connectionAttempts[id]))
+        emit(mapOf("type" to "connected", "device" to device(gatt.device), "role" to "central", "attempt" to connectionAttempts[id], "state" to if (centralTxChannels[id] == CONFIRMED_TX) "confirmed_indications" else "legacy_notifications"))
     }
 
     private fun scheduleSetupTimeout(id: String, gatt: BluetoothGatt) {
@@ -1088,31 +1217,31 @@ class BleTransportBridge(
     ) {
         if (!isCurrentGatt(gatt)) return
         failGattWrites(id, "timeout", message)
-        try { gatt.disconnect() } catch (_: SecurityException) { }
+        readyClients.remove(id)
+        cancelConnectionTimeout(id)
+        cancelSetupTimeout(id)
+        val fallback = Runnable { finishTimedOutConnection(id, gatt, attempt) }
+        centralRetirements[id] = fallback
+        // Let Android finish the disconnect before closing its GATT client.
+        // Keep a deadline for firmware that also drops that callback.
+        mainHandler.postDelayed(fallback, 2_000L)
+        try { gatt.disconnect() } catch (_: SecurityException) {
+            finishTimedOutConnection(id, gatt, attempt)
+        }
+        emit(mapOf("type" to "error", "error" to message, "device" to device(gatt.device), "role" to "central", "attempt" to attempt))
+    }
+
+    private fun finishTimedOutConnection(id: String, gatt: BluetoothGatt, attempt: Long?) {
+        if (clients[id] !== gatt || !centralRetirements.containsKey(id)) return
         cleanupCentral(id, gatt)
-        emit(
-            mapOf(
-                "type" to "error",
-                "error" to message,
-                "device" to device(gatt.device),
-                "role" to "central",
-                "attempt" to attempt,
-            ),
-        )
-        emit(
-            mapOf(
-                "type" to "disconnected",
-                "device" to device(gatt.device),
-                "error" to "timeout",
-                "role" to "central",
-                "attempt" to attempt,
-            ),
-        )
+        emit(mapOf("type" to "disconnected", "device" to device(gatt.device), "error" to "timeout", "role" to "central", "attempt" to attempt))
     }
 
     private fun cleanupCentral(id: String, gatt: BluetoothGatt) {
+        centralRetirements.remove(id)?.let(mainHandler::removeCallbacks)
         mtuSetupTimeouts.remove(id)?.let(mainHandler::removeCallbacks)
         centralMtus.remove(id)
+        centralTxChannels.remove(id)
         cancelConnectionTimeout(id)
         cancelSetupTimeout(id)
         readyClients.remove(id)
@@ -1158,19 +1287,23 @@ class BleTransportBridge(
         ) {
             onMain {
                 if (disposed || session != generation) return@onMain
-                val supported = characteristic.uuid == RX && !preparedWrite && offset == 0
+                val supported = serverClients.contains(device.address) &&
+                    characteristic.uuid == RX && !preparedWrite && offset == 0
                 logDebug("onCharacteristicWriteRequest id=${device.address} uuid=${characteristic.uuid} requestId=$requestId prepared=$preparedWrite offset=$offset responseNeeded=$responseNeeded bytes=${value.size}")
-                if (supported) {
-                    emit(mapOf("type" to "data", "device" to device(device), "payload" to value, "role" to "peripheral"))
-                }
                 if (responseNeeded) {
-                    server?.sendResponse(
+                    val accepted = server?.sendResponse(
                         device,
                         requestId,
                         if (supported) BluetoothGatt.GATT_SUCCESS else BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED,
                         offset,
                         null,
-                    )
+                    ) == true
+                    logDebug("ATT response id=${device.address} requestId=$requestId accepted=$accepted supported=$supported")
+                }
+                if (supported) {
+                    // Complete the ATT transaction before publishing app work.
+                    serverHealthMisses.remove(device.address)
+                    emit(mapOf("type" to "data", "device" to device(device), "payload" to value, "role" to "peripheral"))
                 }
             }
         }
@@ -1184,39 +1317,46 @@ class BleTransportBridge(
             offset: Int,
             value: ByteArray,
         ) {
-            val enabled = value.contentEquals(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+            val confirmed = descriptor.characteristic?.uuid == CONFIRMED_TX
+            val enabled = value.contentEquals(if (confirmed)
+                BluetoothGattDescriptor.ENABLE_INDICATION_VALUE else BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
             val disabled = value.contentEquals(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE)
-            val supported = descriptor.uuid == CCCD &&
-                descriptor.characteristic?.uuid == TX &&
-                !preparedWrite && offset == 0 && (enabled || disabled)
             onMain {
                 if (disposed || session != generation) return@onMain
+                val supported = serverClients.contains(device.address) &&
+                    descriptor.uuid == CCCD && (descriptor.characteristic?.uuid == TX || confirmed) &&
+                    !preparedWrite && offset == 0 && (enabled || disabled) &&
+                    (!enabled || !notificationClients.contains(device.address) || confirmedClients.contains(device.address) == confirmed)
                 logDebug(
                     "onDescriptorWriteRequest id=${device.address} uuid=${descriptor.uuid} " +
                         "characteristic=${descriptor.characteristic?.uuid} requestId=$requestId " +
                         "prepared=$preparedWrite offset=$offset responseNeeded=$responseNeeded " +
                         "enabled=$enabled disabled=$disabled",
                 )
+                // Acknowledge subscription before emitting app-ready; otherwise
+                // proof frames can be enqueued before the ATT write completes.
+                if (responseNeeded) {
+                    val accepted = server?.sendResponse(device, requestId,
+                        if (supported) BluetoothGatt.GATT_SUCCESS else BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED,
+                        offset, null) == true
+                    logDebug("ATT descriptor response id=${device.address} requestId=$requestId accepted=$accepted confirmed=$confirmed")
+                }
                 if (supported) {
                     if (enabled) {
-                        val wasSubscribed = notificationClients.add(device.address)
-                        if (wasSubscribed && serverClients.contains(device.address)) {
-                            emit(mapOf("type" to "connected", "device" to device(device), "role" to "peripheral"))
+                        if (confirmed) confirmedClients.add(device.address) else confirmedClients.remove(device.address)
+                        if (notificationClients.add(device.address)) {
+                            serverHealthMisses.remove(device.address)
+                            if (notificationClients.size == 1) {
+                                mainHandler.removeCallbacks(serverHealthCheck)
+                                mainHandler.postDelayed(serverHealthCheck, 5_000L)
+                            }
+                            emit(mapOf("type" to "connected", "device" to device(device), "role" to "peripheral", "state" to if (confirmed) "confirmed_indications" else "legacy_notifications"))
                         }
-                    } else {
+                    } else if (confirmedClients.contains(device.address) == confirmed) {
                         notificationClients.remove(device.address)
                         clearNotificationSession(device.address, "TX notifications were disabled")
                         emit(mapOf("type" to "disconnected", "device" to device(device), "error" to "TX notifications disabled", "role" to "peripheral"))
                     }
-                }
-                if (responseNeeded) {
-                    server?.sendResponse(
-                        device,
-                        requestId,
-                        if (supported) BluetoothGatt.GATT_SUCCESS else BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED,
-                        offset,
-                        null,
-                    )
                 }
                 if (!supported) {
                     logError("Rejected unsupported CCCD write from ${device.address}")
@@ -1231,16 +1371,9 @@ class BleTransportBridge(
                 if (newState == BluetoothProfile.STATE_CONNECTED && status == BluetoothGatt.GATT_SUCCESS) {
                     serverClients.add(device.address)
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                    peripheralMtus.remove(device.address)
-                    serverClients.remove(device.address)
-                    notificationClients.remove(device.address)
-                    clearNotificationSession(device.address, "Peripheral peer disconnected")
-                    emit(mapOf("type" to "disconnected", "device" to device(device), "error" to if (status == BluetoothGatt.GATT_SUCCESS) null else "status $status", "role" to "peripheral"))
+                    retireServerPeer(device, if (status == BluetoothGatt.GATT_SUCCESS) null else "status $status", cancelNative = false)
                 } else if (status != BluetoothGatt.GATT_SUCCESS) {
-                    peripheralMtus.remove(device.address)
-                    serverClients.remove(device.address)
-                    notificationClients.remove(device.address)
-                    clearNotificationSession(device.address, "GATT server connection failed (status $status)")
+                    retireServerPeer(device, "status $status", cancelNative = false)
                     emit(mapOf("type" to "error", "error" to "GATT server connection failed for ${device.address} (status $status)", "device" to device(device), "role" to "peripheral"))
                 }
             }
@@ -1282,7 +1415,23 @@ class BleTransportBridge(
         }
     }
 
+    private fun retireServerPeer(device: BluetoothDevice, reason: String?, cancelNative: Boolean = true) {
+        val id = device.address
+        if (!serverClients.remove(id)) return
+        logDebug("Peripheral GATT retired id=$id reason=${reason ?: "native_disconnect"}")
+        peripheralMtus.remove(id)
+        notificationClients.remove(id)
+        serverHealthMisses.remove(id)
+        if (notificationClients.isEmpty()) mainHandler.removeCallbacks(serverHealthCheck)
+        clearNotificationSession(id, reason ?: "Peripheral peer disconnected")
+        if (cancelNative) {
+            try { server?.cancelConnection(device) } catch (_: SecurityException) { }
+        }
+        emit(mapOf("type" to "disconnected", "device" to device(device), "role" to "peripheral", "error" to reason))
+    }
+
     private fun clearNotificationSession(id: String, message: String) {
+        confirmedClients.remove(id)
         notificationTimeouts.remove(id)?.let(mainHandler::removeCallbacks)
         notificationInFlight.remove(id)
         notificationQueues.remove(id)?.forEach {

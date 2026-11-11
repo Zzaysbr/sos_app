@@ -83,6 +83,50 @@ class _BackgroundTransport extends _PresenceTransport
 }
 
 void main() {
+  test(
+    'retired write timeout preserves the replacement connection queue',
+    () async {
+      final transport = _PresenceTransport()
+        ..firstWriteStarted = Completer<void>()
+        ..releaseFirstWrite = Completer<void>();
+      addTearDown(transport.dispose);
+      var oldCurrent = true;
+      final queue = BleMessageWriteQueue.sharedFor(transport);
+      final old = queue.sendFrames(
+        'peer',
+        const [
+          [1],
+          [2],
+        ],
+        role: BleSessionRole.central,
+        canSend: () => oldCurrent,
+        isConnectionCurrent: () => oldCurrent,
+        writeTimeout: const Duration(milliseconds: 30),
+      );
+      final failed = expectLater(old, throwsA(isA<TimeoutException>()));
+      await transport.firstWriteStarted!.future;
+      oldCurrent = false;
+      final replacement = queue.sendFrames(
+        'peer',
+        const [
+          [3],
+          [4],
+        ],
+        role: BleSessionRole.central,
+        canSend: () => true,
+      );
+      await failed;
+      expect(await replacement, isTrue);
+      expect(transport.disconnects, 0);
+      expect(transport.sentFrames, [
+        [1],
+        [3],
+        [4],
+      ]);
+      transport.releaseFirstWrite!.complete();
+    },
+  );
+
   test('authorized background presence survives leaving UI and stops with last lease', () async {
     final transport = _BackgroundTransport();
     addTearDown(transport.dispose);

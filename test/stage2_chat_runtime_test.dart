@@ -74,6 +74,33 @@ void main() {
     );
   });
 
+  test(
+    'urgent SOS-author text reaches C through B before a help offer',
+    () async {
+      final s = await ready();
+      for (final n in [s.a, s.b, s.c]) {
+        await n.db.delete(n.db.rescueResponseInbox).go();
+        await n.db.delete(n.db.rescueResponseOutbox).go();
+      }
+      await s.a.send('before-accept', 'Urgent: trapped on second floor', s.c);
+      await s.network.until(() => received(s.c, 'before-accept'));
+      await s.network.pump();
+      expect(
+        (await s.c.chat.loadMessages('incident-1'))
+            .where((m) => m.id == 'before-accept'),
+        hasLength(1),
+      );
+      for (final n in [s.a, s.b, s.c]) {
+        expect(await n.db.select(n.db.rescueResponseInbox).get(), isEmpty);
+        expect(await n.db.select(n.db.rescueResponseOutbox).get(), isEmpty);
+      }
+      expect(
+        s.network.allowedLinks.contains(s.network.pair('A', 'C')),
+        isFalse,
+      );
+    },
+  );
+
   test('20 alternating messages keep incident, original identity and exactly one bubble', () async {
     final s = await ready();
     final clock = Stopwatch()..start();

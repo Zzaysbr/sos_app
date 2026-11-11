@@ -33,13 +33,18 @@ String locationDeliveryStatusText(BleOutboxData? row) {
   };
 }
 
-/// Foreground-only location sharing controls for one active SOS.
+/// Location sharing controls for one active SOS. Once enabled, the panel
+/// publishes a bounded foreground fix immediately and refreshes it every ten
+/// seconds while the incident remains open. The OS/background lifecycle still
+/// controls whether a platform can provide GPS and BLE work.
 class LocationSharingPanel extends StatefulWidget {
   const LocationSharingPanel({
     super.key,
     required this.sos,
     required this.coordinator,
     required this.transport,
+    this.participantRole = 'victim',
+    this.automaticRefresh = false,
     this.locationLoader,
     this.now,
     this.onBleStartRequested,
@@ -48,6 +53,8 @@ class LocationSharingPanel extends StatefulWidget {
   final SosMessage sos;
   final SosBleCoordinator coordinator;
   final BleTransportClient transport;
+  final String participantRole;
+  final bool automaticRefresh;
   final ForegroundLocationLoader? locationLoader;
   final DateTime Function()? now;
   final Future<void> Function()? onBleStartRequested;
@@ -62,10 +69,12 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
   bool _busy = false;
   String? _error;
   DateTime? _lastPublishedAt;
+  Timer? _autoPublishTimer;
   Future<void>? _pendingOperation;
   int _publishOperation = 0;
   _LocationPublishPhase _publishPhase = _LocationPublishPhase.idle;
   String? _currentPublishMessageId;
+  int _locationSequence = 0;
 
   late Stream<BleOutboxData?> _delivery;
 
@@ -92,6 +101,7 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
   @override
   void dispose() {
     _publishOperation++;
+    _autoPublishTimer?.cancel();
     if (_sharing) {
       unawaited(widget.coordinator.disableLocationSharing(widget.sos.id));
     }
@@ -139,6 +149,13 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
         _sharing = true;
         _busy = false;
       });
+      if (widget.automaticRefresh) {
+        _autoPublishTimer?.cancel();
+        _autoPublishTimer = Timer.periodic(
+          const Duration(seconds: 10),
+          (_) => unawaited(_publish()),
+        );
+      }
       await _publish();
     } catch (error) {
       if (mounted) setState(() => _error = _friendlyError(error));
@@ -183,6 +200,30 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
         createdAt: created,
         expiresAt: created.add(const Duration(minutes: 2)),
       );
+      if (widget.automaticRefresh) {
+        try {
+          final live = await widget.coordinator.createLiveLocationEnvelope(
+            sosId: widget.sos.id,
+            participantId: widget.coordinator.ownerId,
+            participantRole: widget.participantRole,
+            sequence: ++_locationSequence,
+            latitude: position.latitude,
+            longitude: position.longitude,
+            accuracyMeters: position.accuracy.isFinite && position.accuracy >= 0
+                ? position.accuracy
+                : null,
+            createdAt: created,
+            expiresAt: created.add(const Duration(minutes: 2)),
+          );
+          await widget.coordinator.enqueueLiveLocation(
+            envelope: live,
+            destinationId: recipient,
+          );
+        } on Object {
+          // The legacy location receipt remains authoritative if the
+          // installation signing key is temporarily unavailable.
+        }
+      }
       if (mounted && operation == _publishOperation) {
         setState(() => _lastPublishedAt = created);
       }
@@ -230,6 +271,8 @@ class _LocationSharingPanelState extends State<LocationSharingPanel> {
 
   Future<void> _stop() async {
     _publishOperation++;
+    _autoPublishTimer?.cancel();
+    _autoPublishTimer = null;
     setState(() {
       _sharing = false;
       _recipientId = null;

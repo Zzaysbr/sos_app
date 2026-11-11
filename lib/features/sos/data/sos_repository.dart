@@ -347,6 +347,10 @@ class SosRepository {
         );
       }
 
+      // Deletion supersedes queued edits; an old failed create must not block it.
+      await (_database.delete(
+        _database.sosSyncQueue,
+      )..where((t) => t.sosId.equals(id) & t.ownerId.equals(ownerId))).go();
       // Keep the delete command after removing the local row.
       await _enqueue(sosId: id, ownerId: ownerId, operation: 'delete');
 
@@ -376,7 +380,11 @@ class SosRepository {
 
       final queue =
           await (_database.select(_database.sosSyncQueue)
-                ..where((t) => t.ownerId.equals(ownerId))
+                ..where(
+                  (t) =>
+                      t.ownerId.equals(ownerId) &
+                      t.operation.equals('deleteConfirmed').not(),
+                )
                 ..orderBy([(t) => OrderingTerm.asc(t.queueId)]))
               .get();
 
@@ -421,6 +429,11 @@ class SosRepository {
               break;
 
             case 'delete':
+              await _cloudArchiveService?.deleteIncident(
+                ownerId: ownerId,
+                incidentId: item.sosId,
+              );
+              if (!_isOwnerCurrent(ownerId)) break;
               await _cloudService.delete(item.sosId);
               break;
 
@@ -433,9 +446,19 @@ class SosRepository {
           // Never acknowledge an operation after the account has changed.
           if (!_isOwnerCurrent(ownerId)) break;
 
-          await (_database.delete(
-            _database.sosSyncQueue,
-          )..where((t) => t.queueId.equals(item.queueId))).go();
+          if (item.operation == 'delete') {
+            // Retain local intent even after cloud acknowledgement: an archive
+            // read begun before deletion may still finish with the old record.
+            await (_database.update(
+              _database.sosSyncQueue,
+            )..where((t) => t.queueId.equals(item.queueId))).write(
+              const SosSyncQueueCompanion(operation: Value('deleteConfirmed')),
+            );
+          } else {
+            await (_database.delete(
+              _database.sosSyncQueue,
+            )..where((t) => t.queueId.equals(item.queueId))).go();
+          }
 
           if (item.operation != 'delete') {
             final remaining =
