@@ -120,11 +120,9 @@ void main() {
     expect(source, contains('queue.firstOrNull() !== pending'));
     expect(
       source,
-      contains(
-        'clearNotificationSession(id, "Notification callback timed out")',
-      ),
+      contains('retireServerPeer(device, "notification_callback_timeout")'),
     );
-    expect(source, contains('currentServer.cancelConnection(device)'));
+    expect(source, contains('server?.cancelConnection(device)'));
     expect(source, contains('"error" to "notification_callback_timeout"'));
     expect(
       source,

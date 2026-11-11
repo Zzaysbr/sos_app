@@ -25,6 +25,7 @@ import 'package:sos_app/features/sos/data/sos_cloud_service.dart';
 import 'package:sos_app/features/sos/data/sos_repository.dart';
 import 'package:sos_app/features/sos/presentation/emergency_chat_page.dart';
 import 'package:sos_app/features/sos/presentation/sos_page.dart';
+import 'package:sos_app/features/sos/presentation/incident_map_page.dart';
 
 class _Auth extends Mock implements FirebaseAuth {}
 
@@ -284,6 +285,8 @@ void main() {
       id: 'history-chat-incident',
       type: 'emergency',
       message: 'History card route',
+      latitude: 13.7,
+      longitude: 100.5,
     );
     await tester.pumpWidget(app(repository));
     await tester.pumpAndSettle();
@@ -352,8 +355,19 @@ void main() {
     );
     expect(
       find.text('Incident coordinates are not available.'),
-      findsOneWidget,
+      findsNothing,
     );
+    final mapButton = find.text('View on map');
+    await tester.ensureVisible(mapButton);
+    await tester.tap(mapButton);
+    // This asserts route ownership, not platform GPS/network completion.
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+    expect(find.byType(IncidentMapPage), findsOneWidget);
+    expect(find.byType(BottomSheet, skipOffstage: false), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('SOS Details'), findsOneWidget);
     await disposeTree(tester);
   });
 

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sos_app/core/database/app_database.dart';
 import 'package:sos_app/features/nearby_ble/data/ble_transport.dart';
 import 'package:sos_app/features/nearby_ble/domain/ble_models.dart';
+import 'package:sos_app/features/nearby_ble/domain/ble_delivery_state.dart';
 import 'package:sos_app/features/nearby_ble/data/relay_repository.dart';
 import 'package:sos_app/features/nearby_ble/data/relay_key_store.dart';
 import 'package:sos_app/features/nearby_ble/data/hop_relay_coordinator.dart';
@@ -97,11 +98,7 @@ void main() {
       );
       await expectLater(
         coordinator.resolveVerifiedChatParticipant('incident-1'),
-        throwsA(
-          predicate(
-            (Object error) => error.toString().contains('verified help offer'),
-          ),
-        ),
+        throwsA(isA<BleDeliveryStateException>()),
       );
       await expectLater(
         relay.signAndEnqueueChatRelay(

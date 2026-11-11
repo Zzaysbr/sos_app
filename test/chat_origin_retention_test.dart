@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sos_app/core/database/app_database.dart';
 import 'package:sos_app/features/nearby_ble/data/relay_repository.dart';
 import 'package:sos_app/features/nearby_ble/data/rescue_response_repository.dart';
-import 'package:sos_app/features/nearby_ble/domain/relay_envelope.dart';
 
 import 'support/three_node_ble_simulation.dart';
 
@@ -17,6 +16,31 @@ void main() {
     await s.prepareIncident();
     await s.network.pump();
     return s;
+  }
+
+  // Repository-expiry assertions must not run the active origin's renewal
+  // scheduler while moving the clock. Runtime renewal is exercised explicitly.
+  void elapse(ThreeNodeSimulation s, Duration duration) {
+    s.clock.now = s.clock.now.add(duration);
+  }
+
+  Future<void> suspend(ThreeNodeSimulation s) async {
+    s.network.disconnect('A', 'B');
+    s.network.disconnect('B', 'C');
+    for (final n in [s.a, s.b, s.c]) {
+      await n.coordinator.stop();
+    }
+  }
+
+  Future<void> resume(ThreeNodeSimulation s) async {
+    for (final n in [s.a, s.b, s.c]) {
+      await n.start();
+    }
+    s.network.connect('A', 'B');
+    s.network.connect('B', 'C');
+    await s.network.until(
+      () async => await s.a.authenticated() && await s.c.authenticated(),
+    );
   }
 
   Future<void> cleanup(ThreeNodeSimulation s) async {
@@ -33,7 +57,7 @@ void main() {
   test('established active Chat keeps presence past SOS TTL; closing it releases presence', () async {
     final s = await ready();
     await s.a.coordinator.setRelayParticipationEnabled(false);
-    s.clock.advance(const Duration(minutes: 31));
+    elapse(s, const Duration(minutes: 31));
     await s.a.coordinator.processDue();
     expect(s.a.transport.discovering, isTrue);
     expect(s.a.transport.advertising, isTrue);
@@ -42,6 +66,7 @@ void main() {
     await (s.a.db.update(s.a.db.sosMessages)
           ..where((r) => r.id.equals('incident-1')))
         .write(const SosMessagesCompanion(status: Value('cancelled')));
+    await s.a.coordinator.cancelPublicRelay('incident-1');
     await s.a.coordinator.processDue();
     expect(s.a.transport.discovering, isFalse);
     expect(s.a.transport.advertising, isFalse);
@@ -49,7 +74,7 @@ void main() {
 
   for (final otherOwner in [false, true]) {
     test(
-      'active incident without matching owner response does not pin origin; otherOwner=$otherOwner',
+      'local active SOS is retained; foreign copies require owner-matched Chat; otherOwner=$otherOwner',
       () async {
         final s = await ready();
         for (final node in [s.a, s.b, s.c]) {
@@ -66,15 +91,30 @@ void main() {
           }
           await node.db.delete(node.db.rescueResponseOutbox).go();
         }
-        s.clock.advance(const Duration(minutes: 31));
+        elapse(s, const Duration(minutes: 31));
         await cleanup(s);
-        for (final node in [s.a, s.b, s.c]) {
+        expect(
+          await RelayRepository(database: s.a.db)
+              .lookupMessage(s.sos.body.originMessageId),
+          isNotNull,
+        );
+        for (final node in [s.b, s.c]) {
           expect(
             await RelayRepository(database: node.db)
                 .lookupMessage(s.sos.body.originMessageId),
             isNull,
           );
         }
+        await s.a.db
+            .update(s.a.db.sosMessages)
+            .write(const SosMessagesCompanion(status: Value('cancelled')));
+        await RelayRepository(database: s.a.db)
+            .cleanupExpired(now: s.clock.now);
+        expect(
+          await RelayRepository(database: s.a.db)
+              .lookupMessage(s.sos.body.originMessageId),
+          isNull,
+        );
       },
     );
   }
@@ -86,7 +126,7 @@ void main() {
       await s.a.db
           .update(s.a.db.bleRelayMessages)
           .write(const BleRelayMessagesCompanion(wireEnvelope: Value('{}')));
-      s.clock.advance(const Duration(minutes: 31));
+      elapse(s, const Duration(minutes: 31));
       final repository = RelayRepository(database: s.a.db);
       expect(await repository.cleanupExpired(now: s.clock.now), 1);
       expect(
@@ -97,10 +137,11 @@ void main() {
   );
 
   test(
-    'queued Chat survives origin transport expiry without renewing SOS',
+    'queued Chat survives source downtime and active SOS renews on resume',
     () async {
       final s = await ready();
-      s.clock.advance(const Duration(minutes: 29));
+      await suspend(s);
+      elapse(s, const Duration(minutes: 29));
       s.network.disconnect('A', 'B');
       await s.network.pump();
       await s.a.send(
@@ -109,7 +150,7 @@ void main() {
         s.c,
       );
       await s.network.pump();
-      s.clock.advance(const Duration(minutes: 2));
+      elapse(s, const Duration(minutes: 2));
       await cleanup(s);
       final repository = RelayRepository(database: s.a.db);
       expect(
@@ -124,7 +165,7 @@ void main() {
         throwsA(isA<RelayPersistenceException>()),
       );
       final captured = s.network.captures.length;
-      s.network.connect('A', 'B');
+      await resume(s);
       await s.network.until(
         () async => await s.a.authenticated() && await s.b.authenticated(),
       );
@@ -141,17 +182,19 @@ void main() {
             .where((m) => m.id == 'cross-origin-expiry'),
         hasLength(1),
       );
-      expect(
-        s.network.captures
-            .skip(captured)
-            .where((p) => p.$3.type == RelayOfferEnvelope.wireKind),
-        isEmpty,
+      final renewed = await repository.loadVerifiedOffer(
+        s.sos.body.originMessageId,
+        now: s.clock.now,
       );
+      expect(renewed.body.originMessageId, s.sos.body.originMessageId);
+      expect(renewed.expiresAt.isAfter(s.clock.now), isTrue);
+      expect(s.network.captures.skip(captured), isNotEmpty);
     },
   );
 
   test('active verified conversation can send both ways after SOS transport expires', () async {
     final s = await ready();
+    await suspend(s);
     // A rescuer has its own signed outbox offer, not the origin's received
     // responder binding. Exercise that reference and the UI's resolver too.
     await s.c.db.delete(s.c.db.rescueResponseInbox).go();
@@ -159,7 +202,7 @@ void main() {
       s.c.db,
       ownerId: 'C',
     ).enqueueOffer(envelope: s.offer, origin: s.sos.body, now: s.clock.now);
-    s.clock.advance(const Duration(minutes: 31));
+    elapse(s, const Duration(minutes: 31));
     await cleanup(s);
     expect(
       (await s.a.coordinator.resolveVerifiedChatParticipant('incident-1'))
@@ -176,6 +219,7 @@ void main() {
           .lookupMessage(s.sos.body.originMessageId),
       isNotNull,
     );
+    await resume(s);
     await s.a.send('late-forward', 'active conversation forward', s.c);
     await s.network.until(
       () async =>
@@ -192,7 +236,8 @@ void main() {
 
   test('expired evidence is released after incident closes and pending Chat expires', () async {
     final s = await ready();
-    s.clock.advance(const Duration(minutes: 29));
+    await suspend(s);
+    elapse(s, const Duration(minutes: 29));
     s.network.disconnect('A', 'B');
     await s.network.pump();
     await s.a.send('pending-on-close', 'pending signed Chat', s.c);
@@ -202,14 +247,14 @@ void main() {
           .update(node.db.sosMessages)
           .write(const SosMessagesCompanion(status: Value('cancelled')));
     }
-    s.clock.advance(const Duration(minutes: 2));
+    elapse(s, const Duration(minutes: 2));
     await cleanup(s);
     expect(
       await RelayRepository(database: s.a.db)
           .lookupMessage(s.sos.body.originMessageId),
       isNotNull,
     );
-    s.clock.advance(const Duration(minutes: 30));
+    elapse(s, const Duration(minutes: 30));
     await cleanup(s);
     expect(
       await RelayRepository(database: s.a.db)

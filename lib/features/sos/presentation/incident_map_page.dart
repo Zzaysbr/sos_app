@@ -28,6 +28,7 @@ class IncidentMapPage extends StatefulWidget {
     this.incomingLocationStream,
     this.liveLocationStream,
     this.rescueCandidate,
+    this.localParticipantRole = 'victim',
     this.tileProvider,
     this.offlineMapRepository,
   });
@@ -43,6 +44,7 @@ class IncidentMapPage extends StatefulWidget {
   final Stream<LocationBleEnvelope?>? incomingLocationStream;
   final Stream<LiveLocationEnvelope?>? liveLocationStream;
   final RescueInboxData? rescueCandidate;
+  final String localParticipantRole;
   final MapTileProviderConfig? tileProvider;
   final OfflineMapRepository? offlineMapRepository;
 
@@ -302,6 +304,41 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
     child: Text(label),
   );
 
+  Widget _positionDot(String role, {required bool local}) {
+    final color = role == 'rescue' ? Colors.blue : Colors.red;
+    final thai = Localizations.localeOf(context).languageCode == 'th';
+    final label = role == 'rescue'
+        ? (thai ? 'ตำแหน่งกู้ภัย' : 'Rescuer location')
+        : (thai ? 'ตำแหน่งผู้ขอความช่วยเหลือ' : 'Victim location');
+    return Semantics(
+      label: '$label${local ? (thai ? ' (คุณ)' : ' (you)') : ''}',
+      child: ExcludeSemantics(
+        child: Center(
+          child: Container(
+            key: ValueKey('$role-position-dot'),
+            width: local ? 32 : 28,
+            height: local ? 32 : 28,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color.withValues(alpha: 0.18),
+            ),
+            padding: const EdgeInsets.all(6),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: color,
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.surface,
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -317,27 +354,38 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
         : null;
     final center =
         incidentPoint ?? incomingPoint ?? currentPoint ?? const LatLng(0, 0);
+    final localRescue = widget.localParticipantRole == 'rescue';
+    final incomingRole =
+        _liveParticipantLocation?.participantRole ??
+        (localRescue ? 'victim' : 'rescue');
+    final victimPoint = !localRescue
+        ? currentPoint ??
+              (incomingRole == 'victim' ? incomingPoint : null) ??
+              incidentPoint
+        : (incomingRole == 'victim' ? incomingPoint : null) ?? incidentPoint;
+    final rescuePoint = localRescue
+        ? currentPoint ?? (incomingRole == 'rescue' ? incomingPoint : null)
+        : (incomingRole == 'rescue' ? incomingPoint : null);
     final markers = <Marker>[
-      if (incidentPoint != null)
+      if (victimPoint != null)
         Marker(
-          point: incidentPoint,
-          width: 56,
-          height: 56,
-          child: const Icon(Icons.location_on, color: Colors.red, size: 44),
+          point: victimPoint,
+          width: 48,
+          height: 48,
+          child: _positionDot(
+            'victim',
+            local: !localRescue && currentPoint != null,
+          ),
         ),
-      if (incomingPoint != null)
+      if (rescuePoint != null)
         Marker(
-          point: incomingPoint,
-          width: 56,
-          height: 56,
-          child: const Icon(Icons.share_location, color: Colors.blue, size: 42),
-        ),
-      if (currentPoint != null)
-        Marker(
-          point: currentPoint,
-          width: 52,
-          height: 52,
-          child: const Icon(Icons.my_location, color: Colors.blue, size: 32),
+          point: rescuePoint,
+          width: 48,
+          height: 48,
+          child: _positionDot(
+            'rescue',
+            local: localRescue && currentPoint != null,
+          ),
         ),
     ];
 

@@ -29,9 +29,13 @@ SosMessage _incident({double? latitude = 13.7, double? longitude = 100.5}) =>
       updatedAt: DateTime.utc(2026),
     );
 
-Position _position({DateTime? timestamp}) => Position(
-  longitude: 100.5001,
-  latitude: 13.7001,
+Position _position({
+  DateTime? timestamp,
+  double latitude = 13.7001,
+  double longitude = 100.5001,
+}) => Position(
+  longitude: longitude,
+  latitude: latitude,
   timestamp: timestamp ?? DateTime.now(),
   accuracy: 8,
   altitude: 0,
@@ -98,6 +102,72 @@ void main() {
     binding.platformDispatcher.localeTestValue = const Locale('en');
   });
   tearDown(binding.platformDispatcher.clearLocaleTestValue);
+
+  for (final role in ['victim', 'rescue']) {
+    testWidgets(
+      'map shows role-colored dots and moving self without duplicate SOS pin: $role',
+      (tester) async {
+        var fix = _position();
+        final now = DateTime.now().toUtc();
+        await tester.pumpWidget(
+          _app(
+            home: IncidentMapPage(
+              incident: _incident(),
+              localParticipantRole: role,
+              locationLoader: () async => fix,
+              incomingLocation: LocationBleEnvelope.update(
+                messageId: 'peer-location',
+                sosId: 'incident-1',
+                senderDeviceId: 'peer',
+                recipientId: 'owner-1',
+                latitude: 13.7002,
+                longitude: 100.5002,
+                createdAt: now,
+                expiresAt: now.add(const Duration(minutes: 2)),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final layer = tester.widget<MarkerLayer>(find.byType(MarkerLayer));
+        expect(layer.markers, hasLength(2));
+        for (final entry in {
+          'victim': Colors.red,
+          'rescue': Colors.blue,
+        }.entries) {
+          final dot = tester.widget<Container>(
+            find.byKey(ValueKey('${entry.key}-position-dot')),
+          );
+          expect(
+            ((dot.child! as DecoratedBox).decoration as BoxDecoration).color,
+            entry.value,
+          );
+        }
+        final before = layer.markers.singleWhere(
+          (m) => find
+              .descendant(
+                of: find.byWidget(m.child),
+                matching: find.byKey(ValueKey('$role-position-dot')),
+              )
+              .evaluate()
+              .isNotEmpty,
+        );
+        expect(before.point.latitude, closeTo(fix.latitude, 0.000001));
+        fix = _position(latitude: 13.7003, longitude: 100.5003);
+        await tester.pump(const Duration(seconds: 10));
+        await tester.pumpAndSettle();
+        final updated = tester.widget<MarkerLayer>(find.byType(MarkerLayer));
+        expect(
+          updated.markers.any(
+            (m) => (m.point.latitude - fix.latitude).abs() < 0.000001,
+          ),
+          true,
+        );
+        expect(updated.markers, hasLength(2));
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
 
   for (final confirm in [true, false]) {
     testWidgets(
@@ -445,7 +515,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.byIcon(Icons.location_on), findsOneWidget);
+      expect(find.byKey(const ValueKey('victim-position-dot')), findsOneWidget);
       expect(find.byType(TileLayer), findsNothing);
       expect(find.text('The map service address is missing.'), findsOneWidget);
       expect(find.text('Incident: 13.700000, 100.500000'), findsOneWidget);
@@ -473,7 +543,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.location_on), findsOneWidget);
+    expect(find.byKey(const ValueKey('victim-position-dot')), findsOneWidget);
     expect(find.text('ไม่มีที่อยู่บริการแผนที่'), findsOneWidget);
   });
 
@@ -503,7 +573,8 @@ void main() {
     expect(find.text('Location request timed out.'), findsOneWidget);
     // The retained current-position marker and refresh action both use this
     // icon; the timeout must not clear the retained position.
-    expect(find.byIcon(Icons.my_location), findsNWidgets(2));
+    expect(find.byKey(const ValueKey('victim-position-dot')), findsOneWidget);
+    expect(find.byIcon(Icons.my_location), findsOneWidget);
     expect(find.byTooltip('Refresh current location'), findsOneWidget);
   });
   testWidgets('provider attribution is visible without opening a popup', (
@@ -560,7 +631,10 @@ void main() {
         tile.errorTileCallback!(_FailedTile(), error, StackTrace.current);
         await tester.pump();
         expect(find.text('Retry map tiles'), findsOneWidget);
-        expect(find.byIcon(Icons.location_on), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('victim-position-dot')),
+          findsOneWidget,
+        );
         expect(find.text('Incident: 13.700000, 100.500000'), findsOneWidget);
         await tester.tap(find.text('Retry map tiles'));
         await tester.pump();

@@ -1334,6 +1334,9 @@ class _SosPageState extends State<SosPage> {
                         Navigator.of(context).push<void>(
                           MaterialPageRoute<void>(
                             builder: (_) => IncidentMapPage(
+                              localParticipantRole: _role == AppRole.rescue
+                                  ? 'rescue'
+                                  : 'victim',
                               incident: SosMessage(
                                 id: candidate.incidentId,
                                 ownerId: candidate.ownerId,
@@ -2675,6 +2678,7 @@ class _SosPageState extends State<SosPage> {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => IncidentMapPage(
+          localParticipantRole: _role == AppRole.rescue ? 'rescue' : 'victim',
           incident: sos,
           incomingLocationStream: widget.bleCoordinator?.watchIncomingLocation(
             sos.id,
@@ -3801,10 +3805,14 @@ class _SosPageState extends State<SosPage> {
                               width: double.infinity,
                               child: OutlinedButton.icon(
                                 onPressed: () {
-                                  Navigator.of(sheetContext).pop();
+                                  // Keep the sharing panel mounted while its map is open.
                                   Navigator.of(context).push<void>(
                                     MaterialPageRoute<void>(
                                       builder: (_) => IncidentMapPage(
+                                        localParticipantRole:
+                                            _role == AppRole.rescue
+                                            ? 'rescue'
+                                            : 'victim',
                                         incident: sos,
                                         incomingLocation: location,
                                         incomingSenderDeviceId:
@@ -3911,10 +3919,13 @@ class _SosPageState extends State<SosPage> {
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         onPressed: () {
-                          Navigator.of(sheetContext).pop();
+                          // Keep the sharing panel mounted while its map is open.
                           Navigator.of(context).push<void>(
                             MaterialPageRoute<void>(
                               builder: (_) => IncidentMapPage(
+                                localParticipantRole: _role == AppRole.rescue
+                                    ? 'rescue'
+                                    : 'victim',
                                 incident: sos,
                                 incomingLocationStream: widget.bleCoordinator
                                     ?.watchIncomingLocation(sos.id),
