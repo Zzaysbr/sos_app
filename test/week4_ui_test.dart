@@ -22,7 +22,9 @@ void main() {
     await tester.tap(find.byTooltip('Send'));
     await tester.pumpAndSettle();
     expect(find.text('I am safe'), findsOneWidget);
-    expect(find.textContaining('sent'), findsOneWidget);
+    // Mock submission has no final recipient receipt.
+    expect(find.textContaining(' · Waiting'), findsOneWidget);
+    expect(find.textContaining(' · Sent'), findsNothing);
   });
 
   testWidgets('notifications can be marked read individually and all at once', (

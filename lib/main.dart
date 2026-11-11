@@ -18,6 +18,7 @@ import 'features/auth/data/auth_service.dart';
 import 'features/auth/presentation/auth_page.dart';
 import 'features/auth/presentation/auth_session_navigator.dart';
 import 'features/nearby_ble/data/sos_ble_coordinator.dart';
+import 'features/nearby_ble/data/emergency_consent_store.dart';
 import 'features/sos/data/sos_cloud_service.dart';
 import 'features/sos/data/cloud_archive_service.dart';
 import 'features/sos/data/chat_repository.dart';
@@ -216,6 +217,9 @@ class _AuthGateState extends State<AuthGate> {
       localDeviceId: widget.localDeviceId,
       requirePeerBinding: widget.localDeviceId != null,
       manualPeerSelection: true,
+      automaticLocationEnabled: true,
+      allowAutomaticVictimLocation: () async =>
+          (await const PlatformEmergencyConsentStore().load()).shareLocation,
       isSessionCurrent: () =>
           mounted &&
           generation == _resourceGeneration &&

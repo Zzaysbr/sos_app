@@ -42,7 +42,8 @@ import 'app_version_label.dart';
 import 'emergency_chat_page.dart';
 import 'in_app_notifications_page.dart';
 import 'incident_map_page.dart';
-import 'location_sharing_panel.dart';
+import 'automatic_location_status.dart';
+import '../../nearby_ble/data/automatic_incident_location.dart';
 
 import 'package:geolocator/geolocator.dart';
 
@@ -1297,6 +1298,12 @@ class _SosPageState extends State<SosPage> {
                   const SizedBox(height: 8),
                   Text(candidate.emergencyMessage),
                   const SizedBox(height: 8),
+                  if (locallyAccepted && widget.bleCoordinator != null) ...[
+                    AutomaticLocationStatus(
+                      status: widget.bleCoordinator!.automaticLocationStatus,
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   StreamBuilder<UserRoutesSnapshot>(
                     stream: routeStream,
                     builder: (ctx, snapshot) {
@@ -1330,10 +1337,13 @@ class _SosPageState extends State<SosPage> {
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
                       onPressed: () {
-                        Navigator.pop(sheetContext);
+                        // Retain the explicit sharing session under its map.
                         Navigator.of(context).push<void>(
                           MaterialPageRoute<void>(
                             builder: (_) => IncidentMapPage(
+                              localParticipantRole: _role == AppRole.rescue
+                                  ? 'rescue'
+                                  : 'victim',
                               incident: SosMessage(
                                 id: candidate.incidentId,
                                 ownerId: candidate.ownerId,
@@ -1670,7 +1680,18 @@ class _SosPageState extends State<SosPage> {
 
   Future<void> _acceptIncident(SosMessage sos) async {
     setState(() {});
-    final accepted = await _roleWorkflow.accept(sos.id);
+    final accepted = await _roleWorkflow.accept(
+      sos.id,
+      onAccepted: () async {
+        if (widget.bleCoordinator?.automaticLocationStatus != null) {
+          await AutomaticIncidentLocation.acceptDirectIncident(
+            widget.repository.database,
+            sos.ownerId,
+            sos.id,
+          );
+        }
+      },
+    );
     if (!mounted) return;
     setState(() {});
     if (!accepted) return;
@@ -2675,6 +2696,7 @@ class _SosPageState extends State<SosPage> {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => IncidentMapPage(
+          localParticipantRole: _role == AppRole.rescue ? 'rescue' : 'victim',
           incident: sos,
           incomingLocationStream: widget.bleCoordinator?.watchIncomingLocation(
             sos.id,
@@ -3763,13 +3785,8 @@ class _SosPageState extends State<SosPage> {
                       widget.bleCoordinator != null &&
                       widget.bleTransport != null) ...[
                     const SizedBox(height: 12),
-                    LocationSharingPanel(
-                      sos: sos,
-                      coordinator: widget.bleCoordinator!,
-                      transport: widget.bleTransport!,
-                      participantRole: rescueView ? 'rescue' : 'victim',
-                      automaticRefresh: true,
-                      onBleStartRequested: widget.onBleStartRequested,
+                    AutomaticLocationStatus(
+                      status: widget.bleCoordinator!.automaticLocationStatus,
                     ),
                   ],
                   if (!readOnly && widget.bleCoordinator != null) ...[
@@ -3801,10 +3818,14 @@ class _SosPageState extends State<SosPage> {
                               width: double.infinity,
                               child: OutlinedButton.icon(
                                 onPressed: () {
-                                  Navigator.of(sheetContext).pop();
+                                  // Keep the sharing panel mounted while its map is open.
                                   Navigator.of(context).push<void>(
                                     MaterialPageRoute<void>(
                                       builder: (_) => IncidentMapPage(
+                                        localParticipantRole:
+                                            _role == AppRole.rescue
+                                            ? 'rescue'
+                                            : 'victim',
                                         incident: sos,
                                         incomingLocation: location,
                                         incomingSenderDeviceId:
@@ -3911,10 +3932,13 @@ class _SosPageState extends State<SosPage> {
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         onPressed: () {
-                          Navigator.of(sheetContext).pop();
+                          // Keep the sharing panel mounted while its map is open.
                           Navigator.of(context).push<void>(
                             MaterialPageRoute<void>(
                               builder: (_) => IncidentMapPage(
+                                localParticipantRole: _role == AppRole.rescue
+                                    ? 'rescue'
+                                    : 'victim',
                                 incident: sos,
                                 incomingLocationStream: widget.bleCoordinator
                                     ?.watchIncomingLocation(sos.id),

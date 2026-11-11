@@ -1,6 +1,7 @@
 import CoreBluetooth
 import Flutter
 import Foundation
+import UIKit
 
 final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelegate, CBPeripheralDelegate, CBPeripheralManagerDelegate {
   static let service = CBUUID(string: "8B7F0001-6D3A-4C8B-9D21-5A7F2E110001")
@@ -128,7 +129,8 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
         // while retaining acknowledged .withResponse writes.
         result(max(20, min(512, peer.maximumWriteValueLength(for: .withoutResponse))))
       } else { result(20) }
-    case "dispose": dispose(); result(nil)
+    case "dispose":
+      endBackgroundWork(); dispose(); result(nil)
     default: result(FlutterMethodNotImplemented)
     }
   }
@@ -819,6 +821,36 @@ final class BleTransport: NSObject, FlutterStreamHandler, CBCentralManagerDelega
     NSLog("[BleTransport] t=%.3f %@", Date().timeIntervalSince1970, message)
   }
 
-  private func emit(_ value: [String: Any]) { if !disposed { sink?(value) } }
+  private var backgroundWork: UIBackgroundTaskIdentifier = .invalid
+  private var backgroundFinish: DispatchWorkItem?
+
+  private func endBackgroundWork() {
+    backgroundFinish?.cancel()
+    backgroundFinish = nil
+    if backgroundWork != .invalid {
+      UIApplication.shared.endBackgroundTask(backgroundWork)
+      backgroundWork = .invalid
+    }
+  }
+
+  private func emit(_ value: [String: Any]) {
+    guard !disposed else { return }
+    // CoreBluetooth wakes the app for radio events. Give the shared Dart
+    // isolate a finite window to verify/store/forward them; never claim an
+    // unlimited execution exemption or use a fake GPS session on relay nodes.
+    if UIApplication.shared.applicationState != .active,
+       ["data", "connected", "disconnected"].contains(value["type"] as? String ?? "") {
+      if backgroundWork == .invalid {
+        backgroundWork = UIApplication.shared.beginBackgroundTask(withName: "SOS BLE relay") { [weak self] in
+          self?.endBackgroundWork()
+        }
+      }
+      backgroundFinish?.cancel()
+      let finish = DispatchWorkItem { [weak self] in self?.endBackgroundWork() }
+      backgroundFinish = finish
+      DispatchQueue.main.asyncAfter(deadline: .now() + 8, execute: finish)
+    }
+    sink?(value)
+  }
   private func emitError(_ message: String) { emit(["type": "error", "error": message]) }
 }

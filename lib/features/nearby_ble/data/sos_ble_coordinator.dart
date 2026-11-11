@@ -8,6 +8,7 @@ import 'dart:math' as math;
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../sos/data/chat_repository.dart';
@@ -27,6 +28,7 @@ import 'ble_delivery_repository.dart';
 import 'ble_protocol.dart';
 import 'ble_transport.dart';
 import 'incident_presence_coordinator.dart';
+import 'automatic_incident_location.dart';
 import 'hop_relay_coordinator.dart';
 import 'relay_repository.dart';
 import 'incident_lifecycle_repository.dart';
@@ -66,6 +68,9 @@ class SosBleCoordinator with WidgetsBindingObserver {
     this.isSessionCurrent,
     this.requirePeerBinding = false,
     this.manualPeerSelection = false,
+    this.automaticLocationEnabled = false,
+    this.automaticLocationFeed,
+    this.allowAutomaticVictimLocation,
     String? localDeviceId,
     BleTransportClient? transport,
     BleDeliveryRepository? deliveryRepository,
@@ -130,6 +135,71 @@ class SosBleCoordinator with WidgetsBindingObserver {
   late final MediaAttachmentStore mediaStore;
   final bool requirePeerBinding;
   final bool manualPeerSelection;
+  final bool automaticLocationEnabled;
+  final IncidentLocationFeed? automaticLocationFeed;
+  final Future<bool> Function()? allowAutomaticVictimLocation;
+  final automaticLocationState = ValueNotifier(AutomaticLocationState.idle);
+  AutomaticIncidentLocation? _automaticLocation;
+  ValueListenable<AutomaticLocationState>? get automaticLocationStatus =>
+      automaticLocationEnabled ? automaticLocationState : null;
+
+  void _locationStateChanged() {
+    automaticLocationState.value = _automaticLocation!.state.value;
+  }
+
+  Future<void> _publishAutomaticLocation(
+    String incident,
+    String role,
+    Position fix,
+    DateTime time,
+    int sequence,
+  ) async {
+    if (!_started || _disposed || !_sessionActive) return;
+    final envelope = await createLiveLocationEnvelope(
+      sosId: incident,
+      participantId: _localDeviceId,
+      participantRole: role,
+      sequence: sequence,
+      latitude: fix.latitude,
+      longitude: fix.longitude,
+      accuracyMeters: fix.accuracy.isFinite && fix.accuracy >= 0
+          ? fix.accuracy
+          : null,
+      createdAt: time,
+      expiresAt: time.add(const Duration(minutes: 2)),
+    );
+    if ((await _automaticLocation?.activeTargets())?[incident] != role) return;
+    // Live state is coalesced, never appended to the durable Chat/media queue.
+    // A disconnected route gets the next fresh fix instead of stale GPS backlog.
+    for (final route in _hopRelay.currentAuthenticatedRoutes().values) {
+      if (!route.isCurrent() || !_started || _disposed || !_sessionActive) {
+        continue;
+      }
+      if ((await _automaticLocation?.activeTargets())?[incident] != role) {
+        return;
+      }
+      try {
+        await _writes.sendFrames(
+          route.deviceId,
+          BleMessageCodec.encode(
+            envelope.toBleMessage(),
+            maxFrameBytes: await negotiatedBleFrameBytes(
+              _transport,
+              route.deviceId,
+              route.role,
+            ),
+          ),
+          role: route.role,
+          canSend: () =>
+              route.isCurrent() && _started && !_disposed && _sessionActive,
+        );
+      } on Object {
+        // A failed neighbor must not prevent fresh state reaching another path.
+        _log('automaticLocationNextHopUnavailable');
+      }
+    }
+  }
+
   final _peerRecovery = SelectedPeerRecovery();
 
   /// Presentation-only alias grouping; never infer identity from model or hint.
@@ -428,7 +498,66 @@ class SosBleCoordinator with WidgetsBindingObserver {
   }
 
   Stream<LiveLocationEnvelope?> watchLiveLocation(String sosId) =>
-      _deliveryRepository.watchLiveLocation(sosId);
+      (_database.select(
+        _database.bleInbox,
+      )..where((r) => r.sosId.equals(sosId))).watch().asyncMap((rows) async {
+        final origin = await IncidentLifecycleRepository(
+          _database,
+          ownerId: ownerId,
+        ).trustedOriginForPresence(sosId, _now());
+        final responses =
+            await (_database.select(_database.rescueResponseInbox)..where(
+                  (r) =>
+                      r.ownerId.equals(ownerId) &
+                      r.incidentId.equals(sosId) &
+                      r.state.equals('verified'),
+                ))
+                .get();
+        final directPeer = origin == null
+            ? await _deliveryRepository.lookupIncidentDestination(sosId)
+            : null;
+        final directKey = directPeer == null
+            ? null
+            : _hopRelay.verifiedKeyForLocator(directPeer);
+        final directVictim = directPeer == null
+            ? null
+            : await _directPresenceOrigin(sosId, directPeer);
+        final localKey = await existingRelayKeyId();
+        LiveLocationEnvelope? newest;
+        for (final row in rows) {
+          try {
+            final live = LiveLocationEnvelope.fromJson(
+              Map<String, Object?>.from(jsonDecode(row.payload) as Map),
+            );
+            if (live.originKeyId == localKey ||
+                live.createdAt.isAfter(
+                  _now().toUtc().add(const Duration(seconds: 30)),
+                )) {
+              continue;
+            }
+            final bound = live.participantRole == 'victim'
+                ? (origin?.keyId ?? directVictim?.keyId) == live.originKeyId
+                : responses.any((r) => r.responderKeyId == live.originKeyId) ||
+                      (origin == null &&
+                          directVictim == null &&
+                          directKey != null &&
+                          directKey == live.originKeyId);
+            if (!bound ||
+                !await _hopRelay.verifyLiveLocation(live, allowExpired: true)) {
+              continue;
+            }
+            if (newest == null ||
+                live.createdAt.isAfter(newest.createdAt) ||
+                (live.createdAt == newest.createdAt &&
+                    live.sequence > newest.sequence)) {
+              newest = live;
+            }
+          } on Object {
+            /* Unrelated/invalid history cannot create a participant. */
+          }
+        }
+        return newest;
+      });
 
   /// The shared transport owned by this coordinator.
   ///
@@ -618,6 +747,20 @@ class SosBleCoordinator with WidgetsBindingObserver {
         now: now,
       );
       _pollTimer = _periodicTimer(pollInterval, (_) => unawaited(processDue()));
+      if (automaticLocationEnabled) {
+        _automaticLocation = AutomaticIncidentLocation(
+          database: _database,
+          ownerId: ownerId,
+          localDeviceId: _localDeviceId,
+          publish: _publishAutomaticLocation,
+          feed: automaticLocationFeed,
+          allowVictimLocation: allowAutomaticVictimLocation,
+          isCurrent: () => _started && !_disposed && _sessionActive,
+          onLocationFix: processDue,
+          now: _now,
+        )..state.addListener(_locationStateChanged);
+        _automaticLocation!.start();
+      }
       await processDue();
     } catch (_) {
       await stop();
@@ -633,6 +776,11 @@ class SosBleCoordinator with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
     _pollTimer = null;
+    final location = _automaticLocation;
+    _automaticLocation = null;
+    location?.state.removeListener(_locationStateChanged);
+    await location?.dispose();
+    automaticLocationState.value = AutomaticLocationState.idle;
     await _hopRelay.stop();
     _incidentPresence.clear();
     await _eventsSubscription?.cancel();
@@ -1907,12 +2055,20 @@ class SosBleCoordinator with WidgetsBindingObserver {
           _log('liveLocationRejected reason=signature');
           return;
         }
-        await _deliveryRepository.persistIncomingLiveLocation(
+        if (live.originKeyId == (await _hopRelay.signingIdentity()).keyId ||
+            !_hopRelay.currentAuthenticatedRoutes().values.any(
+              (r) => r.deviceId == deviceId && r.role == role && r.isCurrent(),
+            )) {
+          return;
+        }
+        final stored = await _deliveryRepository.persistIncomingLiveLocation(
           live,
           sourceDeviceId: deviceId,
           now: _now(),
         );
-        await _forwardLiveLocation(deviceId, role, live);
+        if (stored.inserted && relayParticipationEnabled) {
+          await _forwardLiveLocation(deviceId, role, live);
+        }
         _log(
           'liveLocationPersisted sosId=${live.sosId} '
           'participant=${live.participantId} sequence=${live.sequence}',

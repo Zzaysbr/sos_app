@@ -1143,6 +1143,7 @@ class BleDeliveryRepository {
           final value = jsonDecode(row.payload);
           if (value is Map &&
               value['kind'] == LiveLocationEnvelope.wireKind &&
+              value['originKeyId'] == envelope.originKeyId &&
               value['participantId'] == envelope.participantId &&
               value['sequence'] is int &&
               (value['sequence'] as int) >= envelope.sequence) {
@@ -1174,6 +1175,23 @@ class BleDeliveryRepository {
             ),
             mode: InsertMode.insertOrIgnore,
           );
+      // Location is current state, not a transcript. Keep one replay high-water
+      // mark/fix per signer/participant instead of growing SQLite every 10s.
+      for (final older in history) {
+        try {
+          final value = jsonDecode(older.payload);
+          if (value is Map &&
+              value['kind'] == LiveLocationEnvelope.wireKind &&
+              value['originKeyId'] == envelope.originKeyId &&
+              value['participantId'] == envelope.participantId) {
+            await (_database.delete(
+              _database.bleInbox,
+            )..where((r) => r.messageId.equals(older.messageId))).go();
+          }
+        } on FormatException {
+          /* Leave unrelated history untouched. */
+        }
+      }
       final row = await lookupInbox(envelope.messageId);
       if (row == null) {
         throw const BleDeliveryStateException(

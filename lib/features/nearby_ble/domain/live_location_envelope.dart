@@ -108,6 +108,15 @@ class LiveLocationEnvelope {
     if (originPublicKey.isEmpty || originSignature.isEmpty) {
       throw const LiveLocationEnvelopeException('Missing location signature.');
     }
+    if (!const {'victim', 'rescue'}.contains(participantRole)) {
+      throw const LiveLocationEnvelopeException('Invalid participant role.');
+    }
+    if (now != null &&
+        createdAt.isAfter(now.toUtc().add(const Duration(seconds: 30)))) {
+      throw const LiveLocationEnvelopeException(
+        'Location timestamp is in the future.',
+      );
+    }
     if (sequence < 0) {
       throw const LiveLocationEnvelopeException('Invalid location sequence.');
     }

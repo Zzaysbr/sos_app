@@ -7,6 +7,7 @@ import 'package:drift/drift.dart'
     show QueryExecutor, QueryInterceptor, ApplyInterceptor;
 import 'package:sos_app/core/database/app_database.dart';
 import 'package:sos_app/features/nearby_ble/data/ble_protocol.dart';
+import 'package:sos_app/features/nearby_ble/data/automatic_incident_location.dart';
 import 'package:sos_app/features/nearby_ble/data/ble_transport.dart';
 import 'package:sos_app/features/nearby_ble/data/relay_key_store.dart';
 import 'package:sos_app/features/nearby_ble/data/relay_repository.dart';
@@ -474,6 +475,7 @@ class SimNode {
     Directory? mediaRoot,
     bool manualPeerSelection = false,
     bool requirePeerBinding = false,
+    IncidentLocationFeed? locationFeed,
   }) {
     db = AppDatabase.forTesting(
       (file == null ? NativeDatabase.memory() : NativeDatabase(file))
@@ -493,6 +495,8 @@ class SimNode {
       ownerId: id,
       localDeviceId: id,
       manualPeerSelection: manualPeerSelection,
+      automaticLocationEnabled: locationFeed != null,
+      automaticLocationFeed: locationFeed,
       requirePeerBinding: requirePeerBinding,
       transport: transport,
       relayIdentityService: identityService,
@@ -590,6 +594,8 @@ class ThreeNodeSimulation {
     Directory? mediaRoot,
     bool manualRelaySelection = false,
     bool requirePeerBinding = false,
+    IncidentLocationFeed? aLocationFeed,
+    IncidentLocationFeed? cLocationFeed,
   }) {
     network = SimBleNetwork(clock)
       ..allow('A', 'B')
@@ -598,6 +604,7 @@ class ThreeNodeSimulation {
       'A',
       1,
       network,
+      locationFeed: aLocationFeed,
       mediaRoot: mediaRoot,
       requirePeerBinding: requirePeerBinding,
     );
@@ -614,6 +621,7 @@ class ThreeNodeSimulation {
       'C',
       3,
       network,
+      locationFeed: cLocationFeed,
       mediaRoot: mediaRoot,
       requirePeerBinding: requirePeerBinding,
     );

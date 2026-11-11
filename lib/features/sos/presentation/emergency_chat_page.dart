@@ -936,51 +936,55 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
               : Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(16),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: message.attachmentPath == null
-                  ? Text(message.text)
-                  : InkWell(
-                      onTap: () => Navigator.of(context).push<void>(
-                        MaterialPageRoute(
-                          builder: (_) => ChatMediaViewer(
-                            file: File(message.attachmentPath!),
-                            mime: message.attachmentMimeType ?? 'image/png',
+        child: IntrinsicWidth(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: message.attachmentPath == null
+                    ? Text(message.text)
+                    : InkWell(
+                        onTap: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute(
+                            builder: (_) => ChatMediaViewer(
+                              file: File(message.attachmentPath!),
+                              mime: message.attachmentMimeType ?? 'image/png',
+                            ),
                           ),
                         ),
-                      ),
-                      child:
-                          (message.attachmentMimeType ?? '').startsWith(
-                            'image/',
-                          )
-                          ? Image.file(
-                              File(message.attachmentPath!),
-                              width: 220,
-                              height: 180,
-                              fit: BoxFit.contain,
-                              errorBuilder: (_, _, _) => Text(
-                                mediaText(
-                                  context,
-                                  'Attachment unavailable',
-                                  'ไม่พบไฟล์แนบ',
-                                ),
-                              ),
+                        child:
+                            (message.attachmentMimeType ?? '').startsWith(
+                              'image/',
                             )
-                          : ChatVideoPreview(
-                              key: ValueKey(message.id),
-                              file: File(message.attachmentPath!),
-                            ),
-                    ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${_time(context, message.createdAt)} · ${_statusLabel(context, message.status)}',
-              style: Theme.of(context).textTheme.labelSmall,
-            ),
-          ],
+                            ? Image.file(
+                                File(message.attachmentPath!),
+                                width: 220,
+                                height: 180,
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, _, _) => Text(
+                                  mediaText(
+                                    context,
+                                    'Attachment unavailable',
+                                    'ไม่พบไฟล์แนบ',
+                                  ),
+                                ),
+                              )
+                            : ChatVideoPreview(
+                                key: ValueKey(message.id),
+                                file: File(message.attachmentPath!),
+                              ),
+                      ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${_time(context, message.createdAt)} · ${_statusLabel(context, message.status)}',
+                textAlign: TextAlign.end,
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+            ],
+          ),
         ),
       ),
     );

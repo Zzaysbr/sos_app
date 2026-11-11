@@ -13,13 +13,13 @@ Flutter app สำหรับ local-first SOS, nearby BLE, incident Chat แล
 - Chat ไปกลับ พร้อม signed receipt หลังผู้รับเก็บข้อความสำเร็จ
 - ยกเลิกเหตุจากต้นทาง เก็บประวัติ และหยุดติดตามเฉพาะเครื่อง
 
-มีหลักฐานเครื่องจริงของคู่ iPhone–Samsung และการส่งต่อแบบเก็บรอผ่าน Samsung ระหว่าง iPhone กับ iPad โดยสลับ Bluetooth ปลายทาง ดูขอบเขตและผลแต่ละรอบใน PROJECT_CONTEXT.md การทดสอบนี้ไม่ใช่การรับรองหลายทอดที่เชื่อมต่อพร้อมกันทุกเครื่องหรือความเสถียรระยะยาว
+มีผลทดสอบ foreground/offline ของ iPhone–iPad–A53: เปลี่ยนจากทางตรงเป็นผ่านตัวกลางโดยใช้ SOS เดิม ส่งข้อความ/รูป/วิดีโอไปกลับ ตรวจ receipt ปลายทาง และปิดเหตุโดยคงประวัติ/สื่อไว้ ดู [ตาราง requirement และคู่มือเดโมล่าสุด](docs/DEMO_ACCEPTANCE.md) กับเหตุการณ์ตามลำดับใน PROJECT_CONTEXT.md การตัดลิงก์ด้วยปุ่มยังไม่ใช่การทดสอบระยะวิทยุจริง
 
 ## ตรวจซ้ำก่อนส่งงาน
 
 ```sh
 flutter pub get
-flutter test --no-pub
+flutter test --no-pub --concurrency=1
 flutter test --no-pub regression/stage2_remaining_contract_test.dart
 dart analyze lib test regression
 ```
@@ -38,8 +38,8 @@ python3 scripts/test_firestore_rules.py
 สำหรับ iPhone/iPad ที่ต้องเปิดจากไอคอน Home ให้สร้าง **Profile** หรือ Release; Debug ใช้กับ Flutter tooling/Xcode และไม่ใช่ไฟล์สำหรับขั้นทดสอบนี้ ตัวอย่างใช้ไฟล์ตั้งค่าส่วนตัวที่ git ignore ไว้แล้ว (ห้ามเผยแพร่เนื้อหาหรือคีย์):
 
 ```sh
-flutter build ios --profile --dart-define-from-file=config/production.json
-python3 scripts/check_ios_standalone_build.py build/ios/iphoneos/Runner.app --build-number 6
+flutter build ios --profile --build-number=25 --dart-define-from-file=config/production.json
+python3 scripts/check_ios_standalone_build.py build/ios/iphoneos/Runner.app --build-number 25
 ```
 
 ตัวตรวจยืนยัน bundle/build number, ไม่มี Debug kernel และลายเซ็นผ่านก่อนติดตั้ง แต่ยังไม่ใช่ผลยืนยันว่าเปิดบนเครื่องจริงได้ ให้ติดตั้งทับและตรวจประวัติ/การเปิดจากไอคอนทุกครั้ง
@@ -55,8 +55,10 @@ python3 scripts/check_ios_standalone_build.py build/ios/iphoneos/Runner.app --bu
 
 ## ผลตรวจส่งมอบและข้อจำกัด
 
-**Mini-project closeout remains OPEN:** both phones now have one observed camera/gallery photo/video case in each direction with receiver count1/open-or-play and sender Confirmed stored. One Android camera-video case required an explicit Bluetooth reconnect; uninterrupted/repeated reliability and latency are not accepted. See [current acceptance matrix and limitations](artifacts/physical_e2e/20261109_media_acceptance/STATUS.md). Current iPhone14/Samsung13; iPad update/media checks remain pending. New media is automatically compressed (JPEG<=64KiB, H264 video<=512KiB/15seconds); native codec/opaque-file fixes are versioned in local plugin overrides. Offline maps passed one saved region per Samsung/iPhone in documented zoom/bounds.
+รอบทดสอบ SOS/Chat/media ที่บันทึกวันที่11พฤศจิกายนผ่านตามขอบเขตใน PROJECT_CONTEXT.md: วิดีโอ A53→iPhone ตัวอย่างใหม่ประมาณ102KiB ใช้มากกว่า1ถึง3นาที; iPhone→A53ประมาณ48KiB ภายใน1นาที เป็นช่วงเวลาที่ผู้ทดสอบรายงาน ไม่ใช่ throughput guarantee รูปใหม่จำกัด24KiB; วิดีโอ H264/SDR360px/10fps จำกัด384KiB/15วินาที และเก็บเสียงตามนโยบายแต่ละแพลตฟอร์ม ไฟล์เก่ายังอ่านได้
 
-ดู [รายงานส่งมอบ build 5](artifacts/physical_e2e/20261108_mini_project_closeout/HANDOVER.md) สำหรับผลที่ตรวจแล้วและข้อจำกัดแต่ละกรณี รวมถึงตำแหน่งหลังรีสตาร์ท, ล็อกจอแล้วกลับเข้าแอปทั้งสองฝั่ง, บัญชี → Guest → บัญชีเดิม, ภาษาไทย/อังกฤษ และแผนที่ออนไลน์ ผลที่ผู้ใช้รายงานแยกจากหลักฐานฐานข้อมูลและการตรวจลายเซ็นไว้ในรายงาน
+Cloud เก็บ SOS/Chat metadata โดยไม่ใช้ Firebase Storage สำหรับ byte ของสื่อ การกู้ไฟล์หลัง Sync อาศัยไฟล์ที่ยังอยู่ใน private storage ของบัญชีนั้น ไม่ใช่การดาวน์โหลดไฟล์จาก cloud ลงเครื่องใหม่
 
-GPS พบ Current location หลังรีสตาร์ทแล้ว แต่สาเหตุ timeout ก่อนหน้ายังไม่ทราบ ระยะพักแอปยาว, OS ปิดแอป และการแยกบัญชีคนละบัญชี/ข้อมูล cloud จริงยังไม่ได้รับรอง แผนที่ออฟไลน์รับรองเฉพาะพื้นที่และซูมที่บันทึกไว้ E2EE, LoRa และการแจกจ่ายผ่าน Store ไม่รวมอยู่ในชุดสาธิตข้างต้น ต้องเทียบกับข้อกำหนดรายวิชาก่อนตัดออกจากงานส่ง รูปและวิดีโอเป็นข้อกำหนดบังคับตามการยืนยันล่าสุด และยังต้องผ่านการทดสอบก่อนส่งมอบ
+แผนที่/พิกัดสองฝ่าย สีของผู้กู้ภัยบนเครื่องอื่น ล็อกจอ/เบื้องหลัง notification และระยะจริงยังต้องผ่านการตรวจรับบนรุ่นที่จะส่งงานตามคู่มือ แผนที่ offline ใช้ได้เฉพาะพื้นที่/zoom/provider ที่บันทึกไว้ล่วงหน้า โค้ดรองรับไม่ได้เท่ากับผลทดสอบเครื่องจริง
+
+ผลและรายงานรุ่นเก่าใน artifacts/physical_e2e เป็นหลักฐานตามวันที่ของแต่ละรอบ ไม่ใช่สถานะติดตั้งล่าสุด E2EE, LoRa และการแจกจ่ายผ่าน Store ไม่อยู่ในหลักฐานการทดสอบชุดนี้

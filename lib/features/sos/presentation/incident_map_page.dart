@@ -28,6 +28,7 @@ class IncidentMapPage extends StatefulWidget {
     this.incomingLocationStream,
     this.liveLocationStream,
     this.rescueCandidate,
+    this.localParticipantRole = 'victim',
     this.tileProvider,
     this.offlineMapRepository,
   });
@@ -43,6 +44,7 @@ class IncidentMapPage extends StatefulWidget {
   final Stream<LocationBleEnvelope?>? incomingLocationStream;
   final Stream<LiveLocationEnvelope?>? liveLocationStream;
   final RescueInboxData? rescueCandidate;
+  final String localParticipantRole;
   final MapTileProviderConfig? tileProvider;
   final OfflineMapRepository? offlineMapRepository;
 
@@ -91,7 +93,7 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
     final live = _liveParticipantLocation;
     if (live != null) {
       try {
-        live.validate(now: DateTime.now().toUtc());
+        live.validate();
         return LatLng(live.latitude, live.longitude);
       } on Object {
         // Fall back to the legacy direct location stream below.
@@ -104,7 +106,7 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
       return null;
     }
     try {
-      location.validate(now: DateTime.now().toUtc());
+      location.validate();
     } on Object {
       return null;
     }
@@ -160,14 +162,16 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
     if (incomingStream != null) {
       _incomingLocationSubscription = incomingStream.listen((location) {
         if (!mounted) return;
-        setState(() => _liveIncomingLocation = location);
+        if (location != null) setState(() => _liveIncomingLocation = location);
       });
     }
     final liveStream = widget.liveLocationStream;
     if (liveStream != null) {
       _liveLocationSubscription = liveStream.listen((location) {
         if (!mounted) return;
-        setState(() => _liveParticipantLocation = location);
+        if (location != null) {
+          setState(() => _liveParticipantLocation = location);
+        }
       });
     }
     _offlineTileProvider = OfflineFirstTileProvider(
@@ -302,6 +306,41 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
     child: Text(label),
   );
 
+  Widget _positionDot(String role, {required bool local}) {
+    final color = role == 'rescue' ? Colors.blue : Colors.red;
+    final thai = Localizations.localeOf(context).languageCode == 'th';
+    final label = role == 'rescue'
+        ? (thai ? 'ตำแหน่งกู้ภัย' : 'Rescuer location')
+        : (thai ? 'ตำแหน่งผู้ขอความช่วยเหลือ' : 'Victim location');
+    return Semantics(
+      label: '$label${local ? (thai ? ' (คุณ)' : ' (you)') : ''}',
+      child: ExcludeSemantics(
+        child: Center(
+          child: Container(
+            key: ValueKey('$role-position-dot'),
+            width: local ? 32 : 28,
+            height: local ? 32 : 28,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color.withValues(alpha: 0.18),
+            ),
+            padding: const EdgeInsets.all(6),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: color,
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.surface,
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -317,27 +356,44 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
         : null;
     final center =
         incidentPoint ?? incomingPoint ?? currentPoint ?? const LatLng(0, 0);
+    final localRescue = widget.localParticipantRole == 'rescue';
+    final incomingRole =
+        _liveParticipantLocation?.participantRole ??
+        (localRescue ? 'victim' : 'rescue');
+    final victimPoint = !localRescue
+        ? currentPoint ??
+              (incomingRole == 'victim' ? incomingPoint : null) ??
+              incidentPoint
+        : (incomingRole == 'victim' ? incomingPoint : null) ?? incidentPoint;
+    final rescuePoint = localRescue
+        ? currentPoint ?? (incomingRole == 'rescue' ? incomingPoint : null)
+        : (incomingRole == 'rescue' ? incomingPoint : null);
     final markers = <Marker>[
-      if (incidentPoint != null)
+      if (victimPoint != null)
         Marker(
-          point: incidentPoint,
-          width: 56,
-          height: 56,
-          child: const Icon(Icons.location_on, color: Colors.red, size: 44),
+          point: victimPoint,
+          width: 48,
+          height: 48,
+          child: Opacity(
+            opacity: localRescue && _incomingExpired ? .45 : 1,
+            child: _positionDot(
+              'victim',
+              local: !localRescue && currentPoint != null,
+            ),
+          ),
         ),
-      if (incomingPoint != null)
+      if (rescuePoint != null)
         Marker(
-          point: incomingPoint,
-          width: 56,
-          height: 56,
-          child: const Icon(Icons.share_location, color: Colors.blue, size: 42),
-        ),
-      if (currentPoint != null)
-        Marker(
-          point: currentPoint,
-          width: 52,
-          height: 52,
-          child: const Icon(Icons.my_location, color: Colors.blue, size: 32),
+          point: rescuePoint,
+          width: 48,
+          height: 48,
+          child: Opacity(
+            opacity: !localRescue && _incomingExpired ? .45 : 1,
+            child: _positionDot(
+              'rescue',
+              local: localRescue && currentPoint != null,
+            ),
+          ),
         ),
     ];
 
@@ -498,13 +554,15 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
   }) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
-    final incomingStatus = widget.incomingLocation == null
+    final lastPeerFix =
+        _liveParticipantLocation?.createdAt ??
+        _liveIncomingLocation?.createdAt ??
+        widget.incomingLocation?.createdAt;
+    final incomingStatus = lastPeerFix == null
         ? null
-        : incomingPoint != null
-        ? l10n.sharedLocationAvailable
         : _incomingExpired
         ? l10n.sharedLocationExpired
-        : l10n.sharedLocationUnavailable;
+        : l10n.sharedLocationAvailable;
     final status =
         _incidentCoordinateError ??
         (_locationError != null
@@ -550,13 +608,9 @@ class _IncidentMapPageState extends State<IncidentMapPage> {
                     if (incomingPoint != null)
                       Text(
                         l10n.sharedCoordinates(
-                          widget.incomingLocation!.latitude!.toStringAsFixed(6),
-                          widget.incomingLocation!.longitude!.toStringAsFixed(
-                            6,
-                          ),
-                          _formatLocationTime(
-                            widget.incomingLocation!.createdAt,
-                          ),
+                          incomingPoint.latitude.toStringAsFixed(6),
+                          incomingPoint.longitude.toStringAsFixed(6),
+                          _formatLocationTime(lastPeerFix!),
                         ),
                         style: const TextStyle(fontSize: 12),
                       ),
