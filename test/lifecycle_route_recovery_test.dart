@@ -296,6 +296,41 @@ void main() {
     expect((await query.getSingle()).payload, original.payload);
   });
 
+  test('live obsolete next hop does not pin cancellation beside a proven responder route', () async {
+    final s = await ready();
+    s.network.allow('A', 'C');
+    s.network.connect('A', 'C');
+    await s.network.until(
+      () async =>
+          (await s.a.coordinator.relayRuntimeDiagnosticsDataSource
+                  .watchRuntimeDiagnostics()
+                  .first)
+              .peers
+              .where((peer) => peer.authenticated)
+              .length ==
+          2,
+    );
+    // The old link is still alive but no longer carries terminal messages to C.
+    s.network.dropMessage = (from, to, message) =>
+        from == 'B' &&
+        to == 'C' &&
+        message.type == IncidentLifecycleEnvelope.wireKind;
+    await (s.a.db.update(s.a.db.sosMessages)
+          ..where((row) => row.id.equals('incident-1')))
+        .write(const SosMessagesCompanion(status: Value('cancelled')));
+    await s.a.coordinator.enqueueIncidentLifecycle(
+      sosId: 'incident-1',
+      status: 'cancelled',
+      destinationId: 'B',
+    );
+    await s.network.pump();
+    final row = await (s.a.db.select(
+      s.a.db.bleOutbox,
+    )..where((row) => row.payload.like('%sos.lifecycle.v1%'))).getSingle();
+    expect(row.destinationId, 'C');
+    await s.network.until(() async => await recipientStatus(s) == 'cancelled');
+  });
+
   test('queued terminal event uses new route only after the same responder completes real Session Proof', () async {
     final s = await ready();
     await s.a.coordinator.setRelayParticipationEnabled(false);

@@ -6,6 +6,53 @@ import 'package:sos_app/features/nearby_ble/data/ble_transport.dart';
 import 'package:sos_app/features/nearby_ble/domain/ble_models.dart';
 
 void main() {
+  test('replacing an owner transport keeps native events after the old owner disposes', () async {
+    const methods = MethodChannel('owner-replacement/methods');
+    const events = EventChannel('owner-replacement/events');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    late MockStreamHandlerEventSink native;
+    var listens = 0;
+    var cancellations = 0;
+    messenger.setMockMethodCallHandler(methods, (_) async => null);
+    messenger.setMockStreamHandler(
+      events,
+      MockStreamHandler.inline(
+        onListen: (_, sink) {
+          native = sink;
+          listens++;
+        },
+        onCancel: (_) => cancellations++,
+      ),
+    );
+    final previous = BleTransport(methods: methods, events: events);
+    final oldEvents = <BleEvent>[];
+    final oldListener = previous.events.listen(oldEvents.add);
+    await Future<void>.delayed(Duration.zero);
+    final current = BleTransport(
+      methods: methods,
+      events: const EventChannel('owner-replacement/events'),
+    );
+    final currentEvents = <BleEvent>[];
+    final currentListener = current.events.listen(currentEvents.add);
+    await Future<void>.delayed(Duration.zero);
+    await previous.dispose();
+    await oldListener.cancel();
+    native.success({
+      'type': 'deviceFound',
+      'device': {'id': 'peer', 'model': 'SM-A037F'},
+    });
+    await Future<void>.delayed(Duration.zero);
+    expect(currentEvents.map((event) => event.type), contains('deviceFound'));
+    expect(oldEvents, isEmpty);
+    expect(listens, 1);
+    expect(cancellations, 0);
+    await currentListener.cancel();
+    await current.dispose();
+    expect(cancellations, 1);
+    messenger.setMockStreamHandler(events, null);
+    messenger.setMockMethodCallHandler(methods, null);
+  });
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('central retirement uses its own native method', () async {

@@ -11,6 +11,126 @@ class _Transport extends Mock implements BleTransportClient {}
 
 void main() {
   testWidgets(
+    'verified aliases share a model; identical models stay separate at large text',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final events = StreamController<BleEvent>.broadcast();
+      final transport = _Transport();
+      when(() => transport.events).thenAnswer((_) => events.stream);
+      final keys = {'incoming': 'verified-one', 'advertised': 'verified-one'};
+      final disconnected = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark(),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(2)),
+            child: child!,
+          ),
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: NearbyConnectionStatus(
+                transport: transport,
+                verifiedPeerKey: (peer) => keys[peer],
+                onSearch: () async {},
+                onConnect: (_) async {},
+                onDisconnect: (peer) async => disconnected.add(peer),
+              ),
+            ),
+          ),
+        ),
+      );
+      events.add(
+        const BleEvent(
+          type: 'connected',
+          device: BleDevice(id: 'incoming'),
+          role: BleSessionRole.peripheral,
+        ),
+      );
+      for (final id in ['advertised', 'same-model-other-device']) {
+        events.add(
+          BleEvent(
+            type: 'deviceFound',
+            device: BleDevice(
+              id: id,
+              model: 'SM-A536E',
+              recoveryHint: '12345678',
+            ),
+          ),
+        );
+      }
+      await tester.pump();
+      expect(find.text('Samsung Galaxy A53'), findsNWidgets(2));
+      expect(find.text('Unknown model'), findsNothing);
+      expect(find.text('Disconnect'), findsOneWidget);
+      expect(find.text('Connect'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      // Unverified devices sharing even a model and public hint remain distinct.
+      events.add(
+        const BleEvent(
+          type: 'deviceFound',
+          device: BleDevice(
+            id: 'third',
+            model: 'SM-A536E',
+            recoveryHint: '12345678',
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.text('Samsung Galaxy A53'), findsNWidgets(3));
+      expect(tester.takeException(), isNull);
+      events.add(
+        const BleEvent(
+          type: 'connected',
+          device: BleDevice(id: 'advertised'),
+          role: BleSessionRole.central,
+        ),
+      );
+      await tester.pump();
+      await tester.ensureVisible(find.text('Disconnect'));
+      await tester.tap(find.text('Disconnect'));
+      await tester.pump();
+      expect(disconnected, containsAll(['incoming', 'advertised']));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await events.close();
+    },
+  );
+
+  testWidgets('empty search gives a next step without starting radio itself', (
+    tester,
+  ) async {
+    final events = StreamController<BleEvent>.broadcast();
+    final transport = _Transport();
+    when(() => transport.events).thenAnswer((_) => events.stream);
+    var searches = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: NearbyConnectionStatus(
+            transport: transport,
+            onSearch: () async {
+              searches++;
+            },
+          ),
+        ),
+      ),
+    );
+    expect(find.textContaining('No devices found yet.'), findsNothing);
+    await tester.tap(find.text('Find nearby devices'));
+    await tester.pump();
+    expect(searches, 1);
+    expect(find.textContaining('No devices found yet.'), findsOneWidget);
+    events.add(const BleEvent(type: 'centralState', state: 'poweredOff'));
+    await tester.pump();
+    expect(find.textContaining('Turn on Bluetooth'), findsOneWidget);
+    expect(find.textContaining('No devices found yet.'), findsNothing);
+    verifyNever(() => transport.startDiscovery());
+    await tester.pumpWidget(const SizedBox.shrink());
+    await events.close();
+  });
+
+  testWidgets(
     'banner shows only search and actions for nearby or connected peers',
     (tester) async {
       final events = StreamController<BleEvent>.broadcast();

@@ -563,6 +563,18 @@ void main() {
       find.byKey(const ValueKey('active-sos-chat-banner-active-own')),
       findsOneWidget,
     );
+    expect(
+      tester
+          .getBottomRight(
+            find.byKey(const ValueKey('active-sos-chat-banner-active-own')),
+          )
+          .dy,
+      lessThan(
+        tester
+            .getTopLeft(find.byKey(const ValueKey('rescue-controls-banner')))
+            .dy,
+      ),
+    );
 
     await tester.tap(
       find.byKey(const ValueKey('active-sos-chat-banner-active-own')),
@@ -571,7 +583,7 @@ void main() {
     // Opening Chat is navigation, not an implicit role-switch action.
     expect(store.value, AppRole.rescue);
     expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
-    expect(find.text('Incident active-own'), findsOneWidget);
+    expect(find.text('SOS จากเครื่องต้นทาง'), findsOneWidget);
     expect(await database.select(database.sosMessages).getSingle(), before);
     expect(
       (await database.select(database.chatMessages).get()).map(
@@ -1050,6 +1062,12 @@ void main() {
     tester,
   ) async {
     await repository.create(id: 'own-chat-incident', type: 'medical');
+    await repository.create(id: 'closed-chat-incident', type: 'emergency');
+    await repository.update(
+      id: 'closed-chat-incident',
+      type: 'emergency',
+      status: 'cancelled',
+    );
     final now = DateTime.now().toUtc();
     await BleDeliveryRepository(database).persistIncomingDelivery(
       SosBleEnvelope.delivery(
@@ -1075,11 +1093,32 @@ void main() {
     expect(find.text('MEDICAL'), findsOneWidget);
     expect(find.text('FIRE'), findsNothing);
     expect(find.text('Incident own-chat-incident'), findsOneWidget);
+    expect(find.textContaining('closed-chat-incident'), findsNothing);
 
     await tester.tap(find.text('Incident own-chat-incident'));
     await tester.pumpAndSettle();
     expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
-    expect(find.text('Incident own-chat-incident'), findsOneWidget);
+    expect(find.text('SOS จากเครื่องต้นทาง'), findsOneWidget);
+    expect(find.byKey(const ValueKey('chat-open-map')), findsOneWidget);
+    Navigator.of(tester.element(find.byKey(const ValueKey('chat-open-map'))))
+        .pop();
+    await tester.pumpAndSettle();
+    await repository.update(
+      id: 'own-chat-incident',
+      type: 'medical',
+      status: 'cancelled',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Incident own-chat-incident'), findsNothing);
+    await tester.tap(find.text('ประวัติ'));
+    await tester.pumpAndSettle();
+    final oldChat = find.byKey(
+      const ValueKey('history-sos-chat-card-own-chat-incident'),
+    );
+    expect(oldChat, findsOneWidget);
+    await tester.tap(oldChat);
+    await tester.pumpAndSettle();
+    expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
   });
@@ -1117,7 +1156,7 @@ void main() {
     await tester.tap(find.text('Incident inbound-chat-incident'));
     await tester.pumpAndSettle();
     expect(find.text('แชตฉุกเฉิน'), findsOneWidget);
-    expect(find.text('Incident inbound-chat-incident'), findsOneWidget);
+    expect(find.text('SOS จากเครื่องต้นทาง'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
   });

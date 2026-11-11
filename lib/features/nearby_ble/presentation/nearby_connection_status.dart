@@ -16,11 +16,13 @@ class NearbyConnectionStatus extends StatefulWidget {
     this.onSearch,
     this.onConnect,
     this.onDisconnect,
+    this.verifiedPeerKey,
   });
   final BleTransportClient? transport;
   final Future<void> Function()? onSearch;
   final Future<void> Function(String)? onConnect;
   final Future<void> Function(String)? onDisconnect;
+  final String? Function(String)? verifiedPeerKey;
 
   @override
   State<NearbyConnectionStatus> createState() => _NearbyConnectionStatusState();
@@ -38,6 +40,7 @@ class _NearbyConnectionStatusState extends State<NearbyConnectionStatus> {
   String? _radioState;
   bool _error = false;
   bool _busy = false;
+  bool _searched = false;
 
   Future<void> _run(Future<void> Function() action) async {
     setState(() => _busy = true);
@@ -163,7 +166,17 @@ class _NearbyConnectionStatusState extends State<NearbyConnectionStatus> {
   }
 
   String _modelName(String id, bool thai) {
-    final model = _models[id];
+    final key = widget.verifiedPeerKey?.call(id);
+    final model =
+        _models[id] ??
+        (key == null
+            ? null
+            : _models.entries
+                  .where(
+                    (entry) => widget.verifiedPeerKey?.call(entry.key) == key,
+                  )
+                  .map((entry) => entry.value)
+                  .firstOrNull);
     return switch (model) {
       'M:I15,5' => 'iPhone 15 Plus',
       'M:I17,4' => 'iPhone 16 Plus',
@@ -177,6 +190,24 @@ class _NearbyConnectionStatusState extends State<NearbyConnectionStatus> {
       String code when _readableModel.hasMatch(code) => code,
       _ => thai ? 'ไม่ทราบรุ่น' : 'Unknown model',
     };
+  }
+
+  Future<void> _disconnectGroup(String peer) async {
+    final key = widget.verifiedPeerKey?.call(peer);
+    final aliases = key == null
+        ? [peer]
+        : _connected.entries
+              .where(
+                (entry) =>
+                    entry.value.isNotEmpty &&
+                    widget.verifiedPeerKey?.call(entry.key) == key,
+              )
+              .map((entry) => entry.key)
+              .toList();
+    // Capture aliases before awaits: explicit disconnect may revoke selection.
+    for (final alias in aliases) {
+      await widget.onDisconnect!(alias);
+    }
   }
 
   @override
@@ -195,6 +226,16 @@ class _NearbyConnectionStatusState extends State<NearbyConnectionStatus> {
             )
             .toList()
           ..sort();
+    // Only full, proof-verified keys can merge native aliases. Equal model
+    // names and public discovery hints must never collapse distinct devices.
+    final shownKeys = <String>{};
+    bool showPeer(String peer) {
+      final key = widget.verifiedPeerKey?.call(peer);
+      return key == null || shownKeys.add(key);
+    }
+
+    final visibleConnected = connected.where(showPeer).toList();
+    final visibleFound = found.where(showPeer).toList();
     final unavailable =
         widget.transport == null ||
         _error ||
@@ -209,26 +250,61 @@ class _NearbyConnectionStatusState extends State<NearbyConnectionStatus> {
       children: [
         if (widget.onSearch != null)
           OutlinedButton.icon(
-            onPressed: _busy ? null : () => _run(widget.onSearch!),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+            onPressed: _busy
+                ? null
+                : () async {
+                    setState(() => _searched = true);
+                    await _run(widget.onSearch!);
+                  },
             icon: const Icon(Icons.bluetooth_searching),
             label: Text(thai ? 'ค้นหาเครื่องใกล้เคียง' : 'Find nearby devices'),
           ),
+        if (unavailable && _searched)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              thai ? 'เปิด Bluetooth และอนุญาตการค้นหาอุปกรณ์ แล้วลองอีกครั้ง' : 'Turn on Bluetooth and allow nearby access, then try again.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+        if (!unavailable &&
+            _searched &&
+            !_busy &&
+            visibleConnected.isEmpty &&
+            visibleFound.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              thai ? 'ยังไม่พบเครื่อง เปิดแอปบนอีกเครื่องและวางไว้ใกล้กัน' : 'No devices found yet. Open the app on the other device and keep it nearby.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
         if (!unavailable && widget.onDisconnect != null)
-          for (final peer in connected)
-            ListTile(
-              title: Text(_modelName(peer, thai)),
-              trailing: TextButton(
+          for (final peer in visibleConnected)
+            _peerTile(
+              peer,
+              thai,
+              connected: true,
+              action: TextButton(
                 onPressed: _busy
                     ? null
-                    : () => _run(() => widget.onDisconnect!(peer)),
+                    : () => _run(() => _disconnectGroup(peer)),
+                style: TextButton.styleFrom(minimumSize: const Size(64, 48)),
                 child: Text(thai ? 'เลิกเชื่อม' : 'Disconnect'),
               ),
             ),
         if (!unavailable && widget.onConnect != null)
-          for (final peer in found)
-            ListTile(
-              title: Text(_modelName(peer, thai)),
-              trailing: TextButton(
+          for (final peer in visibleFound)
+            _peerTile(
+              peer,
+              thai,
+              connected: false,
+              action: TextButton(
+                style: TextButton.styleFrom(minimumSize: const Size(64, 48)),
                 onPressed: _busy || _connecting.contains(peer)
                     ? null
                     : () {
@@ -248,6 +324,44 @@ class _NearbyConnectionStatusState extends State<NearbyConnectionStatus> {
               ),
             ),
       ],
+    );
+  }
+
+  Widget _peerTile(
+    String peer,
+    bool thai, {
+    required bool connected,
+    required Widget action,
+  }) {
+    final theme = Theme.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stacked =
+            constraints.maxWidth < 300 ||
+            MediaQuery.textScalerOf(context).scale(14) > 18;
+        return ListTile(
+          dense: true,
+          minVerticalPadding: 0,
+          minLeadingWidth: 20,
+          horizontalTitleGap: 8,
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(
+            connected ? Icons.bluetooth_connected : Icons.smartphone,
+            size: 20,
+            color: connected
+                ? theme.colorScheme.primary
+                : theme.colorScheme.onSurfaceVariant,
+          ),
+          title: Text(
+            _modelName(peer, thai),
+            style: theme.textTheme.titleSmall,
+          ),
+          trailing: stacked ? null : action,
+          subtitle: stacked
+              ? Align(alignment: AlignmentDirectional.centerEnd, child: action)
+              : null,
+        );
+      },
     );
   }
 }

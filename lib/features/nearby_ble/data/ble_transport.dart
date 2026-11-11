@@ -365,6 +365,22 @@ class BleTransport
   final Duration nativeCallTimeout;
   final MethodChannel _methods;
   final EventChannel _events;
+  // The native bridge has one sink per channel. Owner-scoped transports can
+  // overlap briefly during login/logout. Separate receiveBroadcastStream calls
+  // would replace that sink, and an old owner's cancel would detach the new
+  // owner too. Share only the raw native feed; readiness/proof stays per owner.
+  static final _nativeFeeds = Expando<Map<String, Stream<dynamic>>>(
+    'ble-native-event-feeds',
+  );
+
+  Stream<dynamic> _nativeEvents() {
+    final feeds = _nativeFeeds[_events.binaryMessenger] ??= {};
+    return feeds.putIfAbsent(
+      _events.name,
+      () => _events.receiveBroadcastStream(),
+    );
+  }
+
   Stream<BleEvent>? _stream;
   StreamSubscription<BleEvent>? _nativeSubscription;
   StreamController<BleEvent>? _eventController;
@@ -394,8 +410,7 @@ class BleTransport
   Stream<BleEvent> _createEvents() {
     final source = StreamController<BleEvent>.broadcast();
     _eventController = source;
-    _nativeSubscription = _events
-        .receiveBroadcastStream()
+    _nativeSubscription = _nativeEvents()
         .expand((value) {
           final event = BleEvent.fromMap(
             Map<Object?, Object?>.from(value as Map),

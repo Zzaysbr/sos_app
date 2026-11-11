@@ -676,7 +676,12 @@ class _SosPageState extends State<SosPage> {
                       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
+                          if (ownActive.isNotEmpty) ...[
+                            _buildActiveSosChatBanner(ownActive.first),
+                            const SizedBox(height: 12),
+                          ],
                           Material(
+                            key: const ValueKey('rescue-controls-banner'),
                             color: dark
                                 ? const Color(0xFF102A43)
                                 : const Color(0xFFDCEBFA),
@@ -753,6 +758,8 @@ class _SosPageState extends State<SosPage> {
                                   const SizedBox(height: 12),
                                   NearbyConnectionStatus(
                                     transport: widget.bleTransport,
+                                    verifiedPeerKey:
+                                        widget.bleCoordinator?.verifiedPeerKey,
                                     onSearch: widget.bleTransport == null
                                         ? null
                                         : _searchNearby,
@@ -767,10 +774,6 @@ class _SosPageState extends State<SosPage> {
                               ),
                             ),
                           ),
-                          if (ownActive.isNotEmpty) ...[
-                            const SizedBox(height: 16),
-                            _buildActiveSosChatBanner(ownActive.first),
-                          ],
                           const SizedBox(height: 30),
                           if (_rescueListening)
                             StreamBuilder<List<RescueInboxData>>(
@@ -1838,13 +1841,21 @@ class _SosPageState extends State<SosPage> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (current != null) ...[
+                _buildActiveSosChatBanner(current),
+                const SizedBox(height: 12),
+              ],
               _buildSendSosButton(current),
               if (widget.bleTransport != null)
                 Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     child: NearbyConnectionStatus(
                       transport: widget.bleTransport,
+                      verifiedPeerKey: widget.bleCoordinator?.verifiedPeerKey,
                       onSearch: _searchNearby,
                       onConnect: widget.bleCoordinator?.connectSelectedPeer,
                       onDisconnect:
@@ -1855,8 +1866,6 @@ class _SosPageState extends State<SosPage> {
               if (sosSnapshot.hasError || inboundSnapshot.hasError)
                 _buildErrorCard('Unable to load the active SOS.'),
               if (current != null) ...[
-                const SizedBox(height: 16),
-                _buildActiveSosChatBanner(current),
                 const SizedBox(height: 12),
                 CurrentSosRoutePanel(
                   key: ValueKey('current-sos-route-${current.id}'),
@@ -2429,7 +2438,8 @@ class _SosPageState extends State<SosPage> {
                     .where(
                       (sos) => rescue
                           ? inboundIds.contains(sos.id)
-                          : !inboundIds.contains(sos.id),
+                          : !inboundIds.contains(sos.id) &&
+                                sos.status == 'active',
                     )
                     .toList()
                   ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -2447,7 +2457,11 @@ class _SosPageState extends State<SosPage> {
                       Text(
                         rescue
                             ? 'เลือกเหตุที่ได้รับเพื่อเปิดแชตให้ถูกเหตุการณ์'
-                            : 'เลือก SOS ของคุณเพื่อเปิดแชตให้ถูกเหตุการณ์',
+                            : routeText(
+                                context,
+                                'Your active SOS chats. Find past conversations in History.',
+                                'แชทของ SOS ที่ยังเปิดอยู่ ดูแชทเก่าได้ในประวัติ',
+                              ),
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                           height: 1.4,
@@ -2460,7 +2474,11 @@ class _SosPageState extends State<SosPage> {
                           title: context.l10n.noChatIncidents,
                           message: rescue
                               ? 'เหตุที่รับผ่าน BLE จะปรากฏที่นี่หลังบันทึกบนอุปกรณ์สำเร็จ'
-                              : 'สร้าง SOS ก่อน แล้วกลับมาเลือกเหตุการณ์ที่ต้องการสนทนา',
+                              : routeText(
+                                  context,
+                                  'Start an SOS to chat. Past conversations are saved in History.',
+                                  'เปิด SOS เพื่อเริ่มแชท บทสนทนาเก่ายังอยู่ในประวัติ',
+                                ),
                           actionLabel: rescue
                               ? 'ดูเหตุที่ได้รับ'
                               : 'ดูประวัติ SOS',
@@ -2557,6 +2575,20 @@ class _SosPageState extends State<SosPage> {
     return _routeNamesCache!;
   }
 
+  void _openIncidentMap(SosMessage sos) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => IncidentMapPage(
+          incident: sos,
+          incomingLocationStream: widget.bleCoordinator?.watchIncomingLocation(
+            sos.id,
+          ),
+          liveLocationStream: widget.bleCoordinator?.watchLiveLocation(sos.id),
+        ),
+      ),
+    );
+  }
+
   Future<void> _openIncidentChat(
     SosMessage sos, {
     ValueListenable<String?>? locationFeedback,
@@ -2570,7 +2602,7 @@ class _SosPageState extends State<SosPage> {
             sosId: sos.id,
             routeStream: _userRouteStream(sos.id),
             routeDeviceNames: _routeNames(),
-            contactName: 'Incident ${sos.id}',
+            onOpenMap: () => _openIncidentMap(sos),
             repository: widget.chatRepository,
             attachmentStore: widget.bleCoordinator?.mediaStore,
             canAttach: () async =>
@@ -3602,11 +3634,12 @@ class _SosPageState extends State<SosPage> {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  _buildDetailRow(
-                    icon: Icons.warning_amber_rounded,
-                    label: sheetContext.l10n.type,
-                    value: sos.type,
-                  ),
+                  if (rescueView || _role == AppRole.rescue)
+                    _buildDetailRow(
+                      icon: Icons.warning_amber_rounded,
+                      label: sheetContext.l10n.type,
+                      value: sos.type,
+                    ),
                   if (!readOnly && !rescueView && widget.bleCoordinator != null)
                     _buildBleDeliveryDetail(sos, sheetContext),
                   if (!readOnly && !rescueView && widget.bleCoordinator != null)
@@ -3722,7 +3755,9 @@ class _SosPageState extends State<SosPage> {
                         ? sheetContext.l10n.synced
                         : sheetContext.l10n.pendingSync,
                   ),
-                  if (sos.message != null && sos.message!.isNotEmpty)
+                  if ((rescueView || _role == AppRole.rescue) &&
+                      sos.message != null &&
+                      sos.message!.isNotEmpty)
                     _buildDetailRow(
                       icon: Icons.message_outlined,
                       label: sheetContext.l10n.message,
@@ -3739,6 +3774,7 @@ class _SosPageState extends State<SosPage> {
                             MaterialPageRoute<void>(
                               builder: (_) => EmergencyChatPage(
                                 sosId: sos.id,
+                                onOpenMap: () => _openIncidentMap(sos),
                                 routeStream: _userRouteStream(sos.id),
                                 routeDeviceNames: _routeNames(),
                                 repository: widget.chatRepository,
@@ -4268,7 +4304,9 @@ class _SosPageState extends State<SosPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          sos.type.toUpperCase(),
+                          historyStyle && _role != AppRole.rescue
+                              ? 'SOS · ${sos.id}'
+                              : sos.type.toUpperCase(),
                           style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),

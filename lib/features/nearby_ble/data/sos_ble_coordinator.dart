@@ -130,6 +130,9 @@ class SosBleCoordinator with WidgetsBindingObserver {
   final bool manualPeerSelection;
   final _peerRecovery = SelectedPeerRecovery();
 
+  /// Presentation-only alias grouping; never infer identity from model or hint.
+  String? verifiedPeerKey(String peer) => _hopRelay.verifiedKeyForLocator(peer);
+
   bool _canInitiateConnection(String peer) =>
       !manualPeerSelection ||
       _peerRecovery.mayInitiate(
@@ -1244,21 +1247,21 @@ class SosBleCoordinator with WidgetsBindingObserver {
     }
     var deviceId = destination;
     var roles = _connected[deviceId];
-    AuthenticatedRelayRoute? recoveredLifecycleRoute;
-    if (roles == null || roles.isEmpty) {
-      recoveredLifecycleRoute = await _recoverLifecycleRoute(activeRow);
-      if (recoveredLifecycleRoute != null &&
-          recoveredLifecycleRoute.deviceId != deviceId) {
-        activeRow = await _deliveryRepository.reassignPendingDestination(
-          activeRow.messageId,
-          expectedDestinationId: deviceId,
-          destinationId: recoveredLifecycleRoute.deviceId,
-          now: _now(),
-        );
-        deviceId = recoveredLifecycleRoute.deviceId;
-        roles = _connected[deviceId];
-        _log('lifecycleRouteRecoveredByVerifiedResponder');
-      }
+    // A native link can remain ready while no longer being the useful route
+    // to this incident's responder. Prefer the existing signed Help Offer +
+    // current Session Proof even when the stored next hop still looks alive.
+    final recoveredLifecycleRoute = await _recoverLifecycleRoute(activeRow);
+    if (recoveredLifecycleRoute != null &&
+        recoveredLifecycleRoute.deviceId != deviceId) {
+      activeRow = await _deliveryRepository.reassignPendingDestination(
+        activeRow.messageId,
+        expectedDestinationId: deviceId,
+        destinationId: recoveredLifecycleRoute.deviceId,
+        now: _now(),
+      );
+      deviceId = recoveredLifecycleRoute.deviceId;
+      roles = _connected[deviceId];
+      _log('lifecycleRouteRecoveredByVerifiedResponder');
     }
     var identityRoutedPayload = false;
     try {
