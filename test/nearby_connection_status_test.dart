@@ -11,6 +11,61 @@ class _Transport extends Mock implements BleTransportClient {}
 
 void main() {
   testWidgets(
+    'disconnect progress survives native callback and loss keeps model',
+    (tester) async {
+      final events = StreamController<BleEvent>.broadcast();
+      final transport = _Transport();
+      when(() => transport.events).thenAnswer((_) => events.stream);
+      final finished = Completer<void>();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: NearbyConnectionStatus(
+              transport: transport,
+              onDisconnect: (_) => finished.future,
+              onConnect: (_) async {},
+            ),
+          ),
+        ),
+      );
+      const peer = BleDevice(id: 'connected-only', model: 'SM-A536E');
+      events.add(const BleEvent(type: 'connected', device: peer));
+      await tester.pump();
+      await tester.tap(find.text('Disconnect'));
+      await tester.pump();
+      expect(find.text('Disconnecting…'), findsOneWidget);
+      expect(
+        tester
+            .widget<TextButton>(
+              find.widgetWithText(TextButton, 'Disconnecting…'),
+            )
+            .onPressed,
+        isNull,
+      );
+      events.add(const BleEvent(type: 'disconnected', device: peer));
+      await tester.pump();
+      expect(find.text('Disconnecting…'), findsOneWidget);
+      finished.complete();
+      await tester.pump();
+      expect(find.text('Disconnecting…'), findsNothing);
+      expect(find.text('Disconnected'), findsOneWidget);
+      expect(find.text('Samsung Galaxy A53'), findsOneWidget);
+      // No discovery evidence: an out-of-range peer must not offer Connect.
+      expect(find.text('Connect'), findsNothing);
+      events.add(const BleEvent(type: 'deviceFound', device: peer));
+      await tester.pump();
+      expect(find.text('Connect'), findsOneWidget);
+      events.add(const BleEvent(type: 'connected', device: peer));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Disconnected'), findsNothing);
+      expect(find.text('Disconnect'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await events.close();
+    },
+  );
+
+  testWidgets(
     'verified aliases share a model; identical models stay separate at large text',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(320, 900));

@@ -39,8 +39,12 @@ void main() {
   late _Reference incident;
   late _Collection archives;
   late _Cloud cloud;
+  late _Collection chats;
+  late _Query chatQuery;
   late _Document document;
   final now = DateTime.utc(2026, 11, 11);
+
+  setUpAll(() => registerFallbackValue(SetOptions(merge: true)));
 
   setUp(() async {
     db = AppDatabase.forTesting(NativeDatabase.memory());
@@ -51,8 +55,8 @@ void main() {
     incident = _Reference();
     final query = _Query();
     document = _Document();
-    final chats = _Collection();
-    final empty = _Query();
+    chats = _Collection();
+    chatQuery = _Query();
     when(() => firestore.collection('accounts')).thenReturn(accounts);
     when(() => accounts.doc('owner')).thenReturn(account);
     when(() => account.collection('archiveSos')).thenReturn(archives);
@@ -73,9 +77,10 @@ void main() {
       'updatedAt': Timestamp.fromDate(now),
     });
     when(() => incident.delete()).thenAnswer((_) async {});
+    when(() => incident.set(any(), any())).thenAnswer((_) async {});
     when(() => incident.collection('chat')).thenReturn(chats);
-    when(() => chats.get()).thenAnswer((_) async => empty);
-    when(() => empty.docs).thenReturn([]);
+    when(() => chats.get()).thenAnswer((_) async => chatQuery);
+    when(() => chatQuery.docs).thenReturn([]);
     archive = CloudArchiveService(firestore: firestore);
     final auth = _Auth();
     final user = _User();
@@ -106,6 +111,119 @@ void main() {
         ),
       )
       .then((_) {});
+
+  test('metadata-only archive cannot erase an existing local attachment or receipt', () async {
+    await seed();
+    await db
+        .into(db.chatMessages)
+        .insert(
+          ChatMessagesCompanion.insert(
+            messageId: 'media',
+            sosId: 'incident',
+            ownerId: 'owner',
+            senderId: 'peer',
+            messageType: 'media',
+            textContent: const Value('Photo'),
+            createdAt: now,
+            deliveryStatus: 'delivered',
+            attachmentPath: const Value('chat-media-v1/local/content'),
+            attachmentMimeType: const Value('image/jpeg'),
+          ),
+        );
+    final before = (await db.select(db.chatMessages).getSingle()).toJson();
+    final remote = _Document();
+    final ref = _Reference();
+    when(() => chats.doc('media')).thenReturn(ref);
+    when(() => ref.set(any(), any())).thenAnswer((_) async {});
+    when(() => chatQuery.docs).thenReturn([remote]);
+    when(() => remote.data()).thenReturn({
+      'messageId': 'media',
+      'sosId': 'incident',
+      'ownerId': 'owner',
+      'senderId': 'peer',
+      'messageType': 'media',
+      'textContent': 'Photo',
+      'createdAt': Timestamp.fromDate(now),
+      'deliveryStatus': 'sent',
+      'attachmentMimeType': 'image/jpeg',
+      'attachmentPath': '/untrusted/cloud/path',
+    });
+    final store = MediaAttachmentStore(ownerId: 'owner');
+    for (var i = 0; i < 2; i++) {
+      await archive.reconcile(
+        ownerId: 'owner',
+        database: db,
+        attachments: store,
+      );
+      expect((await db.select(db.chatMessages).getSingle()).toJson(), before);
+    }
+  });
+
+  test(
+    'remote message ID collision cannot replace another owner local row',
+    () async {
+      await seed();
+      await db
+          .into(db.chatMessages)
+          .insert(
+            ChatMessagesCompanion.insert(
+              messageId: 'collision',
+              sosId: 'private-incident',
+              ownerId: 'other',
+              senderId: 'peer',
+              messageType: 'text',
+              textContent: const Value('private'),
+              createdAt: now,
+              deliveryStatus: 'delivered',
+            ),
+          );
+      final before = (await db.select(db.chatMessages).getSingle()).toJson();
+      final remote = _Document();
+      when(() => chatQuery.docs).thenReturn([remote]);
+      when(() => remote.data()).thenReturn({
+        'messageId': 'collision',
+        'sosId': 'incident',
+        'ownerId': 'owner',
+        'senderId': 'peer',
+        'messageType': 'media',
+        'createdAt': Timestamp.fromDate(now),
+        'attachmentMimeType': 'image/jpeg',
+      });
+      await archive.reconcile(
+        ownerId: 'owner',
+        database: db,
+        attachments: MediaAttachmentStore(ownerId: 'owner'),
+      );
+      expect((await db.select(db.chatMessages).getSingle()).toJson(), before);
+    },
+  );
+
+  test('archive restores missing media metadata without importing a remote file path', () async {
+    await seed();
+    final remote = _Document();
+    when(() => chatQuery.docs).thenReturn([remote]);
+    when(() => remote.data()).thenReturn({
+      'messageId': 'new-media',
+      'sosId': 'incident',
+      'ownerId': 'owner',
+      'senderId': 'peer',
+      'messageType': 'media',
+      'textContent': 'Video',
+      'createdAt': Timestamp.fromDate(now),
+      'deliveryStatus': 'delivered',
+      'attachmentMimeType': 'video/mp4',
+      'attachmentPath': '/remote/invalid/path',
+    });
+    await archive.reconcile(
+      ownerId: 'owner',
+      database: db,
+      attachments: MediaAttachmentStore(ownerId: 'owner'),
+    );
+    final restored = await db.select(db.chatMessages).getSingle();
+    expect(restored.messageType, 'media');
+    expect(restored.attachmentPath, isNull);
+    expect(restored.attachmentMimeType, 'video/mp4');
+  });
 
   test('authenticated deletion removes both cloud copies and rejects a stale archive snapshot', () async {
     await seed();

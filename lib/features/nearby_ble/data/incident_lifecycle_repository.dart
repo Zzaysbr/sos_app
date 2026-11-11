@@ -185,6 +185,12 @@ class IncidentLifecycleRepository {
   bool _canAdvance(String current, String next) =>
       current != 'resolved' && (current != 'cancelled' || next == 'resolved');
 
+  /// Read-only origin binding for short-lived signed contact evidence too.
+  Future<({String keyId, DateTime createdAt})?> trustedOriginForPresence(
+    String incidentId,
+    DateTime now,
+  ) => _trustedOrigin(incidentId, now);
+
   Future<({String keyId, DateTime createdAt})?> _trustedOrigin(
     String incidentId,
     DateTime now,

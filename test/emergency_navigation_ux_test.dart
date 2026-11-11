@@ -156,6 +156,24 @@ void main() {
     expect(find.text('My SOS'), findsNothing);
     expect(find.text('ประวัติ'), findsOneWidget);
     expect(find.text('ตั้งค่า'), findsOneWidget);
+    expect(find.byTooltip('Guest SOS stays on this device'), findsNothing);
+    expect(find.byKey(const ValueKey('home-mode-switch')), findsOneWidget);
+    await tester.tap(find.text('ประวัติ'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Guest SOS stays on this device'), findsOneWidget);
+    expect(
+      tester
+          .widget<IconButton>(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget is IconButton &&
+                  widget.tooltip == 'Guest SOS stays on this device',
+            ),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(find.byKey(const ValueKey('home-mode-switch')), findsNothing);
     await disposeTree(tester);
   });
 
@@ -194,7 +212,7 @@ void main() {
       const ValueKey('current-sos-route-active-banner-incident'),
     );
     expect(route, findsOneWidget);
-    expect(find.text('Current SOS route'), findsOneWidget);
+    expect(find.text('Latest recorded SOS route'), findsOneWidget);
     expect(find.text('Next device not recorded'), findsOneWidget);
     expect(
       tester.getTopLeft(banner).dy,
@@ -1100,18 +1118,28 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    for (final label in [
-      'Waiting to send',
-      'Forwarded · awaiting confirmation',
-      'Saved on destination device',
-      'Send failed',
-    ]) {
+    for (final entry in {
+      'pending': 'Queued',
+      'sent': 'Waiting',
+      'delivered': 'Sent',
+      'failed': 'Queued',
+    }.entries) {
+      final body = find.text('message ${entry.key}');
       await tester.scrollUntilVisible(
-        find.textContaining(label),
+        body,
         120,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.textContaining(label), findsOneWidget);
+      final bubble = find
+          .ancestor(of: body, matching: find.byType(Column))
+          .first;
+      expect(
+        find.descendant(
+          of: bubble,
+          matching: find.textContaining(' · ${entry.value}'),
+        ),
+        findsOneWidget,
+      );
     }
     expect(find.byTooltip('Attach image'), findsNothing);
     expect(find.byTooltip('Share location'), findsNothing);

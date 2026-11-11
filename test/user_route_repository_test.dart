@@ -32,6 +32,282 @@ void main() {
   );
 
   test(
+    'accepted direct incident refreshes its signed route through a new relay',
+    () async {
+      final s = ThreeNodeSimulation();
+      addTearDown(s.close);
+      s.clock.now = DateTime.now().toUtc();
+      s.network.allowedLinks.clear();
+      s.network.allow('A', 'C');
+      for (final n in [s.a, s.b, s.c]) {
+        await n.start();
+      }
+      s.network.connect('A', 'C');
+      await s.network.until(
+        () async => await s.a.authenticated() && await s.c.authenticated(),
+      );
+      const incident = 'route-transition';
+      await s.a.materialize(incident);
+      final sos = await s.a.db.select(s.a.db.sosMessages).getSingle();
+      await s.a.coordinator.enqueuePublicRelay(
+        sos,
+        includeLocation: false,
+        scope: RelayAuthorizationScope.voluntaryRescue,
+      );
+      final candidates = RescueInboxRepository(s.c.db, ownerId: s.c.id);
+      await s.network.until(
+        () async => (await candidates.watchCandidates().first).isNotEmpty,
+      );
+      final received = (await candidates.watchCandidates().first).single;
+      final accepted = (await candidates.acceptLocally(
+        received.originMessageId,
+      ))!;
+      final stored = (await RelayRepository(database: s.c.db)
+          .lookupMessage(received.originMessageId))!;
+      await RescueResponseRepository(
+        s.c.db,
+        ownerId: s.c.id,
+      ).signAndEnqueueOffer(
+        origin: RelayOfferEnvelope.fromCanonicalWire(stored.wireEnvelope)
+            .responseOrigin,
+        responder: await s.c.identity(),
+        sessionBinding: 'initial',
+        receivedSos: accepted,
+        now: s.clock.now,
+      );
+      await s.c.coordinator.processDue();
+      await s.network.until(
+        () async =>
+            (await s.a.db.select(s.a.db.rescueResponseInbox).get()).isNotEmpty,
+      );
+      final originalResponse = await s.a.db
+          .select(s.a.db.rescueResponseInbox)
+          .getSingle();
+      expect((await repo(s.a).read(incident)).sos.single.hopCount, 1);
+      s.clock.advance(const Duration(seconds: 2));
+      s.network.disconnect('A', 'C');
+      s.network.allowedLinks.clear();
+      s.network.allow('A', 'B');
+      s.network.allow('B', 'C');
+      s.network.connect('B', 'C');
+      s.network.connect('A', 'B');
+      await s.network.until(
+        () async =>
+            (await candidates.find(received.originMessageId))
+                ?.incomingHopCount ==
+            1,
+      );
+      await s.network.until(
+        () async =>
+            (await s.a.db.select(s.a.db.rescueResponseInbox).get()).length == 2,
+      );
+      final latest = (await candidates.find(received.originMessageId))!;
+      expect(latest.state, 'locallyAccepted');
+      expect(latest.acceptanceId, accepted.acceptanceId);
+      expect(latest.acceptedAt, accepted.acceptedAt);
+      final keys = [
+        (await s.a.identity()).keyId,
+        (await s.b.identity()).keyId,
+        (await s.c.identity()).keyId,
+      ];
+      for (final n in [s.a, s.b, s.c]) {
+        final route = (await repo(n).read(incident)).sos.single;
+        expect(route.nodes.map((n) => n.keyId), keys);
+        expect(route.hopCount, 2);
+      }
+      // Delayed arrival/replay of older signed feedback cannot supersede the new path.
+      await (s.a.db.update(
+        s.a.db.rescueResponseInbox,
+      )..where((r) => r.messageId.equals(originalResponse.messageId))).write(
+        RescueResponseInboxCompanion(
+          receivedAt: Value(s.clock.now.add(const Duration(seconds: 30))),
+        ),
+      );
+      expect((await repo(s.a).read(incident)).sos.single.hopCount, 2);
+      // Same-path duplicate reception must not ask for help or enqueue another report.
+      await s.a.coordinator.processDue();
+      await s.b.coordinator.processDue();
+      await s.c.coordinator.processDue();
+      await s.network.pump();
+      expect(
+        (await s.c.db.select(s.c.db.rescueResponseOutbox).get())
+            .where((r) => r.messageId.startsWith('route:'))
+            .length,
+        1,
+      );
+      // Reproduce an upgrade: newer verified relay storage, old UI candidate.
+      // Runtime reconciliation must repair it without another SOS/Help tap.
+      final crypto = RelayCryptography();
+      final base = RelayOfferEnvelope.fromCanonicalWire(stored.wireEnvelope);
+      s.clock.now = base.body.expiresAt.add(const Duration(seconds: 1));
+      final middle = await s.b.identity();
+      final source = await s.a.identity();
+      final digest = await crypto.immutableDigest(base.body);
+      final attestation = RelayHopAttestation(
+        originMessageId: base.body.originMessageId,
+        immutableDigest: digest,
+        relayKeyId: middle.keyId,
+        relayPublicKey: base64UrlEncode(middle.publicKey),
+        hopCount: 1,
+        pathKeyIds: keys.take(2).toList(),
+        signature: '',
+      );
+      final renewed = RelayOfferEnvelope(
+        body: base.body,
+        originSignature: base.originSignature,
+        hopCount: 1,
+        pathKeyIds: attestation.pathKeyIds,
+        immediateSenderKeyId: middle.keyId,
+        lease: await crypto.signOriginLease(
+          base.body,
+          s.clock.now,
+          source.keyPair,
+        ),
+        hopAttestations: [
+          RelayHopAttestation(
+            originMessageId: attestation.originMessageId,
+            immutableDigest: digest,
+            relayKeyId: middle.keyId,
+            relayPublicKey: attestation.relayPublicKey,
+            hopCount: 1,
+            pathKeyIds: attestation.pathKeyIds,
+            signature: await crypto.signHopAttestation(
+              attestation,
+              middle.keyPair,
+            ),
+          ),
+        ],
+      );
+      await RelayRepository(database: s.c.db).acceptIncomingOffer(
+        renewed,
+        sourceDeviceId: 'B',
+        relayEnabled: true,
+        now: s.clock.now,
+      );
+      await s.c.db
+          .update(s.c.db.rescueInbox)
+          .write(
+            RescueInboxCompanion(
+              incomingHopCount: const Value(0),
+              incomingPath: Value(jsonEncode([keys.first])),
+              receivedAt: Value(accepted.receivedAt),
+            ),
+          );
+      await s.c.coordinator.processDue();
+      expect(s.c.logs, contains(contains('acceptedSosRouteReconciled')));
+      final repaired = (await candidates.find(received.originMessageId))!;
+      expect(repaired.incomingHopCount, 1);
+      expect(repaired.acceptanceId, accepted.acceptanceId);
+      expect((await repo(s.c).read(incident)).sos.single.hopCount, 2);
+      // Removing or expiring the renewal must still reject the same old origin.
+      await expectLater(
+        candidates.insertCandidate(
+          base,
+          immutableDigest: digest,
+          now: s.clock.now,
+        ),
+        throwsA(isA<RelayProtocolException>()),
+      );
+      await expectLater(
+        candidates.insertCandidate(
+          renewed,
+          immutableDigest: digest,
+          now: renewed.expiresAt.add(const Duration(seconds: 1)),
+        ),
+        throwsA(isA<RelayProtocolException>()),
+      );
+      expect(
+        (await candidates.find(received.originMessageId))!.acceptanceId,
+        accepted.acceptanceId,
+      );
+    },
+  );
+
+  test(
+    'candidate route refresh rejects tampering and preserves archived state',
+    () async {
+      final s = await ready();
+      final inbox = RescueInboxRepository(s.c.db, ownerId: s.c.id);
+      final crypto = RelayCryptography();
+      final identity = await s.b.identity();
+      final digest = await crypto.immutableDigest(s.sos.body);
+      final path = [s.sos.body.originKeyId, identity.keyId];
+      final unsigned = RelayHopAttestation(
+        originMessageId: s.sos.body.originMessageId,
+        immutableDigest: digest,
+        relayKeyId: identity.keyId,
+        relayPublicKey: base64UrlEncode(identity.publicKey),
+        hopCount: 1,
+        pathKeyIds: path,
+        signature: '',
+      );
+      final forwarded = RelayOfferEnvelope(
+        body: s.sos.body,
+        originSignature: s.sos.originSignature,
+        hopCount: 1,
+        pathKeyIds: path,
+        immediateSenderKeyId: identity.keyId,
+        hopAttestations: [
+          RelayHopAttestation(
+            originMessageId: unsigned.originMessageId,
+            immutableDigest: digest,
+            relayKeyId: identity.keyId,
+            relayPublicKey: unsigned.relayPublicKey,
+            hopCount: 1,
+            pathKeyIds: path,
+            signature: await crypto.signHopAttestation(
+              unsigned,
+              identity.keyPair,
+            ),
+          ),
+        ],
+      );
+      final refreshed = await inbox.insertCandidate(
+        forwarded,
+        immutableDigest: digest,
+        now: s.clock.now,
+      );
+      expect(refreshed.incomingHopCount, 1);
+      expect(refreshed.state, 'pending');
+      final forged = RelayOfferEnvelope(
+        body: s.sos.body,
+        originSignature: base64UrlEncode(List.filled(64, 0)),
+        hopCount: 0,
+        pathKeyIds: s.sos.pathKeyIds,
+        immediateSenderKeyId: s.sos.immediateSenderKeyId,
+      );
+      await expectLater(
+        inbox.insertCandidate(
+          forged,
+          immutableDigest: digest,
+          now: s.clock.now,
+        ),
+        throwsA(isA<RelayPersistenceException>()),
+      );
+      expect(
+        (await inbox.find(s.sos.body.originMessageId))!.incomingHopCount,
+        1,
+      );
+      await s.c.db
+          .update(s.c.db.rescueInbox)
+          .write(const RescueInboxCompanion(state: Value('archivedLocally')));
+      final archived = await inbox.insertCandidate(
+        s.sos,
+        immutableDigest: digest,
+        now: s.clock.now,
+      );
+      expect(archived.state, 'archivedLocally');
+      expect(archived.incomingHopCount, 1);
+      final wrongOwner = UserRouteRepository(
+        s.b.db,
+        ownerId: 'another-user',
+        readLocalKeyId: () async => (await s.b.identity()).keyId,
+      );
+      expect((await wrongOwner.read('incident-1')).sos, isEmpty);
+    },
+  );
+
+  test(
     'stored incoming SOS path counts intermediaries separately from radio legs',
     () async {
       final s = await ready();

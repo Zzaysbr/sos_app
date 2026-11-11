@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../../core/database/app_database.dart';
@@ -25,6 +26,7 @@ import '../domain/rescue_response_envelope.dart';
 import 'ble_delivery_repository.dart';
 import 'ble_protocol.dart';
 import 'ble_transport.dart';
+import 'incident_presence_coordinator.dart';
 import 'hop_relay_coordinator.dart';
 import 'relay_repository.dart';
 import 'incident_lifecycle_repository.dart';
@@ -201,6 +203,56 @@ class SosBleCoordinator with WidgetsBindingObserver {
   final SosBleRandom _random;
   final SosBlePeriodicTimer _periodicTimer;
   late final HopRelayCoordinator _hopRelay;
+  late final _incidentPresence = IncidentPresenceCoordinator(
+    database: _database,
+    ownerId: ownerId,
+    relay: _hopRelay,
+    now: _now,
+    isCurrent: () =>
+        _started && !_disposed && _sessionActive && !_adapterUnavailable,
+    directDestinationKey: _directPresenceDestination,
+    directOrigin: _directPresenceOrigin,
+  );
+  ValueListenable<Set<String>>? get reachableIncidents =>
+      _incidentPresence.reachable;
+
+  Future<String?> _directPresenceDestination(String incident) async {
+    if (await _deliveryRepository.lookupReplyDestination(incident) != null) {
+      return null;
+    }
+    final peer = await _deliveryRepository.lookupIncidentDestination(incident);
+    final key = peer == null ? null : _hopRelay.verifiedKeyForLocator(peer);
+    final route = key == null ? null : _hopRelay.authenticatedRouteForKey(key);
+    return route == null || !_peerBindings.containsKey(route.deviceId)
+        ? null
+        : key;
+  }
+
+  Future<({String keyId, DateTime createdAt})?> _directPresenceOrigin(
+    String incident,
+    String peer,
+  ) async {
+    if (await _deliveryRepository.lookupReplyDestination(incident) == null) {
+      return null;
+    }
+    final sender = await _deliveryRepository.lookupIncidentPeerIdentity(
+      incident,
+    );
+    if (sender == null || _peerBindings[peer] != sender) return null;
+    final key = _hopRelay.verifiedKeyForLocator(peer);
+    final row =
+        await (_database.select(_database.sosMessages)..where(
+              (row) =>
+                  row.ownerId.equals(ownerId) &
+                  row.id.equals(incident) &
+                  row.status.equals('active'),
+            ))
+            .getSingleOrNull();
+    return key == null || row == null
+        ? null
+        : (keyId: key, createdAt: row.createdAt);
+  }
+
   final Duration retryBase;
   final Duration retryMax;
 
@@ -582,6 +634,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
     _pollTimer?.cancel();
     _pollTimer = null;
     await _hopRelay.stop();
+    _incidentPresence.clear();
     await _eventsSubscription?.cancel();
     _eventsSubscription = null;
     _connected.clear();
@@ -999,6 +1052,11 @@ class SosBleCoordinator with WidgetsBindingObserver {
     await _recoverMediaEnqueue();
     _hopRelay.setPendingLocalControlWork(await hasPendingLifecycleRecovery());
     await _hopRelay.processDue();
+    unawaited(
+      _incidentPresence.tick().catchError((Object _) {
+        _log('incidentPresenceTickUnavailable');
+      }),
+    );
     _drainRequested = true;
     if (_drainFuture != null) return _drainFuture!;
     final future = _drain();
@@ -1489,6 +1547,7 @@ class SosBleCoordinator with WidgetsBindingObserver {
     );
     try {
       await _hopRelay.onEvent(event);
+      _incidentPresence.refresh();
     } catch (error) {
       // Relay v2 is additive. A key-store, capability, or relay-frame failure
       // must fail closed for relay without interrupting Direct SOS v1.
@@ -1834,6 +1893,10 @@ class SosBleCoordinator with WidgetsBindingObserver {
       }
       if (message.type == IncidentLifecycleEnvelope.wireKind) {
         await _handleIncidentLifecycle(deviceId, role, message);
+        return;
+      }
+      if (message.type == 'sos.presence.v1') {
+        await _incidentPresence.receive(deviceId, role, message);
         return;
       }
       if (await _hopRelay.handleMessage(deviceId, role, message)) return;

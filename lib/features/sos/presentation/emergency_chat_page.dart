@@ -649,25 +649,35 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
                             final offers = snapshot.data ?? const [];
                             if (offers.isEmpty) return const SizedBox.shrink();
                             return Container(
+                              key: const ValueKey('rescue-accepted-banner'),
                               width: double.infinity,
-                              padding: const EdgeInsets.fromLTRB(
-                                16,
-                                10,
-                                16,
-                                10,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
                               ),
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .secondaryContainer,
+                              color:
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? const Color(0xFF102A43)
+                                  : const Color(0xFFDCEBFA),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Icon(Icons.volunteer_activism_outlined),
+                                  const Icon(Icons.health_and_safety_outlined),
                                   const SizedBox(width: 10),
                                   Expanded(
-                                    child: Text(
-                                      'Verified help offer received (${offers.length}). '
-                                      'The responder has been authenticated; assistance is not guaranteed.',
+                                    child: Semantics(
+                                      liveRegion: true,
+                                      child: Text(
+                                        mediaText(
+                                          context,
+                                          'Rescuer accepted your SOS',
+                                          'ฝ่ายกู้ภัยรับเหตุแล้ว',
+                                        ),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleSmall,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -966,22 +976,9 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
                     ),
             ),
             const SizedBox(height: 4),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _statusIcon(message.status),
-                  size: 13,
-                  semanticLabel: _statusLabel(context, message.status),
-                ),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    '${_time(context, message.createdAt)} · ${_statusLabel(context, message.status)}',
-                    style: Theme.of(context).textTheme.labelSmall,
-                  ),
-                ),
-              ],
+            Text(
+              '${_time(context, message.createdAt)} · ${_statusLabel(context, message.status)}',
+              style: Theme.of(context).textTheme.labelSmall,
             ),
           ],
         ),
@@ -1112,20 +1109,15 @@ class _EmergencyChatPageState extends State<EmergencyChatPage> {
     );
   }
 
+  // Keep final-recipient confirmation as the boundary for Sent. Transport
+  // submission alone is still waiting; failed/queued messages remain pending.
   String _statusLabel(BuildContext context, ChatDeliveryStatus status) =>
       switch (status) {
-        ChatDeliveryStatus.pending => context.l10n.statusQueued,
-        ChatDeliveryStatus.sent => context.l10n.statusAwaitingConfirmation,
-        ChatDeliveryStatus.delivered => context.l10n.statusConfirmedStored,
-        ChatDeliveryStatus.failed => context.l10n.statusFailedRetryable,
+        ChatDeliveryStatus.pending ||
+        ChatDeliveryStatus.failed => mediaText(context, 'Queued', 'ค้างส่ง'),
+        ChatDeliveryStatus.sent => mediaText(context, 'Waiting', 'รอส่ง'),
+        ChatDeliveryStatus.delivered => mediaText(context, 'Sent', 'ส่งแล้ว'),
       };
-
-  IconData _statusIcon(ChatDeliveryStatus status) => switch (status) {
-    ChatDeliveryStatus.pending => Icons.schedule,
-    ChatDeliveryStatus.sent => Icons.outbox_outlined,
-    ChatDeliveryStatus.delivered => Icons.done_all,
-    ChatDeliveryStatus.failed => Icons.error_outline,
-  };
 }
 
 class _EmergencyProgress {

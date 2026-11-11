@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
+import 'package:cryptography/cryptography.dart';
 
 import '../../../core/database/app_database.dart';
 import '../domain/relay_envelope.dart';
@@ -106,11 +107,13 @@ class RescueResponseRepository {
     required RelaySigningIdentity responder,
     required String sessionBinding,
     RescueInboxData? receivedSos,
+    bool refreshPath = false,
     DateTime? now,
   }) async {
     final timestamp = (now ?? DateTime.now()).toUtc();
     final crypto = RelayCryptography();
     final digest = await crypto.immutableDigest(origin);
+    var hasAcceptedPath = false;
     if (receivedSos != null &&
         receivedSos.ownerId == ownerId &&
         receivedSos.originMessageId == origin.originMessageId &&
@@ -130,13 +133,38 @@ class RescueResponseRepository {
           }
           sessionBinding =
               RescueResponseBody.receivedSosPathPrefix + path.join(',');
+          hasAcceptedPath = true;
         }
       } on Object {
         // Legacy or malformed history can still send a normal Help Offer.
       }
     }
+    if (refreshPath && !hasAcceptedPath) {
+      throw const RelayPersistenceException(
+        'Route refresh requires an accepted incident path.',
+      );
+    }
+    final revision = refreshPath
+        ? base64UrlEncode(
+            (await Sha256().hash(
+              utf8.encode(
+                relayCanonicalJson({
+                  'origin': origin.originMessageId,
+                  'digest': digest,
+                  'responder': responder.keyId,
+                  'path': receivedSos!.incomingPath,
+                  'observedAt': receivedSos.receivedAt
+                      .toUtc()
+                      .toIso8601String(),
+                }),
+              ),
+            )).bytes,
+          )
+        : null;
     final responseBody = RescueResponseBody(
-      messageId: 'rescue:${origin.originMessageId}:${responder.keyId}',
+      messageId: refreshPath
+          ? 'route:$revision'
+          : 'rescue:${origin.originMessageId}:${responder.keyId}',
       incidentId: origin.incidentId,
       originMessageId: origin.originMessageId,
       originKeyId: origin.originKeyId,

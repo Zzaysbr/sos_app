@@ -218,6 +218,63 @@ class UserRouteRepository {
     _ => UserRouteStage.queued,
   };
 
+  Future<List<UserRoute>> _reportedRoutes(
+    BleRelayMessage message,
+    List<RescueResponseInboxData> responses,
+    String local,
+    UserRouteStage stage,
+  ) async {
+    final verified = <({RescueResponseEnvelope response, DateTime received})>[];
+    for (final row in responses.where(
+      (r) =>
+          r.originMessageId == message.originMessageId && r.state == 'verified',
+    )) {
+      try {
+        final response = RescueResponseEnvelope.fromCanonicalWire(row.payload);
+        final path = response.body.receivedSosPath;
+        final origin = RelayOfferEnvelope.fromCanonicalWire(
+          message.wireEnvelope,
+        ).responseOrigin;
+        if (path == null ||
+            !path.contains(local) ||
+            path.length - 1 > origin.maxHops ||
+            response.body.messageId != row.messageId ||
+            response.body.responderKeyId != row.responderKeyId ||
+            !await RelayCryptography().verifyRescueResponseForOrigin(
+              response,
+              origin,
+              now: row.receivedAt,
+            )) {
+          continue;
+        }
+        verified.add((response: response, received: row.receivedAt));
+      } on Object {
+        // Invalid feedback never replaces valid evidence.
+      }
+    }
+    // Arrival order can include delayed old feedback. Select by signed time,
+    // separately for each rescuer, rather than retaining every historical path.
+    verified.sort((a, b) {
+      final time = b.response.body.createdAt.compareTo(
+        a.response.body.createdAt,
+      );
+      return time == 0 ? b.received.compareTo(a.received) : time;
+    });
+    final responders = <String>{};
+    return [
+      for (final entry in verified)
+        if (responders.add(entry.response.body.responderKeyId))
+          UserRoute(
+            nodes: [
+              for (final key in entry.response.body.receivedSosPath!)
+                UserRouteNode(key, local: key == local),
+            ],
+            stage: stage,
+            extent: UserRouteExtent.confirmedSos,
+          ),
+    ];
+  }
+
   Future<UserRoutesSnapshot> read(String incident) async {
     final own =
         await (db.select(db.sosMessages)
@@ -228,7 +285,6 @@ class UserRouteRepository {
               (r) => r.ownerId.equals(ownerId) & r.incidentId.equals(incident),
             ))
             .get();
-    if (own == null && candidates.isEmpty) return const UserRoutesSnapshot();
     final localOrigins = own == null
         ? const <BleRelayMessage>[]
         : await (db.select(db.bleRelayMessages)..where(
@@ -247,10 +303,19 @@ class UserRouteRepository {
               (r) => r.ownerId.equals(ownerId) & r.incidentId.equals(incident),
             ))
             .get();
+    final responses =
+        await (db.select(db.rescueResponseInbox)..where(
+              (r) =>
+                  r.ownerId.equals(ownerId) &
+                  r.incidentId.equals(incident) &
+                  r.state.equals('verified'),
+            ))
+            .get();
     if (candidates.isEmpty &&
         localOrigins.isEmpty &&
         receipts.isEmpty &&
-        outbox.isEmpty) {
+        outbox.isEmpty &&
+        responses.isEmpty) {
       return const UserRoutesSnapshot();
     }
     final local = await readLocalKeyId?.call();
@@ -275,58 +340,24 @@ class UserRouteRepository {
       );
     }
     if (candidates.isEmpty && own != null) {
-      final responses =
-          await (db.select(db.rescueResponseInbox)..where(
-                (r) =>
-                    r.ownerId.equals(ownerId) &
-                    r.incidentId.equals(incident) &
-                    r.state.equals('verified'),
-              ))
-              .get();
       for (final message in localOrigins) {
         // Only this installation's origin job, never another account's global relay row.
         if (local == null || message.originKeyId != local) continue;
-        final confirmedFirstHops = <String>{};
-        for (final row in responses.where(
-          (r) => r.originMessageId == message.originMessageId,
-        )) {
-          try {
-            final response = RescueResponseEnvelope.fromCanonicalWire(
-              row.payload,
-            );
-            final path = response.body.receivedSosPath;
-            if (path == null) continue;
-            final origin = RelayOfferEnvelope.fromCanonicalWire(
-              message.wireEnvelope,
-            ).responseOrigin;
-            if (path.length - 1 > origin.maxHops ||
-                !await RelayCryptography().verifyRescueResponseForOrigin(
-                  response,
-                  origin,
-                  now: row.receivedAt,
-                )) {
-              continue;
-            }
-            confirmedFirstHops.add(path[1]);
-            sosRoutes.insert(
-              0,
-              UserRoute(
-                nodes: [
-                  for (final key in path)
-                    UserRouteNode(key, local: key == local),
-                ],
-                stage: own.status == 'cancelled'
-                    ? UserRouteStage.cancelled
-                    : own.status == 'resolved'
-                    ? UserRouteStage.resolved
-                    : UserRouteStage.confirmed,
-                extent: UserRouteExtent.confirmedSos,
-              ),
-            );
-          } on Object {
-            // A damaged or unverified offer cannot extend the known path.
-          }
-        }
+        final reported = await _reportedRoutes(
+          message,
+          responses,
+          local,
+          own.status == 'cancelled'
+              ? UserRouteStage.cancelled
+              : own.status == 'resolved'
+              ? UserRouteStage.resolved
+              : UserRouteStage.confirmed,
+        );
+        sosRoutes.addAll(reported);
+        final confirmedFirstHops = {
+          for (final route in reported)
+            for (final node in route.nodes.skip(1)) node.keyId,
+        };
         final attempts =
             await (db.select(db.bleRelayAttempts)..where(
                   (r) => r.originMessageId.equals(message.originMessageId),
@@ -369,6 +400,26 @@ class UserRouteRepository {
             ),
           );
         }
+      }
+    }
+    // An intermediary has no local human Chat/SOS row. Its owner-scoped
+    // verified feedback can still report a full path that includes this node.
+    if (own == null &&
+        candidates.isEmpty &&
+        local != null &&
+        responses.isNotEmpty) {
+      final relayed = await (db.select(
+        db.bleRelayMessages,
+      )..where((r) => r.incidentId.equals(incident))).get();
+      for (final message in relayed) {
+        sosRoutes.addAll(
+          await _reportedRoutes(
+            message,
+            responses,
+            local,
+            UserRouteStage.confirmed,
+          ),
+        );
       }
     }
     final chat = <String, UserRoute>{};

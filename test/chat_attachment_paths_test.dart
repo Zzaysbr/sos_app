@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sos_app/core/database/app_database.dart';
@@ -108,6 +108,47 @@ void main() {
       old.toJson(),
     );
     expect(await File(old.attachmentPath!).exists(), isFalse);
+  });
+
+  test('metadata-only history recovers a null path after cancellation and sandbox move', () async {
+    await send();
+    await db
+        .update(db.chatMessages)
+        .write(const ChatMessagesCompanion(attachmentPath: Value(null)));
+    await move();
+    final before = (await db.select(db.chatMessages).getSingle()).toJson();
+    final loaded = (await repo.loadMessages('incident')).single;
+    expect(loaded.attachmentPath, isNotNull);
+    expect(
+      await File(loaded.attachmentPath!).readAsBytes(),
+      await (await store.find('message'))!.file.readAsBytes(),
+    );
+    expect((await db.select(db.chatMessages).getSingle()).toJson(), before);
+  });
+
+  test('null reference recovery rejects other namespaces, MIME and corrupt content', () async {
+    Future<String?> resolve(
+      MediaAttachmentStore source, {
+      String id = 'message',
+      String incident = 'incident',
+      String mime = 'image/png',
+    }) => source.resolveChatPath(
+      id: id,
+      incident: incident,
+      mime: mime,
+      path: null,
+    );
+    expect(
+      await resolve(MediaAttachmentStore(ownerId: 'other', root: original)),
+      isNull,
+    );
+    expect(await resolve(store, id: 'other'), isNull);
+    expect(await resolve(store, incident: 'other'), isNull);
+    expect(await resolve(store, mime: 'video/mp4'), isNull);
+    final bytes = await content.readAsBytes();
+    bytes[bytes.length - 1] ^= 1;
+    await content.writeAsBytes(bytes);
+    expect(await resolve(store), isNull);
   });
 
   test('incoming replay after relocation stays one row and preserves stored status', () async {

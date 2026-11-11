@@ -13,7 +13,7 @@ abstract interface class ChatMediaEncoder {
     File source,
     File output, {
     required int longSide,
-    required double targetSizeMb,
+    required int videoBitrateBps,
   });
 }
 
@@ -40,14 +40,14 @@ class NativeChatMediaEncoder implements ChatMediaEncoder {
     File source,
     File output, {
     required int longSide,
-    required double targetSizeMb,
+    required int videoBitrateBps,
   }) async {
     final job = _video.compress(
       source.path,
       options: chatVideoCompressionOptions(
         android: Platform.isAndroid,
         longSide: longSide,
-        targetSizeMb: targetSizeMb,
+        videoBitrateBps: videoBitrateBps,
         outputPath: output.path,
       ),
     );
@@ -72,12 +72,12 @@ class NativeChatMediaEncoder implements ChatMediaEncoder {
 CompressOptions chatVideoCompressionOptions({
   required bool android,
   required int longSide,
-  required double targetSizeMb,
+  required int videoBitrateBps,
   required String outputPath,
 }) => CompressOptions(
   maxLongSidePx: longSide,
-  targetSizeMb: targetSizeMb,
-  maxFps: 15,
+  videoBitrateBps: videoBitrateBps,
+  maxFps: 10,
   codec: VideoCodec.h264,
   hdr: HdrMode.toneMapToSdr,
   audio: android

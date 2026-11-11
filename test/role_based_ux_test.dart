@@ -396,6 +396,7 @@ void main() {
     RolePreferenceStore store, {
     ThemeMode mode = ThemeMode.light,
     BleTransportClient? bleTransport,
+    SosBleCoordinator? bleCoordinator,
   }) => MaterialApp(
     locale: const Locale('th'),
     supportedLocales: AppLocalizations.supportedLocales,
@@ -413,10 +414,88 @@ void main() {
       isGuest: true,
       rolePreferenceStore: store,
       bleTransport: bleTransport,
+      bleCoordinator: bleCoordinator,
       relayPreferenceStore: bleTransport == null
           ? null
           : MemoryRelayPreferenceStore(),
     ),
+  );
+
+  testWidgets(
+    'contact loss hides Helping without discarding acceptance and returns without another offer',
+    (tester) async {
+      final contact = ValueNotifier<Set<String>>({'presence-incident'});
+      final coordinator = _BleCoordinator();
+      when(() => coordinator.reachableIncidents).thenReturn(contact);
+      final time = DateTime.now().toUtc();
+      await database
+          .into(database.rescueInbox)
+          .insert(
+            RescueInboxCompanion.insert(
+              ownerId: guestDeviceOwnerId,
+              originMessageId: 'presence-origin',
+              incidentId: 'presence-incident',
+              originKeyId: 'fixture-key',
+              immutableDigest: 'fixture-digest',
+              emergencyType: 'emergency',
+              emergencyMessage: 'Saved help request',
+              includeLocation: false,
+              incomingHopCount: 1,
+              incomingPath: '[]',
+              createdAt: time,
+              expiresAt: time.add(const Duration(minutes: 30)),
+              receivedAt: time,
+              state: 'locallyAccepted',
+              acceptanceId: const Value('existing-acceptance'),
+            ),
+          );
+      await tester.pumpWidget(
+        app(
+          MemoryRolePreferenceStore(AppRole.rescue),
+          bleCoordinator: coordinator,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.assignment_outlined).last);
+      await tester.pumpAndSettle();
+      final card = find.byKey(
+        const ValueKey('accepted-rescue-candidate-presence-origin'),
+      );
+      expect(card, findsOneWidget);
+      contact.value = {};
+      await tester.pumpAndSettle();
+      expect(card, findsNothing);
+      expect(find.textContaining('กำลังรอสัญญาณจากต้นทาง'), findsOneWidget);
+      expect(
+        (await database.select(database.rescueInbox).getSingle()).state,
+        'locallyAccepted',
+      );
+      contact.value = {'presence-incident'};
+      await tester.pumpAndSettle();
+      expect(card, findsOneWidget);
+      expect(
+        (await database.select(database.rescueInbox).getSingle()).acceptanceId,
+        'existing-acceptance',
+      );
+      await (database.update(database.rescueInbox)
+            ..where((row) => row.originMessageId.equals('presence-origin')))
+          .write(const RescueInboxCompanion(state: Value('cancelled')));
+      contact.value = {};
+      contact.value = {'presence-incident'};
+      await tester.pumpAndSettle();
+      expect(
+        card,
+        findsNothing,
+        reason: 'Actual cancellation must not return with contact.',
+      );
+      expect(
+        await database.select(database.rescueResponseOutbox).get(),
+        isEmpty,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      contact.dispose();
+      await tester.pump(const Duration(milliseconds: 1));
+    },
   );
 
   testWidgets('first run defaults to victim mode and rescue opt-in persists', (

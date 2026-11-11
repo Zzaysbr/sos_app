@@ -27,6 +27,7 @@ import 'chat_relay_repository.dart';
 import 'chat_receipt_repository.dart';
 import '../domain/chat_receipt.dart';
 import '../domain/live_location_envelope.dart';
+import '../domain/incident_presence_envelope.dart';
 import 'chat_relay_authorization.dart';
 import 'relay_diagnostics_repository.dart';
 
@@ -828,6 +829,39 @@ class HopRelayCoordinator {
 
   String? verifiedKeyForLocator(String peer) => _verifiedLocatorKeys[peer];
 
+  Map<String, AuthenticatedRelayRoute> currentAuthenticatedRoutes() {
+    final result = <String, AuthenticatedRelayRoute>{};
+    for (final key
+        in _provenPeers().values.map((route) => route.peer.keyId).toSet()) {
+      final route = authenticatedRouteForKey(key);
+      if (route != null) result[key] = route;
+    }
+    return result;
+  }
+
+  Future<void> sendPresence(String key, BleMessage message) async {
+    if (message.type != IncidentPresenceEnvelope.wireKind) {
+      throw const RelayProtocolException('Expected presence message.');
+    }
+    final route = authenticatedRouteForKey(key);
+    if (route == null) return;
+    await _sendMessage(
+      route.deviceId,
+      route.role,
+      message,
+      sendAllowed: () =>
+          route.isCurrent() &&
+          message.createdAt
+              .add(IncidentPresenceEnvelope.lifetime)
+              .isAfter(_now()) &&
+          (message.payload['keyId'] != _identity?.keyId ||
+              message.payload['scope'] == 'direct' ||
+              !_cancelledOriginMessageIds.contains(
+                'relay:${message.payload['incidentId']}',
+              )),
+    );
+  }
+
   void observeLinkTraffic(String peer, BleSessionRole role) {
     final session = _sessions[_sessionKey(peer, role)];
     if (session?.proofComplete == true) session!.lastLinkTraffic = _now();
@@ -1351,6 +1385,59 @@ class HopRelayCoordinator {
     }
   }
 
+  /// Reconcile accepted UI records with the latest already-verified durable
+  /// relay envelope, including after an in-place update or runtime restart.
+  Future<void> _refreshAcceptedSosRoutes() async {
+    if (!(rescueModeEnabled?.call() ?? false) || rescueInbox == null) return;
+    final accepted =
+        await (_database.select(_database.rescueInbox)..where(
+              (r) =>
+                  r.ownerId.equals(_rescueResponseRepository.ownerId) &
+                  r.state.equals('locallyAccepted'),
+            ))
+            .get();
+    for (final previous in accepted) {
+      try {
+        final row = await _repository.lookupMessage(previous.originMessageId);
+        if (row == null) continue;
+        // Same-lease relay storage intentionally retains its first envelope.
+        // It must not overwrite a later authenticated candidate arrival.
+        if (!row.persistedAt.isAfter(previous.receivedAt)) continue;
+        final path = jsonDecode(row.incomingPath);
+        final keys = path is Map ? path['path'] : path;
+        if (previous.incomingHopCount == row.incomingHopCount &&
+            previous.incomingPath == jsonEncode(keys)) {
+          continue;
+        }
+        final offer = await _repository.loadVerifiedOffer(
+          row.originMessageId,
+          now: _now(),
+        );
+        final candidate = await rescueInbox!.insertCandidate(
+          offer,
+          immutableDigest: row.immutableDigest,
+          now: _now(),
+        );
+        if (candidate.state != 'locallyAccepted' ||
+            (candidate.incomingPath == previous.incomingPath &&
+                candidate.incomingHopCount == previous.incomingHopCount)) {
+          continue;
+        }
+        await _rescueResponseRepository.signAndEnqueueOffer(
+          origin: offer.responseOrigin,
+          responder: await _ensureIdentity(),
+          sessionBinding: 'accepted-route-refresh',
+          receivedSos: candidate,
+          refreshPath: true,
+          now: _now(),
+        );
+        _log('acceptedSosRouteReconciled');
+      } on Object {
+        _log('acceptedSosRouteReconcileSkipped');
+      }
+    }
+  }
+
   Future<void> _processDue() async {
     final now = _now().toUtc();
     _log(
@@ -1377,6 +1464,7 @@ class HopRelayCoordinator {
       await _ensureDiscovery();
     }
     await _processChatReceipts(now);
+    await _refreshAcceptedSosRoutes();
     await _processRescueResponseDue(now);
     await _processChatRelayDue(now);
     await _repository.recoverStaleAttempts(
@@ -2497,11 +2585,31 @@ class HopRelayCoordinator {
     if (offer.body.scope == RelayAuthorizationScope.voluntaryRescue &&
         (rescueModeEnabled?.call() ?? false) &&
         rescueInbox != null) {
-      await rescueInbox!.insertCandidate(
+      final previous = await rescueInbox!.find(offer.body.originMessageId);
+      final candidate = await rescueInbox!.insertCandidate(
         offer,
         immutableDigest: await _cryptography.immutableDigest(offer.body),
         now: _now(),
       );
+      if (previous != null &&
+          candidate.state == 'locallyAccepted' &&
+          (previous.incomingPath != candidate.incomingPath ||
+              previous.incomingHopCount != candidate.incomingHopCount)) {
+        try {
+          await _rescueResponseRepository.signAndEnqueueOffer(
+            origin: offer.responseOrigin,
+            responder: identity,
+            sessionBinding: session.outboundBinding!,
+            receivedSos: candidate,
+            refreshPath: true,
+            now: _now(),
+          );
+          _log('acceptedSosRouteRefreshQueued');
+        } on Object {
+          // A feedback failure must not invalidate durable SOS/hop storage.
+          _log('acceptedSosRouteRefreshDeferred');
+        }
+      }
       _timing(
         'candidate_persisted',
         offer.body.originMessageId,

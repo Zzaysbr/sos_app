@@ -166,9 +166,17 @@ class CloudArchiveService {
     final mime = data['attachmentMimeType'] as String?;
     await database.transaction(() async {
       if (await _deleted(database, ownerId, data['sosId'] as String)) return;
+      final existing =
+          await (database.select(database.chatMessages)..where(
+                (row) => row.messageId.equals(data['messageId'] as String),
+              ))
+              .getSingleOrNull();
+      // Chat payloads are immutable. Restore missing rows only; a metadata-only
+      // archive must not erase local files, receipts or another owner's row.
+      if (existing != null) return;
       await database
           .into(database.chatMessages)
-          .insertOnConflictUpdate(
+          .insert(
             ChatMessagesCompanion.insert(
               messageId: data['messageId'] as String,
               sosId: data['sosId'] as String,
@@ -183,6 +191,7 @@ class CloudArchiveService {
               attachmentMimeType: Value(mime),
               attachmentName: Value(data['attachmentName'] as String?),
             ),
+            mode: InsertMode.insertOrIgnore,
           );
     });
   }

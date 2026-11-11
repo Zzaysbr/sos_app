@@ -50,7 +50,9 @@ class RescueInboxRepository {
       );
     }
     final timestamp = (now ?? DateTime.now()).toUtc();
-    offer.body.validate(now: timestamp);
+    // A valid signed lease can extend an expired immutable origin. Validate
+    // the complete envelope; verifyOffer below also authenticates the lease.
+    offer.validate(now: timestamp);
     if (!await RelayCryptography().verifyOffer(offer, now: timestamp) ||
         immutableDigest !=
             await RelayCryptography().immutableDigest(offer.body)) {
@@ -64,6 +66,29 @@ class RescueInboxRepository {
         throw const RelayPersistenceException(
           'Rescue candidate identity conflicts with stored data.',
         );
+      }
+      // The immutable incident is deduplicated, but a newly authenticated
+      // arrival can have a different path. Keep acceptance/history intact.
+      if (!offer.expiresAt.isBefore(existing.expiresAt) &&
+          !const {
+            'cancelled',
+            'resolved',
+            'archivedLocally',
+          }.contains(existing.state) &&
+          (existing.incomingHopCount != offer.hopCount ||
+              existing.incomingPath != jsonEncode(offer.pathKeyIds))) {
+        await (database.update(database.rescueInbox)..where(
+              (r) =>
+                  r.ownerId.equals(ownerId) &
+                  r.originMessageId.equals(existing.originMessageId),
+            ))
+            .write(
+              RescueInboxCompanion(
+                incomingHopCount: Value(offer.hopCount),
+                incomingPath: Value(jsonEncode(offer.pathKeyIds)),
+                receivedAt: Value(timestamp),
+              ),
+            );
       }
       if (offer.lease != null &&
           offer.expiresAt.isAfter(existing.expiresAt) &&

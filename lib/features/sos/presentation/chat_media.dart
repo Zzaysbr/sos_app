@@ -55,8 +55,8 @@ Future<PreparedChatMedia?> pickChatMedia(ChatMediaSource source) async {
 
 // Sending limits are deliberately smaller than the wire/storage compatibility
 // limits: old attachments remain readable, while new BLE transfers use less data.
-const chatImageSendBytes = 64 * 1024;
-const chatVideoSendBytes = 512 * 1024;
+const chatImageSendBytes = 24 * 1024;
+const chatVideoSendBytes = 384 * 1024;
 
 Future<PreparedChatMedia> prepareChatMedia(
   File file, {
@@ -77,7 +77,10 @@ Future<PreparedChatMedia> prepareChatMedia(
         source.widthPx * source.heightPx > 3840 * 2160) {
       throw const FormatException('video_duration');
     }
-    for (final setting in [(480, 0.30), (360, 0.18)]) {
+    // Fixed low video bitrate makes short clips smaller too: a fixed total
+    // file target otherwise spends hundreds of KB even on a 3-second clip.
+    // Audio stays enabled; Android AAC passthrough avoids its known codec bug.
+    for (final setting in [(360, 96000), (240, 64000)]) {
       final output = await _mediaTemp('video', 'mp4');
       var keep = false;
       try {
@@ -85,13 +88,14 @@ Future<PreparedChatMedia> prepareChatMedia(
           file,
           output,
           longSide: setting.$1,
-          targetSizeMb: setting.$2,
+          videoBitrateBps: setting.$2,
         );
         final bytes = await output.length();
         if (bytes <= 0 || bytes > chatVideoSendBytes) continue;
         final info = await codec.videoInfo(output);
         if (!_validVideo(info) ||
-            math.max(info.widthPx, info.heightPx) > 480 ||
+            math.max(info.widthPx, info.heightPx) > 360 ||
+            (info.frameRateFps != null && info.frameRateFps! > 10.5) ||
             (info.videoCodec != 'h264' && info.videoCodec != 'unknown')) {
           throw const FormatException('video_compression');
         }
@@ -128,7 +132,7 @@ Future<PreparedChatMedia> prepareChatMedia(
         descriptor.height > 16384) {
       throw const FormatException('image_size');
     }
-    for (final setting in [(960, 68), (720, 55), (480, 40)]) {
+    for (final setting in [(640, 55), (480, 42), (320, 30)]) {
       final scale = math.min(
         1.0,
         setting.$1 / math.max(descriptor.width, descriptor.height),

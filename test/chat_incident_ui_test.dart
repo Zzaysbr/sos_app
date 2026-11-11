@@ -4,10 +4,67 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sos_app/core/localization/localization.dart';
+import 'package:sos_app/core/database/app_database.dart';
 import 'package:sos_app/features/nearby_ble/data/user_route_repository.dart';
 import 'package:sos_app/features/sos/presentation/emergency_chat_page.dart';
 
 void main() {
+  testWidgets(
+    'verified help becomes a short accepted banner only after an offer',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final offers =
+          StreamController<List<RescueResponseInboxData>>.broadcast();
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('th'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(2)),
+            child: child!,
+          ),
+          home: EmergencyChatPage(
+            sosId: 'incident',
+            verifiedHelpOfferStream: offers.stream,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('rescue-accepted-banner')),
+        findsNothing,
+      );
+      offers.add([
+        RescueResponseInboxData(
+          ownerId: 'owner',
+          messageId: 'offer',
+          incidentId: 'incident',
+          originMessageId: 'origin',
+          responderKeyId: 'responder',
+          immutableDigest: 'digest',
+          payload: '{}',
+          state: 'received',
+          receivedAt: DateTime.utc(2026, 11, 11),
+        ),
+      ]);
+      await tester.pumpAndSettle();
+      expect(find.text('ฝ่ายกู้ภัยรับเหตุแล้ว'), findsOneWidget);
+      expect(find.textContaining('Verified help offer'), findsNothing);
+      expect(tester.takeException(), isNull);
+      offers.add([]);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('rescue-accepted-banner')),
+        findsNothing,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      await offers.close();
+    },
+  );
+
   testWidgets(
     'source follows the original route node, not the middle device or incident ID',
     (tester) async {

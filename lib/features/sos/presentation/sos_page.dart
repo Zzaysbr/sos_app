@@ -18,6 +18,7 @@ import '../../role/data/role_preference_store.dart';
 import '../../role/domain/app_role.dart';
 import '../../role/domain/role_workflow_controller.dart';
 import '../../role/presentation/role_selection_page.dart';
+import '../../role/presentation/home_mode_switch.dart';
 import '../../nearby_ble/data/ble_delivery_repository.dart';
 import '../../nearby_ble/data/ble_transport.dart';
 import '../../nearby_ble/data/emergency_consent_store.dart';
@@ -37,6 +38,7 @@ import '../../nearby_ble/domain/relay_envelope.dart';
 import '../data/sos_repository.dart';
 import '../data/chat_repository.dart';
 import 'account_page.dart';
+import 'app_version_label.dart';
 import 'emergency_chat_page.dart';
 import 'in_app_notifications_page.dart';
 import 'incident_map_page.dart';
@@ -125,6 +127,21 @@ class _SosPageState extends State<SosPage> {
   final Object _manualDiscoveryLease = Object();
   Timer? _manualDiscoveryTimer;
   BlePresenceManager? _blePresence;
+  ValueListenable<Set<String>>? _incidentReachability;
+
+  bool _canContactIncident(String id) =>
+      _incidentReachability?.value.contains(id) ?? true;
+
+  void _reachabilityChanged() {
+    if (mounted && _role == AppRole.rescue) setState(() {});
+  }
+
+  void _bindIncidentReachability() {
+    _incidentReachability?.removeListener(_reachabilityChanged);
+    _incidentReachability = widget.bleCoordinator?.reachableIncidents;
+    _incidentReachability?.addListener(_reachabilityChanged);
+  }
+
   bool _syncing = false;
   bool _sendingSos = false;
   bool _openingIncidentChat = false;
@@ -173,6 +190,7 @@ class _SosPageState extends State<SosPage> {
   @override
   void initState() {
     super.initState();
+    _bindIncidentReachability();
     _roleStore =
         widget.rolePreferenceStore ?? const PlatformRolePreferenceStore();
     _relayPreferenceStore =
@@ -342,6 +360,9 @@ class _SosPageState extends State<SosPage> {
   @override
   void didUpdateWidget(covariant SosPage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.bleCoordinator, widget.bleCoordinator)) {
+      _bindIncidentReachability();
+    }
     if (!identical(oldWidget.repository, widget.repository)) {
       _deliveryRepository = BleDeliveryRepository(widget.repository.database);
       _bindSosStreams();
@@ -399,6 +420,7 @@ class _SosPageState extends State<SosPage> {
           Future<void>.value(),
     );
     _historySearchController.dispose();
+    _incidentReachability?.removeListener(_reachabilityChanged);
     super.dispose();
   }
 
@@ -663,11 +685,8 @@ class _SosPageState extends State<SosPage> {
                                 ],
                               ),
                             ),
-                            IconButton(
-                              tooltip: l10n.switchToNeedHelp,
-                              onPressed: _requestRoleSwitch,
-                              icon: const Icon(Icons.swap_horiz_rounded),
-                            ),
+                            const SizedBox(width: 12),
+                            _buildHomeModeSwitch(),
                           ],
                         ),
                       ),
@@ -791,6 +810,9 @@ class _SosPageState extends State<SosPage> {
                                               candidate.state != 'resolved' &&
                                               candidate.expiresAt.isAfter(
                                                 DateTime.now().toUtc(),
+                                              ) &&
+                                              _canContactIncident(
+                                                candidate.incidentId,
                                               ),
                                         )
                                         .toList(growable: false);
@@ -798,9 +820,12 @@ class _SosPageState extends State<SosPage> {
                                     (candidateSnapshot.data ??
                                             const <RescueInboxData>[])
                                         .where(
-                                          (candidate) =>
-                                              candidate.state ==
-                                              'archivedLocally',
+                                          (candidate) => const {
+                                            'archivedLocally',
+                                            'cancelled',
+                                            'resolved',
+                                            'expired',
+                                          }.contains(candidate.state),
                                         )
                                         .map(
                                           (candidate) => candidate.incidentId,
@@ -810,7 +835,8 @@ class _SosPageState extends State<SosPage> {
                                     .where(
                                       (sos) =>
                                           sos.status == 'active' &&
-                                          !archivedIds.contains(sos.id),
+                                          !archivedIds.contains(sos.id) &&
+                                          _canContactIncident(sos.id),
                                     )
                                     .toList(growable: false);
                                 final existingIds = activeReceived
@@ -826,6 +852,29 @@ class _SosPageState extends State<SosPage> {
                                 final total =
                                     activeReceived.length +
                                     uniqueCandidates.length;
+                                final waitingForContact =
+                                    (candidateSnapshot.data ??
+                                            const <RescueInboxData>[])
+                                        .any(
+                                          (row) =>
+                                              const {
+                                                'pending',
+                                                'viewed',
+                                                'locallyAccepted',
+                                              }.contains(row.state) &&
+                                              row.expiresAt.isAfter(
+                                                DateTime.now().toUtc(),
+                                              ) &&
+                                              !_canContactIncident(
+                                                row.incidentId,
+                                              ),
+                                        ) ||
+                                    received.any(
+                                      (row) =>
+                                          row.status == 'active' &&
+                                          !archivedIds.contains(row.id) &&
+                                          !_canContactIncident(row.id),
+                                    );
                                 return Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -846,6 +895,8 @@ class _SosPageState extends State<SosPage> {
                                       ],
                                     ),
                                     const SizedBox(height: 12),
+                                    if (waitingForContact)
+                                      _buildWaitingForContactNotice(),
                                     if (sosSnapshot.connectionState ==
                                             ConnectionState.waiting ||
                                         inboundSnapshot.connectionState ==
@@ -904,7 +955,12 @@ class _SosPageState extends State<SosPage> {
                   final archivedIds =
                       (candidateSnapshot.data ?? const <RescueInboxData>[])
                           .where(
-                            (candidate) => candidate.state == 'archivedLocally',
+                            (candidate) => const {
+                              'archivedLocally',
+                              'cancelled',
+                              'resolved',
+                              'expired',
+                            }.contains(candidate.state),
                           )
                           .map((candidate) => candidate.incidentId)
                           .toSet();
@@ -914,13 +970,16 @@ class _SosPageState extends State<SosPage> {
                             inboundIds.contains(sos.id) &&
                             sos.status == 'active' &&
                             !archivedIds.contains(sos.id) &&
-                            _roleWorkflow.isAccepted(sos.id),
+                            _roleWorkflow.isAccepted(sos.id) &&
+                            _canContactIncident(sos.id),
                       )
                       .toList();
                   final acceptedCandidates =
                       (candidateSnapshot.data ?? const <RescueInboxData>[])
                           .where(
-                            (candidate) => candidate.state == 'locallyAccepted',
+                            (candidate) =>
+                                candidate.state == 'locallyAccepted' &&
+                                _canContactIncident(candidate.incidentId),
                           )
                           .toList();
                   return CustomScrollView(
@@ -956,6 +1015,21 @@ class _SosPageState extends State<SosPage> {
                               l10n.helpingStateNotice,
                               style: const TextStyle(height: 1.4),
                             ),
+                            if ((candidateSnapshot.data ??
+                                        const <RescueInboxData>[])
+                                    .any(
+                                      (row) =>
+                                          row.state == 'locallyAccepted' &&
+                                          !_canContactIncident(row.incidentId),
+                                    ) ||
+                                (snapshot.data ?? const <SosMessage>[]).any(
+                                  (row) =>
+                                      inboundIds.contains(row.id) &&
+                                      row.status == 'active' &&
+                                      _roleWorkflow.isAccepted(row.id) &&
+                                      !_canContactIncident(row.id),
+                                ))
+                              _buildWaitingForContactNotice(),
                             const SizedBox(height: 20),
                             if (accepted.isEmpty && acceptedCandidates.isEmpty)
                               _buildEmptyCard(
@@ -1021,6 +1095,18 @@ class _SosPageState extends State<SosPage> {
           'บันทึกข้อเสนอไว้บนเครื่องนี้',
         ),
       };
+
+  Widget _buildWaitingForContactNotice() => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Text(
+      routeText(
+        context,
+        'Waiting for the SOS source. Your help offer and chat are saved; the incident returns automatically when contact resumes.',
+        'กำลังรอสัญญาณจากต้นทาง การรับช่วยเหลือและแชทยังอยู่ เหตุจะแสดงอีกครั้งอัตโนมัติเมื่อติดต่อได้',
+      ),
+      style: Theme.of(context).textTheme.bodyMedium,
+    ),
+  );
 
   Widget _buildAcceptedRescueCandidateCard(RescueInboxData candidate) {
     return Card(
@@ -1622,7 +1708,6 @@ class _SosPageState extends State<SosPage> {
   }
 
   Widget _buildHomeHeader() {
-    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 16, 4),
       child: Row(
@@ -1670,38 +1755,40 @@ class _SosPageState extends State<SosPage> {
               ],
             ),
           ),
-          IconButton(
-            tooltip: context.l10n.switchToRescue,
-            onPressed: _requestRoleSwitch,
-            icon: const Icon(Icons.swap_horiz_rounded),
-          ),
-          IconButton(
-            tooltip: widget.isGuest
-                ? 'Guest SOS stays on this device'
-                : _syncing
-                ? 'Syncing'
-                : 'Sync pending SOS',
-            onPressed: widget.isGuest || _syncing ? null : _syncPending,
-            style: IconButton.styleFrom(
-              backgroundColor: theme.colorScheme.surfaceContainerHighest,
-              minimumSize: const Size(52, 52),
-            ),
-            icon: _syncing
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(
-                    Icons.sync_rounded,
-                    color: Color(0xFFD92323),
-                    size: 28,
-                  ),
-          ),
+          _buildHomeModeSwitch(),
         ],
       ),
     );
   }
+
+  Widget _buildSyncButton() {
+    final theme = Theme.of(context);
+    return IconButton(
+      tooltip: widget.isGuest
+          ? 'Guest SOS stays on this device'
+          : _syncing
+          ? 'Syncing'
+          : 'Sync pending SOS',
+      onPressed: widget.isGuest || _syncing ? null : _syncPending,
+      style: IconButton.styleFrom(
+        backgroundColor: theme.colorScheme.surfaceContainerHighest,
+        minimumSize: const Size(52, 52),
+      ),
+      icon: _syncing
+          ? const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.sync_rounded, color: Color(0xFFD92323), size: 28),
+    );
+  }
+
+  Widget _buildHomeModeSwitch() => HomeModeSwitch(
+    key: const ValueKey('home-mode-switch'),
+    role: _role ?? AppRole.needHelp,
+    onChanged: _savingRole == null ? _requestRoleSwitch : null,
+  );
 
   Widget _buildSendSosButton(SosMessage? active) {
     final l10n = context.l10n;
@@ -2037,16 +2124,23 @@ class _SosPageState extends State<SosPage> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    icon: const Icon(Icons.phone_android, size: 20),
-                    label: Text(l10n.deviceData),
-                    style: TextButton.styleFrom(
-                      minimumSize: const Size(48, 48),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: TextButton.icon(
+                          icon: const Icon(Icons.phone_android, size: 20),
+                          label: Text(l10n.deviceData),
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(48, 48),
+                          ),
+                          onPressed: _openDeviceHistory,
+                        ),
+                      ),
                     ),
-                    onPressed: _openDeviceHistory,
-                  ),
+                    _buildSyncButton(),
+                  ],
                 ),
               ),
             ),
@@ -2437,7 +2531,9 @@ class _SosPageState extends State<SosPage> {
                 (sosSnapshot.data ?? const <SosMessage>[])
                     .where(
                       (sos) => rescue
-                          ? inboundIds.contains(sos.id)
+                          ? inboundIds.contains(sos.id) &&
+                                (sos.status != 'active' ||
+                                    _canContactIncident(sos.id))
                           : !inboundIds.contains(sos.id) &&
                                 sos.status == 'active',
                     )
@@ -2938,6 +3034,8 @@ class _SosPageState extends State<SosPage> {
                           color: Theme.of(context).colorScheme.outline,
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      const AppVersionLabel(),
                     ],
                   ),
                 ),

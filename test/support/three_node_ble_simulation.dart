@@ -473,6 +473,7 @@ class SimNode {
     File? file,
     Directory? mediaRoot,
     bool manualPeerSelection = false,
+    bool requirePeerBinding = false,
   }) {
     db = AppDatabase.forTesting(
       (file == null ? NativeDatabase.memory() : NativeDatabase(file))
@@ -492,6 +493,7 @@ class SimNode {
       ownerId: id,
       localDeviceId: id,
       manualPeerSelection: manualPeerSelection,
+      requirePeerBinding: requirePeerBinding,
       transport: transport,
       relayIdentityService: identityService,
       relayProofTimer: network.clock.timer,
@@ -587,11 +589,18 @@ class ThreeNodeSimulation {
     File? relayFile,
     Directory? mediaRoot,
     bool manualRelaySelection = false,
+    bool requirePeerBinding = false,
   }) {
     network = SimBleNetwork(clock)
       ..allow('A', 'B')
       ..allow('B', 'C');
-    a = SimNode('A', 1, network, mediaRoot: mediaRoot);
+    a = SimNode(
+      'A',
+      1,
+      network,
+      mediaRoot: mediaRoot,
+      requirePeerBinding: requirePeerBinding,
+    );
     b = SimNode(
       'B',
       2,
@@ -599,8 +608,15 @@ class ThreeNodeSimulation {
       file: relayFile,
       mediaRoot: mediaRoot,
       manualPeerSelection: manualRelaySelection,
+      requirePeerBinding: requirePeerBinding,
     );
-    c = SimNode('C', 3, network, mediaRoot: mediaRoot);
+    c = SimNode(
+      'C',
+      3,
+      network,
+      mediaRoot: mediaRoot,
+      requirePeerBinding: requirePeerBinding,
+    );
   }
   final clock = SimulationClock();
   late final SimBleNetwork network;

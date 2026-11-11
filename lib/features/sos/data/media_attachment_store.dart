@@ -110,13 +110,14 @@ class MediaAttachmentStore {
     required String? mime,
     required String? path,
   }) async {
-    if (path == null || mime == null) return null;
+    if (mime == null) return null;
     final reference =
         'chat-media-v1/${await _key(ownerId)}/${await _key(id)}/content';
     final currentPath = _root == null
         ? null
         : '${_root!.path}/${await _key(ownerId)}/${await _key(id)}/content';
-    if (path != reference &&
+    if (path != null &&
+        path != reference &&
         path != currentPath &&
         !path.endsWith('/$reference')) {
       return null;
@@ -129,6 +130,20 @@ class MediaAttachmentStore {
         await FileSystemEntity.type(media.file.path, followLinks: false) !=
             FileSystemEntityType.file) {
       return null;
+    }
+    if (path == null) {
+      // Metadata-only cloud restores used to erase this reference. Recover
+      // only this owner's exact completed object, never a cloud-supplied path.
+      if (await media.file.length() != media.manifest.bytes ||
+          base64UrlEncode((await _hashFile(media.file)).bytes) !=
+              media.manifest.digest) {
+        return null;
+      }
+      try {
+        await _checkMagic(media.file, mime);
+      } on FormatException {
+        return null;
+      }
     }
     return (reference: reference, file: media.file);
   }

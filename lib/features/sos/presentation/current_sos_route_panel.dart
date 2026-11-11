@@ -50,8 +50,8 @@ class _CurrentSosRoutePanelState extends State<CurrentSosRoutePanel> {
       builder: (context, snapshot) {
         final title = routeText(
           context,
-          'Current SOS route',
-          'เส้นทาง SOS ปัจจุบัน',
+          'Latest recorded SOS route',
+          'เส้นทาง SOS ล่าสุดที่บันทึก',
         );
         if (snapshot.hasError) {
           return Column(

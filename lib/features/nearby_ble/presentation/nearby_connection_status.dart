@@ -33,6 +33,10 @@ class _NearbyConnectionStatusState extends State<NearbyConnectionStatus> {
   final _models = <String, String>{};
   final _seen = <String, DateTime>{};
   final _connecting = <String>{};
+  final _disconnecting = <String>{};
+  final _disconnectCalls = <String>{};
+  final _disconnectTimers = <String, Timer>{};
+  final _lost = <String, DateTime>{};
   final _connected = <String, Set<BleSessionRole>>{};
   final _events = BleConnectionEvents();
   StreamSubscription<BleEvent>? _subscription;
@@ -82,7 +86,14 @@ class _NearbyConnectionStatusState extends State<NearbyConnectionStatus> {
     super.initState();
     _listen();
     _timer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (mounted && _seen.isNotEmpty) setState(() {});
+      if (mounted && (_seen.isNotEmpty || _lost.isNotEmpty)) {
+        setState(
+          () => _lost.removeWhere(
+            (_, time) =>
+                DateTime.now().difference(time) >= const Duration(seconds: 30),
+          ),
+        );
+      }
     });
   }
 
@@ -103,10 +114,15 @@ class _NearbyConnectionStatusState extends State<NearbyConnectionStatus> {
                 'unsupported',
                 'resetting',
               ].contains(current.state)) {
+                for (final peer in {..._connecting, ..._connected.keys}) {
+                  if (_connecting.contains(peer) ||
+                      _connected[peer]?.isNotEmpty == true) {
+                    _lost[peer] = DateTime.now();
+                  }
+                }
                 _connecting.clear();
                 _connected.clear();
                 _seen.clear();
-                _models.clear();
                 _events.clear();
               }
             }
@@ -118,9 +134,13 @@ class _NearbyConnectionStatusState extends State<NearbyConnectionStatus> {
             if (current.type == 'deviceFound') {
               _seen[id] = DateTime.now();
             }
-            if (current.type == 'connecting') _connecting.add(id);
+            if (current.type == 'connecting') {
+              _connecting.add(id);
+              _lost.remove(id);
+            }
             if (current.type == 'connected') {
               _connecting.remove(id);
+              _lost.remove(id);
               _connected
                   .putIfAbsent(id, () => {})
                   .add(current.role ?? BleSessionRole.central);
@@ -132,6 +152,11 @@ class _NearbyConnectionStatusState extends State<NearbyConnectionStatus> {
                 _connected.remove(id);
               } else {
                 _connected[id]?.remove(current.role);
+              }
+              if (_connected[id]?.isNotEmpty != true &&
+                  !_connecting.contains(id)) {
+                _lost[id] = DateTime.now();
+                if (!_disconnectCalls.contains(id)) _clearDisconnect(id);
               }
             }
           });
@@ -150,6 +175,13 @@ class _NearbyConnectionStatusState extends State<NearbyConnectionStatus> {
       _subscription?.cancel();
       _events.clear();
       _connecting.clear();
+      _disconnecting.clear();
+      _disconnectCalls.clear();
+      for (final timer in _disconnectTimers.values) {
+        timer.cancel();
+      }
+      _disconnectTimers.clear();
+      _lost.clear();
       _connected.clear();
       _seen.clear();
       _models.clear();
@@ -162,6 +194,9 @@ class _NearbyConnectionStatusState extends State<NearbyConnectionStatus> {
   void dispose() {
     _subscription?.cancel();
     _timer?.cancel();
+    for (final timer in _disconnectTimers.values) {
+      timer.cancel();
+    }
     super.dispose();
   }
 
@@ -205,17 +240,51 @@ class _NearbyConnectionStatusState extends State<NearbyConnectionStatus> {
               .map((entry) => entry.key)
               .toList();
     // Capture aliases before awaits: explicit disconnect may revoke selection.
-    for (final alias in aliases) {
-      await widget.onDisconnect!(alias);
+    final transport = widget.transport;
+    final disconnect = widget.onDisconnect!;
+    setState(() {
+      _disconnecting.addAll(aliases);
+      _disconnectCalls.addAll(aliases);
+    });
+    var success = false;
+    try {
+      for (final alias in aliases) {
+        await disconnect(alias);
+      }
+      success = true;
+    } finally {
+      if (mounted && identical(widget.transport, transport)) {
+        setState(() {
+          for (final alias in aliases) {
+            _disconnectCalls.remove(alias);
+            if (!success || _connected[alias]?.isNotEmpty != true) {
+              _clearDisconnect(alias);
+            } else {
+              // A native request can complete before its disconnect event.
+              // Do not leave the retry action disabled forever if it is lost.
+              _disconnectTimers.remove(alias)?.cancel();
+              _disconnectTimers[alias] = Timer(const Duration(seconds: 10), () {
+                if (mounted) setState(() => _clearDisconnect(alias));
+              });
+            }
+          }
+        });
+      }
     }
+  }
+
+  void _clearDisconnect(String peer) {
+    _disconnecting.remove(peer);
+    _disconnectTimers.remove(peer)?.cancel();
   }
 
   @override
   Widget build(BuildContext context) {
     final thai = Localizations.localeOf(context).languageCode == 'th';
-    final connected =
-        _connected.keys.where((id) => _connected[id]!.isNotEmpty).toList()
-          ..sort();
+    final connected = {
+      ..._connected.keys.where((id) => _connected[id]!.isNotEmpty),
+      ..._disconnecting,
+    }.toList()..sort();
     final found =
         _seen.keys
             .where(
@@ -236,6 +305,16 @@ class _NearbyConnectionStatusState extends State<NearbyConnectionStatus> {
 
     final visibleConnected = connected.where(showPeer).toList();
     final visibleFound = found.where(showPeer).toList();
+    final lostOnly = _lost.keys
+        .where(
+          (peer) =>
+              !connected.contains(peer) &&
+              !found.contains(peer) &&
+              DateTime.now().difference(_lost[peer]!) <
+                  const Duration(seconds: 30),
+        )
+        .where(showPeer)
+        .toList();
     final unavailable =
         widget.transport == null ||
         _error ||
@@ -275,7 +354,8 @@ class _NearbyConnectionStatusState extends State<NearbyConnectionStatus> {
             _searched &&
             !_busy &&
             visibleConnected.isEmpty &&
-            visibleFound.isEmpty)
+            visibleFound.isEmpty &&
+            lostOnly.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(
@@ -290,11 +370,15 @@ class _NearbyConnectionStatusState extends State<NearbyConnectionStatus> {
               thai,
               connected: true,
               action: TextButton(
-                onPressed: _busy
+                onPressed: _busy || _disconnecting.contains(peer)
                     ? null
                     : () => _run(() => _disconnectGroup(peer)),
                 style: TextButton.styleFrom(minimumSize: const Size(64, 48)),
-                child: Text(thai ? 'เลิกเชื่อม' : 'Disconnect'),
+                child: Text(
+                  _disconnecting.contains(peer)
+                      ? (thai ? 'กำลังเลิกเชื่อมต่อ' : 'Disconnecting…')
+                      : (thai ? 'เลิกเชื่อม' : 'Disconnect'),
+                ),
               ),
             ),
         if (!unavailable && widget.onConnect != null)
@@ -303,6 +387,9 @@ class _NearbyConnectionStatusState extends State<NearbyConnectionStatus> {
               peer,
               thai,
               connected: false,
+              status: _lost.containsKey(peer)
+                  ? (thai ? 'หลุดการเชื่อมต่อ' : 'Disconnected')
+                  : null,
               action: TextButton(
                 style: TextButton.styleFrom(minimumSize: const Size(64, 48)),
                 onPressed: _busy || _connecting.contains(peer)
@@ -323,6 +410,13 @@ class _NearbyConnectionStatusState extends State<NearbyConnectionStatus> {
                 ),
               ),
             ),
+        for (final peer in lostOnly)
+          _peerTile(
+            peer,
+            thai,
+            connected: false,
+            status: thai ? 'หลุดการเชื่อมต่อ' : 'Disconnected',
+          ),
       ],
     );
   }
@@ -331,7 +425,8 @@ class _NearbyConnectionStatusState extends State<NearbyConnectionStatus> {
     String peer,
     bool thai, {
     required bool connected,
-    required Widget action,
+    Widget? action,
+    String? status,
   }) {
     final theme = Theme.of(context);
     return LayoutBuilder(
@@ -339,6 +434,11 @@ class _NearbyConnectionStatusState extends State<NearbyConnectionStatus> {
         final stacked =
             constraints.maxWidth < 300 ||
             MediaQuery.textScalerOf(context).scale(14) > 18;
+        final details = <Widget>[
+          if (status != null) Text(status, style: theme.textTheme.bodySmall),
+          if (stacked && action != null)
+            Align(alignment: AlignmentDirectional.centerEnd, child: action),
+        ];
         return ListTile(
           dense: true,
           minVerticalPadding: 0,
@@ -357,9 +457,13 @@ class _NearbyConnectionStatusState extends State<NearbyConnectionStatus> {
             style: theme.textTheme.titleSmall,
           ),
           trailing: stacked ? null : action,
-          subtitle: stacked
-              ? Align(alignment: AlignmentDirectional.centerEnd, child: action)
-              : null,
+          subtitle: details.isEmpty
+              ? null
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: details,
+                ),
         );
       },
     );

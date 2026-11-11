@@ -18,12 +18,14 @@ class TempPaths extends PathProviderPlatform {
 class FakeEncoder implements ChatMediaEncoder {
   final qualities = <int>[];
   final dimensions = <(int, int)>[];
-  final videoTargets = <(int, double)>[];
+  final videoTargets = <(int, int)>[];
   final outputs = <File>[];
   List<int> imageBytes = [2000];
   List<int> videoBytes = [1000];
   int duration = 5000;
   String outputCodec = 'h264';
+  int outputLongSide = 360;
+  double outputFps = 10;
   bool fail = false;
   @override
   Future<Uint8List> jpeg(Uint8List png, int quality) async {
@@ -43,13 +45,13 @@ class FakeEncoder implements ChatMediaEncoder {
   @override
   Future<MediaInfo> videoInfo(File file) async => MediaInfo(
     durationMs: duration,
-    widthPx: outputs.contains(file) ? 480 : 1920,
-    heightPx: outputs.contains(file) ? 270 : 1080,
+    widthPx: outputs.contains(file) ? outputLongSide : 1920,
+    heightPx: outputs.contains(file) ? (outputLongSide * 9 / 16).round() : 1080,
     rotationDegrees: 0,
     sizeBytes: await file.length(),
     videoCodec: outputs.contains(file) ? outputCodec : 'hevc',
     videoBitrateBps: null,
-    frameRateFps: 15,
+    frameRateFps: outputFps,
     hasAudio: true,
     isHdr: false,
   );
@@ -59,9 +61,9 @@ class FakeEncoder implements ChatMediaEncoder {
     File source,
     File output, {
     required int longSide,
-    required double targetSizeMb,
+    required int videoBitrateBps,
   }) async {
-    videoTargets.add((longSide, targetSizeMb));
+    videoTargets.add((longSide, videoBitrateBps));
     outputs.add(output);
     final data = Uint8List(videoBytes.removeAt(0));
     data.setRange(4, 12, 'ftypisom'.codeUnits);
@@ -102,23 +104,25 @@ void main() {
     () {
       final android = chatVideoCompressionOptions(
         android: true,
-        longSide: 480,
-        targetSizeMb: 0.30,
+        longSide: 360,
+        videoBitrateBps: 96000,
         outputPath: '/temp/video.mp4',
       );
       expect(android.audio, isA<AudioPassthrough>());
       expect(android.codec, VideoCodec.h264);
-      expect(android.maxLongSidePx, 480);
-      expect(android.maxFps, 15);
-      expect(android.targetSizeMb, 0.30);
+      expect(android.maxLongSidePx, 360);
+      expect(android.maxFps, 10);
+      expect(android.videoBitrateBps, 96000);
+      expect(android.targetSizeMb, isNull);
       final ios = chatVideoCompressionOptions(
         android: false,
-        longSide: 360,
-        targetSizeMb: 0.18,
+        longSide: 240,
+        videoBitrateBps: 64000,
         outputPath: '/temp/video.mp4',
       );
       expect(ios.audio, isA<AudioReencode>());
-      expect(ios.targetSizeMb, 0.18);
+      expect(ios.videoBitrateBps, 64000);
+      expect(ios.targetSizeMb, isNull);
     },
   );
   test('diagnostic failure code never contains private exception details', () {
@@ -146,33 +150,33 @@ void main() {
     expect(result.originalBytes, before.length);
     expect(await result.file.length(), lessThanOrEqualTo(chatImageSendBytes));
     expect(await source.readAsBytes(), before);
-    expect(encoder.dimensions, [(960, 540)]);
+    expect(encoder.dimensions, [(640, 360)]);
     expect(result.file.path, isNot(source.path));
   });
 
   test('photo automatically lowers dimensions/quality and rejects oversized output', () async {
     final source = await photo();
-    final encoder = FakeEncoder()..imageBytes = [70000, 70000, 70000];
+    final encoder = FakeEncoder()..imageBytes = [30000, 30000, 30000];
     await expectLater(
       prepareChatMedia(source, video: false, encoder: encoder),
       throwsA(isA<FormatException>()),
     );
-    expect(encoder.dimensions, [(960, 540), (720, 405), (480, 270)]);
-    expect(encoder.qualities, [68, 55, 40]);
+    expect(encoder.dimensions, [(640, 360), (480, 270), (320, 180)]);
+    expect(encoder.qualities, [55, 42, 30]);
     expect(root.listSync().length, 1);
   });
 
   test(
     'photo retries to smaller JPEG without returning uncompressed source',
     () async {
-      final encoder = FakeEncoder()..imageBytes = [70000, 40000];
+      final encoder = FakeEncoder()..imageBytes = [30000, 20000];
       final result = await prepareChatMedia(
         await photo(),
         video: false,
         encoder: encoder,
       );
-      expect(await result.file.length(), 40000);
-      expect(encoder.qualities, [68, 55]);
+      expect(await result.file.length(), 20000);
+      expect(encoder.qualities, [55, 42]);
     },
   );
 
@@ -191,7 +195,7 @@ void main() {
       );
       expect(result.mime, 'video/mp4');
       expect(result.temporary, true);
-      expect(encoder.videoTargets, [(480, 0.30)]);
+      expect(encoder.videoTargets, [(360, 96000)]);
       expect(await result.file.length(), 1000);
       expect(await source.length(), 12 * 1024 * 1024);
     },
@@ -208,9 +212,54 @@ void main() {
         video: true,
         encoder: encoder,
       );
-      expect(encoder.videoTargets, [(480, 0.30), (360, 0.18)]);
+      expect(encoder.videoTargets, [(360, 96000), (240, 64000)]);
       expect(await encoder.outputs.first.exists(), false);
       expect(await result.file.length(), 100000);
+    },
+  );
+
+  test('video exceeding every fast-send budget is rejected without source fallback', () async {
+    final source = await File('${root.path}/camera.mov')
+        .writeAsBytes([1, 2, 3]);
+    final encoder = FakeEncoder()..videoBytes = [400000, 400000];
+    await expectLater(
+      prepareChatMedia(source, video: true, encoder: encoder),
+      throwsA(
+        isA<FormatException>().having(
+          (e) => e.message,
+          'code',
+          'video_compression_size',
+        ),
+      ),
+    );
+    expect(encoder.outputs, hasLength(2));
+    for (final output in encoder.outputs) {
+      expect(await output.exists(), false);
+    }
+    expect(await source.readAsBytes(), [1, 2, 3]);
+  });
+
+  test(
+    'encoder output must actually honor the reduced dimensions and frame rate',
+    () async {
+      final source = await File('${root.path}/camera.mov')
+          .writeAsBytes([1, 2, 3]);
+      for (final badDimensions in [true, false]) {
+        final encoder = FakeEncoder()
+          ..outputLongSide = badDimensions ? 480 : 360
+          ..outputFps = badDimensions ? 10 : 30;
+        await expectLater(
+          prepareChatMedia(source, video: true, encoder: encoder),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'code',
+              'video_compression',
+            ),
+          ),
+        );
+        expect(await encoder.outputs.single.exists(), false);
+      }
     },
   );
 
